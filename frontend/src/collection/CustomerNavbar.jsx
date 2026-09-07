@@ -1622,6 +1622,13 @@ export default function CustomerNavbar() {
           font-size: 18px;
           font-weight: 600;
           line-height: 1.2;
+          text-decoration: none;
+          cursor: pointer;
+          transition: color 160ms ease;
+        }
+
+        .exact-mega-title:hover {
+          color: #9F6130;
         }
 
         .exact-mega-title span {
@@ -2323,10 +2330,10 @@ export default function CustomerNavbar() {
                             className="exact-mega-section"
                             key={section.title}
                           >
-                            <div className="exact-mega-title">
+                            <Link className="exact-mega-title" to={section.viewAll[1]}>
                               <span>{megaIconFor(section.title)}</span>
                               {section.title}
-                            </div>
+                            </Link>
                             {section.links.map(([label, route]) => (
                               <Link
                                 className="exact-mega-link"

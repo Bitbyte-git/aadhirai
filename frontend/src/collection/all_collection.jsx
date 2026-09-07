@@ -306,14 +306,37 @@ const giftingFilterCategories = [
     return Math.round(((weight * (rateWithMaking - (rateWithMaking * discount / 100))) + stone) * 1.03)
   }
 
-  function normalizeProductList(data) {
-    if (Array.isArray(data)) return data
-    if (Array.isArray(data?.results)) return data.results
-    if (Array.isArray(data?.data)) return data.data
-    if (Array.isArray(data?.items)) return data.items
-    if (Array.isArray(data?.products)) return data.products
-    return []
+function normalizeProductList(data) {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.results)) return data.results
+  if (Array.isArray(data?.data)) return data.data
+  if (Array.isArray(data?.items)) return data.items
+  if (Array.isArray(data?.products)) return data.products
+  return []
+}
+
+// ── Subcategory-sections cache — sessionStorage, 2 min TTL. Same
+// category+metal thirumbi vandha (back button, tab switch), API call
+// illama cache-la irundhe fill aagum ──
+const SUBSEC_CACHE_TTL = 2 * 60 * 1000
+
+function readSubsecCache(key) {
+  try {
+    const raw = sessionStorage.getItem(key)
+    if (!raw) return null
+    const { data, ts } = JSON.parse(raw)
+    if (Date.now() - ts > SUBSEC_CACHE_TTL) return null
+    return data
+  } catch {
+    return null
   }
+}
+
+function writeSubsecCache(key, data) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }))
+  } catch {}
+}
 
   function CategoryTile({ item, navigate }) {
     const route = item.route || `/collection/all?category=${item.category}`
@@ -329,11 +352,11 @@ const giftingFilterCategories = [
     )
   }
 
-  function ProductCard({ product, rates, navigate }) {
-    const image = getImageUrl(product.images?.[0]) || '/logo.png'
-    const price = productPrice(product, rates)
-    const reviews = 71 + ((product.id || 1) * 11) % 58
-    const goProduct = () => navigate(`/product-display?category=${product.category}&metal=${product.metal}&id=${product.id}`)
+  function ProductCard({ product, rates, navigate, wishlisted, onWishlist }) {
+  const image = getImageUrl(product.images?.[0]) || '/logo.png'
+  const price = productPrice(product, rates)
+  const reviews = 71 + ((product.id || 1) * 11) % 58
+  const goProduct = () => navigate(`/product-display?category=${product.category}&metal=${product.metal}&id=${product.id}`)
 
     const addCart = async event => {
       event.stopPropagation()
@@ -351,7 +374,17 @@ const giftingFilterCategories = [
       <article className="an-product-card" onClick={goProduct}>
         <div className="an-product-image">
           <img src={image} alt={product.name} />
-                  <button className="an-heart" type="button" onClick={event => event.stopPropagation()} aria-label="Wishlist">♡</button>
+        <button
+          className={`an-heart ${wishlisted ? 'active' : ''}`}
+          type="button"
+          onClick={event => {
+            event.stopPropagation()
+            onWishlist(product.id)
+          }}
+          aria-label="Wishlist"
+        >
+          {wishlisted ? '\u2665' : '\u2661'}
+        </button>
         </div>
         <div className="an-product-body">
           <h3>{product.name}</h3>
@@ -366,6 +399,21 @@ const giftingFilterCategories = [
       </article>
     )
   }
+
+function SkeletonGrid({ count = 4 }) {
+  return (
+    <section className="an-products">
+      {Array.from({ length: count }).map((_, i) => (
+        <div className="an-skeleton-card" key={i}>
+          <div className="an-skeleton-img" />
+          <div className="an-skeleton-line" style={{ width: '70%' }} />
+          <div className="an-skeleton-line" style={{ width: '45%' }} />
+          <div className="an-skeleton-line" style={{ width: '55%' }} />
+        </div>
+      ))}
+    </section>
+  )
+}
 
 function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subcategoryFilter, activeScrollSub, isWedding, isGifting, giftTagFilter, giftTypeFilter }) {
   const { wrapRef, asideRef, style } = useFixedSidebar()
@@ -461,12 +509,25 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
 
   function QuickFilterDropdown({ label, options, currentValue, onSelect }) {
     const [open, setOpen] = useState(false)
+    const closeTimer = useRef(null)
+
+    const openNow = () => {
+      if (closeTimer.current) {
+        clearTimeout(closeTimer.current)
+        closeTimer.current = null
+      }
+      setOpen(true)
+    }
+
+    const closeSoon = () => {
+      closeTimer.current = setTimeout(() => setOpen(false), 250)
+    }
 
     return (
       <div
         className="an-qf-dropdown"
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
+        onMouseEnter={openNow}
+        onMouseLeave={closeSoon}
       >
         <span className="an-qf-label">{label}</span>
         <button type="button" className={`an-qf-toggle ${currentValue ? 'active' : ''}`}>
@@ -538,8 +599,36 @@ export default function AllCollection() {
     const [loading, setLoading] = useState(true)
     const [subcategorySections, setSubcategorySections] = useState([])
     const [sectionsLoading, setSectionsLoading] = useState(false)
-    const [activeScrollSub, setActiveScrollSub] = useState(null)
-    const sectionRefs = useRef({})
+  const [activeScrollSub, setActiveScrollSub] = useState(null)
+  const [wishlistedIds, setWishlistedIds] = useState(new Set())
+  const sectionRefs = useRef({})
+
+  useEffect(() => {
+    if (!localStorage.getItem('token')) return
+    api.get('/wishlist/')
+      .then(res => {
+        const ids = (res.data?.items || []).map(item => item.product?.id ?? item.product_id ?? item.id)
+        setWishlistedIds(new Set(ids.filter(Boolean)))
+      })
+      .catch(() => {})
+  }, [])
+
+  const toggleWishlist = async (productId) => {
+    if (!localStorage.getItem('token')) {
+      navigate('/login')
+      return
+    }
+    try {
+      const res = await api.post('/wishlist/', { product_id: productId })
+      setWishlistedIds(prev => {
+        const next = new Set(prev)
+        if (res.data?.action === 'removed') next.delete(productId)
+        else next.add(productId)
+        return next
+      })
+      window.dispatchEvent(new Event('bb_wishlist_update'))
+    } catch {}
+  }
 
     useEffect(() => {
       if (metalFilter === 'diamond' || metalFilter === 'platinum') {
@@ -608,7 +697,9 @@ export default function AllCollection() {
     const loadSections = async () => {
       setSectionsLoading(true)
 
-      // ── Gifting branch — gift_tag vachi, metal/category illama ──
+      // ── Gifting branch — ONE call fetches every product for this
+      // gift_tag, then group by gift_type in JS (matches backend's
+      // name__icontains logic) — 8 calls -> 1 call ──
       if (isGifting && giftTagFilter) {
         const allTags = getGiftingSubcategories(giftTagFilter)
         if (!allTags.length) {
@@ -616,23 +707,32 @@ export default function AllCollection() {
           setSectionsLoading(false)
           return
         }
-        const selectedTag = giftTypeFilter || allTags[0]
-        const orderedTags = [selectedTag, ...allTags.filter(s => s !== selectedTag)]
-
         try {
-          const results = await Promise.all(
-            orderedTags.map(async (sub) => {
-              const params = new URLSearchParams()
-              params.set('gift_tag', giftTagFilter)
-              params.set('gift_type', sub)
-              const res = await api.get(`/jewelry-products/?${params.toString()}`)
-              const list = normalizeProductList(res.data).filter(
-                p => p.metal !== 'diamond' && p.metal !== 'platinum'
-              )
-              return { name: sub, products: list }
-            })
-          )
-          if (alive) setSubcategorySections(results.filter(s => s.products.length))
+          const cacheKey = `subsec_gift_${giftTagFilter}_${genderFilter || 'none'}_${occasionFilter || 'none'}_${priceFilter || 'none'}`
+          let allProducts = readSubsecCache(cacheKey)
+          if (!allProducts) {
+            const params = new URLSearchParams()
+            params.set('gift_tag', giftTagFilter)
+            if (genderFilter) params.set('gender', genderFilter)
+            if (occasionFilter) params.set('occasion', occasionFilter)
+            if (priceFilter) params.set('price', priceFilter)
+            const res = await api.get(`/jewelry-products/?${params.toString()}`)
+            allProducts = normalizeProductList(res.data).filter(
+              p => p.metal !== 'diamond' && p.metal !== 'platinum'
+            )
+            writeSubsecCache(cacheKey, allProducts)
+          }
+
+          const selectedTag = giftTypeFilter || allTags[0]
+          const orderedTags = [selectedTag, ...allTags.filter(s => s !== selectedTag)]
+          const results = orderedTags
+            .map(sub => ({
+              name: sub,
+              products: allProducts.filter(p => (p.name || '').toLowerCase().includes(sub.toLowerCase())),
+            }))
+            .filter(s => s.products.length)
+
+          if (alive) setSubcategorySections(results)
         } catch {
           if (alive) setSubcategorySections([])
         } finally {
@@ -641,7 +741,9 @@ export default function AllCollection() {
         return
       }
 
-      // ── Gold/Silver/Wedding branch — existing logic ──
+      // ── Gold/Silver/Wedding branch — ONE call fetches every product for
+      // this category+metal+gender+occasion+price, then group by subcategory
+      // in JS — 5-8 calls -> 1 call ──
       const metal = isWedding ? 'wedding' : (metalFilter || 'gold')
       const allSubs = getSubcategories(categoryFilter, metal)
       if (!allSubs.length) {
@@ -650,28 +752,35 @@ export default function AllCollection() {
         return
       }
 
-      const selectedSub = subcategoryFilter || allSubs[0]
-      const orderedSubs = [
-        selectedSub,
-        ...allSubs.filter(s => s !== selectedSub),
-      ]
-
       try {
-        const results = await Promise.all(
-          orderedSubs.map(async (sub) => {
-            const params = new URLSearchParams()
-            params.set('category', categoryFilter)
-            if (metalFilter) params.set('metal', metalFilter)
-            if (isWedding) params.set('occasion', 'Wedding')
-            params.set('subcategory', sub)
-            const res = await api.get(`/jewelry-products/?${params.toString()}`)
-            const list = normalizeProductList(res.data).filter(
-              p => p.metal !== 'diamond' && p.metal !== 'platinum'
-            )
-            return { name: sub, products: list }
-          })
-        )
-        if (alive) setSubcategorySections(results.filter(s => s.products.length))
+        const occasionValue = isWedding ? 'Wedding' : (occasionFilter || 'none')
+        const cacheKey = `subsec_${categoryFilter}_${metalFilter || 'none'}_${genderFilter || 'none'}_${occasionValue}_${priceFilter || 'none'}`
+        let allProducts = readSubsecCache(cacheKey)
+        if (!allProducts) {
+          const params = new URLSearchParams()
+          params.set('category', categoryFilter)
+          if (metalFilter) params.set('metal', metalFilter)
+          if (isWedding) params.set('occasion', 'Wedding')
+          else if (occasionFilter) params.set('occasion', occasionFilter)
+          if (genderFilter) params.set('gender', genderFilter)
+          if (priceFilter) params.set('price', priceFilter)
+          const res = await api.get(`/jewelry-products/?${params.toString()}`)
+          allProducts = normalizeProductList(res.data).filter(
+            p => p.metal !== 'diamond' && p.metal !== 'platinum'
+          )
+          writeSubsecCache(cacheKey, allProducts)
+        }
+
+        const selectedSub = subcategoryFilter || allSubs[0]
+        const orderedSubs = [selectedSub, ...allSubs.filter(s => s !== selectedSub)]
+        const results = orderedSubs
+          .map(sub => ({
+            name: sub,
+            products: allProducts.filter(p => (p.name || '').toLowerCase().includes(sub.toLowerCase())),
+          }))
+          .filter(s => s.products.length)
+
+        if (alive) setSubcategorySections(results)
       } catch {
         if (alive) setSubcategorySections([])
       } finally {
@@ -681,7 +790,7 @@ export default function AllCollection() {
 
     loadSections()
     return () => { alive = false }
-  }, [subcategoryFilter, categoryFilter, metalFilter, isWedding, isGifting, giftTagFilter, giftTypeFilter])
+  }, [subcategoryFilter, categoryFilter, metalFilter, isWedding, isGifting, giftTagFilter, giftTypeFilter, genderFilter, occasionFilter, priceFilter])
 
     useEffect(() => {
       if (!subcategoryFilter || !subcategorySections.length) {
@@ -751,21 +860,21 @@ export default function AllCollection() {
       navigate(`${location.pathname}?${params.toString()}`)
     }
 
-    const productResults = loading ? (
-      <section className="an-loading">Loading products...</section>
-    ) : visibleProducts.length ? (
-      <section className="an-products">
-        {visibleProducts.map(product => (
-          <ProductCard key={product.id} product={product} rates={rates} navigate={navigate} />
-        ))}
-      </section>
-    ) : (
+  const productResults = loading ? (
+    <SkeletonGrid count={8} />
+  ) : visibleProducts.length ? (
+    <section className="an-products">
+      {visibleProducts.map(product => (
+        <ProductCard key={product.id} product={product} rates={rates} navigate={navigate} wishlisted={wishlistedIds.has(product.id)} onWishlist={toggleWishlist} />
+      ))}
+    </section>
+  ) : (
       <section className="an-empty">No products found. Try another collection.</section>
     )
 
-    const subcategoryResults = sectionsLoading ? (
-      <section className="an-loading">Loading products...</section>
-    ) : subcategorySections.length ? (
+  const subcategoryResults = sectionsLoading ? (
+    <SkeletonGrid count={4} />
+  ) : subcategorySections.length ? (
       subcategorySections.map(section => (
         <section
           key={section.name}
@@ -776,11 +885,11 @@ export default function AllCollection() {
           <h2 style={{ fontFamily: 'Georgia, serif', fontSize: '22px', marginBottom: '16px', color: '#111' }}>
             {section.name}
           </h2>
-          <div className="an-products">
-            {section.products.map(product => (
-              <ProductCard key={product.id} product={product} rates={rates} navigate={navigate} />
-            ))}
-          </div>
+        <div className="an-products">
+          {section.products.map(product => (
+            <ProductCard key={product.id} product={product} rates={rates} navigate={navigate} wishlisted={wishlistedIds.has(product.id)} onWishlist={toggleWishlist} />
+          ))}
+        </div>
         </section>
       ))
     ) : (
@@ -1419,17 +1528,22 @@ export default function AllCollection() {
             transform: scale(1.05);
           }
 
-          .an-heart {
-            position: absolute;
-            right: 12px;
-            top: 12px;
-            width: 30px;
-            height: 30px;
-            border: 0;
-            background: transparent;
-            font-size: 23px;
-            cursor: pointer;
-          }
+        .an-heart {
+          position: absolute;
+          right: 12px;
+          top: 12px;
+          width: 30px;
+          height: 30px;
+          border: 0;
+          background: transparent;
+          font-size: 23px;
+          cursor: pointer;
+          color: #333;
+        }
+
+        .an-heart.active {
+          color: #C92035;
+        }
 
           .an-product-body {
             padding: 13px 14px 15px;
@@ -1555,16 +1669,46 @@ export default function AllCollection() {
           }
 
 
-          .an-loading,
-          .an-empty {
-            min-height: 280px;
-            border-radius: 12px;
-            border: 1px solid #eadfd3;
-            display: grid;
-            place-items: center;
-            background: #fff;
-            font-weight: 900;
-          }
+        .an-loading,
+        .an-empty {
+          min-height: 280px;
+          border-radius: 12px;
+          border: 1px solid #eadfd3;
+          display: grid;
+          place-items: center;
+          background: #fff;
+          font-weight: 900;
+        }
+
+        .an-skeleton-card {
+          border: 1px solid #eadfd3;
+          border-radius: 10px;
+          overflow: hidden;
+          background: #fff;
+          padding-bottom: 14px;
+        }
+
+        .an-skeleton-img {
+          aspect-ratio: 1 / 1;
+          min-height: clamp(210px, 21vw, 300px);
+          background: linear-gradient(90deg, #f2ede6 25%, #fbf8f4 37%, #f2ede6 63%);
+          background-size: 400% 100%;
+          animation: skeletonShine 1.4s ease infinite;
+        }
+
+        .an-skeleton-line {
+          height: 12px;
+          margin: 12px 14px 0;
+          border-radius: 6px;
+          background: linear-gradient(90deg, #f2ede6 25%, #fbf8f4 37%, #f2ede6 63%);
+          background-size: 400% 100%;
+          animation: skeletonShine 1.4s ease infinite;
+        }
+
+        @keyframes skeletonShine {
+          0% { background-position: 100% 50%; }
+          100% { background-position: 0 50%; }
+        }
 
           @media (max-width: 1440px) {
             .an-shell { width: min(100% - 48px, 1810px); }

@@ -582,7 +582,6 @@ export default function CoinsCollection() {
           display: grid;
           grid-template-columns: 286px minmax(0, 1fr);
           gap: clamp(22px, 2vw, 34px);
-          align-items: start;
         }
 
         .coins-results {
@@ -590,16 +589,35 @@ export default function CoinsCollection() {
         }
 
         .coin-sidebar {
+          position: -webkit-sticky;
           position: sticky;
           top: 18px;
           max-height: calc(100vh - 36px);
           overflow-y: auto;
+          scroll-behavior: smooth;
           border: 1px solid #D1DFDE;
           border-radius: 26px;
           background: rgba(253,253,252,0.96);
           box-shadow: 0 18px 48px rgba(7,59,63,0.09);
           scrollbar-width: thin;
           scrollbar-color: #BDCFCE transparent;
+        }
+
+        .coin-sidebar::-webkit-scrollbar {
+          width: 6px;
+        }
+
+        .coin-sidebar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .coin-sidebar::-webkit-scrollbar-thumb {
+          background: #BDCFCE;
+          border-radius: 999px;
+        }
+
+        .coin-sidebar::-webkit-scrollbar-thumb:hover {
+          background: #9DB6B4;
         }
 
         .coin-sidebar-head {
@@ -1019,11 +1037,8 @@ export default function CoinsCollection() {
             <button className={`coin-chip ${!isGold ? 'active' : ''}`} type="button" onClick={() => selectMetal('silver')}>
               Silver 999
             </button>
-            <button className={`coin-chip ${isGold && gradeFilter !== '24k' ? 'active' : ''}`} type="button" onClick={() => selectMetal('gold', '22k')}>
+            <button className={`coin-chip ${isGold ? 'active' : ''}`} type="button" onClick={() => selectMetal('gold', '22k')}>
               Gold 22K
-            </button>
-            <button className={`coin-chip ${isGold && gradeFilter === '24k' ? 'active' : ''}`} type="button" onClick={() => selectMetal('gold', '24k')}>
-              Gold 24K
             </button>
             {weightFilter && (
               <>
@@ -1099,11 +1114,8 @@ export default function CoinsCollection() {
                   <button className={`coin-filter-option ${!isGold ? 'active' : ''}`} type="button" onClick={() => selectMetal('silver')}>
                     <span>Silver 999</span><i />
                   </button>
-                  <button className={`coin-filter-option ${isGold && gradeFilter !== '24k' ? 'active' : ''}`} type="button" onClick={() => selectMetal('gold', '22k')}>
+                  <button className={`coin-filter-option ${isGold ? 'active' : ''}`} type="button" onClick={() => selectMetal('gold', '22k')}>
                     <span>Gold 22K</span><i />
-                  </button>
-                  <button className={`coin-filter-option ${isGold && gradeFilter === '24k' ? 'active' : ''}`} type="button" onClick={() => selectMetal('gold', '24k')}>
-                    <span>Gold 24K</span><i />
                   </button>
                 </div>
               </div>

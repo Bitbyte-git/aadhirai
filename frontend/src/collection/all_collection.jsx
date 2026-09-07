@@ -411,6 +411,8 @@ export default function AllCollection() {
   const subcategoryFilter = searchParams.get('subcategory')
   const genderFilter = searchParams.get('gender')
   const occasionFilter = searchParams.get('occasion')
+  const giftTagFilter = searchParams.get('gift_tag')
+  const giftTypeFilter = searchParams.get('gift_type')
   const priceFilter = searchParams.get('price')
   const searchFilter = searchParams.get('search')
   const isWedding = searchParams.get('wedding') === 'true'
@@ -456,6 +458,8 @@ export default function AllCollection() {
         if (subcategoryFilter) params.set('subcategory', subcategoryFilter)
         if (genderFilter) params.set('gender', genderFilter)
         if (occasionFilter) params.set('occasion', occasionFilter)
+        if (giftTagFilter) params.set('gift_tag', giftTagFilter)
+        if (giftTypeFilter) params.set('gift_type', giftTypeFilter)
         if (priceFilter) params.set('price', priceFilter)
         if (searchFilter) params.set('search', searchFilter)
         if (isWedding) params.set('occasion', 'Wedding')
@@ -472,7 +476,7 @@ setProducts(filteredProducts)
     }
 
         loadProducts()
-  }, [metalFilter, categoryFilter, subcategoryFilter, genderFilter, occasionFilter, priceFilter, searchFilter, isWedding, isDailywear])
+  }, [metalFilter, categoryFilter, subcategoryFilter, genderFilter, occasionFilter, giftTagFilter, giftTypeFilter, priceFilter, searchFilter, isWedding, isDailywear])
 
   // subcategory scroll — clicked subcategory first, remaining subcategories
   // (same category, navbar order) follow one after another below it.

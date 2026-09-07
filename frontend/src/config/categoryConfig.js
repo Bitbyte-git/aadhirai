@@ -4,6 +4,10 @@
 // idhula oru line add pannina podhum — moonu place-layum automatic-a varum.
 
 export const CATEGORY_SUBCATEGORIES = {
+  goldcoin: {
+    gold: ["100 mg Gold Coin", "200 mg Gold Coin", "500 mg Gold Coin", "1 gm Gold Coin", "2 gm Gold Coin", "4 gm Gold Coin", "8 gm Gold Coin", "16 gm Gold Coin", "40 gm Gold Coin", "Gold Lakshmi Coin", "Gold Ganesha Coin", "Gold Gift Coin"],
+    silver: ["500 mg Silver Coin", "1 gm Silver Coin", "2 gm Silver Coin", "5 gm Silver Coin", "10 gm Silver Coin", "20 gm Silver Coin", "50 gm Silver Coin", "100 gm Silver Coin", "Silver Lakshmi Coin", "Silver Ganesha Coin", "Silver Gift Coin"],
+  },
   rings: {
     gold: ["Plain Gold Rings", "Gemstone Gold Rings", "Engagement Rings", "Couple Rings", "Kids Rings"],
     silver: ["Plain Silver Rings", "Oxidised Silver Rings", "Adjustable Silver Rings", "Designer Silver Rings", "Couple Silver Rings", "Stone Silver Rings", "Kids Silver Rings", "Men's Silver Rings"],

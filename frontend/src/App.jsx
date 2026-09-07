@@ -280,7 +280,7 @@ export default function App() {
           <Route path="/collection/anklets" element={<Navigate to={collectionPath('anklets')} replace />} />
           <Route path="/collection/necklace-set" element={<Navigate to={collectionPath('necklaces')} replace />} />
           <Route path="/collection/offers" element={<Navigate to="/collection/all?price=below25k" replace />} />
-          <Route path="/collection/gifting" element={<Navigate to="/collection/all?occasion=Birthday" replace />} />
+          <Route path="/collection/gifting" element={<WithCustomerNavbar><AllCollection /></WithCustomerNavbar>} />
           <Route path="/collection/new-arrivals" element={<Navigate to="/collection/all?new=true" replace />} />
 
           <Route path="/cart" element={<ProtectedRoute role={["customer", "promotor", "sub_dealer", "dealer", "admin"]}><WithCustomerNavbar><CardSection /></WithCustomerNavbar></ProtectedRoute>} />

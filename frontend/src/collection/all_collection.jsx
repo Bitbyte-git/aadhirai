@@ -435,13 +435,12 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
                   )}
                 </button>
                               {isOpen && subOptions.length > 0 && (
-                <div style={{ margin: '2px 0 6px 14px', paddingLeft: '8px', borderLeft: '1.5px solid #e7e1d9' }}>
+                <div className="an-filter-subgroup">
                   {subOptions.map(sub => (
                     <button
                       key={sub}
                       ref={el => (subButtonRefs.current[sub] = el)}
                       type="button"
-                      style={{ fontSize: '12px' }}
                       className={(activeScrollSub || activeSubFilter) === sub ? 'active' : ''}
                       onClick={() => navigate(buildSubcategoryRoute(route, sub))}
                     >
@@ -462,7 +461,6 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
 
   function QuickFilterDropdown({ label, options, currentValue, onSelect }) {
     const [open, setOpen] = useState(false)
-    const activeLabel = options.find(([, val]) => val === (currentValue || ''))?.[0] || label
 
     return (
       <div
@@ -470,26 +468,28 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
       >
+        <span className="an-qf-label">{label}</span>
         <button type="button" className={`an-qf-toggle ${currentValue ? 'active' : ''}`}>
-          {activeLabel} <span>▾</span>
+          <span className="an-qf-value">
+            {options.find(([, val]) => val === (currentValue || ''))?.[0] || 'All'}
+          </span>
+          <span className={`an-qf-caret ${open ? 'open' : ''}`}>▾</span>
         </button>
-        {open && (
-          <div className="an-qf-panel">
-            {options.map(([optLabel, optValue]) => (
-              <button
-                key={optLabel}
-                type="button"
-                className={optValue === (currentValue || '') ? 'active' : ''}
-                onClick={() => {
-                  onSelect(optValue)
-                  setOpen(false)
-                }}
-              >
-                {optLabel}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className={`an-qf-panel ${open ? 'open' : ''}`}>
+          {options.map(([optLabel, optValue]) => (
+            <button
+              key={optLabel}
+              type="button"
+              className={optValue === (currentValue || '') ? 'active' : ''}
+              onClick={() => {
+                onSelect(optValue)
+                setOpen(false)
+              }}
+            >
+              {optLabel}
+            </button>
+          ))}
+        </div>
       </div>
     )
   }
@@ -836,32 +836,49 @@ export default function AllCollection() {
           position: sticky;
           top: 192px;
           align-self: flex-start;
-          border-radius: 10px;
+          border-radius: 16px;
           overflow-y: auto;
           max-height: calc(100vh - 210px);
-          background: linear-gradient(180deg,#fdfaf7,#f8f4ef);
+          background: #fdfaf7;
           scroll-behavior: smooth;
+          box-shadow: 0 4px 24px rgba(92,66,41,.06);
         }
 
           .an-filter::-webkit-scrollbar {
-            width: 4px;
+            width: 6px;
+          }
+
+          .an-filter::-webkit-scrollbar-track {
+            background: transparent;
           }
 
           .an-filter::-webkit-scrollbar-thumb {
-            background: #cfc6ba;
+            background: #d9cfc0;
             border-radius: 999px;
           }
 
+          .an-filter::-webkit-scrollbar-thumb:hover {
+            background: #c4b6a0;
+          }
+
+          .an-filter {
+            scrollbar-width: thin;
+            scrollbar-color: #d9cfc0 transparent;
+          }
+
           .an-filter h2 {
-            padding: 20px 20px 16px;
-            font-size: 16px;
-            font-weight: 900;
-            border-bottom: 1px solid #e7e1d9;
+            padding: 22px 22px 18px;
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #073B3F;
+            border-bottom: 1px solid #eee2d3;
           }
 
           .an-filter-section {
-            padding: 14px 18px 16px;
-            border-bottom: 1px solid #e7e1d9;
+            padding: 16px 16px 18px;
+            border-bottom: 1px solid #eee2d3;
           }
 
           .an-filter-title,
@@ -869,29 +886,65 @@ export default function AllCollection() {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            color: #111;
-            font-size: 15px;
-            font-weight: 900;
-            margin-bottom: 12px;
+            color: #6b5d47;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            margin-bottom: 14px;
           }
 
           .an-filter-section button {
             width: 100%;
             border: 0;
-            border-radius: 6px;
+            border-radius: 10px;
             background: transparent;
-            color: #111;
+            color: #2b241c;
             display: block;
-            padding: 9px 12px;
+            padding: 11px 14px;
             text-align: left;
             cursor: pointer;
             font-weight: 600;
+            font-size: 14px;
+            transition: background 150ms ease, color 150ms ease, transform 150ms ease;
           }
 
           .an-filter-section button.active,
           .an-filter-section button:hover {
-            background: #eaf1f0;
+            background: #fff;
             color: #073B3F;
+            transform: translateX(2px);
+            box-shadow: 0 2px 8px rgba(92,66,41,.08);
+          }
+
+          .an-filter-section button.active {
+            font-weight: 800;
+          }
+
+          .an-filter-subgroup {
+            margin: 4px 0 8px 12px;
+            padding-left: 12px;
+            border-left: 2px solid #eee2d3;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            animation: filterExpand 200ms ease;
+          }
+
+          .an-filter-subgroup button {
+            font-size: 13px !important;
+            padding: 8px 12px !important;
+            color: #7a6f5c;
+          }
+
+          .an-filter-subgroup button.active {
+            color: #073B3F !important;
+            background: #eaf1f0 !important;
+          }
+
+          @keyframes filterExpand {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
           }
 
           .an-clear {
@@ -916,32 +969,51 @@ export default function AllCollection() {
 
           .an-quick-filters {
             display: flex;
-            gap: 10px;
+            gap: 24px;
             flex-wrap: wrap;
           }
 
           .an-qf-dropdown {
             position: relative;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+
+          .an-qf-label {
+            font-size: 14px;
+            font-weight: 700;
+            color: #111;
+            white-space: nowrap;
           }
 
           .an-qf-toggle {
             border: 1px solid #ded8d1;
-            border-radius: 8px;
+            border-radius: 6px;
             background: #fff;
             padding: 8px 14px;
-            font-size: 12px;
-            font-weight: 700;
-            color: #111;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+            min-width: 140px;
+            justify-content: space-between;
           }
 
           .an-qf-toggle.active {
             border-color: #073B3F;
-            color: #073B3F;
             background: #eaf1f0;
+          }
+
+          .an-qf-value {
+            font-size: 13px;
+            font-weight: 700;
+            color: #111;
+            white-space: nowrap;
+          }
+
+          .an-qf-toggle.active .an-qf-value {
+            color: #073B3F;
           }
 
           .an-qf-panel {
@@ -955,6 +1027,27 @@ export default function AllCollection() {
             border-radius: 10px;
             box-shadow: 0 12px 30px rgba(7,31,34,0.12);
             padding: 6px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-6px);
+            pointer-events: none;
+            transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
+          }
+
+          .an-qf-panel.open {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+            pointer-events: auto;
+          }
+
+          .an-qf-caret {
+            display: inline-block;
+            transition: transform 180ms ease;
+          }
+
+          .an-qf-caret.open {
+            transform: rotate(180deg);
           }
 
           .an-qf-panel button {

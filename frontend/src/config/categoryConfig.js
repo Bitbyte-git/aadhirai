@@ -11,14 +11,17 @@ export const CATEGORY_SUBCATEGORIES = {
   rings: {
     gold: ["Plain Gold Rings", "Gemstone Gold Rings", "Engagement Rings", "Couple Rings", "Kids Rings"],
     silver: ["Plain Silver Rings", "Oxidised Silver Rings", "Adjustable Silver Rings", "Designer Silver Rings", "Couple Silver Rings", "Stone Silver Rings", "Kids Silver Rings", "Men's Silver Rings"],
+    wedding: ["Engagement Rings", "Wedding Rings", "Kundan Rings", "Temple Rings", "Couple Rings", "Antique Rings", "Polki Rings"],
   },
   earrings: {
     gold: ["Stud Earrings", "Jhumka Earrings", "Hoop Earrings", "Drop Earrings", "Sui Dhaga Earrings", "Kids Earrings"],
     silver: ["Stud Earrings", "Drop Earrings", "Jhumka Earrings", "Hoop Earrings", "Oxidised Earrings", "Chandbali Earrings", "Ear Cuffs", "Kids Silver Earrings"],
+    wedding: ["Jhumka Earrings", "Kundan Earrings", "Temple Earrings", "Chandbali Earrings", "Polki Earrings", "Long Earrings", "Stud Earrings", "Drop Earrings"],
   },
   bangles: {
     gold: ["Plain Gold Bangles", "Traditional Bangles", "Kada Bangles", "Kids Bangles"],
     silver: ["Plain Silver Bangles", "Oxidised Bangles", "Designer Bangles", "Kada Bangles", "Stone Bangles", "Beaded Bangles", "Adjustable Bangles", "Kids Bangles"],
+    wedding: ["Gold Bangles", "Kundan Bangles", "Antique Bangles", "Polki Bangles", "Kada Bangles", "Temple Bangles", "Designer Bangles", "Bangle Sets"],
   },
   bracelets: {
     gold: [],
@@ -35,10 +38,12 @@ export const CATEGORY_SUBCATEGORIES = {
   necklaces: {
     gold: ["Plain Gold Necklaces", "Traditional Necklaces", "Temple Necklaces", "Chain Necklaces", "Mangalsutra Necklaces"],
     silver: ["Chains", "Pendant Necklaces", "Choker Necklaces", "Oxidised Necklaces", "Layered Necklaces", "Beaded Necklaces", "Statement Necklaces", "Mangalsutra Necklaces"],
+    wedding: ["Temple Necklaces", "Kundan Necklaces", "Antique Necklaces", "Polki Necklaces", "Traditional Necklaces", "Long Haaram", "Choker Necklaces", "Rani Haar"],
   },
   mangalsutra: {
     gold: ["Traditional Mangalsutra", "Beaded Mangalsutra", "Short Mangalsutra", "Gold Mangalsutra Set"],
     silver: ["Silver Mangalsutra", "Silver Black Bead Mangalsutra", "Silver Short Mangalsutra"],
+    wedding: ["Traditional Mangalsutra", "Beaded Mangalsutra", "Pendant Mangalsutra", "Short Mangalsutra", "Gold Mangalsutra", "Black Bead Mangalsutra", "Mangalsutra Sets"],
   },
   anklets: {
     gold: ["Gold Anklets", "Beaded Gold Anklets", "Kids Gold Anklets", "Bridal Gold Anklets"],
@@ -75,6 +80,23 @@ export const CATEGORY_META = {
 
 export function getSubcategories(category, metal) {
   return CATEGORY_SUBCATEGORIES[category]?.[metal] || [];
+}
+
+// ── Gifting — thani structure, metal/category illama gift_tag vachi
+// group aaguthu. Ovvoru tag-kkum keezhe gift_type options iruku ──
+export const GIFTING_SUBCATEGORIES = {
+  Her: ["Necklaces", "Earrings", "Rings", "Bracelets", "Pendants", "Bangles", "Mangalsutra", "Nose Pins"],
+  Him: ["Chains", "Bracelets", "Rings", "Pendants", "Cufflinks", "Tie Pins", "Men's Kada", "Coins & Bars"],
+  Kids: ["Baby Jewellery", "Chains", "Earrings", "Bracelets", "Nazariya", "Anklets", "Pendants", "ID Bracelets"],
+  Couple: ["Couple Rings", "Couple Pendants", "Matching Bracelets", "His & Her Sets", "Engagement Gifts", "Anniversary Gifts", "Personalised Gifts"],
+  Parents: ["Gold Coins", "Religious Pendants", "Chains", "Bracelets", "Rings", "Pooja Articles", "Silver Articles", "Health Pendants"],
+  Occasion: ["Birthday Gifts", "Anniversary Gifts", "Wedding Gifts", "Housewarming Gifts", "Festive Gifts", "Graduation Gifts", "Promotion Gifts", "Baby Shower Gifts"],
+  Corporate: ["Gold Coins", "Silver Coins", "Desk Accessories", "Pen Sets", "Customized Coins", "Mementos", "Trophies", "Premium Sets"],
+  Religious: ["Gold Idols", "Silver Idols", "Pooja Items", "Religious Pendants", "Yantra Pendants", "Mala & Chains", "Temple Jewellery", "Spiritual Coins"],
+};
+
+export function getGiftingSubcategories(tag) {
+  return GIFTING_SUBCATEGORIES[tag] || [];
 }
 
 // Wedding/bridal type list — navbar's Wedding mega-menu ku matching data.

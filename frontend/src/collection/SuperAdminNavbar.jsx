@@ -559,8 +559,8 @@ export default function SuperAdminNavbar({
         {showSidebar && (
           <aside className="san-sidebar">
             <div className="san-brand" onClick={() => navigate('/super-admin')} title="Go to dashboard">
-              <img src={logo} alt="Luxiva" />
-              <div><div className="san-brand-name">LUXIVA</div><div className="san-role">Super Admin</div></div>
+              <img src={logo} alt="Athirai" />
+              <div><div className="san-brand-name">ATHIRAI</div><div className="san-role">Super Admin</div></div>
             </div>
             <nav className="san-side-nav">
               <button className="san-side-link is-active" type="button" onClick={() => navigate('/super-admin')}><Icon name="home" />Dashboard</button>
@@ -579,9 +579,9 @@ export default function SuperAdminNavbar({
           </aside>
         )}
         <header className="san-top-shell" style={{ marginLeft: showSidebar ? 286 : 0 }}>
-          <div className="san-mobile-logo" onClick={() => navigate('/super-admin')}><img src={logo} alt="Luxiva" /><div><strong>LUXIVA</strong><small>SUPER ADMIN</small></div></div>
+          <div className="san-mobile-logo" onClick={() => navigate('/super-admin')}><img src={logo} alt="Athirai" /><div><strong>ATHIRAI</strong><small>SUPER ADMIN</small></div></div>
           <div className="san-top-inner">
-            <button className="san-navbar-brand" type="button" onClick={() => navigate('/super-admin')} title="Go to dashboard"><img src={logo} alt="Luxiva" /><span><strong>LUXIVA</strong><small>SUPER ADMIN</small></span></button>
+            <button className="san-navbar-brand" type="button" onClick={() => navigate('/super-admin')} title="Go to dashboard"><img src={logo} alt="Athirai" /><span><strong>ATHIRAI</strong><small>SUPER ADMIN</small></span></button>
             <div className="san-search-block">
               <div className="san-search">
                 <input

@@ -1333,6 +1333,17 @@ class JewelryProductView(APIView):
             qs = qs.filter(grade=grade)
 
         # ── Price filter (NEW) ──
+        # price = request.query_params.get('price')
+        # if price == 'below25k':
+        #     qs = qs.filter(price__lt=25000)
+        # elif price == '25k-50k':
+        #     qs = qs.filter(price__gte=25000, price__lt=50000)
+        # elif price == '50k-1L':
+        #     qs = qs.filter(price__gte=50000, price__lt=100000)
+        # elif price == 'above1L':
+        #     qs = qs.filter(price__gte=100000)
+
+                # ── Price filter (NEW) ──
         price = request.query_params.get('price')
         if price == 'below25k':
             qs = qs.filter(price__lt=25000)
@@ -1341,6 +1352,17 @@ class JewelryProductView(APIView):
         elif price == '50k-1L':
             qs = qs.filter(price__gte=50000, price__lt=100000)
         elif price == 'above1L':
+            qs = qs.filter(price__gte=100000)
+        # ── NEW price buckets — sidebar Price dropdown ku ──
+        elif price == '0-2000':
+            qs = qs.filter(price__gte=0, price__lt=2000)
+        elif price == '2000-10000':
+            qs = qs.filter(price__gte=2000, price__lt=10000)
+        elif price == '10000-50000':
+            qs = qs.filter(price__gte=10000, price__lt=50000)
+        elif price == '50000-100000':
+            qs = qs.filter(price__gte=50000, price__lt=100000)
+        elif price == '100000-above':
             qs = qs.filter(price__gte=100000)
 
         # ── Search filter (NEW) ──

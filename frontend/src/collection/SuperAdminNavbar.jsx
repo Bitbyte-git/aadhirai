@@ -130,11 +130,11 @@ export default function SuperAdminNavbar({
         api.get('/promotors/list/'),
         api.get('/customers/'),
       ])
-      const admins = adminsRes.status === 'fulfilled' ? adminsRes.value.data : []
-      const dealers = dealerRes.status === 'fulfilled' ? dealerRes.value.data : []
-      const sds = sdRes.status === 'fulfilled' ? sdRes.value.data : []
-      const pros = proRes.status === 'fulfilled' ? proRes.value.data : []
-      const cuss = cusRes.status === 'fulfilled' ? cusRes.value.data : []
+      const admins = adminsRes.status === 'fulfilled' ? (adminsRes.value.data?.results || adminsRes.value.data || []) : []
+      const dealers = dealerRes.status === 'fulfilled' ? (dealerRes.value.data?.results || dealerRes.value.data || []) : []
+      const sds = sdRes.status === 'fulfilled' ? (sdRes.value.data?.results || sdRes.value.data || []) : []
+      const pros = proRes.status === 'fulfilled' ? (proRes.value.data?.results || proRes.value.data || []) : []
+      const cuss = cusRes.status === 'fulfilled' ? (cusRes.value.data?.results || cusRes.value.data || []) : []
 
       const allMembers = [
         ...admins.map(m => ({ ...m, _role: 'Admin', _id: m.admin_id, _roleColor: '#BDCFCE', _dob: m.dob, _ann: m.anniversary_date, _joined: m.user?.created_at || null })),
@@ -733,7 +733,7 @@ export default function SuperAdminNavbar({
                   style={{ width: '100%', background: '#FDFDFC', border: `1px solid rgba(192,192,192,0.4)`, borderRadius: '12px', padding: '13px 16px', color: '#53615F', fontSize: '15px', fontWeight: 700, outline: 'none', boxSizing: 'border-box', fontFamily: 'monospace' }}
                 />
               </div>
-              <div>
+              <div style={{ display: 'none' }}>
                 <label style={{ display: 'block', color: '#7A8987', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>Diamond 18K</label>
                 <input
                   type="number" placeholder="e.g. 45000"
@@ -742,7 +742,7 @@ export default function SuperAdminNavbar({
                   style={{ width: '100%', background: '#FFFFFF', border: `1px solid #BDCFCE`, borderRadius: '12px', padding: '13px 16px', color: '#073B3F', fontSize: '15px', fontWeight: 700, outline: 'none', boxSizing: 'border-box', fontFamily: 'monospace' }}
                 />
               </div>
-              <div>
+              <div style={{ display: 'none' }}>
                 <label style={{ display: 'block', color: '#0C4044', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>Diamond 22K</label>
                 <input
                   type="number" placeholder="e.g. 55000"
@@ -751,7 +751,7 @@ export default function SuperAdminNavbar({
                   style={{ width: '100%', background: '#FDFDFC', border: `1px solid rgba(165,243,252,0.4)`, borderRadius: '12px', padding: '13px 16px', color: '#0C4044', fontSize: '15px', fontWeight: 700, outline: 'none', boxSizing: 'border-box', fontFamily: 'monospace' }}
                 />
               </div>
-              <div>
+              <div style={{ display: 'none' }}>
                 <label style={{ display: 'block', color: '#7A8987', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>Platinum 92</label>
                 <input
                   type="number" placeholder="e.g. 3200"

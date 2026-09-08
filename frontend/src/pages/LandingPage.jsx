@@ -20,19 +20,19 @@ const collections = [
   {
     title: 'Silver Coins',
     caption: 'Trusted purity, simple checkout',
-    image: '/silver-coin.jpg.jpeg',
+    image: '/landing-img/silvers.png',
     route: '/silver-coins',
     accent: '#8c929b',
   },
 ]
 
 const quickLinks = [
-  { label: 'Rings', route: '/collection/rings', image: '/diamond_ring.jpg' },
-  { label: 'Necklaces', route: '/collection/necklaces', image: '/diamond_necklas.jpg' },
-  { label: 'Bangles', route: '/collection/bangles', image: '/wedding_bangesh.jpg' },
-  { label: 'Chains', route: '/collection/chains', image: '/wedding_chain.jpg' },
-  { label: 'Earrings', route: '/collection/earrings', image: '/diamond Earings.jpg' },
-  { label: 'Coins', route: '/collection/coins', image: '/gold-coin.jpg.jpeg' },
+  { label: 'Rings', route: '/collection/rings', image: '/landing-img/rings.png' },
+  { label: 'Necklaces', route: '/collection/necklaces', image: '/landing-img/necklace.png' },
+  { label: 'Bangles', route: '/collection/bangles', image: '/landing-img/bangles.png' },
+  { label: 'Chains', route: '/collection/chains', image: '/landing-img/chains.png' },
+  { label: 'Earrings', route: '/collection/earrings', image: '/landing-img/earings.png' },
+  { label: 'Coins', route: '/collection/coins', image: '/coin/200mg.png' },
 ]
 
 const stats = [

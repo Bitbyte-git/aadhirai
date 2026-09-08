@@ -9,51 +9,56 @@ const categoryRail = [
   {
     label: "Necklaces",
     route: "/collection/necklaces",
-    image: "/diamond_necklas.jpg",
+    image: "/landing-img/necklace.png",
   },
   {
     label: "Earrings",
     route: "/collection/earrings",
-    image: "/diamond Earings.jpg",
+    image: "/landing-img/earings.png",
   },
-  { label: "Rings", route: "/collection/rings", image: "/diamond_ring.jpg" },
+  { label: "Rings", route: "/collection/rings", image: "/landing-img/rings.png" },
   {
     label: "Bracelets",
     route: "/collection/bracelets",
-    image: "/wedding_bracelet.jpg",
+    image: "/landing-img/bracklets.png",
   },
   {
     label: "Pendants",
     route: "/collection/all?category=pendants",
-    image: "/platinum_necklas.jpg",
+    image: "/landing-img/pendants.png",
   },
   {
     label: "Silver",
     route: "/collection/all?metal=silver",
-    image: "/silver-coin.jpg.jpeg",
+    image: "/landing-img/silvers.png",
   },
   {
     label: "Kids",
     route: "/collection/all?gender=kids",
-    image: "/Kids Jewllery.jpg",
+    image: "/landing-img/kids.png",
   },
-  { label: "Coins", route: "/collection/coins", image: "/gold-coin.jpg.jpeg" },
+  {
+    label: "Coins",
+    route: "/collection/coins",
+    image: "/coin/200mg.png",
+    imageScale: 2.46,
+  },
   {
     label: "Wedding",
     route: "/collection/all?occasion=wedding",
-    image: "/wedding_necklaces.jpg",
+    image: "/landing-img/weddings.png",
   },
   {
     label: "Bangles",
     route: "/collection/bangles",
-    image: "/diamond bangales.jpg",
+    image: "/landing-img/bangles.png",
   },
   {
     label: "Men's",
     route: "/collection/all?gender=men",
-    image: "/Men's Jewellery.jpg",
+    image: "/landing-img/mens.png",
   },
-  { label: "Chains", route: "/collection/chains", image: "/dimand_chain.jpg" },
+  { label: "Chains", route: "/collection/chains", image: "/landing-img/chains.png" },
   // { label: "Platinum", route: "/collection/all?metal=platinum", image: "/platinum_ring.jpg" },  // hidden — future use ku vachurukom
 ];
 
@@ -68,52 +73,99 @@ const promises = [
 
 const promoCards = [
   {
-    title: "Gold Coin 100mg",
-    route: "/collection/coins?metal=gold&weight=100mg",
-    image: "/coin/100mg.gold.png",
-  },
-  {
-    title: "Gold Coin 200mg",
-    route: "/collection/coins?metal=gold&weight=200mg",
-    image: "/coin/200mg.gold.png",
-  },
-  {
-    title: "Gold Coin 250mg",
-    route: "/collection/coins?metal=gold&weight=250mg",
-    image: "/coin/250mg.gold.png",
-  },
-  {
-    title: "Silver Coin 100mg",
-    route: "/collection/coins?metal=silver&weight=100mg",
-    image: "/coin/100mg.silver.png",
-  },
-  {
-    title: "Silver Coin 150mg",
-    route: "/collection/coins?metal=silver&weight=150mg",
-    image: "/coin/150mg.silver.png",
-  },
-  {
-    title: "Silver Coin 200mg",
-    route: "/collection/coins?metal=silver&weight=200mg",
-    image: "/coin/200mg.silver.png",
-  },
-  {
-    title: "Silver Coin 250mg",
-    route: "/collection/coins?metal=silver&weight=250mg",
-    image: "/coin/250mg.silver.png",
+    title: "Gold Coin 50mg",
+    route: "/collection/coins?metal=gold&weight=50mg",
+    image: "/coin/50mg.png",
+    imageScale: 4.17,
   },
   {
     title: "Silver Coin 500mg",
     route: "/collection/coins?metal=silver&weight=500mg",
-    image: "/coin/500mg.silver.png",
+    image: "/coin/silver500mg.png",
+    imageScale: 2.03,
+  },
+  {
+    title: "Gold Coin 100mg",
+    route: "/collection/coins?metal=gold&weight=100mg",
+    image: "/coin/100mg.png",
+    imageScale: 3.01,
+  },
+  {
+    title: "Silver Coin 1gm",
+    route: "/collection/coins?metal=silver&weight=1gm",
+    image: "/coin/silver1gm.png",
+    imageScale: 1.82,
+  },
+  {
+    title: "Gold Coin 200mg",
+    route: "/collection/coins?metal=gold&weight=200mg",
+    image: "/coin/200mg.png",
+    imageScale: 2.46,
+  },
+  {
+    title: "Silver Coin 2gm",
+    route: "/collection/coins?metal=silver&weight=2gm",
+    image: "/coin/silver2gm.png",
+    imageScale: 1.58,
+  },
+  {
+    title: "Gold Coin 250mg",
+    route: "/collection/coins?metal=gold&weight=250mg",
+    image: "/coin/250mg.png",
+    imageScale: 2.42,
+  },
+  {
+    title: "Silver Coin 5gm",
+    route: "/collection/coins?metal=silver&weight=5gm",
+    image: "/coin/silver5gm.png",
+    imageScale: 1.3,
+  },
+  {
+    title: "Gold Coin 500mg",
+    route: "/collection/coins?metal=gold&weight=500mg",
+    image: "/coin/500mg.png",
+    imageScale: 2.03,
+  },
+  {
+    title: "Silver Coin 10gm",
+    route: "/collection/coins?metal=silver&weight=10gm",
+    image: "/coin/silver10gm.png",
+    imageScale: 1.08,
+  },
+  {
+    title: "Gold Coin 1gm",
+    route: "/collection/coins?metal=gold&weight=1gm",
+    image: "/coin/1gm.png",
+    imageScale: 2.44,
+  },
+  {
+    title: "Gold Coin 2gm",
+    route: "/collection/coins?metal=gold&weight=2gm",
+    image: "/coin/2gm.png",
+    imageScale: 1.75,
+  },
+  {
+    title: "Gold Coin 4gm",
+    route: "/collection/coins?metal=gold&weight=4gm",
+    image: "/coin/4gm.png",
+    imageScale: 1.67,
+  },
+  {
+    title: "Gold Coin 8gm",
+    route: "/collection/coins?metal=gold&weight=8gm",
+    image: "/coin/8gm.png",
+    imageScale: 1.6,
   },
 ];
 
 const autoPromoCards = [...promoCards, ...promoCards];
 
 function coinSizeClass(route = "") {
-  const match = route.match(/weight=(\d+)mg/i);
-  return match ? `coin-size-${match[1]}` : "coin-size-default";
+  const match = route.match(/weight=(\d+)(mg|gm)/i);
+  if (!match) return "coin-size-default";
+  return match[2].toLowerCase() === "mg"
+    ? `coin-size-${match[1]}`
+    : `coin-size-${match[1]}gm`;
 }
 
 function coinMetalClass(card) {
@@ -310,7 +362,7 @@ function HomeBannerSlider() {
   );
 }
 
-function ProductCard({ product, wishIds, onWishlist, onOpen, onAddToCart }) {
+function ProductCard({ product, wishIds, onWishlist, onOpen, onAddToCart, badge = "Featured" }) {
   const name = safeText(product.name, "Jewellery Product");
   const image = productImage(product);
     const category = safeText(product.category, "Athirai Collection").replaceAll("_", " ");
@@ -318,7 +370,7 @@ function ProductCard({ product, wishIds, onWishlist, onOpen, onAddToCart }) {
   return (
     <article className="product-card" onClick={() => onOpen(product)}>
       <div className="product-img">
-        <span className="product-badge">Featured</span>
+        <span className="product-badge">{badge}</span>
         {image ? (
           <img src={image} alt={name} />
         ) : (
@@ -399,6 +451,7 @@ export default function CustomerDashboard() {
   const [rates, setRates] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
   const [featured, setFeatured] = useState([]);
+  const [fastMoving, setFastMoving] = useState([]);
   const [wishIds, setWishIds] = useState(new Set());
 
   useEffect(() => {
@@ -442,6 +495,7 @@ export default function CustomerDashboard() {
     (p) => p.is_active !== false && p.metal !== "diamond" && p.metal !== "platinum",
   );
   setFeatured(activeProducts.slice(0, 10));
+  setFastMoving(activeProducts.slice(10, 16));
 }
       if (wishRes.status === "fulfilled") {
         const items = Array.isArray(wishRes.value.data?.items)
@@ -848,7 +902,7 @@ export default function CustomerDashboard() {
           animation: cat-shine 760ms ease;
         }
 
-        .store-cat img {
+        .store-cat-image-frame {
           width: var(--cat-img-size);
           height: var(--cat-img-size);
           min-width: var(--cat-img-size);
@@ -866,12 +920,25 @@ export default function CustomerDashboard() {
           outline: 3px solid transparent;
           outline-offset: 3px;
           aspect-ratio: 1 / 1;
+          overflow: hidden;
         }
 
-        .store-cat:hover img {
-          transform: scale(1.08) rotate(-1.5deg);
+        .store-cat-image-frame img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          transform: scale(var(--cat-art-scale, 1));
+          transition: transform 280ms ease;
+        }
+
+        .store-cat:hover .store-cat-image-frame {
           box-shadow: 0 18px 42px rgba(7,59,63,0.22);
           outline-color: rgba(204,168,129,0.42);
+        }
+
+        .store-cat:hover .store-cat-image-frame img {
+          transform: scale(calc(var(--cat-art-scale, 1) * 1.08)) rotate(-1.5deg);
         }
 
         .store-cat span {
@@ -1252,6 +1319,18 @@ export default function CustomerDashboard() {
         .featured-section .product-price { display:flex; flex-direction:column; gap:2px; color:#102C2C; font-size:15px; font-weight:800; }
         .product-price small { color:#91A09D; font-size:8px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; }
         .featured-section .product-cart-btn { width:39px; height:39px; border-width:1px; background:#F6F9F8; }
+
+        .fast-moving-section { padding-top: clamp(48px, 5vw, 78px); }
+        .fast-moving-section::before {
+          background:
+            radial-gradient(circle at 88% 18%, rgba(159,97,48,.14), transparent 27%),
+            linear-gradient(180deg, #fffdf9, #f7f3ec 52%, #fff);
+          border-top-color: rgba(204,168,129,.55);
+          border-bottom-color: rgba(204,168,129,.42);
+        }
+        .fast-moving-section .featured-kicker { color: #9F6130; }
+        .fast-moving-section .featured-kicker i { background: #9F6130; }
+        .fast-moving-section .product-badge { background: #9F6130; }
 
         @media (max-width: 680px) {
           .featured-section .store-heading { align-items: stretch; }
@@ -1750,7 +1829,7 @@ export default function CustomerDashboard() {
           justify-content: space-between;
           gap: 16px;
           margin-bottom: clamp(18px, 2.2vw, 30px);
-          padding: 0 clamp(24px, 8.8vw, 176px);
+          padding: 0 clamp(24px, 3vw, 56px);
           box-sizing: border-box;
         }
 
@@ -1855,9 +1934,7 @@ export default function CustomerDashboard() {
           border-radius: 50%;
           display: grid;
           place-items: center;
-          background:
-            radial-gradient(circle at 50% 48%, rgba(255,255,255,0.08) 0 10%, transparent 38%),
-            radial-gradient(circle at 50% 50%, #0b0b0a 0 58%, #000 72%, #000 100%);
+          background: #fff;
           box-shadow:
             0 20px 34px rgba(12,64,68,0.13),
             inset 0 0 26px rgba(204,168,129,0.13);
@@ -1910,15 +1987,15 @@ export default function CustomerDashboard() {
         }
 
         .coin-story-image img {
-          width: var(--coin-img-size, 92%);
-          height: var(--coin-img-size, 92%);
-          object-fit: contain;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
           object-position: center;
           border-radius: 50%;
           display: block;
           position: relative;
           z-index: 4;
-          transform: translateY(calc(var(--coin-offset-y, 18px) + 15px)) scale(1);
+          transform: scale(var(--coin-art-scale, 1));
           filter:
             drop-shadow(0 10px 12px rgba(0,0,0,0.28))
             drop-shadow(0 0 8px rgba(204,168,129,0.22));
@@ -1960,7 +2037,7 @@ export default function CustomerDashboard() {
         }
 
         .coin-story-card:hover .coin-story-image img {
-          transform: translateY(calc(var(--coin-offset-y, 18px) + 15px)) scale(1.06);
+          transform: scale(calc(var(--coin-art-scale, 1) * 1.04));
           filter:
             drop-shadow(0 12px 16px rgba(0,0,0,0.34))
             drop-shadow(0 0 16px rgba(229,160,24,0.42));
@@ -2001,7 +2078,7 @@ export default function CustomerDashboard() {
             --promo-gap: clamp(28px, 4vw, 52px);
             padding-inline: 46px;
           }
-          .promo-carousel-head { padding-inline: 46px; }
+          .promo-carousel-head { padding-inline: 32px; }
           .coin-story-card { width: clamp(146px, 17vw, 176px); }
           .coin-story-image { width: clamp(134px, 15.8vw, 164px); }
         }
@@ -2011,7 +2088,7 @@ export default function CustomerDashboard() {
             --promo-gap: clamp(58px, 5vw, 104px);
             padding-inline: clamp(96px, 8vw, 180px);
           }
-          .promo-carousel-head { padding-inline: clamp(96px, 8vw, 180px); }
+          .promo-carousel-head { padding-inline: 56px; }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -2056,7 +2133,13 @@ export default function CustomerDashboard() {
                 aria-hidden={isDuplicate ? "true" : undefined}
                 onClick={() => navigate(item.route)}
               >
-                <img src={item.image} alt={isDuplicate ? "" : item.label} />
+                <span className="store-cat-image-frame">
+                  <img
+                    src={item.image}
+                    alt={isDuplicate ? "" : item.label}
+                    style={{ "--cat-art-scale": item.imageScale || 1 }}
+                  />
+                </span>
                 <span>{item.label}</span>
               </button>
             );
@@ -2104,7 +2187,11 @@ export default function CustomerDashboard() {
                   onClick={() => navigate(card.route)}
                 >
                   <span className="coin-story-image">
-                    <img src={card.image} alt="" />
+                    <img
+                      src={card.image}
+                      alt=""
+                      style={{ "--coin-art-scale": card.imageScale }}
+                    />
                   </span>
                   <span>{card.title}</span>
                 </button>
@@ -2143,6 +2230,39 @@ export default function CustomerDashboard() {
             ))}
           </div>
         </section>
+
+        {fastMoving.length > 0 && (
+          <section className="store-section featured-section fast-moving-section">
+            <div className="store-heading">
+              <div className="featured-heading-copy">
+                <span className="featured-kicker"><i /> TRENDING NOW</span>
+                <h2>Fast-Moving Collection</h2>
+                <p>Popular pieces our customers are choosing right now.</p>
+              </div>
+              <button
+                className="view-all-link"
+                type="button"
+                onClick={() => navigate("/collection/all")}
+              >
+                <span>View all jewellery</span>
+              </button>
+            </div>
+
+            <div className="product-grid">
+              {fastMoving.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  wishIds={wishIds}
+                  onWishlist={toggleWishlist}
+                  onOpen={openProduct}
+                  onAddToCart={handleFeaturedAddToCart}
+                  badge="Trending"
+                />
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="store-section">
           <div className="newsletter">

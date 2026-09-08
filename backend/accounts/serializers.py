@@ -512,7 +512,7 @@ class JewelryProductSerializer(serializers.ModelSerializer):
             'cross_weight', 'stone_weight', 'net_weight',
             'making_charge','wastage_charge', 'stone_value', 'tax_percent',
             'price', 'original_price', 'tag', 'occasion', 'wedding_category',
-            'gift_tags', 'gift_subcategory', 'gender', 'is_active',
+            'gift_tags', 'gift_subcategory', 'gender', 'age_group', 'is_active',
             'stock_quantity', 'low_stock_threshold', 'stock_status',
             'created_at', 'images', 'uploaded_images'
         ]

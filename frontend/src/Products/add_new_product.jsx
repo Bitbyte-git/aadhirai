@@ -42,6 +42,39 @@ const OCCASIONS = ['Wedding', 'Birthday', 'Anniversary', 'Auspicious', 'Office W
 // const WEDDING_CATEGORIES = ['Wedding Ring', 'Wedding Necklaces', 'Wedding Chain', 'Wedding Bangles', 'Wedding Earring']
 const GENDERS = ['all', 'women', 'men', 'kids']
 
+const AGE_GROUPS_KIDS = [
+  { value: '', label: 'All' },
+  { value: 'newborn', label: 'Newborn (0-1 month)' },
+  { value: 'infant', label: 'Infant (1 month-1 year)' },
+  { value: 'toddler', label: 'Toddler (1-3 years)' },
+  { value: 'child', label: 'Child (3-9 years)' },
+  { value: 'preteen', label: 'Preteen (9-12 years)' },
+  { value: 'teenager', label: 'Teenager (13-19 years)' },
+]
+
+const AGE_GROUPS_ADULT = [
+  { value: '', label: 'All' },
+  { value: 'young_adult', label: 'Young Adult (20-29 years)' },
+  { value: 'adult', label: 'Adult (30-44 years)' },
+  { value: 'middle_aged', label: 'Middle-aged (45-64 years)' },
+  { value: 'senior', label: 'Senior (65-79 years)' },
+  { value: 'elderly', label: 'Elderly (80-99 years)' },
+  { value: 'centenarian', label: 'Centenarian (100+ years)' },
+]
+
+const AGE_GROUPS_ALL = [
+  { value: '', label: 'All' },
+  ...AGE_GROUPS_KIDS.filter(a => a.value),
+  ...AGE_GROUPS_ADULT.filter(a => a.value),
+]
+
+// gender 'kids' -> kids range mattum, 'men'/'women' -> adult range mattum, 'all' -> full range
+const getAgeOptions = (gender) => {
+  if (gender === 'kids') return AGE_GROUPS_KIDS
+  if (gender === 'men' || gender === 'women') return AGE_GROUPS_ADULT
+  return AGE_GROUPS_ALL
+}
+
 const SUBCATEGORIES = {
   rings: {
     gold: ["Men's Gold Ring","Women's Gold Ring","Couple Gold Ring","Kids Gold Ring","Gold Engagement Ring","Gold Wedding Ring","Gold Stone Ring","Gold Plain Ring"],
@@ -146,7 +179,7 @@ export default function AddNewProduct() {
     category: '', metal: '', grade: '', name: '', nameChoice: '', description: '',
     cross_weight: '', stone_weight: '', making_charge: '', stone_value: '',
     tag: '', subcategory: '', occasion: '', wedding_category: '', gender: 'all', wastage_charge: '',
-    stock_quantity: '', gift_tags: [], gift_subcategory: ''
+    stock_quantity: '', gift_tags: [], gift_subcategory: '', age_group: ''
   })
   const [productSaving, setProductSaving] = useState(false)
   const [livePrice, setLivePrice] = useState(null)
@@ -307,8 +340,8 @@ export default function AddNewProduct() {
             </div>
           )}
 
-                    {/* Row 1 - metal / grade / product / gender */}
-          <div className="anp-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '18px', marginBottom: '16px', paddingTop: '18px' }}>
+          {/* Row 1 - metal / grade / product / gender / age group */}
+          <div className="anp-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '18px', marginBottom: '16px', paddingTop: '18px' }}>
             <div>
               <label style={lblStyle}>Metal *</label>
               <select value={productForm.metal} onChange={e => setProductForm(f => ({ ...f, metal: e.target.value, grade: '', name: '' }))} style={{ ...inpStyle, cursor: 'pointer' }}>
@@ -354,8 +387,21 @@ export default function AddNewProduct() {
 
             <div>
               <label style={lblStyle}>Gender</label>
-              <select value={productForm.gender} onChange={e => setProductForm(f => ({ ...f, gender: e.target.value }))} style={{ ...inpStyle, cursor: 'pointer' }}>
+              <select
+                value={productForm.gender}
+                onChange={e => setProductForm(f => ({ ...f, gender: e.target.value, age_group: '' }))}
+                style={{ ...inpStyle, cursor: 'pointer' }}
+              >
                 {GENDERS.map(g => <option key={g} value={g} style={{ background: optionBg }}>{g.charAt(0).toUpperCase() + g.slice(1)}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label style={lblStyle}>Age Group</label>
+              <select value={productForm.age_group} onChange={e => setProductForm(f => ({ ...f, age_group: e.target.value }))} style={{ ...inpStyle, cursor: 'pointer' }}>
+                {getAgeOptions(productForm.gender).map(a => (
+                  <option key={a.value} value={a.value} style={{ background: optionBg }}>{a.label}</option>
+                ))}
               </select>
             </div>
           </div>

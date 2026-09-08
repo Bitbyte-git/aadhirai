@@ -127,6 +127,39 @@ const giftingFilterCategories = [
     ['Kids', 'kids'],
   ]
 
+  const AGE_OPTIONS_KIDS = [
+    ['All', ''],
+    ['Newborn (0-1 month)', 'newborn'],
+    ['Infant (1 month-1 year)', 'infant'],
+    ['Toddler (1-3 years)', 'toddler'],
+    ['Child (3-9 years)', 'child'],
+    ['Preteen (9-12 years)', 'preteen'],
+    ['Teenager (13-19 years)', 'teenager'],
+  ]
+
+  const AGE_OPTIONS_ADULT = [
+    ['All', ''],
+    ['Young Adult (20-29 years)', 'young_adult'],
+    ['Adult (30-44 years)', 'adult'],
+    ['Middle-aged (45-64 years)', 'middle_aged'],
+    ['Senior (65-79 years)', 'senior'],
+    ['Elderly (80-99 years)', 'elderly'],
+    ['Centenarian (100+ years)', 'centenarian'],
+  ]
+
+  const AGE_OPTIONS_ALL = [
+    ['All', ''],
+    ...AGE_OPTIONS_KIDS.filter(([, val]) => val),
+    ...AGE_OPTIONS_ADULT.filter(([, val]) => val),
+  ]
+
+  // genderFilter 'kids' -> kids range mattum, 'men'/'women' -> adult range mattum, '' (All) -> full range
+  const getAgeOptionsForGender = (gender) => {
+    if (gender === 'kids') return AGE_OPTIONS_KIDS
+    if (gender === 'men' || gender === 'women') return AGE_OPTIONS_ADULT
+    return AGE_OPTIONS_ALL
+  }
+
   const OCCASION_OPTIONS = [
     ['All', ''],
     ['Daily Wear', 'Daily Wear'],
@@ -585,8 +618,9 @@ export default function AllCollection() {
   const metalFilter = searchParams.get('metal')
       const categoryFilter = searchParams.get('category')
     const subcategoryFilter = searchParams.get('subcategory')
-    const genderFilter = searchParams.get('gender')
-    const occasionFilter = searchParams.get('occasion')
+  const genderFilter = searchParams.get('gender')
+  const ageFilter = searchParams.get('age')
+  const occasionFilter = searchParams.get('occasion')
     const giftTagFilter = searchParams.get('gift_tag')
     const giftTypeFilter = searchParams.get('gift_type')
     const priceFilter = searchParams.get('price')
@@ -1772,7 +1806,19 @@ export default function AllCollection() {
                     label="Gender"
                     options={GENDER_OPTIONS}
                     currentValue={genderFilter}
-                    onSelect={(val) => updateFilterParam('gender', val)}
+                    onSelect={(val) => {
+                      // gender maarina, matchaatha age selection reset pannanum
+                      const params = new URLSearchParams(searchParams)
+                      if (val) params.set('gender', val); else params.delete('gender')
+                      params.delete('age')
+                      navigate(`${location.pathname}?${params.toString()}`)
+                    }}
+                  />
+                  <QuickFilterDropdown
+                    label="Age"
+                    options={getAgeOptionsForGender(genderFilter)}
+                    currentValue={ageFilter}
+                    onSelect={(val) => updateFilterParam('age', val)}
                   />
                   <QuickFilterDropdown
                     label="Occasion"

@@ -701,6 +701,22 @@ class JewelryProduct(models.Model):
 )
     gift_tags = models.JSONField(default=list, blank=True)   # ["Her","Couple"] mari list
     gift_subcategory = models.CharField(max_length=100, blank=True)
+    AGE_GROUP_CHOICES = [
+        ('', 'All'),
+        ('newborn', 'Newborn (0-1 month)'),
+        ('infant', 'Infant (1 month-1 year)'),
+        ('toddler', 'Toddler (1-3 years)'),
+        ('child', 'Child (3-9 years)'),
+        ('preteen', 'Preteen (9-12 years)'),
+        ('teenager', 'Teenager (13-19 years)'),
+        ('young_adult', 'Young Adult (20-29 years)'),
+        ('adult', 'Adult (30-44 years)'),
+        ('middle_aged', 'Middle-aged (45-64 years)'),
+        ('senior', 'Senior (65-79 years)'),
+        ('elderly', 'Elderly (80-99 years)'),
+        ('centenarian', 'Centenarian (100+ years)'),
+    ]
+    age_group = models.CharField(max_length=20, choices=AGE_GROUP_CHOICES, blank=True)
     is_active = models.BooleanField(default=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)

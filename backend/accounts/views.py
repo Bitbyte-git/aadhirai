@@ -1312,6 +1312,10 @@ class JewelryProductView(APIView):
         if gender and gender != 'all':
             qs = qs.filter(gender=gender)
 
+        age_group = request.query_params.get('age')
+        if age_group:
+            qs = qs.filter(age_group=age_group)
+
         occasion = request.query_params.get('occasion')
         if occasion:
             qs = qs.filter(occasion__icontains=occasion)
@@ -1412,7 +1416,7 @@ class JewelryProductDetailView(APIView):
                       'making_charge', 'wastage_charge', 'stone_value', 'tax_percent',
                       'price', 'original_price', 'tag', 'occasion', 'wedding_category',
                       'gift_tags', 'gift_subcategory',
-                      'gender', 'is_active',
+                      'gender', 'age_group', 'is_active',
                       'stock_quantity', 'low_stock_threshold']:   # ── NEW: restock fields ──
             if field in request.data:
                 setattr(product, field, request.data[field])

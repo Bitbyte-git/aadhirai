@@ -1053,17 +1053,18 @@ export default function CustomerNavbar() {
         }
 
         .exact-nav-spacer {
-          height: 174px;
+          height: 176px;
         }
 
         .exact-strip {
-          height: 42px;
+          height: 38px;
           background: var(--bb-soft-aqua);
           color: var(--bb-teal-dark);
-          font-size: 12px;
+          font-size: 11.5px;
           font-weight: 800;
-          letter-spacing: 0.02em;
+          letter-spacing: 0.03em;
           overflow: hidden;
+          border-bottom: 1px solid rgba(7,59,63,0.06);
         }
 
         .exact-strip-track {
@@ -1102,26 +1103,26 @@ export default function CustomerNavbar() {
 
         .exact-inner {
           width: 100%;
-          margin: 0;
-          padding-left: clamp(28px, 4vw, 76px);
-          padding-right: clamp(28px, 4vw, 76px);
+          max-width: 1600px;
+          margin: 0 auto;
+          padding-left: clamp(24px, 3.5vw, 60px);
+          padding-right: clamp(24px, 3.5vw, 60px);
         }
 
         .exact-main {
           position: relative;
           z-index: 4;
-          height: 86px;
-          border-bottom: 1px solid var(--bb-surface);
+          height: 90px;
+          border-bottom: 1px solid rgba(7,59,63,0.07);
           background: var(--bb-bg);
         }
 
         .exact-main .exact-inner {
           height: 100%;
           display: grid;
-          grid-template-columns: clamp(118px, 11vw, 170px) minmax(260px, 1fr) max-content max-content;
-          gap: clamp(10px, 1.2vw, 20px);
+          grid-template-columns: auto 1fr auto auto;
+          gap: clamp(18px, 2.5vw, 36px);
           align-items: center;
-          justify-content: stretch;
         }
 
         .team-brand {
@@ -1129,15 +1130,26 @@ export default function CustomerNavbar() {
           background: transparent;
           display: inline-flex;
           align-items: center;
-          gap: 14px;
+          gap: 0;
           cursor: pointer;
           color: var(--bb-ruby);
           min-width: 0;
+          padding: 0;
+        }
+
+        .team-mark-frame {
+          width: auto;
+          height: 82px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: flex-start;
+          overflow: visible;
+          flex: 0 0 auto;
         }
 
         .team-mark {
-          width: 160px;
-          height: 50px;
+          width: auto;
+          height: 80px;
           border-radius: 0;
           object-fit: contain;
           display: block;
@@ -1156,21 +1168,22 @@ export default function CustomerNavbar() {
         }
 
         .exact-search {
-          height: 44px;
+          height: 46px;
           border-radius: 999px;
           border: 1.5px solid var(--bb-soft-aqua);
-          background: var(--bb-bg);
+          background: #f9fafa;
           display: grid;
-          grid-template-columns: 42px 1fr 44px;
+          grid-template-columns: 46px 1fr 46px;
           align-items: center;
           color: var(--bb-muted);
-          box-shadow: 0 4px 16px rgba(7,59,63,0.09);
-          transition: border-color 150ms ease, box-shadow 150ms ease;
+          box-shadow: 0 2px 8px rgba(7,59,63,0.06);
+          transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
         }
 
         .exact-search:focus-within {
           border-color: var(--bb-teal);
-          box-shadow: 0 4px 20px rgba(7,59,63,0.18);
+          background: #fff;
+          box-shadow: 0 4px 20px rgba(7,59,63,0.14);
         }
 
         .exact-search input {
@@ -1180,12 +1193,13 @@ export default function CustomerNavbar() {
           outline: 0;
           background: transparent;
           color: var(--bb-ink);
-          font-size: 14px;
+          font-size: 14.5px;
           padding-right: 8px;
         }
 
         .exact-search input::placeholder {
           color: var(--bb-muted);
+          font-size: 14px;
         }
 
         .exact-search svg {
@@ -1433,7 +1447,7 @@ export default function CustomerNavbar() {
           align-items: center;
           justify-content: flex-end;
           justify-self: end;
-          gap: clamp(8px, 0.9vw, 14px);
+          gap: clamp(10px, 1vw, 16px);
           min-width: 0;
         }
 
@@ -1957,8 +1971,14 @@ export default function CustomerNavbar() {
           }
 
           .team-mark {
-            width: 90px;
-            height: 38px;
+            width: auto;
+            height: 72px;
+          }
+
+          .team-mark-frame {
+            width: 130px;
+            height: 74px;
+            overflow: visible;
           }
 
           .summary-pill {
@@ -2055,12 +2075,14 @@ export default function CustomerNavbar() {
               type="button"
               onClick={() => navigate("/customer")}
             >
-                            <img
-                src="/luxiva-logo.svg"
-                alt="Athirai"
-                className="team-mark"
-                loading="eager"
-              />
+              <span className="team-mark-frame">
+                <img
+                  src="/Aadhirai-Logo.png"
+                  alt="Aadhirai"
+                  className="team-mark"
+                  loading="eager"
+                />
+              </span>
             </button>
 
             <div className="exact-search-wrap">

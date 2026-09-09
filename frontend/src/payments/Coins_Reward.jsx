@@ -2,6 +2,15 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import { SkeletonText } from '../components/Skeleton'
+import CustomDropdown from '../components/CustomDropdown'
+
+const REWARD_RANGE_OPTIONS = [
+  { value: 'all', label: 'All Reward' },
+  { value: '1-10', label: '1 - 10 Reward' },
+  { value: '11-50', label: '11 - 50 Reward' },
+  { value: '51-100', label: '51 - 100 Reward' },
+  { value: '100+', label: '100+ Reward' },
+]
 
 // ── SVG ICONS for reward types ──
 const IconSpark = ({ color = '#0C4044', size = 20 }) => (
@@ -89,43 +98,63 @@ export default function CoinsReward() {
       <style>{`
         .rw-page{min-height:100vh;background:linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 48%,#E7EDEC 100%);color:#111817;font-family:"Manrope","Inter",system-ui,sans-serif;padding:32px 24px}
         .rw-wrap{max-width:1200px;margin:0 auto}
-        .rw-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:22px;flex-wrap:wrap}
-        .rw-kicker{font-size:11px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:#BB8958;margin-bottom:8px}
-        .rw-title{margin:0;font-size:30px;line-height:1;color:#0C4044;font-weight:900}
+        .rw-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:24px;flex-wrap:wrap}
+        .rw-kicker{font-size:11px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:#BB8958;margin-bottom:6px}
+        .rw-title{margin:0;font-size:32px;line-height:1.1;color:#0C4044;font-weight:900;letter-spacing:-0.02em}
         .rw-sub{color:#53615F;font-size:13px;margin:8px 0 0;font-weight:650}
         .rw-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-        .rw-select{height:42px;padding:0 14px;background:#FFFFFF;border:1px solid #D1DFDE;border-radius:10px;color:#0C4044;font-size:13px;font-weight:850;outline:none}
-        .rw-btn{height:42px;padding:0 18px;border-radius:10px;border:1px solid #073B3F;background:linear-gradient(135deg,#0C4044,#073B3F);color:#FDFDFC;font-size:13px;font-weight:900;cursor:pointer}
-        .rw-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:20px}
-        .rw-summary-card{background:#FFFFFF;border:1.5px solid #E0E9E8;border-radius:12px;padding:18px;box-shadow:0 16px 36px rgba(7,59,63,.06);cursor:pointer;transition:all .2s ease}
-        .rw-summary-card:hover{transform:translateY(-2px);box-shadow:0 20px 44px rgba(7,59,63,.12);border-color:#BB8958}
-        .rw-summary-card-active{background:linear-gradient(135deg,#0C4044,#073B3F);border-color:#073B3F}
+        .rw-select{height:42px;padding:0 14px;background:#FFFFFF;border:1.5px solid #D1DFDE;border-radius:12px;color:#0C4044;font-size:13px;font-weight:800;outline:none;box-shadow:0 4px 14px rgba(7,59,63,0.04);transition:border-color 0.2s}
+        .rw-select:focus{border-color:#0C4044}
+        .rw-btn{height:42px;padding:0 20px;border-radius:12px;border:1px solid #073B3F;background:linear-gradient(135deg,#0C4044,#073B3F);color:#FDFDFC;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 8px 20px rgba(7,59,63,0.18);transition:transform 0.15s ease}
+        .rw-btn:hover{transform:translateY(-1px)}
+        .rw-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:22px}
+        .rw-summary-card{background:#FFFFFF;border:1.5px solid #E0E9E8;border-radius:14px;padding:18px 20px;box-shadow:0 14px 32px rgba(7,59,63,.05);cursor:pointer;transition:all .2s ease;display:flex;flex-direction:column}
+        .rw-summary-card:hover{transform:translateY(-3px);box-shadow:0 20px 44px rgba(7,59,63,.12);border-color:#BB8958}
+        .rw-summary-card-active{background:linear-gradient(135deg,#0C4044,#073B3F);border-color:#073B3F;box-shadow:0 20px 46px rgba(7,59,63,.22)}
         .rw-summary-card-active .rw-summary-label,.rw-summary-card-active .rw-summary-coins{color:#FFFFFF}
         .rw-summary-card-active .rw-summary-users{color:#F3C88A}
-        .rw-summary-icon{margin-bottom:10px}
-        .rw-summary-label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#53615F;font-weight:900;margin-bottom:8px}
-        .rw-summary-users{font-size:12px;color:#9F6130;font-weight:800;margin-top:4px}
-        .rw-summary-coins{font-size:28px;font-weight:900;color:#0C4044}
-        .rw-total-card{background:linear-gradient(135deg,#0C4044,#073B3F);border-radius:14px;padding:22px 24px;color:#FDFDFC;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-        .rw-total-label{font-size:12px;text-transform:uppercase;letter-spacing:.14em;font-weight:900;opacity:.85}
-        .rw-total-num{font-size:38px;font-weight:900}
-        .rw-card{background:#FFFFFF;border:1px solid #E0E9E8;border-radius:12px;box-shadow:0 16px 36px rgba(7,59,63,.06);overflow:hidden}
-        .rw-card-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid #E0E9E8}
-        .rw-card-title{font-size:15px;font-weight:900;color:#0C4044;display:flex;align-items:center;gap:12px}
-        .rw-clear-filter{background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.3);color:#DC2626;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:800;cursor:pointer}
+        .rw-summary-icon{margin-bottom:12px;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;background:rgba(12,64,68,0.06)}
+        .rw-summary-card-active .rw-summary-icon{background:rgba(255,255,255,0.14)}
+        .rw-summary-label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#53615F;font-weight:900;margin-bottom:6px}
+        .rw-summary-users{font-size:12px;color:#9F6130;font-weight:800;margin-top:auto;padding-top:6px}
+        .rw-summary-coins{font-size:28px;font-weight:900;color:#0C4044;line-height:1}
+        .rw-total-card{background:linear-gradient(135deg,#0C4044 0%,#073B3F 100%);border-radius:16px;padding:24px 28px;color:#FDFDFC;margin-bottom:22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;box-shadow:0 20px 48px rgba(7,59,63,0.22);border:1px solid rgba(204,168,129,0.25)}
+        .rw-total-label{font-size:12px;text-transform:uppercase;letter-spacing:.14em;font-weight:900;color:#CCA881}
+        .rw-total-num{font-size:40px;font-weight:900;color:#FFFFFF;letter-spacing:-0.02em}
+        .rw-card{background:#FFFFFF;border:1px solid #D1DFDE;border-radius:16px;box-shadow:0 16px 40px rgba(7,59,63,.06);overflow:hidden}
+        .rw-card-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid #E9EFEE;flex-wrap:wrap;gap:12px}
+        .rw-card-title{font-size:16px;font-weight:900;color:#0C4044;display:flex;align-items:center;gap:12px}
+        .rw-clear-filter{background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.3);color:#DC2626;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:800;cursor:pointer;transition:all .15s}
         .rw-clear-filter:hover{background:rgba(220,38,38,0.15)}
-        .rw-state{padding:56px 20px;text-align:center;color:#6E7D7B;font-size:14px;font-weight:700}
-        .rw-error{margin-bottom:18px;background:rgba(201,32,53,.08);border:1px solid rgba(201,32,53,.28);color:#C92035;border-radius:10px;padding:12px 16px;font-weight:750}
+        .rw-state{padding:60px 20px;text-align:center;color:#6E7D7B;font-size:14px;font-weight:700}
+        .rw-error{margin-bottom:20px;background:rgba(201,32,53,.08);border:1px solid rgba(201,32,53,.28);color:#C92035;border-radius:12px;padding:14px 18px;font-weight:750}
         .rw-table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
-        .rw-table{width:100%;min-width:700px;border-collapse:collapse;font-size:14px}
-        .rw-table thead tr{background:#F3F3F0;border-bottom:1px solid #D1DFDE}
-        .rw-table th{padding:14px 16px;text-align:left;color:#0C4044;font-weight:900;font-size:12px;text-transform:uppercase;letter-spacing:.08em}
-        .rw-table td{padding:14px 16px;border-bottom:1px solid #E9EFEE;color:#111817}
+        .rw-table{width:100%;min-width:780px;border-collapse:collapse;font-size:13.5px}
+        .rw-table thead tr{background:#F6F8F7;border-bottom:1.5px solid #D1DFDE}
+        .rw-table th{padding:14px 16px;text-align:left;color:#0C4044;font-weight:900;font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
+        .rw-table td{padding:14px 16px;border-bottom:1px solid #EBF1F0;color:#111817;white-space:nowrap}
+        .rw-table tbody tr:hover{background:rgba(7,59,63,0.025)}
+        .rw-sno{font-weight:850;color:#0C4044;width:48px;text-align:center}
         .rw-id{font-family:monospace;color:#9F6130;font-weight:850}
         .rw-muted{color:#6E7D7B!important}
         .rw-role{font-weight:900;color:#0C4044}
         .rw-badge{display:inline-block;background:rgba(12,64,68,.08);color:#0C4044;border:1px solid rgba(12,64,68,.2);border-radius:999px;padding:4px 12px;font-size:12px;font-weight:900}
-        @media(max-width:720px){.rw-page{padding:20px 12px}.rw-head{align-items:stretch;flex-direction:column}.rw-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}.rw-select,.rw-btn{width:100%}.rw-title{font-size:24px}}
+        .rw-reward-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:rgba(187,137,88,0.12);color:#9F6130;border:1px solid rgba(187,137,88,0.3);font-weight:850;font-size:12px}
+        @media(max-width:768px){
+          .rw-page{padding:20px 14px}
+          .rw-head{align-items:stretch;flex-direction:column;gap:14px}
+          .rw-actions{display:grid;grid-template-columns:1fr auto;width:100%}
+          .rw-select{width:100%}
+          .rw-title{font-size:25px}
+          .rw-total-card{padding:18px 20px}
+          .rw-total-num{font-size:32px}
+          .rw-summary-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+        }
+        @media(max-width:480px){
+          .rw-actions{grid-template-columns:1fr}
+          .rw-summary-grid{grid-template-columns:1fr}
+          .rw-total-card{flex-direction:column;align-items:flex-start}
+        }
       `}</style>
       <div className="rw-wrap">
         <header className="rw-head">
@@ -135,13 +164,13 @@ export default function CoinsReward() {
             <p className="rw-sub">Today's coin rewards summary{data ? ` — ${formatDate(data.date)}` : ''}</p>
           </div>
           <div className="rw-actions">
-            <select className="rw-select" value={rangeFilter} onChange={e => setRangeFilter(e.target.value)}>
-              <option value="all">All Reward</option>
-              <option value="1-10">1 - 10 Reward</option>
-              <option value="11-50">11 - 50 Reward</option>
-              <option value="51-100">51 - 100 Reward</option>
-              <option value="100+">100+ Reward</option>
-            </select>
+            <CustomDropdown
+              value={rangeFilter}
+              onChange={setRangeFilter}
+              options={REWARD_RANGE_OPTIONS}
+              className="rw-dropdown"
+              style={{ minWidth: 160 }}
+            />
             <button className="rw-btn" onClick={() => navigate(-1)}>Back</button>
           </div>
         </header>
@@ -176,11 +205,12 @@ export default function CoinsReward() {
               <div className="rw-table-wrap">
                 <table className="rw-table">
                   <thead>
-                    <tr>{['Level', 'Position', 'User ID', 'Name', 'Phone No', 'Reward', 'Date'].map(h => <th key={h}>{h}</th>)}</tr>
+                    <tr>{['S.No', 'Level', 'Position', 'User ID', 'Name', 'Phone No', 'Reward', 'Date'].map(h => <th key={h}>{h}</th>)}</tr>
                   </thead>
                   <tbody>
                     {[0, 1, 2, 3, 4, 5].map(i => (
                       <tr key={i}>
+                        <td style={{ textAlign: 'center' }}><SkeletonText width="20px" height="12px" /></td>
                         <td><SkeletonText width="30px" height="12px" /></td>
                         <td><SkeletonText width="70px" height="12px" /></td>
                         <td><SkeletonText width="90px" height="12px" /></td>
@@ -236,16 +266,19 @@ export default function CoinsReward() {
               ) : (
                 <div className="rw-table-wrap">
                   <table className="rw-table">
-                    <thead><tr>{['Level', 'Position', 'User ID', 'Name', 'Phone No', 'Reward', 'Date'].map(h => <th key={h}>{h}</th>)}</tr></thead>
+                    <thead><tr>{['S.No', 'Level', 'Position', 'User ID', 'Name', 'Phone No', 'Reward', 'Date'].map(h => <th key={h}>{h}</th>)}</tr></thead>
                     <tbody>
-                      {displayedRewards.map(r => (
+                      {displayedRewards.map((r, i) => (
                         <tr key={r.id}>
+                          <td className="rw-sno">{i + 1}</td>
                           <td className="rw-muted">{r.level || '—'}</td>
                           <td className="rw-role">{r.position || '—'}</td>
                           <td className="rw-id">{r.user_id || '—'}</td>
                           <td>{r.name || 'Unknown'}</td>
                           <td className="rw-muted">{r.phone || '—'}</td>
-                          <td>+{r.coins} {r.reward_label}</td>
+                          <td>
+                            <span className="rw-reward-pill">+{r.coins} {r.reward_label}</span>
+                          </td>
                           <td className="rw-muted">{formatDate(r.date)}</td>
                         </tr>
                       ))}

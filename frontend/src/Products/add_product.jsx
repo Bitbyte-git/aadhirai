@@ -266,13 +266,33 @@ const handleDelete = async (id) => {
         .ap-card:hover .ap-edit-btn { opacity:1 !important; transform:translateY(0) !important }
         input:focus, textarea:focus, select:focus { border-color:#0C4044 !important; box-shadow:0 0 0 4px rgba(209,223,222,.65) !important }
         .ap-display{font-family:"Cormorant Garamond",Georgia,serif;letter-spacing:0;color:#073B3F}
+        .ap-navbar { background: ${glass}; border-bottom: 1px solid ${border}; padding: 18px 32px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; box-shadow: 0 18px 42px rgba(7,59,63,0.06); }
+        .ap-tabs-wrap { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
+        .ap-actions-wrap { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .ap-body { max-width: 1500px; margin: 0 auto; padding: 34px 32px 56px; }
+        .ap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 22px; }
+        .ap-modal-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+        .ap-modal-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+        @media (max-width: 768px) {
+          .ap-navbar { padding: 14px 16px !important; }
+          .ap-body { padding: 20px 14px 40px !important; }
+          .ap-actions-wrap { width: 100%; justify-content: flex-start; }
+          .ap-actions-wrap button { flex: 1 1 auto; text-align: center; }
+        }
+        @media (max-width: 640px) {
+          .ap-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
+          .ap-modal-grid-3 { grid-template-columns: 1fr !important; }
+          .ap-modal-grid-2 { grid-template-columns: 1fr !important; }
+          .ap-tabs-wrap { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
+          .ap-tabs-wrap button { white-space: nowrap; flex-shrink: 0; }
+        }
       `}</style>
 
       {/* ── NAVBAR ── */}
-      <div style={{ background: glass, borderBottom: `1px solid ${border}`, padding: '18px 32px', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', boxShadow: '0 18px 42px rgba(7,59,63,0.06)' }}>
+      <div className="ap-navbar">
 
         {/* Category tabs */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', flex: 1 }}>
+        <div className="ap-tabs-wrap">
           {CATEGORIES.map(cat => (
             <button key={cat.key}
               onClick={() => setActiveCategory(cat.key)}
@@ -285,7 +305,7 @@ const handleDelete = async (id) => {
 
        
         {/* Right actions */}
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div className="ap-actions-wrap">
 
   {/* Add Banner button */}
   <button onClick={() => navigate('/add-banners')}
@@ -305,7 +325,7 @@ const handleDelete = async (id) => {
       </div>
 
       {/* ── PAGE BODY ── */}
-      <div style={{ maxWidth: '1500px', margin: '0 auto', padding: '34px 32px 56px' }}>
+      <div className="ap-body">
 
         
         {/* ── PRODUCT GRID HEADER ── */}
@@ -328,7 +348,7 @@ const handleDelete = async (id) => {
             <div style={{ fontSize: '13px', marginTop: '8px', opacity: 0.7 }}>Click "+ Add Product" to get started</div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '22px' }}>
+          <div className="ap-grid">
             {products.map(p => {
               const firstImg = p.images?.[0] ? getImageUrl(p.images[0]) : null
               const price    = parseFloat(p.price) || 0
@@ -441,7 +461,7 @@ const handleDelete = async (id) => {
               )}
 
               {/* category / metal / grade */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div className="ap-modal-grid-3">
                 <div>
                   <label style={lblStyle}>Category</label>
                   <select value={editForm.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))} style={{ ...inpStyle, cursor: 'pointer' }}>
@@ -477,7 +497,7 @@ const handleDelete = async (id) => {
 </div>
 
 {/* name / tag */}
-<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+<div className="ap-modal-grid-2">
   <div>
     <label style={lblStyle}>Name *</label>
                   <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} style={inpStyle} />
@@ -498,7 +518,7 @@ const handleDelete = async (id) => {
               </div>
 
               {/* weight / live price */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div className="ap-modal-grid-2">
                 <div>
                   <label style={lblStyle}>Weight (grams)</label>
                   <input type="number" step="0.0001" value={editForm.weight_grams}

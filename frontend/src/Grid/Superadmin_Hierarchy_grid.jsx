@@ -518,14 +518,21 @@ function showChainPopup(anchorEl, ancestors, current, dark, superAdminEmail) {
           <div style="font-size:9px;color:${isDark ? '#475569' : '#94a3b8'};margin-top:2px;">${totalNodes} level${totalNodes !== 1 ? 's' : ''} deep</div>
         </div>
       </div>
-      <div style="
-        font-size:9px;font-weight:800;padding:4px 11px;border-radius:20px;
-        background:linear-gradient(90deg,rgba(34,197,94,0.15),rgba(56,189,248,0.12),rgba(34,197,94,0.15));
-        background-size:200% auto;
-        animation:acpShimmer 2.5s linear infinite;
-        border:1px solid rgba(34,197,94,0.22);
-        color:${isDark ? '#4ade80' : '#16a34a'};
-        letter-spacing:1px;">● LIVE</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="
+          font-size:9px;font-weight:800;padding:4px 9px;border-radius:20px;
+          background:linear-gradient(90deg,rgba(34,197,94,0.15),rgba(56,189,248,0.12),rgba(34,197,94,0.15));
+          background-size:200% auto;
+          animation:acpShimmer 2.5s linear infinite;
+          border:1px solid rgba(34,197,94,0.22);
+          color:${isDark ? '#4ade80' : '#16a34a'};
+          letter-spacing:1px;">● LIVE</div>
+        <button class="chain-close-btn" title="Close" style="
+          background: rgba(12,64,68,0.08); border: 1px solid rgba(12,64,68,0.2);
+          width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+          cursor: pointer; color: #0C4044; font-weight: 800; font-size: 12px; line-height: 1; padding: 0;
+        ">✕</button>
+      </div>
     </div>
 
     ${itemsHtml}
@@ -540,27 +547,45 @@ function showChainPopup(anchorEl, ancestors, current, dark, superAdminEmail) {
   el.scrollTop = el.scrollHeight
   requestAnimationFrame(() => { el.style.scrollBehavior = 'smooth' })
 
-  const isMobileScreen = window.innerWidth <= 480
-  const popW = isMobileScreen ? Math.min(190, window.innerWidth - 24) : 280
+  const isMobileScreen = window.innerWidth <= 768
+  const popW = isMobileScreen ? Math.min(270, window.innerWidth - 24) : 280
   const popH = Math.min(el.scrollHeight || 460, window.innerHeight * 0.85)
 
   let left, top
   if (isMobileScreen) {
-    // ── mobile la card side-la vekkadhu, screen center-la nடுவே kondu varrom ──
     left = (window.innerWidth - popW) / 2
-    top = (window.innerHeight - popH) / 2
+    top = Math.max(16, (window.innerHeight - popH) / 2)
   } else {
     const rect = anchorEl.getBoundingClientRect()
     left = rect.right + 18
     top = rect.top + (rect.height / 2) - (popH / 2)
-    if (left + popW > window.innerWidth - 12) left = rect.left - popW - 18
+    if (left + popW > window.innerWidth - 16) {
+      left = rect.left - popW - 18
+    }
   }
+
   if (left < 12) left = 12
-  if (left + popW > window.innerWidth - 12) left = window.innerWidth - popW - 12
+  if (left + popW > window.innerWidth - 12) left = Math.max(12, window.innerWidth - popW - 12)
   if (top < 12) top = 12
-  if (top + popH > window.innerHeight - 12) top = window.innerHeight - popH - 12
+  if (top + popH > window.innerHeight - 12) top = Math.max(12, window.innerHeight - popH - 12)
+
   el.style.left = left + 'px'
   el.style.top = top + 'px'
+  el.style.width = popW + 'px'
+  el.style.boxSizing = 'border-box'
+
+  el.querySelector('.chain-close-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation()
+    removeChainPopup()
+  })
+
+  const onDocClick = (e) => {
+    if (!el.contains(e.target) && !anchorEl.contains(e.target)) {
+      removeChainPopup()
+      document.removeEventListener('pointerdown', onDocClick)
+    }
+  }
+  setTimeout(() => document.addEventListener('pointerdown', onDocClick), 50)
 
   el.addEventListener('mouseenter', () => clearTimeout(_chainHideTimer))
   el.addEventListener('mouseleave', () => scheduleHideChainPopup())

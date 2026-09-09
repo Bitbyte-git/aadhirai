@@ -101,6 +101,23 @@ export default function Contact() {
           font-weight: 700;
           font-size: 14px;
         }
+        @media (max-width: 640px) {
+          .contact-shell {
+            width: calc(100% - 24px);
+            padding: 28px 0 60px;
+          }
+          .contact-form {
+            padding: 20px 16px;
+            border-radius: 16px;
+          }
+          .contact-shell h1 {
+            font-size: 1.85rem;
+          }
+          .contact-shell p.lead {
+            font-size: 13.5px;
+            margin-bottom: 24px;
+          }
+        }
       `}</style>
 
       <div className="contact-shell">

@@ -109,9 +109,55 @@ export default function AddShop() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)', padding: '34px', fontFamily: '"Manrope","Inter",system-ui,sans-serif' }}>
-      <div style={{ maxWidth: '960px', margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '14px' }}>
+    <div className="as-container">
+      <style>{`
+        .as-container {
+          min-height: 100vh;
+          background: linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%);
+          padding: 34px 20px 60px;
+          font-family: "Manrope","Inter",system-ui,sans-serif;
+          box-sizing: border-box;
+        }
+        .as-shell { max-width: 960px; margin: 0 auto; }
+        .as-card {
+          background: #FDFDFC; border: 1px solid ${border};
+          border-radius: 22px; padding: 34px 38px;
+          box-shadow: 0 22px 58px rgba(7,59,63,0.08);
+        }
+        .as-section-card {
+          background: #FDFDFC; border: 1px solid rgba(189,207,206,0.55);
+          border-radius: 16px; padding: 22px 24px; margin-bottom: 20px;
+        }
+        .as-grid-3 {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+        }
+        .as-span-3 { grid-column: span 3; }
+        .as-submit-btn {
+          padding: 12px 28px;
+          background: linear-gradient(90deg,#BDCFCE,#0C4044);
+          border: none; border-radius: 12px;
+          font-weight: 800; color: #FDFDFC;
+          font-size: 14px; cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        @media (max-width: 768px) {
+          .as-container { padding: 18px 12px 60px !important; }
+          .as-card { padding: 18px 14px !important; border-radius: 16px !important; }
+          .as-section-card { padding: 16px 12px !important; border-radius: 14px !important; }
+          .as-grid-3 { grid-template-columns: 1fr !important; gap: 14px !important; }
+          .as-span-3 { grid-column: span 1 !important; }
+          .as-header-wrap { flex-direction: column; align-items: flex-start !important; gap: 14px; }
+          .as-header-actions { width: 100%; display: flex; gap: 10px; }
+          .as-header-actions button, .as-header-actions .bb-copy-shop-url-btn { flex: 1; text-align: center; justify-content: center; }
+          .as-submit-btn { width: 100% !important; padding: 14px 20px !important; }
+        }
+      `}</style>
+
+      <div className="as-shell">
+        <div className="as-header-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <img src={logo} alt="Luxiva" style={{ width: 44, height: 44, objectFit: 'contain' }} />
             <div>
@@ -123,8 +169,8 @@ export default function AddShop() {
               </div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
-                        {isLoggedInSuperAdmin && <CopyShopUrlButton />}
+          <div className="as-header-actions" style={{ display: 'flex', gap: '10px' }}>
+            {isLoggedInSuperAdmin && <CopyShopUrlButton />}
             {isLoggedInSuperAdmin && (
               <button onClick={() => navigate(-1)} style={{ padding: '10px 20px', background: '#FFFFFF', border: `1px solid ${border}`, borderRadius: '10px', color: subtext, fontSize: '13px', cursor: 'pointer' }}>Back</button>
             )}
@@ -137,12 +183,12 @@ export default function AddShop() {
           </div>
         )}
 
-        <div style={s.card}>
+        <div className="as-card">
           <form onSubmit={handleSubmit}>
 
-            <div style={s.sectionCard}>
+            <div className="as-section-card">
               <SectionHeader icon="shop" label="Shop Info" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+              <div className="as-grid-3">
                 <div><label style={s.lbl}>Shop Name *</label><input name="shop_name" value={form.shop_name} onChange={handleChange} required style={s.inp} /></div>
                 <div><label style={s.lbl}>Owner Name *</label><input name="owner_name" value={form.owner_name} onChange={handleChange} required style={s.inp} /></div>
                 <div>
@@ -162,9 +208,9 @@ export default function AddShop() {
               </div>
             </div>
 
-            <div style={s.sectionCard}>
+            <div className="as-section-card">
               <SectionHeader icon="lock" label="Contact & Account" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+              <div className="as-grid-3">
                 <div><label style={s.lbl}>Mobile Number *</label><input name="mobile_number" maxLength={10} value={form.mobile_number} onChange={handleChange} required style={s.inp} /></div>
                 <div><label style={s.lbl}>WhatsApp Number</label><input name="whatsapp_number" maxLength={10} value={form.whatsapp_number} onChange={handleChange} style={s.inp} /></div>
                 <div><label style={s.lbl}>Email ID *</label><input type="email" name="email" value={form.email} onChange={handleChange} required style={s.inp} /></div>
@@ -177,10 +223,10 @@ export default function AddShop() {
               </div>
             </div>
 
-            <div style={s.sectionCard}>
+            <div className="as-section-card">
               <SectionHeader icon="pin" label="Shop Address" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-                <div style={{ gridColumn: 'span 3' }}><label style={s.lbl}>Shop Address *</label><input name="shop_address" value={form.shop_address} onChange={handleChange} required style={s.inp} /></div>
+              <div className="as-grid-3">
+                <div className="as-span-3"><label style={s.lbl}>Shop Address *</label><input name="shop_address" value={form.shop_address} onChange={handleChange} required style={s.inp} /></div>
                 <div>
                   <label style={s.lbl}>Pincode *</label>
                   <input name="pincode" value={form.pincode} onChange={handlePincodeChange} required maxLength={6} inputMode="numeric" style={s.inp} />
@@ -193,9 +239,9 @@ export default function AddShop() {
               </div>
             </div>
 
-            <div style={s.sectionCard}>
+            <div className="as-section-card">
               <SectionHeader icon="briefcase" label="Identity (Optional)" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+              <div className="as-grid-3">
                 <div><label style={s.lbl}>PAN</label><input name="pan_no" maxLength={10} value={form.pan_no} onChange={handleChange} style={s.inp} /></div>
                 <div><label style={s.lbl}>GST</label><input name="gst_no" maxLength={15} value={form.gst_no} onChange={handleChange} style={s.inp} /></div>
                 <div><label style={s.lbl}>MSME</label><input name="msme_no" maxLength={25} value={form.msme_no} onChange={handleChange} style={s.inp} /></div>
@@ -203,7 +249,7 @@ export default function AddShop() {
             </div>
 
             <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
-              <button type="submit" disabled={saving} style={{ padding: '12px 28px', background: saving ? 'rgba(12,64,68,0.4)' : 'linear-gradient(90deg,#BDCFCE,#0C4044)', border: 'none', borderRadius: '12px', fontWeight: 800, color: '#FDFDFC', fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer' }}>
+              <button type="submit" disabled={saving} className="as-submit-btn" style={{ opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
                 {saving ? 'Creating...' : 'Create Shop'}
               </button>
             </div>

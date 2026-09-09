@@ -16,7 +16,27 @@ export default function SuperStockist() {
   const [totalCount, setTotalCount] = useState(0)
   const [actionOpen, setActionOpen] = useState(null)
   const [copiedId, setCopiedId] = useState(null)
+  const [copiedUrlId, setCopiedUrlId] = useState(null)
+  const [copyingUrl, setCopyingUrl] = useState(null)
   const [selectedDetail, setSelectedDetail] = useState(null)
+
+  const handleCopyUrl = async (person, publicId) => {
+    setCopyingUrl(person.id)
+    try {
+      const res = await api.post('/generate-referral-link/', {
+        user_id: person.user_id,
+        public_id: publicId,
+      })
+      const url = `${window.location.origin}/register?ref=${res.data.token}`
+      await navigator.clipboard.writeText(url)
+      setCopiedUrlId(person.id)
+      setTimeout(() => setCopiedUrlId(null), 2000)
+    } catch (err) {
+      alert('Failed to generate referral URL')
+    } finally {
+      setCopyingUrl(null)
+    }
+  }
 
   const fetchAdmins = async (signal, currentOffset, searchTerm, append, retryCount = 0) => {
     if (append) setLoadingMore(true)
@@ -80,44 +100,53 @@ export default function SuperStockist() {
         .ss-action-menu button{width:100%;min-height:40px;padding:0 11px;border:0;border-radius:9px;background:transparent;color:#173230;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;font-size:12px;font-weight:750;cursor:pointer}
         .ss-action-menu button:hover{color:#073B3F;background:#EDF3F1}
         .ss-action-menu button span:last-child{color:#A2764C}
+        .mu-page { min-height: 100vh; background: linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%); padding: 28px 34px; box-sizing: border-box; width: 100%; max-width: 100vw; overflow-x: hidden; }
+        .mu-card { background: rgba(253,253,252,0.97); border: 1px solid rgba(189,207,206,0.78); border-radius: 22px; padding: 34px 38px; box-shadow: 0 22px 58px rgba(7,59,63,0.08); box-sizing: border-box; width: 100%; max-width: 100%; }
+        .mu-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 14px; }
+        .mu-actions { display: flex; gap: 10px; align-items: center; flex: 1; justify-content: flex-end; min-width: 0; }
+        .mu-input { height: 42px; width: 280px; max-width: 100%; border: 1px solid rgba(189,207,206,0.78); border-radius: 10px; padding: 0 14px; font-size: 13px; outline: none; box-sizing: border-box; }
+        .mu-back { height: 42px; padding: 0 16px; border-radius: 10px; border: 1px solid rgba(189,207,206,0.78); background: #FFFFFF; color: #0C4044; font-weight: 800; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+        .mu-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+        .mu-table { width: 100%; border-collapse: collapse; font-size: 14.5px; min-width: 780px; }
+        @media (max-width: 768px) {
+          .mu-page { padding: 16px 12px !important; }
+          .mu-card { padding: 20px 14px !important; border-radius: 16px !important; }
+          .mu-head { flex-direction: column; align-items: stretch !important; gap: 12px !important; }
+          .mu-actions { width: 100% !important; justify-content: stretch !important; }
+          .mu-input { width: 100% !important; flex: 1 !important; min-width: 0 !important; }
+        }
       `}</style>
-      <div style={{
-        background: 'rgba(253,253,252,0.97)', border: `1px solid ${border}`, borderRadius: '22px',
-        padding: '34px 38px', boxShadow: '0 22px 58px rgba(7,59,63,0.08)',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '14px' }}>
-                    <p style={{ color: '#0C4044', fontSize: '13px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>
+      <div className="mu-card">
+        <div className="mu-head">
+          <p style={{ color: '#0C4044', fontSize: '13px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>
             SUPER STOCKIST ({totalCount})
           </p>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div className="mu-actions">
             <input
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
               placeholder="Search by ID, email, phone..."
-              style={{
-                height: '42px', minWidth: '280px', border: `1px solid ${border}`, borderRadius: '10px',
-                padding: '0 14px', color: text, fontSize: '13px', outline: 'none',
-              }}
+              className="mu-input"
+              style={{ color: text }}
             />
-            <button type="button" onClick={() => navigate('/super-admin')}
-              style={{ height: '42px', padding: '0 16px', borderRadius: '10px', border: `1px solid ${border}`, background: '#FFFFFF', color: '#0C4044', fontWeight: 800, cursor: 'pointer' }}>
+            <button type="button" onClick={() => navigate('/super-admin')} className="mu-back">
               ← Back
             </button>
           </div>
         </div>
 
         {loading ? (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
+          <div className="mu-table-wrap">
+            <table className="mu-table">
               <thead>
                 <tr style={{ borderBottom: '1.5px solid rgba(12,64,68,0.22)' }}>
-                                    {['S.No', 'First Name', 'Last Name', 'Email', 'Mobile', 'ID', 'City', 'Actions'].map(h => (
+                  {['S.No', 'First Name', 'Last Name', 'Email', 'Mobile', 'ID', 'City', 'Actions'].map(h => (
                     <th key={h} style={{ padding: '14px 16px', textAlign: 'left', color: '#0C4044', fontSize: '13px', fontWeight: 900, whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                                {Array.from({ length: 8 }).map((_, i) => (
+                {Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid rgba(12,64,68,0.16)' }}>
                     {Array.from({ length: 8 }).map((_, j) => (
                       <td key={j} style={{ padding: '14px 16px' }}>
@@ -133,22 +162,22 @@ export default function SuperStockist() {
               </tbody>
             </table>
           </div>
-                ) : admins.length === 0 ? (
+        ) : admins.length === 0 ? (
           <p style={{ color: subtext, textAlign: 'center', padding: '60px 0', fontSize: '15px' }}>
             {search ? `No results for "${search}"` : 'No Super Stockist yet!'}
           </p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
+          <div className="mu-table-wrap">
+            <table className="mu-table">
               <thead>
                 <tr style={{ borderBottom: '1.5px solid rgba(12,64,68,0.22)' }}>
-                  {['First Name', 'Last Name', 'Email', 'Mobile', 'ID', 'City', 'Actions'].map(h => (
+                  {['S.No', 'First Name', 'Last Name', 'Email', 'Mobile', 'ID', 'City', 'Actions'].map(h => (
                     <th key={h} style={{ padding: '14px 16px', textAlign: 'left', color: '#0C4044', fontSize: '13px', fontWeight: 900, whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                                {admins.map((a, i) => (
+                {admins.map((a, i) => (
                   <tr key={a.id || a.admin_id} style={{ borderBottom: '1px solid rgba(12,64,68,0.16)' }}>
                     <td style={{ padding: '14px 16px', color: subtext, fontWeight: 700 }}>{i + 1}</td>
                     <td style={{ padding: '14px 16px', color: text, fontWeight: 700 }}>{a.first_name}</td>
@@ -170,6 +199,10 @@ export default function SuperStockist() {
                           </button>
                           <button type="button" onClick={() => navigate(`/superadmin-hierarchy-grid?role=admin&id=${a.id}`)}>
                             <span>View hierarchy</span><span>↗</span>
+                          </button>
+                          <button type="button" onClick={() => handleCopyUrl(a, a.admin_id)}>
+                            <span>{copiedUrlId === a.id ? 'URL copied' : copyingUrl === a.id ? 'Copying…' : 'Copy URL'}</span>
+                            <span>{copiedUrlId === a.id ? '✓' : '🔗'}</span>
                           </button>
                           <button type="button" onClick={async () => {
                             await navigator.clipboard.writeText(a.admin_id || '')

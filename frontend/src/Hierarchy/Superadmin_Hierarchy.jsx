@@ -473,14 +473,21 @@ function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, super
           <div style="font-size:9px;color:${isDark ? '#475569' : '#94a3b8'};margin-top:2px;">${totalNodes} level${totalNodes !== 1 ? 's' : ''} deep</div>
         </div>
       </div>
-      <div style="
-        font-size:9px;font-weight:800;padding:4px 11px;border-radius:20px;
-        background:linear-gradient(90deg,rgba(34,197,94,0.15),rgba(56,189,248,0.12),rgba(34,197,94,0.15));
-        background-size:200% auto;
-        animation:acpShimmer 2.5s linear infinite;
-        border:1px solid rgba(34,197,94,0.22);
-        color:${isDark ? '#4ade80' : '#16a34a'};
-        letter-spacing:1px;">● LIVE</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="
+          font-size:9px;font-weight:800;padding:4px 9px;border-radius:20px;
+          background:linear-gradient(90deg,rgba(34,197,94,0.15),rgba(56,189,248,0.12),rgba(34,197,94,0.15));
+          background-size:200% auto;
+          animation:acpShimmer 2.5s linear infinite;
+          border:1px solid rgba(34,197,94,0.22);
+          color:${isDark ? '#4ade80' : '#16a34a'};
+          letter-spacing:1px;">● LIVE</div>
+        <button class="chain-close-btn" title="Close" style="
+          background: rgba(12,64,68,0.08); border: 1px solid rgba(12,64,68,0.2);
+          width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+          cursor: pointer; color: #0C4044; font-weight: 800; font-size: 12px; line-height: 1; padding: 0;
+        ">✕</button>
+      </div>
     </div>
 
     ${itemsHtml}
@@ -495,16 +502,45 @@ function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, super
   el.scrollTop = el.scrollHeight
   requestAnimationFrame(() => { el.style.scrollBehavior = 'smooth' })
 
-  const rect = anchorEl.getBoundingClientRect()
-  const popW = 280
+  const isMobile = window.innerWidth <= 768
+  const popW = isMobile ? Math.min(270, window.innerWidth - 24) : 280
   const popH = Math.min(el.scrollHeight || 460, window.innerHeight * 0.85)
-  let left = rect.right + 18
-  let top = rect.top + (rect.height / 2) - (popH / 2)
-  if (left + popW > window.innerWidth - 12) left = rect.left - popW - 18
+
+  let left, top
+  if (isMobile) {
+    left = (window.innerWidth - popW) / 2
+    top = Math.max(16, (window.innerHeight - popH) / 2)
+  } else {
+    const rect = anchorEl.getBoundingClientRect()
+    left = rect.right + 18
+    top = rect.top + (rect.height / 2) - (popH / 2)
+    if (left + popW > window.innerWidth - 16) {
+      left = rect.left - popW - 18
+    }
+  }
+
+  if (left < 12) left = 12
+  if (left + popW > window.innerWidth - 12) left = Math.max(12, window.innerWidth - popW - 12)
   if (top < 12) top = 12
-  if (top + popH > window.innerHeight - 12) top = window.innerHeight - popH - 12
+  if (top + popH > window.innerHeight - 12) top = Math.max(12, window.innerHeight - popH - 12)
+
   el.style.left = left + 'px'
   el.style.top = top + 'px'
+  el.style.width = popW + 'px'
+  el.style.boxSizing = 'border-box'
+
+  el.querySelector('.chain-close-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation()
+    removeChainPopup()
+  })
+
+  const onDocClick = (e) => {
+    if (!el.contains(e.target) && !anchorEl.contains(e.target)) {
+      removeChainPopup()
+      document.removeEventListener('pointerdown', onDocClick)
+    }
+  }
+  setTimeout(() => document.addEventListener('pointerdown', onDocClick), 50)
 
   el.addEventListener('mouseenter', () => clearTimeout(_chainHideTimer))
   el.addEventListener('mouseleave', () => scheduleHideChainPopup())
@@ -805,9 +841,22 @@ useLayoutEffect(() => {
   const statPills = []
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FFFFFF', color: text, fontFamily: '"Inter",system-ui,sans-serif', padding: '28px 32px' }}>
+    <div className="sh-page-wrap">
       <style>{`
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+        .sh-page-wrap{ min-height:100vh; background:#FFFFFF; color:${text}; fontFamily:"Inter",system-ui,sans-serif; padding:28px 32px; box-sizing:border-box; }
+        .sh-topbar{ display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:16px; }
+        .sh-controls{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+        .sh-search-wrap{ position:relative; width:240px; }
+        .sh-search-input{ width:100%; background:${inpBg}; border:1px solid ${inpBorder}; border-radius:10px; padding:9px 14px 9px 34px; color:${text}; font-size:13px; outline:none; box-sizing:border-box; }
+        .sh-zoom-wrap{ display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.94); border:1px solid rgba(12,64,68,0.16); border-radius:14px; padding:6px; box-shadow:0 12px 28px rgba(7,59,63,0.12); }
+        .sh-canvas{ background:#FFFFFF; border:1.5px solid ${border}; border-radius:20px; padding:28px 0; overflow:hidden; min-height:100vh; position:relative; box-shadow:0 18px 42px rgba(7,59,63,0.08); }
+        .sh-superadmin-col{ position:absolute; top:0; left:0; bottom:0; width:200px; z-index:40; background:#FFFFFF; display:flex; flexDirection:column; align-items:center; padding-top:20px; }
+        .sh-superadmin-line{ width:2px; flex:1; background:${ROLE_CFG.super_admin.color}; margin-top:6px; }
+        .sh-level-labels{ position:absolute; left:0; top:0; width:200px; height:100%; z-index:45; pointer-events:none; }
+        .sh-svg-bridge{ position:absolute; top:0; left:0; width:100%; height:100%; z-index:44; pointer-events:none; }
+        .sh-tree-scroll{ overflow-x:auto; overflow-y:hidden; padding:20px 32px 20px 220px; -webkit-overflow-scrolling:touch; }
 
         .otree-node-wrap{display:flex;flex-direction:column;align-items:center;}
         .otree-card{
@@ -835,7 +884,7 @@ useLayoutEffect(() => {
         .otree-item:first-child::before, .otree-item:last-child::after{ border:0 none; }
         .otree-item:last-child::before{ border-right:2px solid var(--lc); border-radius:0 20px 0 0; }
         .otree-item:first-child::after{ border-radius:20px 0 0 0; }
-         .otree-children-root::before{ display:none; }
+        .otree-children-root::before{ display:none; }
         .otree-children-root > .otree-item::before,
         .otree-children-root > .otree-item::after{ display:none; }
         .hierarchy-zoom-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;min-width:34px;padding:0 10px;border-radius:10px;border:1px solid rgba(12,64,68,.24);background:rgba(255,255,255,.92);color:#0C4044;font-size:12px;font-weight:900;cursor:pointer;transition:all .2s ease;box-shadow:0 8px 18px rgba(7,59,63,.08);}
@@ -843,23 +892,43 @@ useLayoutEffect(() => {
         .hierarchy-zoom-btn:disabled{opacity:.42;cursor:not-allowed;transform:none;}
         .hierarchy-zoom-chip{height:34px;min-width:62px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;background:#0C4044;border:1px solid rgba(12,64,68,.24);color:#FFFFFF;font-size:12px;font-weight:900;}
         .hierarchy-floating-zoom{position:absolute;top:16px;right:18px;z-index:80;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.94);border:1px solid rgba(12,64,68,.16);border-radius:16px;padding:8px;box-shadow:0 18px 40px rgba(7,59,63,.14);backdrop-filter:blur(14px);}
+
+        /* Responsive Mobile & Tablet Rules */
+        @media (max-width: 860px) {
+          .sh-page-wrap { padding: 14px 10px 50px !important; }
+          .sh-topbar { flex-direction: column; align-items: stretch; gap: 14px; margin-bottom: 16px; }
+          .sh-controls { width: 100%; flex-direction: column; align-items: stretch; gap: 10px; }
+          .sh-search-wrap { width: 100% !important; }
+          .sh-zoom-wrap { display: flex; justify-content: space-between; width: 100% !important; box-sizing: border-box; }
+          .sh-canvas { border-radius: 14px; padding: 14px 0; min-height: auto; }
+          .sh-superadmin-col {
+            position: static !important;
+            width: 100% !important;
+            padding: 10px 10px 14px !important;
+            border-bottom: 1.5px dashed rgba(12,64,68,0.15);
+          }
+          .sh-superadmin-line { display: none !important; }
+          .sh-level-labels { display: none !important; }
+          .sh-svg-bridge { display: none !important; }
+          .sh-tree-scroll { padding: 16px 8px !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+          .hierarchy-zoom-chip { min-width: 48px; }
+        }
       `}</style>
 
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+      <div className="sh-topbar">
         <div>
-          
-<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-  <button
-    onClick={() => navigate('/superadmin-hierarchy-grid')}
-    title="Switch to Grid View"
-    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
-  >
-    <IconSwitchView color="#0C4044" />
-  </button>
-  <span style={{ color: '#0C4044', fontSize: '16px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-    Full Organization Hierarchy
-  </span>
-</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button
+              onClick={() => navigate('/superadmin-hierarchy-grid')}
+              title="Switch to Grid View"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+            >
+              <IconSwitchView color="#0C4044" />
+            </button>
+            <span style={{ color: '#0C4044', fontSize: '16px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Full Organization Hierarchy
+            </span>
+          </div>
           {totalStats && (
             <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: `${ROLE_CFG.super_admin.color}22`, border: `1px solid ${ROLE_CFG.super_admin.color}55`, borderRadius: '20px', padding: '4px 14px' }}>
@@ -880,46 +949,47 @@ useLayoutEffect(() => {
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <div style={{ position: 'relative' }}>
+        <div className="sh-controls">
+          <div className="sh-search-wrap">
             <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
               <IconSearch color={subtext} />
             </span>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search ID, Name, Phone..."
-              style={{ width: '240px', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '10px', padding: '9px 14px 9px 34px', color: text, fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+              className="sh-search-input" />
             {search && (
               <button onClick={() => setSearch('')} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: subtext, cursor: 'pointer' }}>
                 <IconX color={subtext} />
               </button>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.94)', border: '1px solid rgba(12,64,68,0.16)', borderRadius: 14, padding: 6, boxShadow: '0 12px 28px rgba(7,59,63,0.12)' }}>
-            <button className="hierarchy-zoom-btn" onClick={zoomOut} disabled={treeZoom <= 0.4} title="Zoom out"><IconMinus color="currentColor" /></button>
-            <span className="hierarchy-zoom-chip">{zoomPercent}%</span>
-            <button className="hierarchy-zoom-btn" onClick={zoomIn} disabled={treeZoom >= 1.4} title="Zoom in"><IconPlus color="currentColor" /></button>
-            <button className="hierarchy-zoom-btn" onClick={fitHierarchy} title="Fit more hierarchy on screen"><IconFit color="currentColor" /> Fit</button>
-            <button className="hierarchy-zoom-btn" onClick={resetZoom} title="Reset hierarchy zoom">Reset</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+            <div className="sh-zoom-wrap" style={{ flex: '1 1 auto' }}>
+              <button className="hierarchy-zoom-btn" onClick={zoomOut} disabled={treeZoom <= 0.4} title="Zoom out"><IconMinus color="currentColor" /></button>
+              <span className="hierarchy-zoom-chip">{zoomPercent}%</span>
+              <button className="hierarchy-zoom-btn" onClick={zoomIn} disabled={treeZoom >= 1.4} title="Zoom in"><IconPlus color="currentColor" /></button>
+              <button className="hierarchy-zoom-btn" onClick={fitHierarchy} title="Fit more hierarchy on screen"><IconFit color="currentColor" /> Fit</button>
+              <button className="hierarchy-zoom-btn" onClick={resetZoom} title="Reset hierarchy zoom">Reset</button>
+            </div>
+            <button onClick={() => navigate('/super-admin')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(220,38,38,0.35)', color: '#DC2626', borderRadius: '10px', padding: '9px 16px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, flexShrink: 0 }}>
+              <IconBack color="#DC2626" /> Back
+            </button>
           </div>
-          <button onClick={() => navigate('/super-admin')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(220,38,38,0.35)', color: '#DC2626', borderRadius: '10px', padding: '9px 16px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
-  <IconBack color="#DC2626" /> Back
-</button>
         </div>
       </div>
 
-     <div ref={treeWrapperRef} style={{ background: '#FFFFFF', border: `1.5px solid ${border}`, borderRadius: '20px', padding: '28px 0', overflow: 'hidden', minHeight: '100vh', position: 'relative', boxShadow: '0 18px 42px rgba(7,59,63,0.08)' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 200, zIndex: 40, background: '#FFFFFF', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 20 }}>
-                    <div className="otree-card" data-role="super_admin" style={{ '--nc': ROLE_CFG.super_admin.color, minWidth: 150, cursor: 'default' }}>
-
+     <div ref={treeWrapperRef} className="sh-canvas">
+        <div className="sh-superadmin-col">
+          <div className="otree-card" data-role="super_admin" style={{ '--nc': ROLE_CFG.super_admin.color, minWidth: 150, cursor: 'default' }}>
             <div className="otree-badge" style={{ '--nc': ROLE_CFG.super_admin.color }}>
               <IconShield color={ROLE_CFG.super_admin.color} size={11} /> SUPER ADMIN
             </div>
             <div className="otree-name" style={{ color: text, fontSize: '12px', wordBreak: 'break-all' }}>{superAdminEmail}</div>
           </div>
-          <div style={{ width: 2, flex: 1, background: ROLE_CFG.super_admin.color, marginTop: 6 }} />
+          <div className="sh-superadmin-line" />
         </div>
 
         {!loading && hierarchyData && !filter && !debouncedSearch && (
-  <div style={{ position: 'absolute', left: 0, top: 0, width: 200, height: '100%', zIndex: 45, pointerEvents: 'none' }}>
+  <div className="sh-level-labels">
     {[
       { role: 'admin', label: 'Level 1' },
       { role: 'dealer', label: 'Level 2' },
@@ -951,7 +1021,7 @@ useLayoutEffect(() => {
   const bridgeStartX = superAdminAnchor.x
   const farthestX = Math.max(...adminAnchors.map(a => a.x))
   return (
-    <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 44, pointerEvents: 'none' }}>
+    <svg className="sh-svg-bridge" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 44, pointerEvents: 'none' }}>
       <line x1={bridgeStartX} y1={bridgeY} x2={Math.max(farthestX, bridgeStartX)} y2={bridgeY} stroke={ROLE_CFG.admin.color} strokeWidth="2" />
       {adminAnchors.map((a, i) => (
         <line key={i} x1={a.x} y1={bridgeY} x2={a.x} y2={a.top} stroke={ROLE_CFG.admin.color} strokeWidth="2" />
@@ -963,7 +1033,7 @@ useLayoutEffect(() => {
 
 
         {loading && (
-          <div style={{ display: 'flex', gap: '16px', padding: '20px 32px 20px 220px', flexWrap: 'wrap' }}>
+          <div className="sh-tree-scroll" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
             <SkeletonCard color={ROLE_CFG.admin.color} />
             <SkeletonCard color={ROLE_CFG.admin.color} />
             <SkeletonCard color={ROLE_CFG.admin.color} />
@@ -977,7 +1047,7 @@ useLayoutEffect(() => {
               return <div style={{ color: subtext, padding: '60px', textAlign: 'center', fontSize: '15px' }}>No results found for "{debouncedSearch}"</div>
             }
             return (
-              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', justifyContent: 'center', padding: '0 32px' }}>
+              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center', padding: '0 16px' }}>
                 {filteredResults.map((item, idx) => (
                   <TreeNode key={item.node.id || idx} node={item.node} role={item.role} dark={dark} text={text} subtext={subtext} ancestors={item.ancestors} superAdminEmail={superAdminEmail} flatMode={true} onPrint={openPrintPopup} />
                 ))}
@@ -986,14 +1056,14 @@ useLayoutEffect(() => {
           })() : filter ? (() => {
             const flatList = flattenByRole(filter)
             return (
-              <div style={{ padding: '0 32px' }}>
+              <div style={{ padding: '0 16px' }}>
                 <button onClick={() => setFilter(null)} style={{ marginBottom: '20px', padding: '8px 18px', background: `${ROLE_CFG[filter].color}22`, border: `1px solid ${ROLE_CFG[filter].color}55`, borderRadius: '10px', color: ROLE_CFG[filter].color, fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
                   ← Back to full tree
                 </button>
                 {flatList.length === 0 ? (
                   <div style={{ color: subtext, padding: '60px', textAlign: 'center', fontSize: '15px' }}>No {filter.replace('_', ' ')} found.</div>
                 ) : (
-                  <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
                     {flatList.map((item, idx) => (
                       <TreeNode key={item.node.id || idx} node={item.node} role={filter} dark={dark} text={text} subtext={subtext} ancestors={item.ancestors} superAdminEmail={superAdminEmail} flatMode={true} onPrint={openPrintPopup} />
                     ))}
@@ -1004,8 +1074,8 @@ useLayoutEffect(() => {
           })() : hierarchyData.admins.length === 0 ? (
             <div style={{ color: subtext, padding: '60px', textAlign: 'center', fontSize: '15px' }}>No admins created yet.</div>
           ) : (
-            // ── FULL TREE — super admin sticks to the left while you scroll right ──
-                        <div ref={scrollAreaRef} style={{ overflowX: 'auto', overflowY: 'hidden', padding: '20px 32px 20px 220px' }}>
+            // ── FULL TREE — super admin sticks to the left while you scroll right on desktop, stacks on mobile ──
+            <div ref={scrollAreaRef} className="sh-tree-scroll">
 <div className="otree-children otree-children-root" style={{ '--lc': ROLE_CFG.admin.color, minWidth: 'max-content', transform: `scale(${treeZoom})`, transformOrigin: 'top left', width: `${100 / treeZoom}%` }}>
 
 

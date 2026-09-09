@@ -1,9 +1,10 @@
-﻿import { useState, useEffect, useMemo, startTransition, useRef } from 'react'
+import { useState, useEffect, useMemo, startTransition, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../api'
 import logo from '../assets/logo.png'
 import * as XLSX from 'xlsx'
 import { SkeletonCard } from '../components/Skeleton'
+import CustomDropdown from '../components/CustomDropdown'
 
 // â”€â”€ Role display config â”€â”€
 const ROLE_ICONS = {
@@ -930,13 +931,13 @@ export default function Report() {
   return (
     <div className="sales-report-page" style={{ minHeight: '100vh', width: '100%', maxWidth: '100vw', background: bg, color: text, fontFamily: '"Manrope", "Segoe UI", system-ui, sans-serif', boxSizing: 'border-box' }}>
       <style>{`
-                        html,body{overflow-x:hidden!important;max-width:100vw!important;}
-                .sales-report-page{position:relative;overflow-x:clip;width:100%;max-width:100vw;}
-                .sales-report-page *{min-width:0;}
-                .sr-lane-track{min-width:0!important;max-width:100%!important;}
+        html,body{overflow-x:hidden!important;max-width:100vw!important;}
+        .sales-report-page{position:relative;overflow-x:hidden;width:100%;max-width:100vw;box-sizing:border-box;}
+        .sales-report-page *{min-width:0;box-sizing:border-box;}
+        .sr-lane-track{min-width:0!important;max-width:100%!important;}
         .sales-report-page::before{content:"";position:fixed;inset:0;background:radial-gradient(circle at 8% 0%,rgba(230,241,239,.95),transparent 34%),radial-gradient(circle at 92% 8%,rgba(201,154,58,.10),transparent 26%);pointer-events:none;z-index:0;}
         .sales-report-page > *{position:relative;z-index:1;}
-.report-topbar{position:relative;background:transparent !important;border-bottom:none !important;box-shadow:none !important;}
+        .report-topbar{position:relative;background:transparent !important;border-bottom:none !important;box-shadow:none !important;}
         .report-brand-title{background:linear-gradient(90deg,#D71920,#F05C63,#C99A3A);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
         .report-control,.report-action{min-height:44px !important;border-radius:14px !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.95),0 12px 24px rgba(14,90,87,.08) !important;}
         .print-card{position:relative;overflow:hidden;background:linear-gradient(145deg,#FFFFFF 0%,#FFFCF8 56%,#F2FAF8 100%) !important;border:1px solid rgba(14,90,87,.15) !important;border-radius:22px !important;box-shadow:0 24px 58px rgba(14,90,87,.12),inset 0 1px 0 rgba(255,255,255,.98) !important;}
@@ -973,11 +974,8 @@ export default function Report() {
           }
           .print-table-wrap { overflow: visible !important; width: 100% !important; }
           td:last-child, th:last-child { text-align: right !important; }
-                   @page { size: landscape; margin: 8mm; }
+          @page { size: landscape; margin: 8mm; }
 
-          /* NEW: print-only layout fixes — screen layout (sidebar flex,
-          horizontal scroll lanes) print page width ku match aagாthu,
-          adhनाले print mode ku separate override venum */
           .sr-main-container { flex-direction: column !important; }
           .sr-sidebar { width: 100% !important; position: static !important; }
 
@@ -997,18 +995,25 @@ export default function Report() {
         }
         @media(max-width:900px){
           .sr-main-container{flex-direction:column!important}
-          .sr-sidebar{width:100%!important;position:static!important}
-          .print-container{padding:20px 20px!important}
-          .report-topbar{padding:20px 20px 0!important}
+          .sr-sidebar{width:100%!important;position:static!important;display:grid!important;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))!important;gap:16px!important}
+          .print-container{padding:20px 16px!important}
+          .report-topbar{padding:20px 16px 0!important}
         }
-                @media(max-width:640px){
+        @media(max-width:640px){
           .sr-topbar{flex-direction:column;align-items:stretch!important}
-          .sr-topbar > div{flex-direction:column;align-items:stretch!important;width:100%}
           .sr-search-input{min-width:0!important;width:100%!important}
           .report-control{width:100%!important}
-          .print-container{padding:16px 14px!important}
-          .report-topbar{padding:16px 14px 0!important}
+          .print-container{padding:16px 12px!important}
+          .report-topbar{padding:16px 12px 0!important}
+          .print-card{padding:18px 14px!important;border-radius:16px!important}
+          .sr-actions-wrap{display:grid!important;grid-template-columns:1fr 1fr;width:100%;gap:8px!important}
+          .sr-actions-wrap > select, .sr-actions-wrap > div, .sr-actions-wrap > .bb-custom-dropdown{grid-column:1 / -1; width:100%!important;}
+          .sr-actions-wrap > button:last-child{grid-column:1 / -1}
+          .sr-kpi-grid{grid-template-columns:1fr!important;gap:10px!important}
+          .report-kpi-value{font-size:22px!important}
+          .sr-sidebar{grid-template-columns:1fr!important}
         }
+        .sr-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px}
         .sr-lane-track{
           -webkit-overflow-scrolling:touch!important;
           touch-action:pan-x!important;
@@ -1047,19 +1052,23 @@ export default function Report() {
         </div>
 
         {/* Drill-down dropdowns + export buttons */}
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <select
+        <div className="sr-actions-wrap" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <CustomDropdown
             value={selectedLevel}
-            onChange={e => {
-              const val = e.target.value
-              startTransition(() => setSelectedLevel(val))
+            onChange={val => startTransition(() => setSelectedLevel(val))}
+            options={availableLevels.map(lvl => ({ value: lvl, label: LEVEL_LABELS[lvl] }))}
+            className="report-control sr-level-dropdown"
+            buttonStyle={{
+              height: '42px',
+              background: cardBg,
+              color: text,
+              border: `1.5px solid ${border}`,
+              borderRadius: '12px',
+              fontSize: '13px',
+              fontWeight: 700,
             }}
-            className="report-control" style={{ background: cardBg, color: text, border: `1px solid ${border}`, borderRadius: '10px', padding: '8px 12px', fontSize: '13px', transition: 'border-color 0.15s ease', willChange: 'contents' }}
-          >
-            {availableLevels.map(lvl => (
-              <option key={lvl} value={lvl} style={{ background: '#FFFCF8' }}>{LEVEL_LABELS[lvl]}</option>
-            ))}
-          </select>
+            style={{ minWidth: '180px' }}
+          />
 
           {selectedLevel !== 'own' && (
             <div style={{ position: 'relative' }}>
@@ -1160,7 +1169,7 @@ export default function Report() {
           )}
 
           {/* Summary cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '28px' }}>
+          <div className="sr-kpi-grid">
             <div className="print-card" style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: '16px', padding: '18px 20px' }}>
               <div style={{ color: subtext, fontSize: '12px', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total sales</div>
               <div className="report-kpi-value" style={{ fontSize: '24px', fontWeight: 900, lineHeight: 1.2, letterSpacing: 'normal', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{totalSales.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>

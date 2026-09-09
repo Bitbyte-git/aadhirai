@@ -1,35 +1,45 @@
 import { useEffect, useState } from 'react'
 import { SkeletonText } from '../components/Skeleton'
+import CustomDropdown from '../components/CustomDropdown'
 
 const GOLD = '#BB8958'
 const DARK = '#111817'
 const MUTED = '#7A8987'
 const RED = '#073B3F'
 
+const VIEW_OPTIONS = [
+  { value: 'all_sales', label: 'All Sales' },
+  { value: 'super_admin_commission', label: 'Super Admin Commission' },
+  { value: 'my_commission', label: 'My Commission' },
+]
+
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Montserrat:wght@400;500;600;700;800;900&display=swap');
-  .sp-page{min-height:100vh;background:#FDFDFC;font-family:"Montserrat",system-ui,sans-serif;color:${DARK}}
-  .sp-main{width:min(1300px,calc(100% - 48px));margin:0 auto;padding:36px 0 90px}
+  .sp-page{min-height:100vh;background:#FDFDFC;font-family:"Montserrat",system-ui,sans-serif;color:${DARK};overflow-x:hidden}
+  .sp-main{width:min(1300px,calc(100% - 48px));margin:0 auto;padding:36px 0 90px;box-sizing:border-box}
   .sp-kicker{margin:0 0 6px;color:${GOLD};font-size:12px;font-weight:900;letter-spacing:2.4px;text-transform:uppercase}
-  .sp-title{margin:0 0 8px;color:${RED};font-family:"Playfair Display",serif;font-size:clamp(26px,4vw,36px)}
+  .sp-title{margin:0 0 8px;color:${RED};font-family:"Playfair Display",serif;font-size:clamp(24px,4vw,36px)}
   .sp-note{color:${MUTED};font-size:12.5px;margin:0 0 22px;max-width:760px;line-height:1.6}
+  .sp-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;margin-bottom:20px}
+  .sp-view-dropdown{min-width:240px;box-sizing:border-box}
   .sp-filter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:24px}
-  .sp-filter-tab{padding:9px 18px;border-radius:20px;border:1.5px solid #D1DFDE;background:#fff;color:${DARK};font-weight:800;font-size:12px;cursor:pointer;transition:.15s ease;white-space:nowrap}
+  .sp-filter-tab{padding:9px 18px;border-radius:20px;border:1.5px solid #D1DFDE;background:#fff;color:${DARK};font-weight:800;font-size:12px;cursor:pointer;transition:.15s ease;white-space:nowrap;flex-shrink:0}
   .sp-filter-tab.active{border-color:${RED};background:${RED};color:#fff}
   .sp-custom-date{padding:8px 12px;border-radius:8px;border:1.5px solid #D1DFDE;font-size:12px;font-weight:700;color:${DARK};height:38px;box-sizing:border-box}
   .sp-date-to{color:${MUTED};font-weight:800;font-size:12px}
-  .sp-apply-btn{height:38px;padding:0 18px;border-radius:20px;border:none;background:${GOLD};color:#fff;font-weight:900;font-size:12px;cursor:pointer}
+  .sp-apply-btn{height:38px;padding:0 18px;border-radius:20px;border:none;background:${GOLD};color:#fff;font-weight:900;font-size:12px;cursor:pointer;white-space:nowrap}
   .sp-apply-btn:hover{background:#9F6130}
   .sp-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
-  .sp-card{border:1px solid rgba(189,207,206,.8);border-radius:12px;background:#fff;padding:20px;box-shadow:0 12px 30px rgba(12,64,68,.06)}
+  .sp-card{border:1px solid rgba(189,207,206,.8);border-radius:14px;background:#fff;padding:20px;box-shadow:0 12px 30px rgba(12,64,68,.06);box-sizing:border-box}
   .sp-card-label{font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:${MUTED};margin-bottom:8px}
   .sp-card-value{font-family:"Playfair Display",serif;font-size:26px;color:${RED};font-weight:700}
   .sp-card.revenue{background:linear-gradient(135deg,${RED},#0C4044);border:none}
   .sp-card.revenue .sp-card-label{color:rgba(255,255,255,.8)}
   .sp-card.revenue .sp-card-value{color:#fff}
-  .sp-panel{border:1px solid rgba(189,207,206,.8);border-radius:12px;background:#fff;padding:24px;margin-bottom:22px;box-shadow:0 12px 30px rgba(12,64,68,.06)}
+  .sp-panel{border:1px solid rgba(189,207,206,.8);border-radius:16px;background:#fff;padding:24px;margin-bottom:22px;box-shadow:0 12px 30px rgba(12,64,68,.06);box-sizing:border-box}
   .sp-panel-title{margin:0 0 20px;font-size:15px;font-weight:900;color:${RED}}
-  .sp-chart{display:flex;align-items:flex-end;gap:14px;height:200px;padding:0 6px}
+  .sp-chart-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;padding-bottom:6px}
+  .sp-chart{display:flex;align-items:flex-end;gap:14px;height:200px;padding:0 6px;min-width:320px}
   .sp-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
   .sp-bar{width:100%;max-width:52px;background:linear-gradient(180deg,${GOLD},#9F6130);border-radius:6px 6px 0 0;transition:height .4s ease}
   .sp-bar-value{font-size:10.5px;font-weight:800;color:${RED};margin-bottom:6px}
@@ -52,6 +62,18 @@ const styles = `
   .sp-loadmore:disabled{opacity:.6;cursor:not-allowed}
   .sp-empty{color:${MUTED};font-size:13px;text-align:center;padding:24px 0}
   @media(max-width:900px){.sp-cards{grid-template-columns:1fr}}
+  @media(max-width:768px){
+    .sp-main{width:100%!important;padding:20px 14px 60px!important}
+    .sp-header{flex-direction:column!important;align-items:stretch!important;gap:12px!important}
+    .sp-view-dropdown{width:100%!important;min-width:0!important;box-sizing:border-box!important}
+    .sp-filter-row{overflow-x:auto!important;-webkit-overflow-scrolling:touch!important;flex-wrap:nowrap!important;padding-bottom:8px!important;margin-bottom:18px!important}
+    .sp-panel{padding:18px 14px!important;border-radius:14px!important}
+  }
+  @media(max-width:540px){
+    .sp-txn-row{flex-wrap:wrap!important;gap:8px!important}
+    .sp-txn-amounts{margin-left:0!important;text-align:left!important}
+    .sp-txn-tag{margin-left:auto!important}
+  }
 `
 
 const FILTERS = [
@@ -142,23 +164,18 @@ export default function SuperAdminPayments() {
     <div className="sp-page">
       <style>{styles}</style>
      <main className="sp-main">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+        <div className="sp-header">
           <div>
             <p className="sp-kicker">Super Admin</p>
-            <h1 className="sp-title" style={{ marginBottom: 8 }}>Revenue &amp; Payments</h1>
+            <h1 className="sp-title" style={{ margin: 0 }}>Revenue &amp; Payments</h1>
           </div>
-          <select
+          <CustomDropdown
             value={activeView}
-            onChange={handleViewChange}
-            style={{
-              padding: '10px 16px', borderRadius: 20, border: `1.5px solid ${RED}`,
-              background: '#fff', color: RED, fontWeight: 800, fontSize: 12.5, cursor: 'pointer'
-            }}
-          >
-            <option value="all_sales">All Sales</option>
-            <option value="super_admin_commission">Super Admin Commission</option>
-            <option value="my_commission">My Commission</option>
-          </select>
+            onChange={val => handleViewChange({ target: { value: val } })}
+            options={VIEW_OPTIONS}
+            align="right"
+            className="sp-view-dropdown"
+          />
         </div>
         <div className="sp-filter-row">
           {FILTERS.map(f => (
@@ -200,17 +217,19 @@ export default function SuperAdminPayments() {
 
             <section className="sp-panel">
               <SkeletonText width="220px" height="14px" />
-              <div className="sp-chart" style={{ marginTop: 20 }}>
-                {[0, 1, 2, 3, 4, 5].map(i => (
-                  <div className="sp-bar-col" key={i}>
-                    <SkeletonText width="70%" height="10px" />
-                    <div
-                      className="skel-line"
-                      style={{ width: '100%', maxWidth: 52, height: `${40 + (i % 3) * 30}px`, borderRadius: '6px 6px 0 0', marginTop: 6, marginBottom: 6 }}
-                    />
-                    <SkeletonText width="60%" height="10px" />
-                  </div>
-                ))}
+              <div className="sp-chart-wrap">
+                <div className="sp-chart" style={{ marginTop: 20 }}>
+                  {[0, 1, 2, 3, 4, 5].map(i => (
+                    <div className="sp-bar-col" key={i}>
+                      <SkeletonText width="70%" height="10px" />
+                      <div
+                        className="skel-line"
+                        style={{ width: '100%', maxWidth: 52, height: `${40 + (i % 3) * 30}px`, borderRadius: '6px 6px 0 0', marginTop: 6, marginBottom: 6 }}
+                      />
+                      <SkeletonText width="60%" height="10px" />
+                    </div>
+                  ))}
+                </div>
               </div>
             </section>
 
@@ -261,14 +280,16 @@ export default function SuperAdminPayments() {
               {trend.length === 0 ? (
                 <div className="sp-empty">No revenue data yet</div>
               ) : (
-                <div className="sp-chart">
-                  {trend.map(t => (
-                    <div className="sp-bar-col" key={t.month}>
-                      <div className="sp-bar-value">{inr(t.revenue)}</div>
-                      <div className="sp-bar" style={{ height: `${Math.max((t.revenue / maxRevenue) * 100, 4)}%` }} />
-                      <div className="sp-bar-label">{t.month}</div>
-                    </div>
-                  ))}
+                <div className="sp-chart-wrap">
+                  <div className="sp-chart">
+                    {trend.map(t => (
+                      <div className="sp-bar-col" key={t.month}>
+                        <div className="sp-bar-value">{inr(t.revenue)}</div>
+                        <div className="sp-bar" style={{ height: `${Math.max((t.revenue / maxRevenue) * 100, 4)}%` }} />
+                        <div className="sp-bar-label">{t.month}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </section>

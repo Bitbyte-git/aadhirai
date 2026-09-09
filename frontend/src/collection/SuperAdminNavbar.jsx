@@ -244,21 +244,45 @@ export default function SuperAdminNavbar({
     { keywords: ['my announcements'], path: '/super-admin?open=myannouncements' },
   ]
 
+  // NEW: these two keywords are the ONLY ones that mean "search for a
+  // person" — every other command is a plain page navigation and should
+  // never touch the network, so it stays instant.
+  const PERSON_CONTEXT_KEYWORDS = ['sales report', 'hierarchy']
+
   const submitVoiceSearch = async (query) => {
     const q = (query || '').trim()
     if (!q) return
     setVoiceQuery('')
 
     const lower = q.toLowerCase()
+    const isPersonContext = PERSON_CONTEXT_KEYWORDS.some(k => lower.includes(k))
 
-    // Strip page keywords first — whatever text remains is treated as a
-    // person name/ID to search for (checked BEFORE generic page routing,
-    // so "BBCUS123 sales report" finds the person, not the generic page).
-    const nameOnly = lower
-      .replace(/sales report|sales|report|hierarchy grid|hierarchy|show|open|of/gi, '')
-      .trim()
+    // NEW: strip every known page-route keyword — so a plain command like
+    // "add product" or "buy coin" collapses to '' here, telling us instantly
+    // there's no person name to look up.
+    const allRouteKeywords = PAGE_ROUTES.flatMap(p => p.keywords)
+    const stripPattern = new RegExp(
+      [...allRouteKeywords, 'show', 'open', 'of'].sort((a, b) => b.length - a.length).join('|'),
+      'gi'
+    )
+    const nameOnly = lower.replace(stripPattern, '').trim()
 
-    if (nameOnly) {
+    // FAST PATH: plain page command (e.g. "add product", "buy coin",
+    // "hierarchy grid") — matches instantly against the local list,
+    // zero network delay.
+    if (!nameOnly || !isPersonContext) {
+      for (const page of PAGE_ROUTES) {
+        if (page?.keywords?.some(k => lower.includes(k))) {
+          navigate(page.path)
+          return
+        }
+      }
+    }
+
+    // Only hits the backend when there's a real leftover name/ID AND the
+    // phrase is asking for that person's report/hierarchy —
+    // e.g. "BBCUS123 sales report", "Senthil hierarchy".
+    if (nameOnly && isPersonContext) {
       try {
         const res = await api.get('/hierarchy/search-person/', { params: { q: nameOnly } })
         const results = res.data.results || []
@@ -266,24 +290,13 @@ export default function SuperAdminNavbar({
           const match = results[0]
           if (lower.includes('sales report')) {
             navigate(`/sales-report?role=${match.role}&id=${match.id}`)
-          } else if (lower.includes('hierarchy')) {
-            navigate(`/superadmin-hierarchy-grid?role=${match.role}&id=${match.id}`)
           } else {
-            navigate(`/hierarchy-sales-count?role=${match.role}&id=${match.id}`)
+            navigate(`/superadmin-hierarchy-grid?role=${match.role}&id=${match.id}`)
           }
           return
         }
-        // no person match found — fall through to page-keyword routing below
       } catch (err) {
         alert('Search failed bro: ' + (err.response?.data?.error || err.message))
-        return
-      }
-    }
-
-    // No leftover name text, or no person matched — treat as a plain page command
-    for (const page of PAGE_ROUTES) {
-      if (page?.keywords?.some(k => lower.includes(k))) {
-        navigate(page.path)
         return
       }
     }
@@ -385,10 +398,10 @@ export default function SuperAdminNavbar({
     ['My Announcements', () => { setShowMyAnnouncements(true); fetchMyAnnouncements() }],
   ]
   const coins = [
-    ['Buy Coin', () => navigate('/buy-coin')],
-    ['Stored Coin', () => navigate('/stored-coins')],
-    ['Coin Requests', () => navigate('/coin-requests-page')],
-    ['Coin Transactions', () => navigate('/coin-transactions')],
+    ['Add Coins', () => navigate('/buy-coin')],
+    ['Available Coins', () => navigate('/stored-coins')],
+    ['Requests Coins', () => navigate('/coin-requests-page')],
+    ['Transaction Coins History', () => navigate('/coin-transactions')],
   ]
   const reports = [
     ['Login Reward', () => navigate('/coins-reward')],
@@ -483,18 +496,18 @@ export default function SuperAdminNavbar({
 .san-menu-group { position: relative; display: flex; }
 .san-menu-trigger { border: 0; background: transparent; min-width: auto; flex-shrink: 0; padding: 0 9px; color: #073B3F; font-family: Georgia, 'Times New Roman', serif; font-size: 12.5px; font-weight: 800; letter-spacing: .01em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; white-space: nowrap; }
 .san-menu-trigger:hover { background: #F3F3F0; border-radius: 999px; }
-.san-menu-dropdown { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 0; padding: 32px 28px 24px; min-width: 286px; background: #FDFDFC; border: 1px solid rgba(189,207,206,.8); box-shadow: 0 26px 68px rgba(7,59,63,.22); border-radius: 8px; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .16s ease, visibility .16s ease; z-index: 200; }
+.san-menu-dropdown { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 0; padding: 22px 20px 18px; min-width: 280px; max-width: min(340px, calc(100vw - 24px)); max-height: calc(100vh - 120px); overflow-y: auto; background: #FDFDFC; border: 1.5px solid rgba(189,207,206,.85); box-shadow: 0 24px 60px rgba(7,59,63,.20); border-radius: 14px; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .16s ease, visibility .16s ease; z-index: 200; }
 .san-menu-group.is-open .san-menu-dropdown { opacity: 1; visibility: visible; pointer-events: auto; transform: translateX(-50%); }
 .san-menu-group:first-child .san-menu-dropdown,
 .san-menu-group:first-child.is-open .san-menu-dropdown { left: 0; transform: none; }
 .san-menu-group:last-of-type .san-menu-dropdown,
 .san-menu-group:last-of-type.is-open .san-menu-dropdown { left: auto; right: 0; transform: none; }
-.san-menu-title { display: flex; align-items: center; gap: 12px; font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: 900; color: #073B3F; margin-bottom: 18px; }
-.san-menu-title span { font-size: 24px; color: #BB8958; }
-.san-menu-link { width: 100%; border: 0; background: transparent; padding: 10px 0; text-align: left; color: #111817; font-size: 14px; font-weight: 750; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
-.san-menu-link:hover { color: #0C4044; transform: translateX(3px); }
+.san-menu-title { display: flex; align-items: center; gap: 10px; font-family: Georgia, 'Times New Roman', serif; font-size: 20px; font-weight: 900; color: #073B3F; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid rgba(189,207,206,0.5); }
+.san-menu-title span { font-size: 22px; color: #BB8958; }
+.san-menu-link { width: 100%; border: 0; background: transparent; padding: 9px 10px; border-radius: 8px; text-align: left; color: #111817; font-size: 13.5px; font-weight: 750; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all 0.15s ease; }
+.san-menu-link:hover { background: rgba(12,64,68,0.06); color: #0C4044; transform: translateX(3px); }
 .san-menu-link b, .san-menu-foot { color: #0C4044; }
-.san-menu-foot { margin-top: 22px; border: 0; background: transparent; font-size: 13px; font-weight: 900; letter-spacing: .02em; cursor: pointer; }
+.san-menu-foot { margin-top: 18px; border: 0; background: transparent; font-size: 13px; font-weight: 900; letter-spacing: .02em; cursor: pointer; }
 .san-actions { display: flex; align-items: center; border-left: 0; gap: 6px; padding-left: 4px; flex-shrink: 0; }
 .san-action { min-width: auto; flex-shrink: 0; padding: 0 8px; border: 0; background: transparent; color: #0C4044; font-size: 11px; font-weight: 900; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; white-space: nowrap; }
 .san-action:hover { background: #F3F3F0; box-shadow: 0 12px 28px rgba(7,59,63,.08); transform: translateY(-1px); }
@@ -506,17 +519,17 @@ export default function SuperAdminNavbar({
 .san-hamburger { display: flex; background: transparent; border: none; color: #0C4044; padding: 8px; cursor: pointer; align-items: center; justify-content: center; flex-shrink: 0; }
 .san-hamburger:hover { color: #073B3F; }
 .san-drawer-overlay { position: fixed; inset: 0; background: rgba(17,24,23,.55); backdrop-filter: blur(4px); z-index: 1400; }
-.san-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 280px; max-width: 85vw; background: #FDFDFC; z-index: 1401; box-shadow: -18px 0 48px rgba(7,59,63,.22); display: flex; flex-direction: column; padding: 20px 16px; gap: 6px; animation: sanSlideIn .25s ease-out; }
+.san-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 300px; max-width: 88vw; background: #FDFDFC; z-index: 1401; box-shadow: -18px 0 48px rgba(7,59,63,.22); display: flex; flex-direction: column; padding: 20px 16px; gap: 6px; animation: sanSlideIn .25s ease-out; }
 @keyframes sanSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
 .san-drawer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-bottom: 14px; border-bottom: 1px solid rgba(189,207,206,.7); }
 .san-drawer-title { font-family: Georgia, 'Times New Roman', serif; font-size: 17px; font-weight: 800; color: #073B3F; }
 .san-drawer-close { background: transparent; border: none; color: #0C4044; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 4px; }
-.san-drawer-link { display: flex; align-items: center; gap: 12px; padding: 13px 12px; border-radius: 10px; border: none; background: transparent; color: #073B3F; font-size: 14px; font-weight: 800; cursor: pointer; text-align: left; }
-.san-drawer-link:hover { background: #F3F3F0; }
+.san-drawer-link { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; border: none; background: transparent; color: #073B3F; font-size: 13.5px; font-weight: 800; cursor: pointer; text-align: left; width: 100%; transition: background 0.15s ease; }
+.san-drawer-link:hover, .san-drawer-link:active { background: rgba(12,64,68,0.06); color: #0C4044; }
 .san-drawer-link.logout { color: #C92035; }
-.san-drawer-groups { flex: 1; overflow-y: auto; padding-right: 4px; }
-.san-drawer-group { padding: 14px 0; border-bottom: 1px solid rgba(189,207,206,.6); }
-.san-drawer-group strong { display: block; padding: 0 12px 8px; color: #A2764C; font-size: 9px; letter-spacing: .16em; text-transform: uppercase; }
+.san-drawer-groups { flex: 1; overflow-y: auto; padding-right: 4px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.san-drawer-group { padding: 12px 0; border-bottom: 1px solid rgba(189,207,206,.6); }
+.san-drawer-group strong { display: block; padding: 0 12px 6px; color: #A2764C; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; font-weight: 900; }
 
 @media (max-width: 1500px) {
   .san-top-inner { min-height: 136px; display: grid; grid-template-columns: auto minmax(220px,340px) 1fr auto; grid-template-rows: 74px 48px; column-gap: 18px; padding: 0 30px 12px; }
@@ -614,7 +627,7 @@ export default function SuperAdminNavbar({
               <MenuGroup label="Promotion" items={promotion} />
               <MenuGroup label="Payment" items={payment} />
               <button className="san-menu-trigger" type="button" onClick={() => navigate('/sold-out-products')}>
-                <Icon name="stock" size={16} />Stock
+                <Icon name="stock" size={16} />Inventory
               </button>
             </div>
                      <button className="san-hamburger" type="button" onClick={() => setShowMobileDrawer(true)} aria-label="Open menu">

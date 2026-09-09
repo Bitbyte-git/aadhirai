@@ -100,14 +100,86 @@ export default function AddBanners() {
 
   return (
     <div style={{ minHeight: '100vh', background: bg, color: text, fontFamily: '"Inter",system-ui,sans-serif' }}>
-      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      <style>{`
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
-      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 24px' }}>
+        .ab-container { max-width: 1100px; margin: 0 auto; padding: 32px 24px 60px; box-sizing: border-box; }
+        .ab-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+        .ab-slot-card {
+          background: #FDFDFC; border: 1px solid #BDCFCE; border-radius: 16px; padding: 20px 24px;
+          animation: fadeIn 0.3s ease; display: flex; gap: 24px; align-items: center; transition: all 0.2s ease;
+          box-shadow: 0 4px 16px rgba(7,59,63,0.03);
+        }
+        .ab-slot-card:hover { border-color: rgba(12,64,68,0.4); box-shadow: 0 10px 26px rgba(7,59,63,0.07); }
+        .ab-slot-label { width: 90px; flex-shrink: 0; }
+        .ab-preview-box {
+          width: 260px; height: 100px; border-radius: 10px; overflow: hidden; background: #F3F3F0;
+          border: 1px solid #BDCFCE; flex-shrink: 0; display: flex; align-items: center; justify-content: center; position: relative;
+        }
+        .ab-preview-box img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s ease; }
+        .ab-preview-box:hover img { transform: scale(1.02); }
+        .ab-actions-wrap { flex: 1; display: flex; align-items: center; }
+        .ab-upload-btn {
+          display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 18px;
+          background: rgba(12,64,68,0.08); border: 2px dashed rgba(12,64,68,0.4); border-radius: 10px;
+          cursor: pointer; color: #0C4044; font-weight: 700; font-size: 13px; transition: all 0.2s ease;
+        }
+        .ab-upload-btn:hover { background: rgba(12,64,68,0.14); border-color: #0C4044; }
+        .ab-existing-btns { display: flex; gap: 10px; }
+        .ab-save-btn {
+          padding: 13px 40px; background: linear-gradient(135deg,#0C4044,#073B3F); border: none;
+          border-radius: 12px; font-weight: 900; font-size: 14px; color: #FDFDFC; cursor: pointer;
+          transition: all 0.2s ease; box-shadow: 0 10px 24px rgba(7,59,63,0.18);
+        }
+        .ab-save-btn:hover { box-shadow: 0 14px 30px rgba(7,59,63,0.28); transform: translateY(-1px); }
 
-        {/* Page title + back — plain content, not a sticky navbar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+        @media (max-width: 768px) {
+          .ab-container { padding: 16px 12px 60px !important; }
+          .ab-slot-card {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 14px !important;
+            padding: 16px 14px !important;
+            border-radius: 14px !important;
+          }
+          .ab-slot-label {
+            width: 100% !important;
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            border-bottom: 1px solid rgba(189,207,206,0.45) !important;
+            padding-bottom: 8px !important;
+          }
+          .ab-preview-box {
+            width: 100% !important;
+            height: 150px !important;
+            border-radius: 10px !important;
+          }
+          .ab-actions-wrap { width: 100% !important; }
+          .ab-upload-btn {
+            width: 100% !important;
+            box-sizing: border-box !important;
+            padding: 12px !important;
+          }
+          .ab-existing-btns { width: 100% !important; gap: 10px !important; }
+          .ab-existing-btns button {
+            flex: 1 !important;
+            padding: 11px 0 !important;
+            text-align: center !important;
+          }
+          .ab-save-btn {
+            width: 100% !important;
+            padding: 14px !important;
+            box-sizing: border-box !important;
+          }
+        }
+      `}</style>
+
+      <div className="ab-container">
+
+        {/* Page title + back */}
+        <div className="ab-header">
           <div style={{ color: '#0C4044', fontWeight: 900, fontSize: '18px' }}>🖼️ Add Banners</div>
-          <div style={{ flex: 1 }} />
           <button onClick={() => navigate('/add-product')}
             style={{ padding: '9px 18px', background: 'rgba(201,32,53,0.08)', border: '1px solid rgba(201,32,53,0.3)', color: '#C92035', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
             ← Back
@@ -116,12 +188,12 @@ export default function AddBanners() {
 
         {/* Message */}
         {msg && (
-<div style={{ background: msg.includes('✅') ? 'rgba(12,64,68,0.1)' : 'rgba(201,32,53,0.1)', border: `1px solid ${msg.includes('✅') ? 'rgba(12,64,68,0.3)' : 'rgba(201,32,53,0.3)'}`, color: msg.includes('✅') ? '#0C4044' : '#C92035', borderRadius: '10px', padding: '12px 16px', marginBottom: '24px', fontSize: '13px' }}>
+          <div style={{ background: msg.includes('✅') ? 'rgba(12,64,68,0.1)' : 'rgba(201,32,53,0.1)', border: `1px solid ${msg.includes('✅') ? 'rgba(12,64,68,0.3)' : 'rgba(201,32,53,0.3)'}`, color: msg.includes('✅') ? '#0C4044' : '#C92035', borderRadius: '10px', padding: '12px 16px', marginBottom: '24px', fontSize: '13px' }}>
             {msg}
           </div>
         )}
 
-<div style={{ color: '#0C4044', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '24px' }}>
+        <div style={{ color: '#0C4044', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '20px' }}>
           Home Banner — 5 Slots
         </div>
 
@@ -133,10 +205,10 @@ export default function AddBanners() {
             const displayUrl = newPreview || (existing ? getImageUrl(existing.image) : null)
 
             return (
-              <div key={slot} style={{ background: cardBg, border: `1px solid ${inpBorder}`, borderRadius: '16px', padding: '20px 24px', animation: 'fadeIn 0.3s ease', display: 'flex', gap: '24px', alignItems: 'center' }}>
+              <div key={slot} className="ab-slot-card">
 
                 {/* Slot label */}
-                <div style={{ width: '80px', flexShrink: 0 }}>
+                <div className="ab-slot-label">
                   <div style={{ color: '#0C4044', fontWeight: 900, fontSize: '13px', marginBottom: '4px' }}>Banner {slot}</div>
                   {existing && !newPreview && (
                     <div style={{ fontSize: '9px', color: '#0C4044', fontWeight: 700, background: 'rgba(12,64,68,0.1)', border: '1px solid rgba(12,64,68,0.3)', borderRadius: '20px', padding: '2px 8px', display: 'inline-block' }}>● LIVE</div>
@@ -148,31 +220,32 @@ export default function AddBanners() {
 
                 {/* Image preview */}
                 <div
-style={{ width: '260px', height: '100px', borderRadius: '10px', overflow: 'hidden', background: '#F3F3F0', border: `1px solid ${inpBorder}`, flexShrink: 0, cursor: displayUrl ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  className="ab-preview-box"
+                  style={{ cursor: displayUrl ? 'pointer' : 'default' }}
                   onClick={() => displayUrl && setLightbox(displayUrl)}
                 >
                   {displayUrl
-                    ? <img src={displayUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={`Banner ${slot}`} />
+                    ? <img src={displayUrl} alt={`Banner ${slot}`} />
                     : <span style={{ color: subtext, fontSize: '12px' }}>No image</span>
                   }
                 </div>
 
                 {/* Upload input (for new banners) */}
-                <div style={{ flex: 1 }}>
+                <div className="ab-actions-wrap">
                   {!existing ? (
-                    <>
-                      <label htmlFor={`banner-slot-${slot}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: 'rgba(12,64,68,0.08)', border: '2px dashed rgba(12,64,68,0.4)', borderRadius: '10px', cursor: 'pointer', color: '#0C4044', fontWeight: 700, fontSize: '13px', width: 'fit-content' }}>
+                    <div style={{ width: '100%' }}>
+                      <label htmlFor={`banner-slot-${slot}`} className="ab-upload-btn">
                         📷 Upload Image
                       </label>
                       <input id={`banner-slot-${slot}`} type="file" accept="image/*" style={{ display: 'none' }}
                         onChange={e => handleFileChange(slot, e.target.files[0])} />
                       {newPreview && (
-                        <div style={{ color: '#0C4044', fontSize: '11px', marginTop: '8px' }}>✅ Ready to save</div>
+                        <div style={{ color: '#0C4044', fontSize: '11px', marginTop: '8px', fontWeight: 700 }}>✅ Ready to save</div>
                       )}
-                    </>
+                    </div>
                   ) : (
                     // Existing banner — show edit/delete
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div className="ab-existing-btns">
                       <button onClick={() => handleEdit(slot)}
                         style={{ padding: '9px 20px', background: 'linear-gradient(135deg,#0C4044,#073B3F)', border: 'none', borderRadius: '10px', color: '#FDFDFC', fontWeight: 800, fontSize: '12px', cursor: 'pointer' }}>
                         ✏️ Edit
@@ -191,8 +264,8 @@ style={{ width: '260px', height: '100px', borderRadius: '10px', overflow: 'hidde
 
         {/* Submit button — only if new previews exist */}
         {Object.keys(previews).length > 0 && (
-          <button disabled={saving} onClick={handleSubmit}
-            style={{ padding: '13px 40px', background: saving ? 'rgba(12,64,68,0.22)' : 'linear-gradient(135deg,#0C4044,#073B3F)', border: 'none', borderRadius: '12px', fontWeight: 900, fontSize: '14px', color: saving ? '#0C4044' : '#FDFDFC', cursor: saving ? 'not-allowed' : 'pointer' }}>
+          <button disabled={saving} onClick={handleSubmit} className="ab-save-btn"
+            style={{ opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
             {saving ? '⏳ Saving...' : `✅ Save ${Object.keys(previews).length} Banner(s)`}
           </button>
         )}
@@ -202,7 +275,7 @@ style={{ width: '260px', height: '100px', borderRadius: '10px', overflow: 'hidde
       {lightbox && (
         <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <img src={lightbox} style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: '12px' }} />
-<button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: 20, right: 20, background: 'rgba(201,32,53,0.85)', border: 'none', color: '#FDFDFC', width: 36, height: 36, borderRadius: '50%', fontSize: 16, cursor: 'pointer', fontWeight: 900 }}>✕</button>
+          <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: 20, right: 20, background: 'rgba(201,32,53,0.85)', border: 'none', color: '#FDFDFC', width: 36, height: 36, borderRadius: '50%', fontSize: 16, cursor: 'pointer', fontWeight: 900 }}>✕</button>
         </div>
       )}
     </div>

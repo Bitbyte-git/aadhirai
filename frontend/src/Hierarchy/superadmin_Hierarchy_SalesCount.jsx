@@ -428,8 +428,8 @@ export default function SuperAdminHierarchySalesCount() {
         .sprod-row + .sprod-row{ border-top:1px solid rgba(189,207,206,0.4); }
         .sprod-label{ color:#7A8987; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; }
 
-                /* ══════════════ RESPONSIVE ══════════════ */
-                .shier-content{ padding:28px 32px; }
+        /* ══════════════ RESPONSIVE ══════════════ */
+        .shier-content{ padding:28px 32px; box-sizing:border-box; width:100%; max-width:100vw; overflow-x:hidden; }
         .shier-grid{ position:relative; }
         .stree-panel-fixed{
           position: fixed;
@@ -439,45 +439,68 @@ export default function SuperAdminHierarchySalesCount() {
           max-height: calc(100vh - 144px);
           overflow-y: auto;
           z-index: 40;
+          box-sizing: border-box;
         }
-        .shier-right-col{ margin-left: 362px; }
+        .shier-right-col{ margin-left: 362px; box-sizing: border-box; }
         @media (max-width: 1500px) { .stree-panel-fixed{ top:156px; max-height:calc(100vh - 176px); } }
         @media (max-width: 1100px) { .stree-panel-fixed{ top:102px; max-height:calc(100vh - 122px); } }
-        @media (max-width: 640px) { .stree-panel-fixed{ top:148px; max-height:calc(100vh - 168px); } }
 
-        @media (max-width: 1024px) {
-          .shier-grid{ grid-template-columns:300px 1fr; gap:16px; }
-          .shier-content{ padding:20px; padding-top:112px; }
+        @media (max-width: 960px) {
+          .shier-content{ padding:16px 12px 60px !important; }
+          .stree-panel-fixed{
+            position: static !important;
+            width: 100% !important;
+            max-height: 440px !important;
+            top: auto !important;
+            left: auto !important;
+            margin-bottom: 20px !important;
+          }
+          .shier-right-col{
+            margin-left: 0 !important;
+            width: 100% !important;
+            padding: 18px 14px !important;
+            border-radius: 14px !important;
+          }
           .sprod-grid{ grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); }
-        }
-
-                @media (max-width: 900px) {
-          .shier-grid{ grid-template-columns:1fr; }
-          .stree-panel{ position:static !important; max-height:none !important; top:auto !important; }
         }
 
         @media (max-width: 640px) {
           .shier-topbar{ padding:14px 16px; flex-direction:column; align-items:flex-start !important; }
           .shier-topbar-title{ font-size:15px !important; }
           .shier-topbar-sub{ font-size:11px !important; }
-          .shier-content{ padding:14px; padding-top:150px; }
-          .sstat-card{ min-width:100% !important; }
-          .sprod-grid{ grid-template-columns:1fr 1fr; gap:10px; }
-          .sprod-card{ padding:10px !important; }
-          .sprod-img{ height:100px !important; }
+          .shier-content{ padding:14px 10px 60px !important; }
+          .stree-children{ margin-left:8px !important; padding-left:8px !important; }
+          .stree-item{ padding:10px 12px !important; }
+          .sstat-card{ min-width:100% !important; padding:14px 16px !important; }
+          .sprod-grid{ grid-template-columns:1fr !important; gap:12px !important; }
+          .sprod-card{ padding:12px !important; }
+          .sprod-img{ height:120px !important; }
         }
-
-        @media (max-width: 420px) {
-          .sprod-grid{ grid-template-columns:1fr; }
-          .shier-content{ padding-top:172px; }
-        }
-      
       `}</style>
 
             <div className="shier-content">
-        <button onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', background: 'rgba(201,32,53,0.1)', border: '1px solid rgba(201,32,53,0.3)', color: '#C92035', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, marginBottom: 16, width: 'fit-content' }}>
-          <IconBack color="#C92035" /> Back
-        </button>
+        <div className="shier-topbar" style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexWrap: 'wrap', gap: 12, marginBottom: 20,
+          background: 'rgba(253,253,252,0.94)', border: '1px solid rgba(189,207,206,0.72)', borderRadius: 16, padding: '14px 20px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(12,64,68,0.08)', border: '1px solid rgba(12,64,68,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <IconChart color="#0C4044" size={18} />
+            </div>
+            <div>
+              <div className="shier-topbar-title" style={{ fontSize: 16, fontWeight: 800, color: '#0C4044', letterSpacing: '0.04em' }}>
+                Hierarchy Performance & Sales
+              </div>
+              <div className="shier-topbar-sub" style={{ fontSize: 12, color: '#7A8987', marginTop: 2 }}>
+                Real-time hierarchy order counts and revenue report
+              </div>
+            </div>
+          </div>
+          <button onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'rgba(201,32,53,0.08)', border: '1px solid rgba(201,32,53,0.3)', color: '#C92035', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+            <IconBack color="#C92035" /> Back
+          </button>
+        </div>
 
         <div className="shier-grid">
 

@@ -233,6 +233,12 @@ export default function RetailerPromotions() {
           font-weight: 700;
           font-size: 12.5px;
         }
+        .rp-sno {
+          font-weight: 850;
+          color: #073B3F;
+          text-align: center;
+          width: 50px;
+        }
 
         .rp-name { font-weight: 700; }
         .rp-sub { color: #7A8987; font-size: 12px; margin-top: 2px; }
@@ -403,8 +409,11 @@ export default function RetailerPromotions() {
         }
 
         @media (max-width: 640px) {
-          .rp-shell { width: calc(100% - 24px); }
-          .rp-stats { grid-template-columns: 1fr; }
+          .rp-shell { width: calc(100% - 24px); padding: 24px 0 48px; }
+          .rp-header { flex-direction: column; align-items: stretch; }
+          .rp-refresh { width: 100%; text-align: center; }
+          .rp-stats { grid-template-columns: 1fr; gap: 10px; }
+          .rp-card { padding: 6px 6px 18px; }
         }
       `}</style>
 
@@ -458,6 +467,7 @@ export default function RetailerPromotions() {
             <table className="rp-table">
               <thead>
                 <tr>
+                  <th>S.No</th>
                   <th>Customer ID</th>
                   <th>Name</th>
                   <th>Phone Number</th>
@@ -471,6 +481,7 @@ export default function RetailerPromotions() {
                 {loading ? (
                   [0, 1, 2, 3, 4].map(i => (
                     <tr key={i}>
+                      <td style={{ textAlign: 'center' }}><SkeletonText width="22px" height="12px" /></td>
                       <td><SkeletonText width="100px" height="12px" /></td>
                       <td>
                         <SkeletonText width="130px" height="13px" />
@@ -487,18 +498,19 @@ export default function RetailerPromotions() {
                   ))
                 ) : rows.length === 0 ? (
                   <tr className="rp-loading-row">
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <div className="rp-empty">No customers eligible for retailer promotion yet.</div>
                     </td>
                   </tr>
                 ) : (
-                  rows.map((r) => {
+                  rows.map((r, i) => {
                     const cfg = STATUS_CFG[r.status] || STATUS_CFG.none;
                     const isFinal = r.status === "approved" || r.status === "rejected";
                     const isActing = actingId === r.user_id;
 
                     return (
                       <tr key={r.user_id}>
+                        <td className="rp-sno">{i + 1}</td>
                         <td className="rp-id">{r.customer_id}</td>
                         <td>
                           <div className="rp-name">

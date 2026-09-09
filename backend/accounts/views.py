@@ -626,20 +626,46 @@ class MyBasicInfoView(APIView):
 
 # ── NEW: One-time-use public referral link system ──
 class GenerateReferralLinkView(APIView):
-    """IsAuthenticated — 'Copy URL' click pannумпோது idhu call aagும்.
-    Fresh unused token generate pannі return pannும்."""
+    """IsAuthenticated — 'Copy URL' click pannumpothu idhu call aagum.
+    Fresh unused token generate panni return pannum.
+    Can generate for request.user or on behalf of target user_id / public_id."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         import secrets
         token = secrets.token_urlsafe(24)
-        ReferralLink.objects.create(token=token, referrer=request.user)
+        target_user = request.user
+        target_user_id = request.data.get('user_id')
+        public_id = request.data.get('public_id')
+
+        if target_user_id:
+            try:
+                target_user = User.objects.get(id=target_user_id)
+            except User.DoesNotExist:
+                pass
+        elif public_id:
+            pid = str(public_id).strip().upper()
+            try:
+                if pid.startswith('BBAD'):
+                    target_user = AdminProfile.objects.get(admin_id=pid).user
+                elif pid.startswith('BBDL'):
+                    target_user = DealerProfile.objects.get(dealer_id=pid).user
+                elif pid.startswith('BBSD'):
+                    target_user = SubDealerProfile.objects.get(sub_dealer_id=pid).user
+                elif pid.startswith('BBPR'):
+                    target_user = PromotorProfile.objects.get(promotor_id=pid).user
+                elif pid.startswith('BBCU'):
+                    target_user = CustomerProfile.objects.get(customer_id=pid).user
+            except Exception:
+                pass
+
+        ReferralLink.objects.create(token=token, referrer=target_user)
         return Response({'token': token})
 
 
 class ReferrerInfoView(APIView):
-    """AllowAny — register page load aagумпோது token valid-a, used-a nu check pannі
-    referrer id/name/phone return pannும்."""
+    """AllowAny — register page load aagumpothu token valid-a, used-a nu check panni
+    referrer id/name/phone return pannum."""
     permission_classes = [AllowAny]
 
     def get(self, request):
@@ -691,6 +717,11 @@ class PublicCustomerRegisterView(APIView):
             try:
                 assigned_promotor = referrer.promotor_profile
             except PromotorProfile.DoesNotExist:
+                assigned_promotor = None
+        elif referrer.role == 'customer':
+            try:
+                assigned_promotor = referrer.customer_profile.assigned_promotor
+            except Exception:
                 assigned_promotor = None
 
         profile_fields = [
@@ -3972,6 +4003,8 @@ class RetailerPromotionListView(APIView):
             return Response({'error': 'Permission denied'}, status=403)
 
         today = timezone.now().date()
+        now = timezone.now()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)   # NEW: monthly window — target THIS MONTH mattum check pannanum
 
         creator_profiles = list(
             CustomerProfile.objects.filter(
@@ -4017,8 +4050,10 @@ class RetailerPromotionListView(APIView):
             descendants_by_creator[creator_id] = desc
             all_relevant_user_ids.update(d['user_id'] for d in desc)
 
+        # NEW: order_totals mattum THIS MONTH-oda orders mattum vachu calculate pannurom —
+        # target evlo achieve pannirukanga nu THIS MONTH mattum check pannanum, lifetime illa
         order_totals = dict(
-            JewelryOrder.objects.filter(user_id__in=list(all_relevant_user_ids))
+            JewelryOrder.objects.filter(user_id__in=list(all_relevant_user_ids), created_at__gte=month_start)
             .values('user_id').annotate(total=Sum('total_price')).values_list('user_id', 'total')
         )
 
@@ -4027,7 +4062,8 @@ class RetailerPromotionListView(APIView):
             creator_id = cp.user_id
             my_customers = descendants_by_creator.get(creator_id, [])
 
-            total_customers = len(my_customers)
+            # NEW: total_customers ippo THIS MONTH create aana customers mattum count pannum
+            total_customers = sum(1 for c in my_customers if c['created_at'] >= month_start)
             today_customers = sum(1 for c in my_customers if c['created_at'].date() == today)
 
             total_value = sum(order_totals.get(c['user_id'], 0) or 0 for c in my_customers)
@@ -4190,6 +4226,8 @@ class WholesaleDealerPromotionListView(APIView):
             return Response({'error': 'Permission denied'}, status=403)
 
         today = timezone.now().date()
+        now = timezone.now()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)   # NEW: monthly window — target THIS MONTH mattum check pannanum
 
         creator_profiles = list(
             PromotorProfile.objects.filter(
@@ -4212,8 +4250,9 @@ class WholesaleDealerPromotionListView(APIView):
         for cid in creator_ids:
             all_relevant_user_ids.extend(c['user_id'] for c in customers_by_creator.get(cid, []))
 
+        # NEW: order_totals mattum THIS MONTH-oda orders mattum vachu calculate pannurom
         order_totals = dict(
-            JewelryOrder.objects.filter(user_id__in=all_relevant_user_ids)
+            JewelryOrder.objects.filter(user_id__in=all_relevant_user_ids, created_at__gte=month_start)
             .values('user_id').annotate(total=Sum('total_price')).values_list('user_id', 'total')
         )
 
@@ -4222,7 +4261,8 @@ class WholesaleDealerPromotionListView(APIView):
             creator_id = cp.user_id
             my_customers = customers_by_creator.get(creator_id, [])
 
-            total_customers = len(my_customers)
+            # NEW: total_customers ippo THIS MONTH create aana customers mattum count pannum
+            total_customers = sum(1 for c in my_customers if c['created_at'] >= month_start)
             today_customers = sum(1 for c in my_customers if c['created_at'].date() == today)
 
             total_value = sum(order_totals.get(c['user_id'], 0) or 0 for c in my_customers)
@@ -4334,6 +4374,8 @@ class DistributorPromotionListView(APIView):
             return Response({'error': 'Permission denied'}, status=403)
 
         today = timezone.now().date()
+        now = timezone.now()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)   # NEW: monthly window — target THIS MONTH mattum check pannanum
 
         creator_profiles = list(
             SubDealerProfile.objects.filter(
@@ -4370,8 +4412,9 @@ class DistributorPromotionListView(APIView):
         for pid in all_promotor_ids:
             all_relevant_user_ids.extend(c['user_id'] for c in customers_by_promotor.get(pid, []))
 
+        # NEW: order_totals mattum THIS MONTH-oda orders mattum vachu calculate pannurom
         order_totals = dict(
-            JewelryOrder.objects.filter(user_id__in=all_relevant_user_ids)
+            JewelryOrder.objects.filter(user_id__in=all_relevant_user_ids, created_at__gte=month_start)
             .values('user_id').annotate(total=Sum('total_price')).values_list('user_id', 'total')
         )
 
@@ -4386,7 +4429,8 @@ class DistributorPromotionListView(APIView):
 
             total_wholesale_dealers = wholesale_counts.get(creator_id, 0)
             total_retailers = len(my_promotor_ids)
-            total_customers = len(my_customers)
+            # NEW: total_customers ippo THIS MONTH create aana customers mattum count pannum
+            total_customers = sum(1 for c in my_customers if c['created_at'] >= month_start)
             today_customers = sum(1 for c in my_customers if c['created_at'].date() == today)
 
             total_value = sum(order_totals.get(c['user_id'], 0) or 0 for c in my_customers)
@@ -4504,6 +4548,8 @@ class SuperStockistPromotionListView(APIView):
             return Response({'error': 'Permission denied'}, status=403)
 
         today = timezone.now().date()
+        now = timezone.now()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)   # NEW: monthly window — target THIS MONTH mattum check pannanum
 
         creator_profiles = list(
             DealerProfile.objects.filter(
@@ -4549,8 +4595,9 @@ class SuperStockistPromotionListView(APIView):
         for pid in all_promotor_ids:
             all_relevant_user_ids.extend(c['user_id'] for c in customers_by_promotor.get(pid, []))
 
+        # NEW: order_totals mattum THIS MONTH-oda orders mattum vachu calculate pannurom
         order_totals = dict(
-            JewelryOrder.objects.filter(user_id__in=all_relevant_user_ids)
+            JewelryOrder.objects.filter(user_id__in=all_relevant_user_ids, created_at__gte=month_start)
             .values('user_id').annotate(total=Sum('total_price')).values_list('user_id', 'total')
         )
 
@@ -4570,7 +4617,8 @@ class SuperStockistPromotionListView(APIView):
             total_distributors = distributor_counts.get(creator_id, 0)
             total_wholesale_dealers = len(my_sub_dealer_ids)
             total_retailers = len(my_promotor_ids)
-            total_customers = len(my_customers)
+            # NEW: total_customers ippo THIS MONTH create aana customers mattum count pannum
+            total_customers = sum(1 for c in my_customers if c['created_at'] >= month_start)
             today_customers = sum(1 for c in my_customers if c['created_at'].date() == today)
 
             total_value = sum(order_totals.get(c['user_id'], 0) or 0 for c in my_customers)

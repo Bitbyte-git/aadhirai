@@ -101,6 +101,7 @@ export default function WholesaleDealerPromotions() {
         .rp-table tr:last-child td { border-bottom: none; }
         .rp-table tr:hover td { background: rgba(7,59,63,0.02); }
         .rp-id { color: #073B3F; font-family: monospace; font-weight: 700; font-size: 12.5px; }
+        .rp-sno { font-weight: 850; color: #073B3F; text-align: center; width: 50px; }
         .rp-name { font-weight: 700; }
         .rp-sub { color: #7A8987; font-size: 12px; margin-top: 2px; }
         .rp-value { color: #073B3F; font-weight: 800; font-family: monospace; }
@@ -127,7 +128,13 @@ export default function WholesaleDealerPromotions() {
         .rp-modal-confirm { padding: 10px 20px; border-radius: 999px; background: #C92035; border: none; color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; }
         .rp-loading-row td { text-align: center; color: #7A8987; padding: 40px 0; }
         @media (max-width: 900px) { .rp-stats { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 640px) { .rp-shell { width: calc(100% - 24px); } .rp-stats { grid-template-columns: 1fr; } }
+        @media (max-width: 640px) {
+          .rp-shell { width: calc(100% - 24px); padding: 24px 0 48px; }
+          .rp-header { flex-direction: column; align-items: stretch; }
+          .rp-refresh { width: 100%; text-align: center; }
+          .rp-stats { grid-template-columns: 1fr; gap: 10px; }
+          .rp-card { padding: 6px 6px 18px; }
+        }
       `}</style>
 
       <div className="rp-shell">
@@ -180,6 +187,7 @@ export default function WholesaleDealerPromotions() {
             <table className="rp-table">
               <thead>
                 <tr>
+                  <th>S.No</th>
                   <th>Promotor ID</th>
                   <th>Name</th>
                   <th>Phone Number</th>
@@ -193,6 +201,7 @@ export default function WholesaleDealerPromotions() {
                 {loading ? (
                   [0, 1, 2, 3, 4].map(i => (
                     <tr key={i}>
+                      <td style={{ textAlign: 'center' }}><SkeletonText width="22px" height="12px" /></td>
                       <td><SkeletonText width="100px" height="12px" /></td>
                       <td>
                         <SkeletonText width="130px" height="13px" />
@@ -209,18 +218,19 @@ export default function WholesaleDealerPromotions() {
                   ))
                 ) : rows.length === 0 ? (
                   <tr className="rp-loading-row">
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <div className="rp-empty">No retailers eligible for wholesale dealer promotion yet.</div>
                     </td>
                   </tr>
                 ) : (
-                  rows.map((r) => {
+                  rows.map((r, i) => {
                     const cfg = STATUS_CFG[r.status] || STATUS_CFG.none;
                     const isFinal = r.status === "approved" || r.status === "rejected";
                     const isActing = actingId === r.user_id;
 
                     return (
                       <tr key={r.user_id}>
+                        <td className="rp-sno">{i + 1}</td>
                         <td className="rp-id">{r.promotor_id}</td>
                         <td>
                           <div className="rp-name">{r.first_name} {r.last_name}</div>

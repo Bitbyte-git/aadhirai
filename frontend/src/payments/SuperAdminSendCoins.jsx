@@ -60,8 +60,12 @@ const styles = `
   .sc-filter-tab{padding:8px 16px;border-radius:20px;border:1.5px solid #D1DFDE;background:#FDFDFC;color:${DARK};font-weight:800;font-size:12px;cursor:pointer}
   .sc-filter-tab.active{border-color:${RED};background:${RED};color:#fff}
   .sc-loadmore{width:100%;margin-top:14px;padding:12px;border-radius:8px;border:1.5px solid #D1DFDE;background:#FDFDFC;color:${RED};font-weight:800;font-size:13px;cursor:pointer}
-  .sc-loadmore:hover{border-color:${RED};background:rgba(7,59,63,.04)}
   @media(max-width:900px){.sc-grid{grid-template-columns:1fr}}
+  @media(max-width:768px){
+    .sc-main{width:100%!important;padding:20px 14px 60px!important;box-sizing:border-box!important}
+    .sc-card{padding:18px 14px!important;border-radius:14px!important}
+    .sc-filter-tabs{overflow-x:auto!important;-webkit-overflow-scrolling:touch!important;flex-wrap:nowrap!important;padding-bottom:6px!important}
+  }
 `
 
 const METHOD_COLORS = { card: '#2563eb', upi: '#9333ea', netbanking: '#ea580c', wallet: '#0d9488', commission: '#8b5cf6', admin: GOLD, purchase: '#c0392b', other: RED }

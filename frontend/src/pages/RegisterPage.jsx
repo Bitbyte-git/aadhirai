@@ -242,9 +242,13 @@ export default function RegisterPage() {
           margin-right: auto;
         }
         @media (max-width: 640px) {
-          .rg-shell { width: calc(100% - 24px); }
-          .rg-card { padding: 22px 18px; }
+          .rg-shell { width: calc(100% - 20px); padding: 20px 0 48px; }
+          .rg-card { padding: 18px 14px; border-radius: 16px; }
+          .rg-section-card { padding: 16px 12px; border-radius: 14px; }
           .rg-grid.cols-2, .rg-grid.cols-3, .rg-grid.cols-init { grid-template-columns: 1fr; }
+          .rg-actions { flex-direction: column; }
+          .rg-actions button { width: 100%; text-align: center; justify-content: center; }
+          .rg-error-card { padding: 32px 16px; border-radius: 16px; }
         }
       `}</style>
 

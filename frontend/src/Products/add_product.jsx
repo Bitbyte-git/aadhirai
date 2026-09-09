@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import api from '../api'
 import logo from '../assets/logo.png'
 
@@ -141,10 +141,17 @@ const getImageUrl = img => {
 
 export default function AddProduct() {
   const navigate = useNavigate()
+  const location = useLocation()
   const dark = false
-  const [activeCategory, setActiveCategory] = useState('rings')
+
+  // ── Restock: read product ID + category from SoldOutProducts navigate state ──
+  const restockProductId = location.state?.restockProductId || null
+  const restockCategory = location.state?.restockCategory || null
+
+  const [activeCategory, setActiveCategory] = useState(restockCategory || 'rings')
   const [products, setProducts]           = useState([])
   const [loadingProducts, setLoadingProducts] = useState(false)
+  const [restockHandled, setRestockHandled] = useState(false)
   
 
   // Edit modal
@@ -174,6 +181,17 @@ export default function AddProduct() {
   const lblStyle = { display: 'block', color: subtext, fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }
 
 useEffect(() => { fetchProducts() }, [activeCategory])
+
+  // ── Restock: auto-open edit modal when products load for the matching product ──
+  useEffect(() => {
+    if (restockProductId && !restockHandled && products.length > 0 && !loadingProducts) {
+      const target = products.find(p => p.id === restockProductId)
+      if (target) {
+        openEdit(target)
+        setRestockHandled(true)
+      }
+    }
+  }, [products, loadingProducts, restockProductId, restockHandled])
 
   const fetchProducts = async () => {
     setLoadingProducts(true)

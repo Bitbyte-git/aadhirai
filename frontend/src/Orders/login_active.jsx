@@ -98,9 +98,44 @@ export default function LoginActive() {
     <SuperAdminNavbar showSidebar={false} />
     <div className="ls-page">
       <style>{`
-        .ls-page{min-height:100vh;background:linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 48%,#E7EDEC 100%);color:#111817;font-family:"Manrope","Inter",system-ui,sans-serif;padding:32px 24px}.ls-wrap{max-width:1200px;margin:0 auto}.ls-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:22px;flex-wrap:wrap}.ls-kicker{font-size:11px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:#BB8958;margin-bottom:8px}.ls-title{margin:0;font-size:30px;line-height:1;color:#0C4044;font-weight:900}.ls-sub{color:#53615F;font-size:13px;margin:8px 0 0;font-weight:650}.ls-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.ls-select{height:42px;padding:0 14px;background:#FFFFFF;border:1px solid #D1DFDE;border-radius:10px;color:#0C4044;font-size:13px;font-weight:850;outline:none}.ls-btn{height:42px;padding:0 18px;border-radius:10px;border:1px solid #073B3F;background:linear-gradient(135deg,#0C4044,#073B3F);color:#FDFDFC;font-size:13px;font-weight:900;cursor:pointer}.ls-card{background:#FFFFFF;border:1px solid #E0E9E8;border-radius:12px;box-shadow:0 16px 36px rgba(7,59,63,.06);overflow:hidden}.ls-summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;padding:18px 20px;border-bottom:1px solid #E0E9E8}.ls-count{font-size:34px;line-height:1;font-weight:900;color:#0C4044}.ls-label{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:#53615F;font-weight:900}.ls-status{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(12,64,68,.24);background:rgba(12,64,68,.08);color:#0C4044;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:900}.ls-dot{width:9px;height:9px;border-radius:50%;background:#0C4044;box-shadow:0 0 0 4px rgba(12,64,68,.12)}.ls-state{padding:56px 20px;text-align:center;color:#6E7D7B;font-size:14px;font-weight:700}.ls-error{margin-bottom:18px;background:rgba(201,32,53,.08);border:1px solid rgba(201,32,53,.28);color:#C92035;border-radius:10px;padding:12px 16px;font-weight:750}.ls-table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}.ls-table{width:100%;min-width:860px;border-collapse:collapse;font-size:14px}.ls-table thead tr{background:#F3F3F0;border-bottom:1px solid #D1DFDE}.ls-table th{padding:14px 16px;text-align:left;color:#0C4044;font-weight:900;font-size:12px;text-transform:uppercase;letter-spacing:.08em}.ls-table td{padding:14px 16px;border-bottom:1px solid #E9EFEE;color:#111817}.ls-role{font-weight:900;color:#0C4044}.ls-id{font-family:monospace;color:#9F6130;font-weight:850}.ls-muted{color:#6E7D7B!important}.ls-time{color:#0C4044;font-weight:900}.ls-order-btn{background:#0C4044;color:#FDFDFC;border:none;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:900;cursor:pointer}.ls-order-btn:hover{background:#073B3F}.skel-line{background:linear-gradient(90deg,#E9EFEE 25%,#F3F3F0 50%,#E9EFEE 75%);background-size:200% 100%;animation:ls-shimmer 1.4s infinite;border-radius:6px}@keyframes ls-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}@media(max-width:720px){.ls-page{padding:20px 12px}.ls-head{align-items:stretch;flex-direction:column}.ls-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}.ls-select,.ls-btn{width:100%}.ls-summary{grid-template-columns:1fr}.ls-title{font-size:24px}.ls-count{font-size:28px}}@media(max-width:420px){.ls-actions{grid-template-columns:1fr}.ls-card{border-radius:10px}.ls-table{min-width:760px}}
-        .ls-reward-btn{background:linear-gradient(135deg,#BB8958,#9F6130);border-color:#9F6130}
-.ls-reward-btn:hover{background:#9F6130}
+        .ls-page{min-height:100vh;background:linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 48%,#E7EDEC 100%);color:#111817;font-family:"Manrope","Inter",system-ui,sans-serif;padding:28px 20px}
+        .ls-wrap{max-width:1280px;margin:0 auto}
+        .ls-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+        .ls-kicker{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#BB8958;margin-bottom:6px}
+        .ls-title{margin:0;font-size:26px;line-height:1.2;color:#0C4044;font-weight:800}
+        .ls-sub{color:#7A8987;font-size:13px;margin:6px 0 0;font-weight:500}
+        .ls-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+        .ls-select{height:38px;padding:0 12px;background:#FDFDFC;border:1px solid #BDCFCE;border-radius:8px;color:#0C4044;font-size:13px;font-weight:600;outline:none;transition:border-color .2s}
+        .ls-select:focus{border-color:#0C4044}
+        .ls-btn{height:38px;padding:0 16px;border-radius:8px;border:none;background:#0C4044;color:#FDFDFC;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s}
+        .ls-btn:hover{background:#073B3F}
+        .ls-card{background:#FDFDFC;border:1px solid rgba(189,207,206,.72);border-radius:12px;box-shadow:0 4px 16px rgba(7,59,63,.06);overflow:hidden}
+        .ls-summary{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid rgba(189,207,206,.5)}
+        .ls-count{font-size:28px;line-height:1;font-weight:800;color:#0C4044}
+        .ls-label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#7A8987;font-weight:700;margin-top:2px}
+        .ls-status{display:inline-flex;align-items:center;gap:6px;background:rgba(12,64,68,.08);color:#0C4044;border:1px solid rgba(12,64,68,.2);border-radius:20px;padding:6px 12px;font-size:12px;font-weight:700}
+        .ls-dot{width:8px;height:8px;border-radius:50%;background:#0C4044}
+        .ls-state{padding:48px 20px;text-align:center;color:#7A8987;font-size:14px;font-weight:600}
+        .ls-error{margin-bottom:16px;background:rgba(201,32,53,.08);border:1px solid rgba(201,32,53,.28);color:#C92035;border-radius:8px;padding:10px 14px;font-weight:600;font-size:13px}
+        .ls-table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+        .ls-table{width:100%;min-width:900px;border-collapse:collapse;font-size:13px}
+        .ls-table thead tr{background:#F3F3F0;border-bottom:2px solid #BDCFCE}
+        .ls-table th{padding:12px 14px;text-align:left;color:#0C4044;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+        .ls-table td{padding:11px 14px;border-bottom:1px solid rgba(189,207,206,.35);color:#111817;font-size:13px}
+        .ls-table tbody tr:hover{background:rgba(189,207,206,.15)}
+        .ls-sno{color:#7A8987;font-weight:700;font-size:13px}
+        .ls-role{font-weight:700;color:#0C4044}
+        .ls-id{font-family:'SF Mono','Consolas',monospace;color:#9F6130;font-weight:700;font-size:12px}
+        .ls-muted{color:#7A8987!important}
+        .ls-time{color:#0C4044;font-weight:600}
+        .ls-order-btn{background:#0C4044;color:#FDFDFC;border:none;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;transition:background .2s}
+        .ls-order-btn:hover{background:#073B3F}
+        .skel-line{background:linear-gradient(90deg,#E7EDEC 25%,#F3F3F0 50%,#E7EDEC 75%);background-size:200% 100%;animation:ls-shimmer 1.4s infinite;border-radius:4px}
+        @keyframes ls-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+        .ls-reward-btn{background:#BB8958;border:none}
+        .ls-reward-btn:hover{background:#9F6130}
+        @media(max-width:720px){.ls-page{padding:16px 10px}.ls-head{align-items:stretch;flex-direction:column}.ls-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}.ls-select,.ls-btn{width:100%}.ls-summary{flex-direction:column;align-items:flex-start;gap:10px}.ls-title{font-size:22px}.ls-count{font-size:24px}}
+        @media(max-width:420px){.ls-actions{grid-template-columns:1fr}.ls-card{border-radius:8px}.ls-table{min-width:760px}}
       `}</style>
       <div className="ls-wrap">
         <header className="ls-head">
@@ -155,13 +190,13 @@ export default function LoginActive() {
             <div className="ls-table-wrap">
               <table className="ls-table">
                 <thead>
-                  <tr>{['Level', 'Position', 'User ID', 'Name', 'Phone No', 'Orders', 'Login Active'].map(h => <th key={h}>{h}</th>)}</tr>
+                  <tr>{['S.No', 'Level', 'Position', 'User ID', 'Name', 'Phone No', 'Orders', 'Login Active'].map(h => <th key={h}>{h}</th>)}</tr>
                 </thead>
                 <tbody>
                   {Array.from({ length: 8 }).map((_, i) => (
                     <tr key={i}>
-                      {Array.from({ length: 7 }).map((_, j) => (
-                        <td key={j}><div className="skel-line" style={{ width: j === 3 ? '80%' : '60%', height: '12px', marginBottom: 0 }} /></td>
+                      {Array.from({ length: 8 }).map((_, j) => (
+                        <td key={j}><div className="skel-line" style={{ width: j === 4 ? '80%' : '60%', height: '12px', marginBottom: 0 }} /></td>
                       ))}
                     </tr>
                   ))}
@@ -174,10 +209,11 @@ export default function LoginActive() {
             <>
               <div className="ls-table-wrap">
                 <table className="ls-table">
-                  <thead><tr>{['Level', 'Position', 'User ID', 'Name', 'Phone No', 'Orders', 'Login Active'].map(h => <th key={h}>{h}</th>)}</tr></thead>
+                  <thead><tr>{['S.No', 'Level', 'Position', 'User ID', 'Name', 'Phone No', 'Orders', 'Login Active'].map(h => <th key={h}>{h}</th>)}</tr></thead>
                   <tbody>
                     {filtered.map((u, i) => (
                       <tr key={i}>
+                        <td><span className="ls-sno">{i + 1}</span></td>
                         <td className="ls-muted">{u.level}</td>
                         <td className="ls-role">{u.level_role}</td>
                         <td className="ls-id">{u.id || '—'}</td>
@@ -194,8 +230,8 @@ export default function LoginActive() {
                     {/* ── NEW: Load More click pannும் pothu, keezhe skeleton rows append aagும் ── */}
                     {loadingMore && Array.from({ length: 5 }).map((_, i) => (
                       <tr key={`skel-${i}`}>
-                        {Array.from({ length: 7 }).map((_, j) => (
-                          <td key={j}><div className="skel-line" style={{ width: j === 3 ? '80%' : '60%', height: '12px', marginBottom: 0 }} /></td>
+                        {Array.from({ length: 8 }).map((_, j) => (
+                          <td key={j}><div className="skel-line" style={{ width: j === 4 ? '80%' : '60%', height: '12px', marginBottom: 0 }} /></td>
                         ))}
                       </tr>
                     ))}

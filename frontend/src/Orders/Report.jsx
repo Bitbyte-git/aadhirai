@@ -782,14 +782,14 @@ export default function Report() {
     }
   }, [scopedNode])
 
-  // ── NEW: Summary cards — scopedNode select pண்ணின role+id vachi thani API call ──
+  // ── NEW: Summary cards — scopedNode + timeRange vachi thani API call, trend graph oda sync aagum ──
   useEffect(() => {
-    const params = {}
+    const params = { period: timeRange.toLowerCase() }
     if (scopedNode) { params.role = scopedNode.type; params.id = scopedNode.id }
     api.get('/sales-report/summary/', { params })
       .then(res => setSummaryData(res.data))
       .catch(() => { })
-  }, [scopedNode])
+  }, [scopedNode, timeRange])
 
   // ── NEW: Trend graph — timeRange (Today/Week/Month/Year) button click pண்ணும்போது
   // thani thani API call pண்ணும். scopedNode select pண்ணினாலும் andha scope-ku mattum ──

@@ -1411,6 +1411,14 @@ class JewelryProductDetailView(APIView):
         except JewelryProduct.DoesNotExist:
             return Response({'error': 'Not found'}, status=404)
 
+        # NEW: multipart/form-data always sends strings — cast to correct
+        # type before setattr, otherwise in-memory object keeps the string
+        # even after save(), and later comparisons (like stock_status) crash
+        INT_FIELDS = {'stock_quantity', 'low_stock_threshold'}
+        DECIMAL_FIELDS = {'cross_weight', 'stone_weight', 'net_weight', 'making_charge',
+                          'wastage_charge', 'stone_value', 'tax_percent', 'price', 'original_price'}
+        BOOL_FIELDS = {'is_active'}
+
         for field in ['category', 'metal', 'grade', 'name', 'description',
                       'cross_weight', 'stone_weight', 'net_weight',
                       'making_charge', 'wastage_charge', 'stone_value', 'tax_percent',
@@ -1419,7 +1427,14 @@ class JewelryProductDetailView(APIView):
                       'gender', 'age_group', 'is_active',
                       'stock_quantity', 'low_stock_threshold']:   # ── NEW: restock fields ──
             if field in request.data:
-                setattr(product, field, request.data[field])
+                value = request.data[field]
+                if field in INT_FIELDS:
+                    value = int(value)
+                elif field in DECIMAL_FIELDS and value not in ['', None]:
+                    value = Decimal(str(value))
+                elif field in BOOL_FIELDS:
+                    value = value in [True, 'true', 'True', '1', 1]
+                setattr(product, field, value)
 
         # ── NEW: Restock pannina, stock > 0 aana automatic-a "active" ah maathum ──
         if 'stock_quantity' in request.data and int(request.data['stock_quantity']) > 0:
@@ -3092,12 +3107,30 @@ class SalesSummaryView(APIView):
     def get(self, request):
         role = request.query_params.get('role')
         node_id = request.query_params.get('id')
+        period = request.query_params.get('period', 'week')   # NEW
         try:
             user_ids = _resolve_scope_user_ids(request.user, role, node_id)
         except Exception as e:
             return Response({'error': str(e)}, status=404)
 
         qs = JewelryOrder.objects.filter(user_id__in=user_ids)
+
+        # NEW: period filter — trend graph range oda match aaguradhu ku
+        now = timezone.now()
+        if period == 'today':
+            start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            qs = qs.filter(created_at__gte=start)
+        elif period == 'week':
+            start = (now - timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
+            qs = qs.filter(created_at__gte=start)
+        elif period == 'month':
+            start = (now - timedelta(days=27)).replace(hour=0, minute=0, second=0, microsecond=0)
+            qs = qs.filter(created_at__gte=start)
+        elif period == 'year':
+            start = (now - timedelta(days=365)).replace(hour=0, minute=0, second=0, microsecond=0)
+            qs = qs.filter(created_at__gte=start)
+        # period == 'all' na filter illama full lifetime varum
+
         agg = qs.aggregate(total_sales=Sum('total_price'), total_orders=Count('id'))
         customers_with_orders = qs.values('user_id').distinct().count()
 

@@ -295,7 +295,22 @@ export default function AddNewProduct() {
       productImages.forEach(img => fd.append('uploaded_images', img))
       await api.post('/jewelry-products/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       setProductMsg('OK: Product added!')
-      setTimeout(() => navigate('/add-product'), 900)
+      // NEW: redirect venaam — same page-layE irukanum. Form ah mattum reset pannurom,
+      // adhukku apparam innoru product udane add pannalam.
+      setProductForm({
+        category: '', metal: '', grade: '', name: '', nameChoice: '', description: '',
+        cross_weight: '', stone_weight: '', making_charge: '', stone_value: '',
+        tag: '', subcategory: '', occasion: '', wedding_category: '', gender: 'all', wastage_charge: '',
+        stock_quantity: '', gift_tags: [], gift_subcategory: '', age_group: ''
+      })
+      setProductImages([])
+      setProductPreviewUrls([])
+      setLivePrice(null)
+      setNetWeight(null)
+      setBaseMetalAmt(null)
+      setMakingAmt(null)
+      setDiscountAmt(null)
+      setOriginalPrice(null)
     } catch (err) { setProductMsg('ERR: ' + JSON.stringify(err.response?.data || err.message)) }
     setProductSaving(false)
   }

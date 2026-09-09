@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import logo from '../assets/logo.png'
@@ -9,6 +9,12 @@ const Eye = ({ off }) => off ? <svg viewBox="0 0 24 24"><path d="M3 3l18 18M10.6
 export default function LoginPage() {
   const [email,setEmail]=useState(''), [password,setPassword]=useState(''), [error,setError]=useState(''), [loading,setLoading]=useState(false), [showPassword,setShowPassword]=useState(false)
   const navigate=useNavigate()
+
+  useEffect(() => {
+    window.history.replaceState(null, '', '/')
+    window.history.pushState(null, '', '/login')
+  }, [])
+
   const handleLogin=async e=>{
     e.preventDefault(); setLoading(true); setError(''); ['token','refresh','role','email'].forEach(k=>localStorage.removeItem(k))
     const attempt=()=>api.post('/login/',{email,password})

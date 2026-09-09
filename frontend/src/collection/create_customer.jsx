@@ -36,21 +36,6 @@ export default function CreateCustomer() {
   const [passwordError, setPasswordError] = useState("");
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState("success");
-  const [customers, setCustomers] = useState([]);
-const [customersLoading, setCustomersLoading] = useState(true);
-
-const fetchCustomers = () => {
-  setCustomersLoading(true);
-  api
-    .get("/customers/")
-    .then((res) => setCustomers(Array.isArray(res.data) ? res.data : []))
-    .catch(() => setCustomers([]))
-    .finally(() => setCustomersLoading(false));
-};
-
-useEffect(() => {
-  fetchCustomers();
-}, []);
 
   // Info of the customer who is currently logged in (creating this new customer)
   const [superCustomer, setSuperCustomer] = useState(null);
@@ -111,7 +96,6 @@ useEffect(() => {
     setForm(emptyForm);
     setConfirmPassword("");
     setPasswordError("");
-    fetchCustomers(); // ← real list-ஐ refresh பண்ணு, DB-ல save ஆனது table-ல தெரியும்
   } catch (err) {
     setMsg("Error: " + JSON.stringify(err.response?.data || err.message));
     setMsgType("error");
@@ -324,59 +308,20 @@ useEffect(() => {
           cursor: pointer;
         }
 
-        .cc-table-wrap { overflow-x: auto; }
 
-        .cc-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 14px;
-        }
-
-        .cc-table thead tr {
-          border-bottom: 1px solid #D1DFDE;
-        }
-
-        .cc-table th {
-          padding: 12px 16px;
-          text-align: left;
-          color: var(--bb-muted, #7A8987);
-          font-size: 12px;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          white-space: nowrap;
-        }
-
-        .cc-table td {
-          padding: 13px 16px;
-          border-bottom: 1px solid #EEF0EF;
-          color: #111817;
-          white-space: nowrap;
-        }
-
-        .cc-table td.id {
-          color: #073B3F;
-          font-family: monospace;
-          font-weight: 700;
-        }
-
-        .cc-empty {
-          text-align: center;
-          color: var(--bb-muted, #7A8987);
-          padding: 48px 0;
-          font-size: 14px;
-        }
 
         @media (max-width: 900px) {
           .cc-grid.cols-3 { grid-template-columns: repeat(2, 1fr); }
         }
 
         @media (max-width: 640px) {
-          .cc-shell { width: calc(100% - 24px); }
-          .cc-card { padding: 22px 18px; }
+          .cc-shell { width: calc(100% - 24px); padding: 20px 0 40px; }
+          .cc-card { padding: 20px 14px; }
           .cc-grid.cols-2,
           .cc-grid.cols-3,
           .cc-grid.cols-init { grid-template-columns: 1fr; }
+          .cc-actions { flex-direction: column; }
+          .cc-actions button { width: 100%; }
         }
       `}</style>
 
@@ -545,32 +490,36 @@ useEffect(() => {
               </div>
             </div>
 
-            <p className="cc-sub-label">Super Customer Info</p>
+            <p className="cc-sub-label">
+              {superCustomer?.role === "super_admin" ? "Super Admin Info (Direct Creator)" : "Super Customer Info"}
+            </p>
             <div className="cc-super-card">
               <p className="cc-super-note">
-                Details of the customer who is currently logged in and creating this new customer.
+                {superCustomer?.role === "super_admin"
+                  ? "This customer will be registered directly under Super Admin."
+                  : "Details of the customer who is currently logged in and creating this new customer."}
               </p>
               <div className="cc-grid cols-3">
                 <div className="cc-field readonly">
-                  <label>Customer ID</label>
+                  <label>{superCustomer?.role === "super_admin" ? "Admin Role / ID" : "Customer ID"}</label>
                   <input
-                    value={superCustomerLoading ? "Fetching..." : superCustomer?.id || ""}
+                    value={superCustomerLoading ? "Fetching..." : (superCustomer?.id || (superCustomer?.role === "super_admin" ? "SUPER_ADMIN" : ""))}
                     readOnly
                     placeholder="Auto fetch"
                   />
                 </div>
                 <div className="cc-field readonly">
-                  <label>Name</label>
+                  <label>{superCustomer?.role === "super_admin" ? "Creator Name" : "Name"}</label>
                   <input
-                    value={superCustomerLoading ? "Fetching..." : superCustomerName}
+                    value={superCustomerLoading ? "Fetching..." : (superCustomerName || (superCustomer?.role === "super_admin" ? "Super Admin" : ""))}
                     readOnly
                     placeholder="Auto fetch"
                   />
                 </div>
                 <div className="cc-field readonly">
-                  <label>Mobile Number</label>
+                  <label>{superCustomer?.role === "super_admin" ? "Contact / Email" : "Mobile Number"}</label>
                   <input
-                    value={superCustomerLoading ? "Fetching..." : superCustomer?.phone || ""}
+                    value={superCustomerLoading ? "Fetching..." : (superCustomer?.phone || "")}
                     readOnly
                     placeholder="Auto fetch"
                   />
@@ -598,44 +547,6 @@ useEffect(() => {
           </form>
         </div>
 
-        <div className="cc-card">
-          <h2 className="cc-section-title">Created Customers ({customers.length})</h2>
-
-          {customersLoading ? (
-  <div className="cc-empty">Loading...</div>
-) : customers.length === 0 ? (
-  <div className="cc-empty">No customers created yet.</div>
-) : (
-            <div className="cc-table-wrap">
-              <table className="cc-table">
-                <thead>
-  <tr>
-    <th>Customer ID</th>
-    <th>First Name</th>
-    <th>Last Name</th>
-    <th>Email</th>
-    <th>Mobile</th>
-    <th>City</th>
-    <th>Created</th>
-  </tr>
-</thead>
-                <tbody>
-                  {customers.map((c, i) => (
-                    <tr key={i}>
-                      <td className="id">{c.customer_id}</td>
-                      <td>{c.first_name}</td>
-                      <td>{c.last_name}</td>
-                      <td>{c.email}</td>
-                      <td>{c.mobile_number}</td>
-                      <td>{c.city_name}</td>
-<td>{new Date(c.created_at).toLocaleDateString("en-IN")}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
       </div>
 
       <CustomerFooter />

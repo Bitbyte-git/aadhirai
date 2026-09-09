@@ -128,6 +128,14 @@ def get_user_display_info(user):
             }
         except Exception:
             pass
+    if user.role == 'super_admin':
+        return {
+            'user_id_str': 'SUPER_ADMIN',
+            'name': 'Super Admin',
+            'phone': getattr(user, 'email', ''),
+            'level': 0,
+            'position': 'Super Admin',
+        }
     return {'user_id_str': None, 'name': user.email, 'phone': None, 'level': None, 'position': None}
 
 
@@ -738,7 +746,7 @@ class CreateCustomerView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        if request.user.role not in ['promotor', 'customer']:
+        if request.user.role not in ['promotor', 'customer', 'super_admin']:
             return Response({'error': 'Permission denied'}, status=403)
         serializer = CustomerProfileSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():

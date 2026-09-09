@@ -695,6 +695,7 @@ export default function AllCollection() {
           if (categoryFilter) params.set('category', categoryFilter)
           if (subcategoryFilter) params.set('subcategory', subcategoryFilter)
           if (genderFilter) params.set('gender', genderFilter)
+          if (ageFilter) params.set('age', ageFilter)
           if (occasionFilter) params.set('occasion', occasionFilter)
           if (giftTagFilter) params.set('gift_tag', giftTagFilter)
           if (giftTypeFilter) params.set('gift_type', giftTypeFilter)
@@ -714,7 +715,7 @@ export default function AllCollection() {
       }
 
           loadProducts()
-    }, [metalFilter, categoryFilter, subcategoryFilter, genderFilter, occasionFilter, giftTagFilter, giftTypeFilter, priceFilter, searchFilter, isWedding, isDailywear])
+    }, [metalFilter, categoryFilter, subcategoryFilter, genderFilter, ageFilter, occasionFilter, giftTagFilter, giftTypeFilter, priceFilter, searchFilter, isWedding, isDailywear])
 
     // subcategory scroll — clicked subcategory first, remaining subcategories
     // (same category, navbar order) follow one after another below it.
@@ -742,12 +743,13 @@ export default function AllCollection() {
           return
         }
         try {
-          const cacheKey = `subsec_gift_${giftTagFilter}_${genderFilter || 'none'}_${occasionFilter || 'none'}_${priceFilter || 'none'}`
+          const cacheKey = `subsec_gift_${giftTagFilter}_${genderFilter || 'none'}_${ageFilter || 'none'}_${occasionFilter || 'none'}_${priceFilter || 'none'}`
           let allProducts = readSubsecCache(cacheKey)
           if (!allProducts) {
             const params = new URLSearchParams()
             params.set('gift_tag', giftTagFilter)
             if (genderFilter) params.set('gender', genderFilter)
+            if (ageFilter) params.set('age', ageFilter)
             if (occasionFilter) params.set('occasion', occasionFilter)
             if (priceFilter) params.set('price', priceFilter)
             const res = await api.get(`/jewelry-products/?${params.toString()}`)
@@ -788,7 +790,7 @@ export default function AllCollection() {
 
       try {
         const occasionValue = isWedding ? 'Wedding' : (occasionFilter || 'none')
-        const cacheKey = `subsec_${categoryFilter}_${metalFilter || 'none'}_${genderFilter || 'none'}_${occasionValue}_${priceFilter || 'none'}`
+        const cacheKey = `subsec_${categoryFilter}_${metalFilter || 'none'}_${genderFilter || 'none'}_${ageFilter || 'none'}_${occasionValue}_${priceFilter || 'none'}`
         let allProducts = readSubsecCache(cacheKey)
         if (!allProducts) {
           const params = new URLSearchParams()
@@ -797,6 +799,7 @@ export default function AllCollection() {
           if (isWedding) params.set('occasion', 'Wedding')
           else if (occasionFilter) params.set('occasion', occasionFilter)
           if (genderFilter) params.set('gender', genderFilter)
+          if (ageFilter) params.set('age', ageFilter)
           if (priceFilter) params.set('price', priceFilter)
           const res = await api.get(`/jewelry-products/?${params.toString()}`)
           allProducts = normalizeProductList(res.data).filter(
@@ -824,7 +827,7 @@ export default function AllCollection() {
 
     loadSections()
     return () => { alive = false }
-  }, [subcategoryFilter, categoryFilter, metalFilter, isWedding, isGifting, giftTagFilter, giftTypeFilter, genderFilter, occasionFilter, priceFilter])
+  }, [subcategoryFilter, categoryFilter, metalFilter, isWedding, isGifting, giftTagFilter, giftTypeFilter, genderFilter, ageFilter, occasionFilter, priceFilter])
 
     useEffect(() => {
       if (!subcategoryFilter || !subcategorySections.length) {

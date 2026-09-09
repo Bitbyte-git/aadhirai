@@ -1,4 +1,4 @@
-﻿import { lazy, Suspense } from 'react'
+import { lazy, Suspense } from 'react'
 import { useLayoutEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import CustomerNavbar from './collection/CustomerNavbar'
@@ -200,7 +200,7 @@ export default function App() {
           <Route path="/add-shop" element={<WithSuperAdminNavbar><AddShop /></WithSuperAdminNavbar>} />
 <Route path="/contact" element={<WithCustomerNavbar><Contact /></WithCustomerNavbar>} />
 <Route path="/profile" element={<WithCustomerNavbar><Profile /></WithCustomerNavbar>} />
-          <Route path="/create-customer" element={<ProtectedRoute role={["customer", "promotor", "sub_dealer", "dealer", "admin"]}><WithCustomerNavbar><CreateCustomer /></WithCustomerNavbar></ProtectedRoute>} />
+          <Route path="/create-customer" element={<ProtectedRoute role={["customer", "promotor", "sub_dealer", "dealer", "admin", "super_admin"]}><WithAnyNavbar><CreateCustomer /></WithAnyNavbar></ProtectedRoute>} />
 
           {/* hide for daimond and platinim  */}
           {/* <Route path="/collection/rings" element={<Navigate to={collectionPath('rings')} replace />} />

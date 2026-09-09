@@ -373,6 +373,7 @@ export default function SuperAdminNavbar({
   ['Wholesale Dealers', () => navigate('/superadmin/manage-users/wholesale-dealer')],
   ['Retailers', () => navigate('/superadmin/manage-users/retailer')],
   ['Customers', () => navigate('/superadmin/manage-users/customer')],
+  ['Create Customer', () => navigate('/create-customer')],
 ]
  const celebrations = [
   ["Today's Birthdays", () => { setShowBirthdayList(true); fetchCelebrations() }],
@@ -505,7 +506,8 @@ export default function SuperAdminNavbar({
 .san-hamburger { display: flex; background: transparent; border: none; color: #0C4044; padding: 8px; cursor: pointer; align-items: center; justify-content: center; flex-shrink: 0; }
 .san-hamburger:hover { color: #073B3F; }
 .san-drawer-overlay { position: fixed; inset: 0; background: rgba(17,24,23,.55); backdrop-filter: blur(4px); z-index: 1400; }
-.san-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 260px; max-width: 82vw; background: #FDFDFC; z-index: 1401; box-shadow: -18px 0 48px rgba(7,59,63,.22); display: flex; flex-direction: column; padding: 20px 16px; gap: 6px; }
+.san-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 280px; max-width: 85vw; background: #FDFDFC; z-index: 1401; box-shadow: -18px 0 48px rgba(7,59,63,.22); display: flex; flex-direction: column; padding: 20px 16px; gap: 6px; animation: sanSlideIn .25s ease-out; }
+@keyframes sanSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
 .san-drawer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-bottom: 14px; border-bottom: 1px solid rgba(189,207,206,.7); }
 .san-drawer-title { font-family: Georgia, 'Times New Roman', serif; font-size: 17px; font-weight: 800; color: #073B3F; }
 .san-drawer-close { background: transparent; border: none; color: #0C4044; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 4px; }
@@ -621,6 +623,96 @@ export default function SuperAdminNavbar({
           </div>
         </header>
         <div className="san-top-spacer" />
+
+        {/* ── MOBILE DRAWER ── */}
+        {showMobileDrawer && (
+          <div
+            className="san-drawer-overlay"
+            onClick={() => setShowMobileDrawer(false)}
+          >
+            <div
+              className="san-drawer"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="san-drawer-head">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <img src={logo} alt="Athirai" style={{ width: '36px', height: '36px', objectFit: 'contain' }} />
+                  <div>
+                    <div className="san-drawer-title">ATHIRAI</div>
+                    <small style={{ color: '#BB8958', fontSize: '9px', fontWeight: 900, letterSpacing: '0.14em' }}>SUPER ADMIN</small>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="san-drawer-close"
+                  onClick={() => setShowMobileDrawer(false)}
+                  aria-label="Close menu"
+                >
+                  <Icon name="close" size={20} />
+                </button>
+              </div>
+
+              <div className="san-drawer-groups">
+                <button
+                  type="button"
+                  className="san-drawer-link"
+                  onClick={() => {
+                    setShowMobileDrawer(false)
+                    navigate('/super-admin')
+                  }}
+                >
+                  <Icon name="home" size={17} /> Dashboard
+                </button>
+
+                <button
+                  type="button"
+                  className="san-drawer-link"
+                  onClick={() => {
+                    setShowMobileDrawer(false)
+                    navigate('/sold-out-products')
+                  }}
+                >
+                  <Icon name="stock" size={17} /> Stock Notifications
+                </button>
+
+                {mobileMenuGroups.map(([groupTitle, groupItems]) => (
+                  <div className="san-drawer-group" key={groupTitle}>
+                    <strong>{groupTitle}</strong>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {groupItems.map(([itemText, itemAction]) => (
+                        <button
+                          key={itemText}
+                          type="button"
+                          className="san-drawer-link"
+                          style={{ padding: '9px 12px', fontSize: '13px' }}
+                          onClick={() => {
+                            setShowMobileDrawer(false)
+                            itemAction()
+                          }}
+                        >
+                          {itemText}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid rgba(189,207,206,0.6)' }}>
+                <button
+                  type="button"
+                  className="san-drawer-link logout"
+                  onClick={() => {
+                    setShowMobileDrawer(false)
+                    handleLogout()
+                  }}
+                >
+                  <Icon name="logout" size={17} /> Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── RATE ENTRY POPUP ── */}

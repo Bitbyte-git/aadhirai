@@ -974,6 +974,26 @@ export default function Report() {
           .print-table-wrap { overflow: visible !important; width: 100% !important; }
           td:last-child, th:last-child { text-align: right !important; }
                    @page { size: landscape; margin: 8mm; }
+
+          /* NEW: print-only layout fixes — screen layout (sidebar flex,
+          horizontal scroll lanes) print page width ku match aagாthu,
+          adhनाले print mode ku separate override venum */
+          .sr-main-container { flex-direction: column !important; }
+          .sr-sidebar { width: 100% !important; position: static !important; }
+
+          .print-container > div > div[style*="grid-template-columns"] {
+            grid-template-columns: repeat(3, 1fr) !important;
+          }
+
+          .sr-lane-track { overflow-x: visible !important; flex-wrap: wrap !important; }
+          .report-lane-card { min-width: 160px !important; max-width: 200px !important; }
+
+          .sales-report-page .print-card:has(svg) {
+            break-inside: auto !important;
+            page-break-inside: auto !important;
+          }
+
+          input, .sr-search-input { display: none !important; }
         }
         @media(max-width:900px){
           .sr-main-container{flex-direction:column!important}

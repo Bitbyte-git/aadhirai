@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../api'
 import { AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
@@ -1935,11 +1935,17 @@ const fetchCoinStock = async () => {
         .sa-today-title{grid-column:1/-1;border-bottom:0!important;padding-bottom:0!important;margin-bottom:-10px!important}
         .sa-today-card{border-radius:10px!important;padding:22px 28px!important;background:#FFFFFF!important;border-color:#E0E9E8!important;box-shadow:none!important}
         .sa-network-label{grid-column:1/-1;border-top:1px solid #E0E9E8;padding-top:12px;margin-top:-8px}
-        .sa-admin-tools-head{background:#FFFFFF;border:1px solid #E0E9E8;border-radius:10px;padding:18px 18px 12px;margin-bottom:14px!important;display:block!important}
-        .sa-admin-tools-head h2{font-size:13px!important;text-transform:uppercase;color:#0C4044;margin:0 0 18px!important}
-        .sa-admin-tools-head>div{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:28px!important}
-        .sa-admin-tools-head button{height:68px!important;border-radius:10px!important;background:#FFFFFF!important;color:#0C4044!important;border:1px solid #E0E9E8!important;justify-content:flex-start!important;padding:0 26px!important}
-        .sa-admin-tools-head button:last-child{grid-column:1/-1;height:36px!important;justify-content:center!important;background:#004B55!important;color:#FFFFFF!important;border-color:#004B55!important}
+        .sa-admin-tools-head{background:#FFFFFF;border:1px solid #E0E9E8;border-radius:12px;padding:18px 20px 16px;margin-bottom:18px!important;display:block!important;box-shadow:0 4px 16px rgba(7,59,63,0.03)}
+        .sa-admin-tools-head h2{font-size:13px!important;font-weight:900!important;letter-spacing:0.08em!important;text-transform:uppercase;color:#0C4044;margin:0 0 16px!important}
+        .sa-admin-tools-head>div{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:18px!important}
+        .sa-admin-tools-head button{height:68px!important;border-radius:10px!important;background:#FFFFFF!important;color:#0C4044!important;border:1px solid #E0E9E8!important;justify-content:flex-start!important;padding:0 24px!important;transition:all .18s ease!important}
+        .sa-admin-tools-head button:hover{background:#F7F9F8!important;border-color:rgba(12,64,68,0.3)!important}
+        .sa-admin-action-split{grid-column:1/-1!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:16px!important;margin-top:6px!important;width:100%!important}
+        .sa-admin-action-split button{height:42px!important;border-radius:10px!important;justify-content:center!important;display:flex!important;align-items:center!important;gap:8px!important;font-size:13.5px!important;font-weight:800!important;cursor:pointer!important;border:none!important;padding:0 18px!important;width:100%!important;transition:all .2s ease!important}
+        .sa-btn-create-admin{background:#004B55!important;color:#FFFFFF!important;box-shadow:0 6px 18px rgba(0,75,85,0.18)!important}
+        .sa-btn-create-admin:hover{background:#073B3F!important;transform:translateY(-1px)!important;box-shadow:0 8px 22px rgba(7,59,63,0.24)!important}
+        .sa-btn-create-customer{background:#073B3F!important;color:#FFFFFF!important;box-shadow:0 6px 18px rgba(7,59,63,0.18)!important}
+        .sa-btn-create-customer:hover{background:#004B55!important;transform:translateY(-1px)!important;box-shadow:0 8px 22px rgba(0,75,85,0.24)!important}
         .sa-admin-table-card{border-radius:10px!important;padding:18px 20px!important;background:#FFFFFF!important;box-shadow:none!important}
         .sa-admin-table-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}
         .sa-admin-search{height:42px;border:1px solid #E0E9E8;border-radius:8px;min-width:320px;display:flex;align-items:center;gap:10px;padding:0 14px;color:#6E7D7B;font-size:12px}
@@ -1947,7 +1953,9 @@ const fetchCoinStock = async () => {
         .sa-admin-action-menu{position:absolute;z-index:80;top:48px;right:16px;width:220px;padding:8px;border:1px solid rgba(189,207,206,.85);border-radius:14px;background:rgba(255,255,255,.98);box-shadow:0 24px 58px rgba(7,59,63,.2);backdrop-filter:blur(14px)}
         .sa-admin-action-menu button{width:100%;min-height:40px;padding:0 11px;border:0;border-radius:9px;background:transparent;color:#173230;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;font-size:12px;font-weight:750;cursor:pointer}.sa-admin-action-menu button:hover{color:#073B3F;background:#EDF3F1}.sa-admin-action-menu button span:last-child{color:#A2764C}
         .sa-admin-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.sa-admin-detail-item{padding:14px;border:1px solid #E0E9E8;border-radius:11px;background:#F8FAF9}.sa-admin-detail-item small{display:block;margin-bottom:5px;color:#83918F;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.sa-admin-detail-item strong{color:#173230;font-size:13px;overflow-wrap:anywhere}
-        @media (max-width:1180px){.sa-dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sa-pie-row,.sa-admin-tools-head>div{grid-template-columns:1fr!important}.sa-admin-search{min-width:0;width:100%}.sa-admin-table-top{align-items:stretch;flex-direction:column}}
+        @media (max-width:1180px){.sa-dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sa-admin-tools-head>div{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))!important}.sa-admin-search{min-width:0;width:100%}.sa-admin-table-top{align-items:stretch;flex-direction:column}}
+        @media (max-width:768px){.sa-dashboard-grid{grid-template-columns:1fr!important}.sa-admin-tools-head>div{grid-template-columns:1fr!important}}
+        @media (max-width:640px){.sa-admin-action-split{grid-template-columns:1fr!important;gap:10px!important}.sa-admin-tools-head{padding:14px 14px 12px!important}.sa-main-offset{padding:16px 12px 36px!important}}
         @media (max-width:520px){.sa-admin-detail-grid{grid-template-columns:1fr}}
         @media (max-width:920px){.sa-main-offset,.sa-navbar{margin-left:0!important;width:100%!important}.sa-sidebar{width:100%!important}.sa-dashboard-grid{grid-template-columns:1fr}.sa-navbar{padding:14px 16px!important}}
         @media (max-width:420px){.sa-rate-card-grid{grid-template-columns:1fr}.sa-rate-card{min-height:0}.sa-rate-card > div:first-child{min-height:68px}.sa-search span{font-size:12px!important}.sa-navbar-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.sa-role-chip,.sa-command-btn,.sa-logout{grid-column:span 2}.sa-icon-action{height:38px}}
@@ -3077,10 +3085,35 @@ return (
   Add Shop
 </button>
 
-            <button onClick={() => setShowForm(!showForm)} className="sa-grad-btn"
-              style={{ padding: '11px 28px', background: '#0C4044', border: '1px solid #0C4044', borderRadius: '12px', fontWeight: 800, color: '#FFFFFF', fontSize: '14px', cursor: 'pointer', boxShadow: 'none' }}>
-              {showForm ? 'Cancel' : '+ Create Admin'}
-            </button>
+            <div className="sa-admin-action-split">
+              <button
+                type="button"
+                onClick={() => setShowForm(!showForm)}
+                className="sa-btn-create-admin"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <line x1="19" y1="8" x2="19" y2="14" />
+                  <line x1="22" y1="11" x2="16" y2="11" />
+                </svg>
+                {showForm ? '✕ Close Admin Form' : '+ Create Admin'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/create-customer')}
+                className="sa-btn-create-customer"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                + Create Customer
+              </button>
+            </div>
           </div>
         </div>
 

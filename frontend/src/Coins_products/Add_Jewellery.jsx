@@ -4,6 +4,9 @@ import api from "../api";
 import CoinTabs from "./CoinTabs";
 import JewelleryImageModal from "./JewelleryImageModal";
 import EditProductModal from "./EditProductModal";
+import { JewelleryCardSkeletonGrid } from "./JewellerySkeleton";
+import ActionSuccessModal from "./ActionSuccessModal";
+import LoadMoreControl from "./LoadMoreControl";
 import {
   JewelryIcon,
   UploadIcon,
@@ -66,6 +69,8 @@ export default function AddJewellery() {
   const [adminTab, setAdminTab] = useState("create");
   const [editingProduct, setEditingProduct] = useState(null);
   const [previewProduct, setPreviewProduct] = useState(null);
+  const [visibleLimit, setVisibleLimit] = useState(100);
+  const [successModal, setSuccessModal] = useState(null); // { title, message, details, type, buttonText, onConfirm }
   const isBuyMode = !isSuperAdmin;
 
   // ── SUPER ADMIN FORM STATES ──
@@ -259,6 +264,21 @@ export default function AddJewellery() {
 
       showToast("Jewellery product added to master registry successfully!");
 
+      setSuccessModal({
+        title: "Master Jewellery Registered!",
+        message: `"${name}" has been successfully added to the Vault Inventory and recorded in history.`,
+        details: [
+          { label: "Product Name", value: name },
+          { label: "Metal & Purity", value: `${metal.toUpperCase()} ${grade}` },
+          { label: "Net Metal Weight", value: `${netWeight.toFixed(3)}g` },
+          { label: "Stock Added", value: `${stockQuantity} pieces`, highlight: true },
+          { label: "Unit Price", value: `₹${Number(price || 0).toLocaleString()}` },
+        ],
+        type: "success",
+        buttonText: "Manage Products",
+        onConfirm: () => setAdminTab("manage"),
+      });
+
       // Reset form
       setName("");
       setCrossWeight("");
@@ -271,6 +291,7 @@ export default function AddJewellery() {
       setPreviewUrls([]);
       setPriceAutoCalculated(true);
       fetchCatalog();
+      setAdminTab("manage");
     } catch (err) {
       const errorMsg =
         err.response?.data?.error ||
@@ -338,14 +359,33 @@ export default function AddJewellery() {
       };
       await api.post("/jewelry-requests/", payload);
       showToast("Jewellery request submitted successfully!");
+
+      setSuccessModal({
+        title: "Jewellery Request Sent!",
+        message: `Your allocation request has been routed to ${ROLE_TARGET[currentRole] || "Super Admin"} for authorization.`,
+        details: [
+          { label: "Target Recipient", value: ROLE_TARGET[currentRole] || "Super Admin" },
+          { label: "Total Pieces", value: `${totalCartPieces} pieces`, highlight: true },
+          { label: "Total Metal Weight", value: `${totalCartWeight.toFixed(2)}g` },
+          { label: "Est. Total Amount", value: `₹${totalCartPrice.toLocaleString()}` },
+        ],
+        type: "success",
+        buttonText: "Go to Requests Inbox",
+        onConfirm: () => navigate("/jewellery-requests", { state: { initialTab: "sent" } }),
+      });
+
       setCart([]);
       setCartModalOpen(false);
-      navigate("/jewellery-requests", { state: { initialTab: "sent" } });
     } catch (err) {
       showToast(err.response?.data?.error || "Failed to submit request.");
     }
     setSubmittingRequest(false);
   };
+
+  // Reset pagination limit when category/metal/search changes
+  useEffect(() => {
+    setVisibleLimit(100);
+  }, [catalogCategory, catalogMetal, catalogSearch]);
 
   // Filtered Catalog
   const filteredCatalog = useMemo(() => {
@@ -1079,9 +1119,7 @@ export default function AddJewellery() {
 
             {/* Catalog Grid */}
             {catalogLoading ? (
-              <div style={{ textAlign: "center", padding: "60px 0", color: "#5C706E" }}>
-                Loading available jewellery designs...
-              </div>
+              <JewelleryCardSkeletonGrid count={8} />
             ) : filteredCatalog.length === 0 ? (
               <div
                 style={{
@@ -1100,8 +1138,9 @@ export default function AddJewellery() {
                 </p>
               </div>
             ) : (
-              <div className="aj-cards-grid">
-                {filteredCatalog.map((product) => {
+              <>
+                <div className="aj-cards-grid">
+                {filteredCatalog.slice(0, visibleLimit).map((product) => {
                   const firstImg = product.images?.[0]?.image;
                   const isGold = product.metal?.toLowerCase() === "gold";
                   const is24 = product.grade?.includes("24");
@@ -1232,7 +1271,16 @@ export default function AddJewellery() {
                   );
                 })}
               </div>
-            )}
+
+              {/* Progressive Load More Batch Control */}
+              <LoadMoreControl
+                currentVisible={visibleLimit}
+                totalCount={filteredCatalog.length}
+                onLoadMore={(step) => setVisibleLimit((v) => v + step)}
+                itemName="jewellery designs"
+              />
+            </>
+          )}
 
             {/* Floating Cart Sticky Bar */}
             {cart.length > 0 && (
@@ -1613,9 +1661,7 @@ export default function AddJewellery() {
 
             {/* Catalog Grid */}
             {catalogLoading ? (
-              <div style={{ textAlign: "center", padding: "60px 0", color: "#5C706E" }}>
-                Loading master jewellery inventory...
-              </div>
+              <JewelleryCardSkeletonGrid count={8} />
             ) : filteredCatalog.length === 0 ? (
               <div
                 style={{
@@ -1634,8 +1680,9 @@ export default function AddJewellery() {
                 </p>
               </div>
             ) : (
-              <div className="aj-cards-grid">
-                {filteredCatalog.map((product) => {
+              <>
+                <div className="aj-cards-grid">
+                {filteredCatalog.slice(0, visibleLimit).map((product) => {
                   const firstImg = product.images?.[0]?.image;
                   const isGold = product.metal?.toLowerCase() === "gold";
                   const is24 = product.grade?.includes("24");
@@ -1785,7 +1832,16 @@ export default function AddJewellery() {
                   );
                 })}
               </div>
-            )}
+
+              {/* Progressive Load More Batch Control */}
+              <LoadMoreControl
+                currentVisible={visibleLimit}
+                totalCount={filteredCatalog.length}
+                onLoadMore={(step) => setVisibleLimit((v) => v + step)}
+                itemName="master products"
+              />
+            </>
+          )}
           </div>
         )}
       </div>
@@ -1966,12 +2022,37 @@ export default function AddJewellery() {
           isOpen={Boolean(editingProduct)}
           onClose={() => setEditingProduct(null)}
           product={editingProduct}
-          onUpdated={() => {
+          onUpdated={(updated) => {
             fetchCatalog();
             showToast("Jewellery product updated successfully!");
+            setSuccessModal({
+              title: "Product Updated!",
+              message: `Jewellery details for "${updated?.name || editingProduct?.name}" and vault stock have been updated successfully.`,
+              details: [
+                { label: "Product Code", value: updated?.product_code || editingProduct?.product_code, isMonospace: true },
+                { label: "Stock in Vault", value: `${updated?.stock_quantity ?? editingProduct?.stock_quantity} pcs`, highlight: true },
+                { label: "Status", value: (updated?.is_active ?? editingProduct?.is_active) ? "Active" : "Inactive" },
+              ],
+              type: "success",
+            });
           }}
         />
       )}
+
+      {/* Action Success / Feedback Popup Modal */}
+      <ActionSuccessModal
+        isOpen={Boolean(successModal)}
+        onClose={() => {
+          const cb = successModal?.onConfirm;
+          setSuccessModal(null);
+          if (cb) cb();
+        }}
+        title={successModal?.title}
+        message={successModal?.message}
+        details={successModal?.details}
+        type={successModal?.type || "success"}
+        buttonText={successModal?.buttonText || "Done, Great!"}
+      />
     </div>
   );
 }

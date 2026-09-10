@@ -3,6 +3,9 @@ import { useNavigate, useLocation } from "react-router-dom";
 import api from "../api";
 import CoinTabs from "./CoinTabs";
 import JewelleryImageModal from "./JewelleryImageModal";
+import { JewelleryRequestSkeletonList } from "./JewellerySkeleton";
+import ActionSuccessModal from "./ActionSuccessModal";
+import LoadMoreControl from "./LoadMoreControl";
 import {
   JewelryIcon,
   InboxIcon,
@@ -37,6 +40,8 @@ export default function JewelleryRequests() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [previewProduct, setPreviewProduct] = useState(null);
+  const [visibleLimit, setVisibleLimit] = useState(100);
+  const [successModal, setSuccessModal] = useState(null); // { title, message, details, type }
   const [boxTab, setBoxTab] = useState(
     location.state?.initialTab || (role === "promotor" ? "sent" : "received")
   ); // "received" | "sent"
@@ -75,6 +80,28 @@ export default function JewelleryRequests() {
           ? "Jewellery request approved and stock transferred!"
           : "Jewellery request rejected."
       );
+      if (type === "approve") {
+        setSuccessModal({
+          title: "Request Approved & Disbursed!",
+          message: `Jewellery pieces for Request #${reqId} have been successfully deducted from custody and transferred to the requester.`,
+          details: [
+            { label: "Request ID", value: `#${reqId}`, isMonospace: true },
+            { label: "Status", value: "Approved & Transferred", highlight: true },
+            { label: "Timestamp", value: new Date().toLocaleTimeString("en-IN") },
+          ],
+          type: "success",
+        });
+      } else {
+        setSuccessModal({
+          title: "Request Declined",
+          message: `Jewellery allocation request #${reqId} has been declined.`,
+          details: [
+            { label: "Request ID", value: `#${reqId}`, isMonospace: true },
+            { label: "Status", value: "Declined" },
+          ],
+          type: "danger",
+        });
+      }
       fetchRequests();
     } catch (err) {
       showToast(err.response?.data?.error || "Action failed.");
@@ -110,6 +137,7 @@ export default function JewelleryRequests() {
   };
 
   useEffect(() => {
+    setVisibleLimit(100);
     fetchRequests();
   }, [boxTab, statusFilter]);
 
@@ -126,6 +154,16 @@ export default function JewelleryRequests() {
         items: [{ product_id: selectedProductId, qty: parseInt(requestQty, 10) || 1 }],
       });
       showToast("Jewellery request submitted successfully!");
+      const chosenProd = availableProducts.find((p) => p.id === parseInt(selectedProductId, 10));
+      setSuccessModal({
+        title: "Jewellery Request Sent!",
+        message: `Your piece request has been routed to your upstream authority for authorization.`,
+        details: [
+          { label: "Design", value: chosenProd?.name || "Jewellery Piece" },
+          { label: "Pieces Requested", value: `${requestQty} pcs`, highlight: true },
+        ],
+        type: "success",
+      });
       setCreateModalOpen(false);
       setBoxTab("sent");
       fetchRequests();
@@ -166,6 +204,27 @@ export default function JewelleryRequests() {
           ? "Jewellery request approved and stock transferred!"
           : "Jewellery request rejected."
       );
+      if (type === "approve") {
+        setSuccessModal({
+          title: "Request Approved & Stock Disbursed!",
+          message: `Jewellery allocation request #${reqId} has been authorized and stock disbursed to requester custody.`,
+          details: [
+            { label: "Request ID", value: `#${reqId}`, isMonospace: true },
+            { label: "Resolution", value: "Approved & Transferred", highlight: true },
+          ],
+          type: "success",
+        });
+      } else {
+        setSuccessModal({
+          title: "Request Declined",
+          message: `Jewellery allocation request #${reqId} has been declined.`,
+          details: [
+            { label: "Request ID", value: `#${reqId}`, isMonospace: true },
+            { label: "Status", value: "Declined" },
+          ],
+          type: "danger",
+        });
+      }
       setPwdModalOpen(false);
       fetchRequests();
     } catch (err) {
@@ -527,9 +586,7 @@ export default function JewelleryRequests() {
 
         {/* Requests List */}
         {loading ? (
-          <div style={{ textAlign: "center", padding: "60px", color: "#5C706E" }}>
-            Loading jewellery requests...
-          </div>
+          <JewelleryRequestSkeletonList count={4} />
         ) : requests.length === 0 ? (
           <div
             style={{
@@ -552,8 +609,9 @@ export default function JewelleryRequests() {
             </p>
           </div>
         ) : (
-          <div className="jr-list">
-            {requests.map((req) => {
+          <>
+            <div className="jr-list">
+            {requests.slice(0, visibleLimit).map((req) => {
               const reqRoleBadge = ROLE_BADGE_CONFIG[req.requested_by_role] || {
                 bg: "#F1F5F9",
                 color: "#334155",
@@ -720,7 +778,16 @@ export default function JewelleryRequests() {
               );
             })}
           </div>
-        )}
+
+          {/* Progressive Load More Batch Control */}
+          <LoadMoreControl
+            currentVisible={visibleLimit}
+            totalCount={requests.length}
+            onLoadMore={(step) => setVisibleLimit((v) => v + step)}
+            itemName="jewellery requests"
+          />
+        </>
+      )}
       </div>
 
       {/* Modal: Create Request */}
@@ -870,6 +937,17 @@ export default function JewelleryRequests() {
         isOpen={Boolean(previewProduct)}
         onClose={() => setPreviewProduct(null)}
         product={previewProduct}
+      />
+
+      {/* Action Success / Feedback Popup Modal */}
+      <ActionSuccessModal
+        isOpen={Boolean(successModal)}
+        onClose={() => setSuccessModal(null)}
+        title={successModal?.title}
+        message={successModal?.message}
+        details={successModal?.details}
+        type={successModal?.type || "success"}
+        buttonText={successModal?.buttonText || "Done, Great!"}
       />
     </div>
   );

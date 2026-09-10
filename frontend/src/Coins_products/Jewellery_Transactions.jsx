@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import api from "../api";
 import CoinTabs from "./CoinTabs";
 import JewelleryImageModal from "./JewelleryImageModal";
+import { JewelleryTransactionSkeletonList } from "./JewellerySkeleton";
+import LoadMoreControl from "./LoadMoreControl";
 import {
   JewelryIcon,
   HistoryIcon,
@@ -50,6 +52,7 @@ export default function JewelleryTransactions() {
   const [viewMode, setViewMode] = useState("cards"); // 'cards' | 'table'
   const [copiedId, setCopiedId] = useState(null);
   const [previewProduct, setPreviewProduct] = useState(null);
+  const [visibleLimit, setVisibleLimit] = useState(100);
   const [statusCounts, setStatusCounts] = useState({
     pending: 0,
     sent: 0,
@@ -69,6 +72,7 @@ export default function JewelleryTransactions() {
   const fetchHistory = async (searchVal = "") => {
     setLoading(true);
     setError("");
+    setVisibleLimit(100);
     try {
       const params = { box: "history", status: filter, period };
       if (period === "custom") {
@@ -809,9 +813,7 @@ export default function JewelleryTransactions() {
 
         {/* Results */}
         {loading ? (
-          <div style={{ textAlign: "center", padding: "60px", color: "#5C706E" }}>
-            Loading jewellery transactions...
-          </div>
+          <JewelleryTransactionSkeletonList count={6} viewMode={viewMode} />
         ) : displayedRequests.length === 0 ? (
           <div
             style={{
@@ -841,8 +843,9 @@ export default function JewelleryTransactions() {
           </div>
         ) : viewMode === "cards" ? (
           /* Cards View */
-          <div className="jt-cards-grid">
-            {displayedRequests.map((r) => {
+          <>
+            <div className="jt-cards-grid">
+              {displayedRequests.slice(0, visibleLimit).map((r) => {
               const statusInfo = STATUS_CFG[r.status] || STATUS_CFG.pending;
               const StatusIcon = statusInfo.icon;
               const reqRoleBadge = ROLE_BADGE_CONFIG[r.requested_by_role] || {
@@ -1060,23 +1063,31 @@ export default function JewelleryTransactions() {
               );
             })}
           </div>
+          <LoadMoreControl
+            currentVisible={visibleLimit}
+            totalCount={displayedRequests.length}
+            onLoadMore={(step) => setVisibleLimit((v) => v + step)}
+            itemName="transactions"
+          />
+        </>
         ) : (
           /* Table View */
-          <div style={{ background: "#FFFFFF", borderRadius: "16px", border: "1px solid #E1EBEA", overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-              <thead>
-                <tr style={{ background: "#F8FAFA", textAlign: "left", borderBottom: "1px solid #E1EBEA" }}>
-                  <th style={{ padding: "12px 16px", color: "#5C706E" }}>ID</th>
-                  <th style={{ padding: "12px 16px", color: "#5C706E" }}>Event / Direction</th>
-                  <th style={{ padding: "12px 16px", color: "#5C706E" }}>Requester / Action</th>
-                  <th style={{ padding: "12px 16px", color: "#5C706E" }}>Approver / Vault</th>
-                  <th style={{ padding: "12px 16px", color: "#5C706E" }}>Jewellery Items</th>
-                  <th style={{ padding: "12px 16px", color: "#5C706E" }}>Status</th>
-                  <th style={{ padding: "12px 16px", color: "#5C706E" }}>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayedRequests.map((r) => {
+          <>
+            <div style={{ background: "#FFFFFF", borderRadius: "16px", border: "1px solid #E1EBEA", overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                <thead>
+                  <tr style={{ background: "#F8FAFA", textAlign: "left", borderBottom: "1px solid #E1EBEA" }}>
+                    <th style={{ padding: "12px 16px", color: "#5C706E" }}>ID</th>
+                    <th style={{ padding: "12px 16px", color: "#5C706E" }}>Event / Direction</th>
+                    <th style={{ padding: "12px 16px", color: "#5C706E" }}>Requester / Action</th>
+                    <th style={{ padding: "12px 16px", color: "#5C706E" }}>Approver / Vault</th>
+                    <th style={{ padding: "12px 16px", color: "#5C706E" }}>Jewellery Items</th>
+                    <th style={{ padding: "12px 16px", color: "#5C706E" }}>Status</th>
+                    <th style={{ padding: "12px 16px", color: "#5C706E" }}>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayedRequests.slice(0, visibleLimit).map((r) => {
                   const statusInfo = STATUS_CFG[r.status] || STATUS_CFG.pending;
                   const isInward = (r.requested_by_email || "").toLowerCase() === myEmail;
                   const isOutward = (r.requested_to_email || "").toLowerCase() === myEmail;
@@ -1213,7 +1224,14 @@ export default function JewelleryTransactions() {
               </tbody>
             </table>
           </div>
-        )}
+          <LoadMoreControl
+            currentVisible={visibleLimit}
+            totalCount={displayedRequests.length}
+            onLoadMore={(step) => setVisibleLimit((v) => v + step)}
+            itemName="transactions"
+          />
+        </>
+      )}
       </div>
 
       {/* High-Res Product Image Modal */}

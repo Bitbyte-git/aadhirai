@@ -64,6 +64,10 @@ const BuyCoin = lazy(() => import('./Coins_products/Buy_Coin'))
 const StoredCoins = lazy(() => import('./Coins_products/Stored_coins'))
 const CoinRequests = lazy(() => import('./Coins_products/Coin_Requests'))
 const TransactionHistory = lazy(() => import('./Coins_products/Transaction_History'))
+const AddJewellery = lazy(() => import('./Coins_products/Add_Jewellery'))
+const AvailableJewellery = lazy(() => import('./Coins_products/Available_Jewellery'))
+const JewelleryRequests = lazy(() => import('./Coins_products/Jewellery_Requests'))
+const JewelleryTransactions = lazy(() => import('./Coins_products/Jewellery_Transactions'))
 const RetailerPromotions = lazy(() => import('./Promotions/Retailer_Promotions'))
 const WholesaleDealerPromotions = lazy(() => import('./Promotions/WholesaleDealer_Promotions'))
 const DistributorPromotions = lazy(() => import('./Promotions/Distributor'))
@@ -145,6 +149,12 @@ function WithInternalRoleNavbar({ children }) {
         celebrationItems={[{ label: "Today's Birthdays", path: cfg.home }, { label: "Today's Anniversaries", path: cfg.home }, { label: 'Work Anniversaries', path: cfg.home }]}
         announcementItems={[{ label: 'Announcements', path: cfg.home }]}
         coinItems={[{ label: 'Buy Coin', path: '/buy-coin' }, { label: 'Available Coins', path: '/available-coins' }, { label: role === 'promotor' ? 'My Requests' : 'Coin Requests', path: '/coin-requests-page' }, { label: 'Coin Transactions', path: '/coin-transactions' }]}
+        jewelleryItems={[
+          { label: role === 'super_admin' ? 'Add Jewellery' : 'Buy Jewellery', path: '/add-jewellery' },
+          { label: 'Available Jewellery', path: '/available-jewellery' },
+          { label: role === 'promotor' ? 'My Requests' : 'Jewellery Requests', path: '/jewellery-requests' },
+          { label: role === 'super_admin' ? 'Jewellery Transactions' : 'My Transactions', path: '/jewellery-transactions' },
+        ]}
         reportItems={[{ label: 'Hierarchy Report', path: cfg.hierarchy }, { label: 'Sales Report', path: '/sales-report' }]}
         actionItems={[{ label: 'Dashboard', icon: 'user', path: cfg.home }, { label: 'Logout', icon: 'logout', variant: 'danger', action: () => { localStorage.clear(); window.location.href = '/login' } }]}
       />
@@ -340,6 +350,11 @@ export default function App() {
           <Route path="/available-coins" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><StoredCoins /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/coin-requests-page" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><CoinRequests /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/coin-transactions" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><TransactionHistory /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/add-jewellery" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><AddJewellery /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/buy-jewellery" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><AddJewellery /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/available-jewellery" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><AvailableJewellery /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/jewellery-requests" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><JewelleryRequests /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/jewellery-transactions" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><JewelleryTransactions /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/promotions/sales-order-list" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><PromotionSalesOrderList /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/coin-shop" element={<ProtectedRoute><AffordableProducts /></ProtectedRoute>} />
         </Routes>

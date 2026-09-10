@@ -1,4 +1,4 @@
-﻿import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import logo from '../assets/logo.png'
 
@@ -23,6 +23,7 @@ export default function InternalRoleNavbar({
   celebrationItems = [],
   announcementItems = [],
   coinItems = [],
+  jewelleryItems = [],
   reportItems = [],
   actionItems = [],
 }) {
@@ -59,12 +60,21 @@ export default function InternalRoleNavbar({
 
   const myRewardsItems = [{ label: 'AUG Coin', path: '/recharge' }]
 
+  const defaultJewelleryItems = [
+    { label: roleTitle === 'SUPER ADMIN' ? 'Add Jewellery' : 'Buy Jewellery', path: '/add-jewellery' },
+    { label: 'Available Jewellery', path: '/available-jewellery' },
+    { label: roleTitle === 'PROMOTER' ? 'My Requests' : 'Jewellery Requests', path: '/jewellery-requests' },
+    { label: roleTitle === 'SUPER ADMIN' ? 'Jewellery Transactions' : 'My Transactions', path: '/jewellery-transactions' },
+  ]
+  const finalJewelleryItems = jewelleryItems && jewelleryItems.length > 0 ? jewelleryItems : defaultJewelleryItems
+
   const groups = [
     { label: 'Management', items: managementItems },
     { label: 'Celebrations', items: celebrationItems },
     { label: 'Announcements', items: announcementItems },
     { label: 'My Rewards', items: myRewardsItems },
     { label: 'Coins', items: coinItems },
+    { label: 'Jewellery', items: finalJewelleryItems },
     { label: 'Reports', items: reportItems },
     { label: 'Role', items: roleSwitchItems },
   ].filter(group => group.items.length)

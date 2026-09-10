@@ -154,6 +154,27 @@ export default function StoredCoins() {
   const hierarchyTotalCoins = hierarchyStock.reduce((sum, u) => sum + (Number(u.total_pieces) || 0), 0);
   const hierarchyTotalGrams = hierarchyStock.reduce((sum, u) => sum + (Number(u.total_grams) || 0), 0);
 
+  const hierarchyGold22kPieces = hierarchyStock.reduce((sum, u) => {
+    return sum + (u.items?.filter((i) => i.metal_type === "gold_22k").reduce((s, i) => s + (Number(i.qty) || 0), 0) || 0);
+  }, 0);
+  const hierarchyGold22kGrams = hierarchyStock.reduce((sum, u) => {
+    return sum + (u.items?.filter((i) => i.metal_type === "gold_22k").reduce((s, i) => s + ((Number(i.weight_grams) || 0) * (Number(i.qty) || 0)), 0) || 0);
+  }, 0);
+
+  const hierarchyGold24kPieces = hierarchyStock.reduce((sum, u) => {
+    return sum + (u.items?.filter((i) => i.metal_type === "gold_24k").reduce((s, i) => s + (Number(i.qty) || 0), 0) || 0);
+  }, 0);
+  const hierarchyGold24kGrams = hierarchyStock.reduce((sum, u) => {
+    return sum + (u.items?.filter((i) => i.metal_type === "gold_24k").reduce((s, i) => s + ((Number(i.weight_grams) || 0) * (Number(i.qty) || 0)), 0) || 0);
+  }, 0);
+
+  const hierarchySilverPieces = hierarchyStock.reduce((sum, u) => {
+    return sum + (u.items?.filter((i) => i.metal_type === "silver_999").reduce((s, i) => s + (Number(i.qty) || 0), 0) || 0);
+  }, 0);
+  const hierarchySilverGrams = hierarchyStock.reduce((sum, u) => {
+    return sum + (u.items?.filter((i) => i.metal_type === "silver_999").reduce((s, i) => s + ((Number(i.weight_grams) || 0) * (Number(i.qty) || 0)), 0) || 0);
+  }, 0);
+
   const roleCounts = {
     admin: hierarchyStock.filter((u) => u.role === "admin").length,
     dealer: hierarchyStock.filter((u) => u.role === "dealer").length,
@@ -618,144 +639,322 @@ export default function StoredCoins() {
           margin-top: 2px;
         }
 
-        /* Hierarchy Member Cards */
-        .sc-member-list {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
+        /* ── CARD-GRID LAYOUT FOR TEAM HOLDINGS (MATCHING REFERENCE IMAGE) ── */
+        .sc-member-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+          gap: 20px;
         }
 
         .sc-member-card {
           background: #FFFFFF;
           border: 1px solid #E1EBEA;
-          border-radius: 18px;
-          padding: 20px 24px;
-          box-shadow: 0 4px 18px rgba(7, 59, 63, 0.03);
-          transition: all 180ms ease;
+          border-radius: 20px;
+          padding: 22px;
+          box-shadow: 0 4px 18px rgba(7, 59, 63, 0.04);
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          transition: all 200ms ease;
+          position: relative;
         }
 
         .sc-member-card:hover {
+          transform: translateY(-3px);
           border-color: #073B3F;
-          box-shadow: 0 6px 22px rgba(7, 59, 63, 0.07);
+          box-shadow: 0 10px 28px rgba(7, 59, 63, 0.09);
         }
 
-        .sc-member-head {
+        .sc-card-top-bar {
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           justify-content: space-between;
-          gap: 18px;
-          padding-bottom: 14px;
-          border-bottom: 1px solid #EDF3F2;
-          margin-bottom: 14px;
-          flex-wrap: wrap;
+          gap: 8px;
+          margin-bottom: 12px;
         }
 
-        .sc-member-meta-left {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .sc-member-id-row {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-
-        .sc-member-id-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          font-family: "SFMono-Regular", Consolas, Menlo, monospace;
-          font-size: 12.5px;
-          font-weight: 800;
-          color: #073B3F;
-          background: #EFF6F6;
-          border: 1px solid #D1DFDE;
-          padding: 3px 9px;
-          border-radius: 6px;
-          cursor: pointer;
-        }
-
-        .sc-member-name {
-          font-size: 15px;
-          font-weight: 800;
-          color: #111817;
-        }
-
-        .sc-member-role-badge {
-          font-size: 11px;
+        .sc-role-pill {
+          font-size: 11.5px;
           font-weight: 700;
           padding: 3px 10px;
           border-radius: 999px;
           text-transform: capitalize;
+          letter-spacing: 0.02em;
         }
 
-        .sc-member-contact-row {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          font-size: 12px;
-          color: #5C706E;
-          flex-wrap: wrap;
-        }
-
-        .sc-member-contact-item {
+        .sc-card-id-badge {
           display: inline-flex;
           align-items: center;
           gap: 5px;
-        }
-
-        .sc-member-total-box {
-          display: flex;
-          align-items: baseline;
-          gap: 8px;
-          text-align: right;
-        }
-
-        .sc-member-total-pieces {
-          font-size: 24px;
+          font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+          font-size: 11.5px;
           font-weight: 800;
           color: #073B3F;
-          line-height: 1;
-        }
-
-        .sc-member-total-grams {
-          font-size: 12px;
-          font-weight: 700;
-          color: #B45309;
-          background: #FEF3C7;
+          background: #EFF6F6;
+          border: 1px solid #D1DFDE;
           padding: 3px 8px;
           border-radius: 6px;
+          cursor: pointer;
+          transition: all 150ms ease;
         }
 
-        .sc-member-chips-grid {
+        .sc-card-id-badge:hover {
+          background: #E2ECEB;
+          border-color: #073B3F;
+        }
+
+        .sc-card-name {
+          margin: 0 0 8px 0;
+          font-size: 17px;
+          font-weight: 800;
+          color: #111817;
+          line-height: 1.3;
+        }
+
+        .sc-card-contacts {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          margin-bottom: 16px;
+          font-size: 12px;
+          color: #5C706E;
+        }
+
+        .sc-card-contact-item {
           display: flex;
           align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
+          gap: 6px;
+          overflow: hidden;
         }
 
-        .sc-member-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
+        .sc-card-email {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        /* 2-tier Metric Stats Box (Total Coins, Weight + 22K/24K/Silver Breakdown) */
+        .sc-card-stats-box {
           background: #F8FAFA;
+          border: 1px solid #E4EBEA;
+          border-radius: 14px;
+          padding: 12px 14px;
+          margin-bottom: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .sc-stats-top-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-around;
+          padding-bottom: 10px;
+          border-bottom: 1px solid #E6EEEE;
+        }
+
+        .sc-stat-metric {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
+        }
+
+        .sc-metric-label {
+          font-size: 10px;
+          font-weight: 800;
+          color: #7A8987;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        }
+
+        .sc-metric-val {
+          font-size: 19px;
+          font-weight: 800;
+          line-height: 1.2;
+        }
+
+        .sc-metric-val.coins {
+          color: #073B3F;
+        }
+
+        .sc-metric-val.weight {
+          color: #B45309;
+        }
+
+        .sc-metric-unit {
+          font-size: 11px;
+          font-weight: 700;
+          color: #7A8987;
+          margin-left: 2px;
+        }
+
+        .sc-stat-divider {
+          width: 1px;
+          height: 30px;
+          background: #D6E2E1;
+        }
+
+        /* 3-column Metal Purity Breakdown (22K, 24K, Silver) */
+        .sc-metal-breakdown-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 6px;
+        }
+
+        .sc-metal-pill {
+          background: #FFFFFF;
           border: 1px solid #E1EBEA;
           border-radius: 8px;
-          padding: 6px 12px;
-          font-size: 12px;
-          font-weight: 600;
-          color: #334155;
+          padding: 6px 4px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
+          text-align: center;
+          transition: all 150ms ease;
         }
 
-        .sc-member-chip-qty {
-          color: #073B3F;
+        .sc-metal-pill.g22 {
+          border-color: #FDE68A;
+          background: #FFFBEB;
+        }
+
+        .sc-metal-pill.g24 {
+          border-color: #FCE96A;
+          background: #FEFCE8;
+        }
+
+        .sc-metal-pill.slv {
+          border-color: #E2E8F0;
+          background: #F8FAFC;
+        }
+
+        .sc-metal-pill-name {
+          font-size: 9.5px;
           font-weight: 800;
-          background: #EFF6F6;
-          padding: 2px 6px;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+        }
+
+        .sc-metal-pill.g22 .sc-metal-pill-name { color: #92400E; }
+        .sc-metal-pill.g24 .sc-metal-pill-name { color: #854D0E; }
+        .sc-metal-pill.slv .sc-metal-pill-name { color: #475569; }
+
+        .sc-metal-pill-qty {
+          font-size: 13px;
+          font-weight: 800;
+          line-height: 1.2;
+        }
+
+        .sc-metal-pill.g22 .sc-metal-pill-qty { color: #B45309; }
+        .sc-metal-pill.g24 .sc-metal-pill-qty { color: #92400E; }
+        .sc-metal-pill.slv .sc-metal-pill-qty { color: #334155; }
+
+        .sc-metal-pill-wt {
+          font-size: 10.5px;
+          font-weight: 700;
+          margin-top: 2px;
           border-radius: 4px;
+          padding: 1px 4px;
+        }
+        .sc-metal-pill.g22 .sc-metal-pill-wt { color: #92400E; background: rgba(217, 119, 6, 0.12); }
+        .sc-metal-pill.g24 .sc-metal-pill-wt { color: #854D0E; background: rgba(180, 83, 9, 0.12); }
+        .sc-metal-pill.slv .sc-metal-pill-wt { color: #475569; background: rgba(100, 116, 139, 0.12); }
+
+        .sc-holding-item-wt {
+          font-size: 11px;
+          font-weight: 700;
+          color: #B45309;
+          background: #FFFBEB;
+          border: 1px solid #FEF3C7;
+          padding: 2px 6px;
+          border-radius: 5px;
+          white-space: nowrap;
+        }
+
+        /* Coin Holdings Section inside Card */
+        .sc-card-holdings-section {
+          border-top: 1px dashed #E1EBEA;
+          padding-top: 12px;
+        }
+
+        .sc-holdings-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 11px;
+          font-weight: 800;
+          color: #64748B;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+          margin-bottom: 8px;
+        }
+
+        .sc-holdings-count {
+          font-size: 11px;
+          font-weight: 700;
+          color: #94A3B8;
+        }
+
+        .sc-holdings-list {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          max-height: 160px;
+          overflow-y: auto;
+          padding-right: 4px;
+        }
+
+        .sc-holdings-list::-webkit-scrollbar {
+          width: 4px;
+        }
+        .sc-holdings-list::-webkit-scrollbar-thumb {
+          background: #D1DFDE;
+          border-radius: 4px;
+        }
+
+        .sc-holding-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: #FDFDFD;
+          border: 1px solid #EDF3F2;
+          border-radius: 8px;
+          padding: 7px 10px;
+          font-size: 12px;
+        }
+
+        .sc-holding-info {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          overflow: hidden;
+        }
+
+        .sc-holding-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+
+        .sc-holding-name {
+          color: #334155;
+          font-weight: 600;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .sc-holding-qty {
+          font-weight: 800;
+          color: #137333;
+          background: #E6F4EA;
+          padding: 2px 7px;
+          border-radius: 6px;
+          font-size: 11px;
+          flex-shrink: 0;
         }
 
         @media (max-width: 1024px) {
@@ -765,6 +964,7 @@ export default function StoredCoins() {
 
         @media (max-width: 600px) {
           .sc-stats-grid { grid-template-columns: 1fr; }
+          .sc-member-grid { grid-template-columns: 1fr; }
           .sc-header-card { flex-direction: column; align-items: flex-start; }
           .sc-header-actions { width: 100%; }
         }
@@ -989,7 +1189,7 @@ export default function StoredCoins() {
         {/* VIEW 2: TEAM HIERARCHY HOLDINGS (SUPER ADMIN ONLY) */}
         {scope === "hierarchy" && isSuperAdmin && (
           <>
-            {/* 4 Stat Cards for Hierarchy Holdings */}
+            {/* 4 Stat Cards for Hierarchy Holdings (Gold 22k, Gold 24k, Silver 999 weights & pieces) */}
             <div className="sc-stats-grid">
               <div className="sc-stat-card" style={{ borderLeft: "4px solid #073B3F" }}>
                 <div className="sc-stat-header">
@@ -1001,50 +1201,48 @@ export default function StoredCoins() {
                 <div className="sc-stat-value">
                   {hierarchyLoading ? <SkeletonText width="60px" height="30px" /> : hierarchyTotalCoins.toLocaleString()}
                 </div>
-                <div className="sc-stat-sub">Held across all members</div>
+                <div className="sc-stat-sub">
+                  {hierarchyStock.length} members · {hierarchyTotalGrams.toFixed(2)} g total
+                </div>
               </div>
 
               <div className="sc-stat-card" style={{ borderLeft: "4px solid #D97706" }}>
                 <div className="sc-stat-header">
-                  <span className="sc-stat-label">Total Gold / Silver</span>
+                  <span className="sc-stat-label">Gold 22K (916)</span>
                   <div className="sc-stat-icon" style={{ background: "#FEF3C7", color: "#B45309" }}>
-                    <BullionIcon size={18} color="#B45309" />
+                    <CoinIcon size={18} color="#B45309" />
                   </div>
                 </div>
                 <div className="sc-stat-value">
-                  {hierarchyLoading ? (
-                    <SkeletonText width="60px" height="30px" />
-                  ) : (
-                    `${hierarchyTotalGrams.toFixed(2)} g`
-                  )}
+                  {hierarchyLoading ? <SkeletonText width="60px" height="30px" /> : hierarchyGold22kPieces.toLocaleString()}
                 </div>
-                <div className="sc-stat-sub">Estimated gross weight</div>
+                <div className="sc-stat-sub">{hierarchyGold22kGrams.toFixed(2)} g gross weight</div>
               </div>
 
-              <div className="sc-stat-card" style={{ borderLeft: "4px solid #166534" }}>
+              <div className="sc-stat-card" style={{ borderLeft: "4px solid #B45309" }}>
                 <div className="sc-stat-header">
-                  <span className="sc-stat-label">Holding Members</span>
-                  <div className="sc-stat-icon" style={{ background: "#E6F4EA", color: "#137333" }}>
-                    <UsersIcon size={18} color="#137333" />
+                  <span className="sc-stat-label">Gold 24K (999)</span>
+                  <div className="sc-stat-icon" style={{ background: "#FDF6B2", color: "#92400E" }}>
+                    <SparkleIcon size={18} color="#92400E" />
                   </div>
                 </div>
                 <div className="sc-stat-value">
-                  {hierarchyLoading ? <SkeletonText width="60px" height="30px" /> : hierarchyStock.length}
+                  {hierarchyLoading ? <SkeletonText width="60px" height="30px" /> : hierarchyGold24kPieces.toLocaleString()}
                 </div>
-                <div className="sc-stat-sub">Accounts holding coins</div>
+                <div className="sc-stat-sub">{hierarchyGold24kGrams.toFixed(2)} g pure bullion</div>
               </div>
 
-              <div className="sc-stat-card" style={{ borderLeft: "4px solid #6366F1" }}>
+              <div className="sc-stat-card" style={{ borderLeft: "4px solid #64748B" }}>
                 <div className="sc-stat-header">
-                  <span className="sc-stat-label">Role Breakdown</span>
-                  <div className="sc-stat-icon" style={{ background: "#EEF2FF", color: "#4F46E5" }}>
-                    <ShieldIcon size={18} color="#4F46E5" />
+                  <span className="sc-stat-label">Silver 999</span>
+                  <div className="sc-stat-icon" style={{ background: "#F1F5F9", color: "#475569" }}>
+                    <BullionIcon size={18} color="#475569" />
                   </div>
                 </div>
-                <div style={{ fontSize: "12.5px", fontWeight: 700, color: "#334155", display: "flex", flexDirection: "column", gap: "2px", marginTop: "4px" }}>
-                  <span>{roleCounts.admin} Admins · {roleCounts.dealer} Dealers</span>
-                  <span style={{ color: "#64748B" }}>{roleCounts.sub_dealer} Sub Dealers · {roleCounts.promotor} Promotors</span>
+                <div className="sc-stat-value">
+                  {hierarchyLoading ? <SkeletonText width="60px" height="30px" /> : hierarchySilverPieces.toLocaleString()}
                 </div>
+                <div className="sc-stat-sub">{hierarchySilverGrams.toFixed(2)} g fine silver</div>
               </div>
             </div>
 
@@ -1097,13 +1295,15 @@ export default function StoredCoins() {
               </div>
             </div>
 
-            {/* Members List */}
+            {/* Members Card Grid (Matching Product Cards in User's Image) */}
             {hierarchyLoading && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                {[0, 1, 2].map((i) => (
+              <div className="sc-member-grid">
+                {[0, 1, 2, 3].map((i) => (
                   <div key={i} className="sc-member-card">
-                    <SkeletonText width="180px" height="20px" />
-                    <SkeletonText width="100%" height="40px" style={{ marginTop: "12px" }} />
+                    <SkeletonText width="140px" height="18px" />
+                    <SkeletonText width="80%" height="22px" style={{ marginTop: "10px" }} />
+                    <SkeletonText width="100%" height="60px" style={{ marginTop: "14px" }} />
+                    <SkeletonText width="100%" height="90px" style={{ marginTop: "14px" }} />
                   </div>
                 ))}
               </div>
@@ -1119,7 +1319,7 @@ export default function StoredCoins() {
             )}
 
             {!hierarchyLoading && filteredHierarchy.length > 0 && (
-              <div className="sc-member-list">
+              <div className="sc-member-grid">
                 {filteredHierarchy.map((member) => {
                   const roleConfig = ROLE_BADGE_CONFIG[member.role] || {
                     bg: "#F1F5F9",
@@ -1128,83 +1328,159 @@ export default function StoredCoins() {
                     label: member.role,
                   };
 
+                  const gold22kPieces = member.items
+                    ?.filter((i) => i.metal_type === "gold_22k")
+                    .reduce((s, i) => s + (Number(i.qty) || 0), 0) || 0;
+                  const gold22kGrams = member.items
+                    ?.filter((i) => i.metal_type === "gold_22k")
+                    .reduce((s, i) => s + ((Number(i.weight_grams) || 0) * (Number(i.qty) || 0)), 0) || 0;
+
+                  const gold24kPieces = member.items
+                    ?.filter((i) => i.metal_type === "gold_24k")
+                    .reduce((s, i) => s + (Number(i.qty) || 0), 0) || 0;
+                  const gold24kGrams = member.items
+                    ?.filter((i) => i.metal_type === "gold_24k")
+                    .reduce((s, i) => s + ((Number(i.weight_grams) || 0) * (Number(i.qty) || 0)), 0) || 0;
+
+                  const silverPieces = member.items
+                    ?.filter((i) => i.metal_type === "silver_999")
+                    .reduce((s, i) => s + (Number(i.qty) || 0), 0) || 0;
+                  const silverGrams = member.items
+                    ?.filter((i) => i.metal_type === "silver_999")
+                    .reduce((s, i) => s + ((Number(i.weight_grams) || 0) * (Number(i.qty) || 0)), 0) || 0;
+
                   return (
                     <article className="sc-member-card" key={member.user_id}>
-                      <div className="sc-member-head">
-                        <div className="sc-member-meta-left">
-                          <div className="sc-member-id-row">
-                            {member.id_str && (
-                              <span
-                                className="sc-member-id-badge"
-                                title="Copy ID"
-                                onClick={() => handleCopy(member.id_str, member.user_id)}
-                              >
-                                <span>{member.id_str}</span>
-                                {copiedId === member.user_id ? (
-                                  <CheckIcon size={11} color="#137333" />
-                                ) : (
-                                  <CopyIcon size={11} color="#7A8987" />
-                                )}
-                              </span>
-                            )}
-                            <span className="sc-member-name">{member.name}</span>
+                      <div>
+                        {/* Top Bar: Role badge on left, ID badge on right */}
+                        <div className="sc-card-top-bar">
+                          <span
+                            className="sc-role-pill"
+                            style={{
+                              background: roleConfig.bg,
+                              color: roleConfig.color,
+                              border: `1px solid ${roleConfig.border}`,
+                            }}
+                          >
+                            {roleConfig.label}
+                          </span>
+
+                          {member.id_str && (
                             <span
-                              className="sc-member-role-badge"
-                              style={{
-                                background: roleConfig.bg,
-                                color: roleConfig.color,
-                                border: `1px solid ${roleConfig.border}`,
-                              }}
+                              className="sc-card-id-badge"
+                              title="Click to copy ID"
+                              onClick={() => handleCopy(member.id_str, member.user_id)}
                             >
-                              {roleConfig.label}
-                            </span>
-                          </div>
-
-                          <div className="sc-member-contact-row">
-                            {member.phone && (
-                              <span className="sc-member-contact-item">
-                                <PhoneIcon size={12} color="#073B3F" />
-                                <span>{member.phone}</span>
-                              </span>
-                            )}
-                            {member.email && (
-                              <span className="sc-member-contact-item">
-                                <MailIcon size={12} color="#073B3F" />
-                                <span>{member.email}</span>
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="sc-member-total-box">
-                          <div>
-                            <span className="sc-member-total-pieces">
-                              {member.total_pieces}
-                            </span>
-                            <span style={{ fontSize: "12px", color: "#5C706E", fontWeight: 700, marginLeft: "4px" }}>
-                              pcs
-                            </span>
-                          </div>
-                          {member.total_grams > 0 && (
-                            <span className="sc-member-total-grams">
-                              {member.total_grams.toFixed(2)} g
+                              <span>{member.id_str}</span>
+                              {copiedId === member.user_id ? (
+                                <CheckIcon size={11} color="#137333" />
+                              ) : (
+                                <CopyIcon size={11} color="#7A8987" />
+                              )}
                             </span>
                           )}
                         </div>
+
+                        {/* Member Name */}
+                        <h3 className="sc-card-name" title={member.name}>
+                          {member.name}
+                        </h3>
+
+                        {/* Contact details */}
+                        <div className="sc-card-contacts">
+                          {member.phone && (
+                            <div className="sc-card-contact-item">
+                              <PhoneIcon size={12} color="#073B3F" />
+                              <span>{member.phone}</span>
+                            </div>
+                          )}
+                          {member.email && (
+                            <div className="sc-card-contact-item">
+                              <MailIcon size={12} color="#073B3F" />
+                              <span className="sc-card-email" title={member.email}>
+                                {member.email}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 2-tier Metrics Card: Total Coins, Total Weight + 22K, 24K, Silver Breakdown */}
+                        <div className="sc-card-stats-box">
+                          <div className="sc-stats-top-row">
+                            <div className="sc-stat-metric">
+                              <span className="sc-metric-label">TOTAL COINS</span>
+                              <span className="sc-metric-val coins">
+                                {member.total_pieces}
+                                <span className="sc-metric-unit">pcs</span>
+                              </span>
+                            </div>
+                            <div className="sc-stat-divider" />
+                            <div className="sc-stat-metric">
+                              <span className="sc-metric-label">TOTAL WEIGHT</span>
+                              <span className="sc-metric-val weight">
+                                {member.total_grams > 0 ? member.total_grams.toFixed(2) : "0.00"}
+                                <span className="sc-metric-unit">gm</span>
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* 3-Purity Breakdown Row (Pieces + Grams) */}
+                          <div className="sc-metal-breakdown-grid">
+                            <div className="sc-metal-pill g22" title="Gold 22K (916)">
+                              <span className="sc-metal-pill-name">Gold 22K</span>
+                              <span className="sc-metal-pill-qty">{gold22kPieces} pcs</span>
+                              <span className="sc-metal-pill-wt">{gold22kGrams > 0 ? `${gold22kGrams.toFixed(2)} g` : "0 g"}</span>
+                            </div>
+                            <div className="sc-metal-pill g24" title="Gold 24K (999)">
+                              <span className="sc-metal-pill-name">Gold 24K</span>
+                              <span className="sc-metal-pill-qty">{gold24kPieces} pcs</span>
+                              <span className="sc-metal-pill-wt">{gold24kGrams > 0 ? `${gold24kGrams.toFixed(2)} g` : "0 g"}</span>
+                            </div>
+                            <div className="sc-metal-pill slv" title="Silver 999">
+                              <span className="sc-metal-pill-name">Silver 999</span>
+                              <span className="sc-metal-pill-qty">{silverPieces} pcs</span>
+                              <span className="sc-metal-pill-wt">{silverGrams > 0 ? `${silverGrams.toFixed(2)} g` : "0 g"}</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Coin Denomination Chips */}
-                      <div className="sc-member-chips-grid">
-                        {member.items?.map((item) => (
-                          <div className="sc-member-chip" key={item.id || `${item.metal_type}-${item.weight_label}`}>
-                            <span>
-                              {COIN_METAL_LABELS_TEXT[item.metal_type] || item.metal_type} ({item.weight_label})
-                            </span>
-                            <span className="sc-member-chip-qty">
-                              {item.qty} pcs
-                            </span>
-                          </div>
-                        ))}
+                      {/* Coin Denomination Breakdown List */}
+                      <div className="sc-card-holdings-section">
+                        <div className="sc-holdings-header">
+                          <span>COIN HOLDINGS</span>
+                          <span className="sc-holdings-count">
+                            {member.items?.length || 0} {member.items?.length === 1 ? "type" : "types"}
+                          </span>
+                        </div>
+
+                        <div className="sc-holdings-list">
+                          {member.items?.map((item) => (
+                            <div className="sc-holding-row" key={item.id || `${item.metal_type}-${item.weight_label}`}>
+                              <div className="sc-holding-info">
+                                <span
+                                  className="sc-holding-dot"
+                                  style={{
+                                    background: item.metal_type?.includes("silver") ? "#94A3B8" : "#D97706",
+                                  }}
+                                />
+                                <span className="sc-holding-name">
+                                  {COIN_METAL_LABELS_TEXT[item.metal_type] || item.metal_type} ({item.weight_label})
+                                </span>
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                                {item.weight_grams && (
+                                  <span className="sc-holding-item-wt">
+                                    {(Number(item.weight_grams) * Number(item.qty)).toFixed(2)} g
+                                  </span>
+                                )}
+                                <span className="sc-holding-qty">
+                                  {item.qty} pcs
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </article>
                   );

@@ -423,6 +423,10 @@ export default function SuperAdminNavbar({
     ['Available Coins', () => navigate('/available-coins')],
     ['Requests Coins', () => navigate('/coin-requests-page')],
     ['Transaction Coins History', () => navigate('/coin-transactions')],
+    ['Add Jewellery', () => navigate('/add-jewellery')],
+    ['Available Jewellery', () => navigate('/available-jewellery')],
+    ['Requests Jewellery', () => navigate('/jewellery-requests')],
+    ['Jewellery Transactions', () => navigate('/jewellery-transactions')],
   ]
   const reports = [
     ['Login Reward', () => navigate('/coins-reward')],

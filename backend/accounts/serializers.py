@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder,JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, Wallet, CoinRecharge, AutoPayMandate , StockNotifyRequest
+from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder,JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, Wallet, CoinRecharge, AutoPayMandate , StockNotifyRequest, JewelryStock, JewelryRequest, JewelryRequestItem
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -790,4 +790,92 @@ class AutoPayMandateSerializer(serializers.ModelSerializer):
             'id', 'amount', 'recharge_day', 'status', 'is_active',
             'next_charge_date', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['status', 'is_active', 'next_charge_date', 'created_at', 'updated_at']        
+        read_only_fields = ['status', 'is_active', 'next_charge_date', 'created_at', 'updated_at']
+
+
+class JewelryStockSerializer(serializers.ModelSerializer):
+    product = JewelryProductSerializer(read_only=True)
+
+    class Meta:
+        model = JewelryStock
+        fields = ['id', 'user', 'product', 'qty']
+
+
+class JewelryRequestItemSerializer(serializers.ModelSerializer):
+    product = JewelryProductSerializer(read_only=True)
+    product_id = serializers.PrimaryKeyRelatedField(
+        queryset=JewelryProduct.objects.all(), source='product', write_only=True
+    )
+
+    class Meta:
+        model = JewelryRequestItem
+        fields = ['id', 'product', 'product_id', 'qty']
+
+
+class JewelryRequestSerializer(serializers.ModelSerializer):
+    items = JewelryRequestItemSerializer(many=True, read_only=True)
+    requested_by_email = serializers.EmailField(source='requested_by.email', read_only=True)
+    requested_by_id_str = serializers.SerializerMethodField()
+    requested_by_name = serializers.SerializerMethodField()
+    requested_by_phone = serializers.SerializerMethodField()
+    requested_by_role = serializers.CharField(source='requested_by.role', read_only=True)
+    requested_to_email = serializers.EmailField(source='requested_to.email', read_only=True)
+    requested_to_id_str = serializers.SerializerMethodField()
+    requested_to_name = serializers.SerializerMethodField()
+    requested_to_phone = serializers.SerializerMethodField()
+    requested_to_role = serializers.CharField(source='requested_to.role', read_only=True)
+
+    class Meta:
+        model = JewelryRequest
+        fields = ['id', 'requested_by', 'requested_by_email', 'requested_by_id_str',
+                  'requested_by_name', 'requested_by_phone', 'requested_by_role',
+                  'requested_to', 'requested_to_email', 'requested_to_id_str', 'requested_to_name', 'requested_to_phone', 'requested_to_role',
+                  'status', 'reject_reason', 'items', 'created_at', 'sent_at']
+        read_only_fields = ['requested_by', 'requested_to', 'status', 'reject_reason', 'created_at', 'sent_at']
+
+    def _get_profile_by_user(self, user):
+        if not user:
+            return None
+        role_map = {
+            'promotor': 'promotor_profile',
+            'sub_dealer': 'sub_dealer_profile',
+            'dealer': 'dealer_profile',
+            'admin': 'admin_profile',
+        }
+        attr = role_map.get(user.role)
+        if not attr:
+            return None
+        try:
+            return getattr(user, attr)
+        except Exception:
+            return None
+
+    def get_requested_by_id_str(self, obj):
+        p = self._get_profile_by_user(obj.requested_by)
+        if not p: return ''
+        return getattr(p, f'{obj.requested_by.role}_id', '')
+
+    def get_requested_by_name(self, obj):
+        p = self._get_profile_by_user(obj.requested_by)
+        if not p: return obj.requested_by.first_name or obj.requested_by.email
+        return f"{p.first_name} {p.last_name or ''}".strip()
+
+    def get_requested_by_phone(self, obj):
+        p = self._get_profile_by_user(obj.requested_by)
+        if not p: return ''
+        return getattr(p, 'mobile_number', '')
+
+    def get_requested_to_id_str(self, obj):
+        p = self._get_profile_by_user(obj.requested_to)
+        if not p: return ''
+        return getattr(p, f'{obj.requested_to.role}_id', '')
+
+    def get_requested_to_name(self, obj):
+        p = self._get_profile_by_user(obj.requested_to)
+        if not p: return (obj.requested_to.first_name if obj.requested_to else '') or ''
+        return f"{p.first_name} {p.last_name or ''}".strip()
+
+    def get_requested_to_phone(self, obj):
+        p = self._get_profile_by_user(obj.requested_to)
+        if not p: return ''
+        return getattr(p, 'mobile_number', '')

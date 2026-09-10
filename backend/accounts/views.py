@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from rest_framework.decorators import api_view, permission_classes
-from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink,  Wallet, CoinRecharge, AutoPayMandate
+from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink,  Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem
 from django.db.models import Prefetch, Count, Q, Sum, Max
 from django.core.cache import cache   # ── NEW: for month_rollup/status caching ──
 from django.db.models.functions import TruncHour, TruncDate, TruncWeek, TruncMonth
@@ -1316,7 +1316,20 @@ class JewelryProductView(APIView):
             context={'request': request}
         )
         if serializer.is_valid():
-            serializer.save()
+            product = serializer.save()
+            # If created as internal allocation asset (e.g. from Add Jewellery)
+            is_internal = data.get('is_internal_asset') in [True, 'true', 'True', 1, '1']
+            if is_internal:
+                product.is_internal_asset = True
+                product.save(update_fields=['is_internal_asset'])
+                if product.stock_quantity > 0:
+                    stock, _ = JewelryStock.objects.get_or_create(
+                        user=request.user, product=product,
+                        defaults={'qty': 0}
+                    )
+                    stock.qty += product.stock_quantity
+                    stock.save()
+
             return Response({'message': 'Product created!', 'data': serializer.data}, status=201)
         return Response(serializer.errors, status=400)
 
@@ -1330,6 +1343,13 @@ class JewelryProductView(APIView):
             qs = JewelryProduct.objects.filter(
                 Q(is_active=True) | Q(stock_quantity=0)
             ).prefetch_related('images')
+
+        # Filter by internal asset status if requested
+        internal = request.query_params.get('internal')
+        if internal == 'true':
+            qs = qs.filter(is_internal_asset=True)
+        elif internal == 'false':
+            qs = qs.filter(is_internal_asset=False)
 
         # ── Existing filters (உன்னோட பழைய code — same) ──
 
@@ -3745,6 +3765,37 @@ class CoinRequestView(APIView):
                     Q(requested_to__admin_profile__admin_id__icontains=search)
                 ).distinct()
 
+            # Date / Period filtering (day, week, month, year, custom date)
+            period = request.query_params.get('period', '').strip().lower()
+            start_date = request.query_params.get('start_date', '').strip()
+            end_date = request.query_params.get('end_date', '').strip()
+
+            from datetime import datetime
+            today = timezone.localdate()
+
+            if period == 'day':
+                base_qs = base_qs.filter(created_at__date=today)
+            elif period == 'week':
+                start_of_week = today - timedelta(days=today.weekday())
+                base_qs = base_qs.filter(created_at__date__gte=start_of_week, created_at__date__lte=today)
+            elif period == 'month':
+                base_qs = base_qs.filter(created_at__year=today.year, created_at__month=today.month)
+            elif period == 'year':
+                base_qs = base_qs.filter(created_at__year=today.year)
+            elif period == 'custom' or (start_date and end_date):
+                if start_date:
+                    try:
+                        sd = datetime.strptime(start_date, '%Y-%m-%d').date()
+                        base_qs = base_qs.filter(created_at__date__gte=sd)
+                    except Exception:
+                        pass
+                if end_date:
+                    try:
+                        ed = datetime.strptime(end_date, '%Y-%m-%d').date()
+                        base_qs = base_qs.filter(created_at__date__lte=ed)
+                    except Exception:
+                        pass
+
             # ── status-wise counts — ONE DB aggregate query ──
             status_counts = dict(
                 base_qs.values('status').annotate(c=Count('id')).values_list('status', 'c')
@@ -4071,6 +4122,358 @@ class CoinStockForUserView(APIView):
         stock = CoinStock.objects.filter(user=target_user, qty__gt=0).order_by('metal_type', 'weight_grams')
         serializer = CoinStockSerializer(stock, many=True)
         return Response(serializer.data)
+
+
+# ── JEWELRY STOCK & HIERARCHY ALLOCATION VIEWS ──
+class JewelryStockView(APIView):
+    """Logged-in user sees their own jewelry stock.
+    Super Admin can pass ?scope=hierarchy to see jewelry holdings across all admins, dealers, sub-dealers, promotors."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        scope = request.query_params.get('scope')
+        if scope == 'hierarchy' and request.user.role == 'super_admin':
+            stocks = JewelryStock.objects.filter(qty__gt=0).select_related('user', 'product').prefetch_related('product__images').order_by('user__role', 'product__name')
+            user_map = {}
+            for s in stocks:
+                u = s.user
+                if u.id not in user_map:
+                    role_field = {
+                        'promotor': 'promotor_profile',
+                        'sub_dealer': 'sub_dealer_profile',
+                        'dealer': 'dealer_profile',
+                        'admin': 'admin_profile',
+                        'shop': 'shop_profile',
+                    }.get(u.role)
+                    prof = getattr(u, role_field, None) if role_field else None
+                    id_field = {
+                        'promotor': 'promotor_id',
+                        'sub_dealer': 'sub_dealer_id',
+                        'dealer': 'dealer_id',
+                        'admin': 'admin_id',
+                    }.get(u.role)
+                    id_str = getattr(prof, id_field, '') if (prof and id_field) else ''
+                    if prof:
+                        name = f"{prof.first_name} {prof.last_name or ''}".strip()
+                        phone = getattr(prof, 'mobile_number', '')
+                    else:
+                        name = f"{u.first_name} {u.last_name or ''}".strip() or u.email
+                        phone = getattr(u, 'phone_number', '') or ''
+
+                    user_map[u.id] = {
+                        'user_id': u.id,
+                        'id_str': id_str,
+                        'name': name,
+                        'email': u.email,
+                        'role': u.role,
+                        'phone': phone,
+                        'items': [],
+                        'total_pieces': 0,
+                        'total_gross_grams': 0.0,
+                        'total_net_grams': 0.0,
+                        'gold_22k_pieces': 0,
+                        'gold_24k_pieces': 0,
+                        'silver_pieces': 0,
+                    }
+
+                p = s.product
+                gross = float(p.cross_weight or 0)
+                net = float(p.net_weight or p.cross_weight or 0)
+                first_img = p.images.first()
+                img_url = first_img.image.url if first_img and first_img.image else ''
+
+                user_map[u.id]['items'].append({
+                    'id': s.id,
+                    'product_id': p.id,
+                    'product_code': p.product_code,
+                    'name': p.name,
+                    'category': p.category,
+                    'metal': p.metal,
+                    'grade': p.grade,
+                    'cross_weight': gross,
+                    'net_weight': net,
+                    'qty': s.qty,
+                    'price': float(p.price or 0),
+                    'image': img_url,
+                })
+                user_map[u.id]['total_pieces'] += s.qty
+                user_map[u.id]['total_gross_grams'] += round(gross * s.qty, 3)
+                user_map[u.id]['total_net_grams'] += round(net * s.qty, 3)
+
+                metal_lower = (p.metal or '').lower()
+                grade_lower = (p.grade or '').lower()
+                if metal_lower == 'gold' and '24' in grade_lower:
+                    user_map[u.id]['gold_24k_pieces'] += s.qty
+                elif metal_lower == 'gold':
+                    user_map[u.id]['gold_22k_pieces'] += s.qty
+                elif metal_lower == 'silver':
+                    user_map[u.id]['silver_pieces'] += s.qty
+
+            result = list(user_map.values())
+            role_order = {'super_admin': 0, 'admin': 1, 'dealer': 2, 'sub_dealer': 3, 'promotor': 4}
+            result.sort(key=lambda x: (role_order.get(x['role'], 99), x['name']))
+            return Response(result)
+
+        stocks = JewelryStock.objects.filter(user=request.user, qty__gt=0).select_related('product').prefetch_related('product__images')
+        serializer = JewelryStockSerializer(stocks, many=True, context={'request': request})
+        return Response(serializer.data)
+
+
+class JewelryRequestView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        role = request.user.role
+        target_user = None
+
+        if role == 'promotor':
+            try:
+                profile = request.user.promotor_profile
+            except PromotorProfile.DoesNotExist:
+                return Response({'error': 'Promotor profile not found'}, status=404)
+            if not profile.assigned_sub_dealer:
+                return Response({'error': 'No sub dealer assigned to you'}, status=400)
+            target_user = profile.assigned_sub_dealer.user
+
+        elif role == 'sub_dealer':
+            try:
+                profile = request.user.sub_dealer_profile
+            except SubDealerProfile.DoesNotExist:
+                return Response({'error': 'Sub dealer profile not found'}, status=404)
+            if not profile.assigned_dealer:
+                return Response({'error': 'No dealer assigned to you'}, status=400)
+            target_user = profile.assigned_dealer.user
+
+        elif role == 'dealer':
+            try:
+                profile = request.user.dealer_profile
+            except DealerProfile.DoesNotExist:
+                return Response({'error': 'Dealer profile not found'}, status=404)
+            if not profile.assigned_admin:
+                return Response({'error': 'No admin assigned to you'}, status=400)
+            target_user = profile.assigned_admin.user
+
+        elif role == 'admin':
+            target_user = User.objects.filter(role='super_admin').first()
+            if not target_user:
+                return Response({'error': 'Super admin account not found'}, status=404)
+
+        elif role == 'super_admin':
+            return Response({'error': 'Super admin can manage stock directly'}, status=400)
+        else:
+            return Response({'error': 'Your role cannot request jewelry'}, status=403)
+
+        items = request.data.get('items', [])
+        if not items:
+            return Response({'error': 'At least one jewelry item required'}, status=400)
+
+        req = JewelryRequest.objects.create(
+            requested_by=request.user,
+            requested_to=target_user,
+        )
+        for item in items:
+            product_id = item.get('product_id')
+            qty = int(item.get('qty', 1))
+            try:
+                prod = JewelryProduct.objects.get(id=product_id)
+                JewelryRequestItem.objects.create(request=req, product=prod, qty=qty)
+            except JewelryProduct.DoesNotExist:
+                pass
+
+        serializer = JewelryRequestSerializer(req)
+        return Response({'message': 'Jewelry request sent successfully!', 'data': serializer.data}, status=201)
+
+    def get(self, request):
+        role = request.user.role
+        box = request.query_params.get('box')
+
+        if box == 'history':
+            if role == 'super_admin':
+                base_qs = JewelryRequest.objects.all()
+            else:
+                base_qs = JewelryRequest.objects.filter(
+                    Q(requested_to=request.user) | Q(requested_by=request.user)
+                )
+
+            search = request.query_params.get('search', '').strip()
+            if search:
+                base_qs = base_qs.filter(
+                    Q(requested_by__email__icontains=search) |
+                    Q(requested_by__promotor_profile__promotor_id__icontains=search) |
+                    Q(requested_by__promotor_profile__first_name__icontains=search) |
+                    Q(requested_by__promotor_profile__mobile_number__icontains=search) |
+                    Q(requested_by__sub_dealer_profile__sub_dealer_id__icontains=search) |
+                    Q(requested_by__sub_dealer_profile__first_name__icontains=search) |
+                    Q(requested_by__dealer_profile__dealer_id__icontains=search) |
+                    Q(requested_by__dealer_profile__first_name__icontains=search) |
+                    Q(requested_by__admin_profile__admin_id__icontains=search) |
+                    Q(items__product__name__icontains=search) |
+                    Q(items__product__product_code__icontains=search)
+                ).distinct()
+
+            # Date / Period filtering (default: 'day' / today)
+            period = request.query_params.get('period', '').strip().lower()
+            start_date = request.query_params.get('start_date', '').strip()
+            end_date = request.query_params.get('end_date', '').strip()
+
+            from datetime import datetime
+            today = timezone.localdate()
+
+            if period == 'day':
+                base_qs = base_qs.filter(created_at__date=today)
+            elif period == 'week':
+                start_of_week = today - timedelta(days=today.weekday())
+                base_qs = base_qs.filter(created_at__date__gte=start_of_week, created_at__date__lte=today)
+            elif period == 'month':
+                base_qs = base_qs.filter(created_at__year=today.year, created_at__month=today.month)
+            elif period == 'year':
+                base_qs = base_qs.filter(created_at__year=today.year)
+            elif period == 'custom' or (start_date and end_date):
+                if start_date:
+                    try:
+                        sd = datetime.strptime(start_date, '%Y-%m-%d').date()
+                        base_qs = base_qs.filter(created_at__date__gte=sd)
+                    except Exception:
+                        pass
+                if end_date:
+                    try:
+                        ed = datetime.strptime(end_date, '%Y-%m-%d').date()
+                        base_qs = base_qs.filter(created_at__date__lte=ed)
+                    except Exception:
+                        pass
+
+            status_counts = dict(
+                base_qs.values('status').annotate(c=Count('id')).values_list('status', 'c')
+            )
+            total_disbursed_pieces = JewelryRequestItem.objects.filter(
+                request__in=base_qs.filter(status='sent')
+            ).aggregate(s=Sum('qty'))['s'] or 0
+
+            total_pending_pieces = JewelryRequestItem.objects.filter(
+                request__in=base_qs.filter(status='pending')
+            ).aggregate(s=Sum('qty'))['s'] or 0
+
+            status_filter = request.query_params.get('status')
+            if status_filter and status_filter != 'all':
+                base_qs = base_qs.filter(status=status_filter)
+
+            total_count = base_qs.count()
+            offset = int(request.query_params.get('offset', 0))
+            limit = int(request.query_params.get('limit', 20))
+
+            reqs = base_qs.prefetch_related(
+                'items__product__images', 'requested_by', 'requested_to'
+            ).order_by('-created_at')[offset:offset + limit]
+
+            serializer = JewelryRequestSerializer(reqs, many=True)
+            return Response({
+                'items': serializer.data,
+                'total_count': total_count,
+                'status_counts': {
+                    'pending': status_counts.get('pending', 0),
+                    'sent': status_counts.get('sent', 0),
+                    'rejected': status_counts.get('rejected', 0),
+                    'total': sum(status_counts.values()),
+                    'disbursed_pieces': total_disbursed_pieces,
+                    'pending_pieces': total_pending_pieces,
+                },
+            })
+
+        if box == 'sent':
+            reqs = JewelryRequest.objects.filter(requested_by=request.user)
+        elif box == 'received' or role == 'super_admin':
+            if role == 'super_admin':
+                reqs = JewelryRequest.objects.filter(status='pending')
+            else:
+                reqs = JewelryRequest.objects.filter(requested_to=request.user, status='pending')
+        else:
+            reqs = JewelryRequest.objects.filter(requested_to=request.user, status='pending')
+
+        reqs = reqs.prefetch_related('items__product__images', 'requested_by', 'requested_to').order_by('-created_at')
+        serializer = JewelryRequestSerializer(reqs, many=True)
+        return Response(serializer.data)
+
+
+class JewelryRequestApproveView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if request.user.role == 'super_admin':
+            password = request.data.get('password', '').strip()
+            if not password or not request.user.check_password(password):
+                return Response({'error': 'Invalid Super Admin password. Action unauthorized.'}, status=401)
+
+        try:
+            if request.user.role == 'super_admin':
+                req = JewelryRequest.objects.prefetch_related('items__product').get(id=pk, status='pending')
+            else:
+                req = JewelryRequest.objects.prefetch_related('items__product').get(id=pk, requested_to=request.user, status='pending')
+        except JewelryRequest.DoesNotExist:
+            return Response({'error': 'Request not found or already resolved'}, status=404)
+
+        approver = req.requested_to if req.requested_to else request.user
+        if request.user.role == 'super_admin':
+            has_parent_stock = True
+            for item in req.items.all():
+                stk = JewelryStock.objects.filter(user=approver, product=item.product).first()
+                if not stk or stk.qty < item.qty:
+                    has_parent_stock = False
+                    break
+            stock_user = approver if has_parent_stock else request.user
+        else:
+            stock_user = request.user
+
+        for item in req.items.all():
+            stk = JewelryStock.objects.filter(user=stock_user, product=item.product).first()
+            available = stk.qty if stk else 0
+            if available < item.qty:
+                return Response({
+                    'error': f'Insufficient stock for {item.product.name}. Available: {available}, Requested: {item.qty}'
+                }, status=400)
+
+        for item in req.items.all():
+            stk = JewelryStock.objects.get(user=stock_user, product=item.product)
+            stk.qty -= item.qty
+            stk.save()
+
+            req_stk, _ = JewelryStock.objects.get_or_create(
+                user=req.requested_by, product=item.product, defaults={'qty': 0}
+            )
+            req_stk.qty += item.qty
+            req_stk.save()
+
+        req.status = 'sent'
+        req.sent_at = timezone.now()
+        req.save()
+        return Response({'message': 'Jewelry request approved and stock transferred successfully!'})
+
+
+class JewelryRequestRejectView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if request.user.role == 'super_admin':
+            password = request.data.get('password', '').strip()
+            if not password or not request.user.check_password(password):
+                return Response({'error': 'Invalid Super Admin password. Action unauthorized.'}, status=401)
+
+        message = request.data.get('message', '').strip()
+        if not message:
+            return Response({'error': 'Reject reason is required'}, status=400)
+
+        try:
+            if request.user.role == 'super_admin':
+                req = JewelryRequest.objects.get(id=pk, status='pending')
+            else:
+                req = JewelryRequest.objects.get(id=pk, requested_to=request.user, status='pending')
+        except JewelryRequest.DoesNotExist:
+            return Response({'error': 'Request not found or already resolved'}, status=404)
+
+        req.status = 'rejected'
+        req.reject_reason = message
+        req.sent_at = timezone.now()
+        req.save()
+        return Response({'message': 'Jewelry request rejected successfully!'})
 
 
 # ── NEW: Today's Rewards View ──

@@ -725,6 +725,7 @@ class JewelryProduct(models.Model):
     product_code = models.CharField(max_length=20, unique=True, blank=True)  # e.g. JWL20260001
     stock_quantity = models.PositiveIntegerField(default=0)
     low_stock_threshold = models.PositiveIntegerField(default=5)
+    is_internal_asset = models.BooleanField(default=False)  # True if created via Add Jewellery internal stock flow
 
     def save(self, *args, **kwargs):
         # Auto-generate product_code: JWL{year}{0001, 0002, ...}
@@ -941,6 +942,46 @@ class CoinStock(models.Model):
 
     def __str__(self):
         return f"{self.user} — {self.metal_type} {self.weight_label}: {self.qty}"
+
+
+# ── JEWELRY STOCK & HIERARCHY ALLOCATION REQUEST SYSTEM ──
+class JewelryStock(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='jewelry_stock')
+    product = models.ForeignKey(JewelryProduct, on_delete=models.CASCADE, related_name='stock_holdings')
+    qty = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ('user', 'product')
+
+    def __str__(self):
+        return f"{self.user} — {self.product.name}: {self.qty}"
+
+
+class JewelryRequest(models.Model):
+    STATUS_CHOICES = [('pending', 'Pending'), ('sent', 'Approved'), ('rejected', 'Rejected')]
+
+    requested_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='jewelry_requests_made')
+    requested_to = models.ForeignKey(User, on_delete=models.CASCADE, related_name='jewelry_requests_received')
+
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    reject_reason = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['requested_to', 'status', 'created_at'])]
+
+    def __str__(self):
+        return f"Jewelry Request #{self.id} — {self.requested_by} to {self.requested_to} ({self.status})"
+
+
+class JewelryRequestItem(models.Model):
+    request = models.ForeignKey(JewelryRequest, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(JewelryProduct, on_delete=models.CASCADE, related_name='request_items')
+    qty = models.PositiveIntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.product.name} x {self.qty}"
 
 
 # ── WALLET RECHARGE SYSTEM (1 Rs = 100 coins) ──

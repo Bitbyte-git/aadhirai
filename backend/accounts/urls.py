@@ -10,9 +10,7 @@ HierarchySubtreeOrdersView, HierarchyAdminsView, HierarchyChildrenView, SalesRep
  RetailerPromotionListView, RetailerPromotionActionView, WholesaleDealerPromotionListView, WholesaleDealerPromotionActionView, DistributorPromotionListView, DistributorPromotionActionView, SuperStockistPromotionListView, SuperStockistPromotionActionView, PromotionCustomerListView, PromotionCustomerListView, PromotionNodeListView,
  ReferrerInfoView, PublicCustomerRegisterView,GenerateReferralLinkView, RechargeCreateOrderView, RechargeVerifyPaymentView, WalletView, RechargeHistoryView, RechargeStatementView, PayWithCoinsView, PaymentsSummaryView, UserLookupView, SendCoinsView, AdminUserHistoryView, AdminSentHistoryView, AutoPayCreateView, AutoPayConfirmView, AutoPayStatusView, AutoPayToggleView, autopay_webhook,AutoPayMandateListView, AffordableProductsView,
  HierarchyPersonSearchView, SalesSummaryView, SalesTrendView, HierarchyNodeOrdersView, HierarchyNodeInfoView, HierarchyPathToNodeView, 
-
-
-
+ JewelryStockView, JewelryRequestView, JewelryRequestApproveView, JewelryRequestRejectView,
 )
 
 urlpatterns = [
@@ -71,6 +69,10 @@ urlpatterns = [
     path('coin-stock/', CoinStockView.as_view()),
     path('coin-stock/for-user/', CoinStockForUserView.as_view()),
     path('coin-stock/add/', SuperAdminAddCoinsView.as_view()),
+    path('jewelry-stock/', JewelryStockView.as_view()),
+    path('jewelry-requests/', JewelryRequestView.as_view()),
+    path('jewelry-requests/<int:pk>/approve/', JewelryRequestApproveView.as_view()),
+    path('jewelry-requests/<int:pk>/reject/', JewelryRequestRejectView.as_view()),
     path('my-hierarchy/', MyHierarchyView.as_view()),
     path('rewards/today/', TodayRewardsView.as_view()),
     path('retailer-promotions/', RetailerPromotionListView.as_view()),

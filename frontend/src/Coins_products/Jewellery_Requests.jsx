@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "../api";
 import CoinTabs from "./CoinTabs";
+import JewelleryImageModal from "./JewelleryImageModal";
 import {
   JewelryIcon,
   InboxIcon,
@@ -35,6 +36,7 @@ export default function JewelleryRequests() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
+  const [previewProduct, setPreviewProduct] = useState(null);
   const [boxTab, setBoxTab] = useState(
     location.state?.initialTab || (role === "promotor" ? "sent" : "received")
   ); // "received" | "sent"
@@ -430,7 +432,7 @@ export default function JewelleryRequests() {
                 borderRadius: "12px",
                 color: "#073B3F",
                 fontSize: "13px",
-                fontWeight: 700,
+                fontWeight: 750,
                 cursor: "pointer",
                 boxShadow: "0 2px 8px rgba(7, 59, 63, 0.04)",
               }}
@@ -438,13 +440,15 @@ export default function JewelleryRequests() {
             >
               <ClockIcon size={16} color="#073B3F" /> View Transactions History
             </button>
-            <button
-              type="button"
-              className="jr-btn-create"
-              onClick={() => setCreateModalOpen(true)}
-            >
-              <PlusIcon size={16} color="#FFFFFF" /> Request Jewellery Piece
-            </button>
+            {!isSuperAdmin && (
+              <button
+                type="button"
+                className="jr-btn-create"
+                onClick={() => setCreateModalOpen(true)}
+              >
+                <PlusIcon size={16} color="#FFFFFF" /> Request Jewellery Piece
+              </button>
+            )}
           </div>
         </div>
 
@@ -470,13 +474,15 @@ export default function JewelleryRequests() {
                 {isSuperAdmin ? "Company Incoming Requests" : "Received Requests"} {boxTab === "received" ? `(${requests.length})` : ""}
               </button>
             )}
-            <button
-              type="button"
-              className={`jr-box-btn ${boxTab === "sent" ? "active" : ""}`}
-              onClick={() => setBoxTab("sent")}
-            >
-              My Sent Requests {boxTab === "sent" ? `(${requests.length})` : ""}
-            </button>
+            {!isSuperAdmin && (
+              <button
+                type="button"
+                className={`jr-box-btn ${boxTab === "sent" ? "active" : ""}`}
+                onClick={() => setBoxTab("sent")}
+              >
+                My Sent Requests {boxTab === "sent" ? `(${requests.length})` : ""}
+              </button>
+            )}
           </div>
 
           {/* Status Filter Pills */}
@@ -621,16 +627,40 @@ export default function JewelleryRequests() {
                       const img = p?.images?.[0]?.image || "";
                       return (
                         <div key={idx} className="jr-item-pill">
-                          {img ? (
-                            <img src={img} alt={p?.name} className="jr-item-thumb" />
-                          ) : (
-                            <div className="jr-item-thumb" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              <JewelryIcon size={20} color="#073B3F" />
-                            </div>
-                          )}
+                          <div
+                            style={{ cursor: p ? "pointer" : "default" }}
+                            onClick={() => p && setPreviewProduct(p)}
+                            title={p ? "Click to zoom image" : ""}
+                          >
+                            {img ? (
+                              <img src={img} alt={p?.name} className="jr-item-thumb" />
+                            ) : (
+                              <div className="jr-item-thumb" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <JewelryIcon size={20} color="#073B3F" />
+                              </div>
+                            )}
+                          </div>
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: "13px", fontWeight: 700, color: "#073B3F" }}>
-                              {p?.name || "Jewellery Item"}
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                              <span style={{ fontSize: "13px", fontWeight: 700, color: "#073B3F" }}>
+                                {p?.name || "Jewellery Item"}
+                              </span>
+                              {p?.product_code && (
+                                <span
+                                  style={{
+                                    fontSize: "10px",
+                                    fontFamily: "monospace",
+                                    fontWeight: 800,
+                                    color: "#073B3F",
+                                    background: "#EEF4F4",
+                                    padding: "1px 5px",
+                                    borderRadius: "4px",
+                                    border: "1px solid #D6E2E1",
+                                  }}
+                                >
+                                  {p.product_code}
+                                </span>
+                              )}
                             </div>
                             <div style={{ fontSize: "11.5px", color: "#5C706E" }}>
                               {p?.metal?.toUpperCase()} {p?.grade} | Net: {p?.net_weight || p?.cross_weight}g
@@ -834,6 +864,13 @@ export default function JewelleryRequests() {
       )}
 
       {toast && <div className="jr-toast">{toast}</div>}
+
+      {/* High-Res Product Image Modal */}
+      <JewelleryImageModal
+        isOpen={Boolean(previewProduct)}
+        onClose={() => setPreviewProduct(null)}
+        product={previewProduct}
+      />
     </div>
   );
 }

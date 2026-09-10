@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import CoinTabs from "./CoinTabs";
+import JewelleryImageModal from "./JewelleryImageModal";
 import {
   JewelryIcon,
   HistoryIcon,
@@ -42,12 +43,13 @@ export default function JewelleryTransactions() {
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
   const [period, setPeriod] = useState("all"); // 'all' (default) | 'day' | 'week' | 'month' | 'year' | 'custom'
-  const [flowFilter, setFlowFilter] = useState("all"); // 'all' | 'inward' | 'outward'
+  const [flowFilter, setFlowFilter] = useState("all"); // 'all' | 'mint' | 'disbursed' (superadmin) OR 'all' | 'inward' | 'outward' (downlines)
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("cards"); // 'cards' | 'table'
   const [copiedId, setCopiedId] = useState(null);
+  const [previewProduct, setPreviewProduct] = useState(null);
   const [statusCounts, setStatusCounts] = useState({
     pending: 0,
     sent: 0,
@@ -98,6 +100,16 @@ export default function JewelleryTransactions() {
     return () => clearTimeout(handler);
   }, [filter, searchTerm, period, startDate, endDate]);
 
+  const mintCount = useMemo(() => {
+    return requests.filter((r) => r.reject_reason === "MASTER_MINT").length;
+  }, [requests]);
+
+  const disbursedCount = useMemo(() => {
+    return requests.filter(
+      (r) => r.status === "sent" && r.reject_reason !== "MASTER_MINT"
+    ).length;
+  }, [requests]);
+
   const inwardCount = useMemo(() => {
     return requests.filter(
       (r) => (r.requested_by_email || "").toLowerCase() === myEmail
@@ -112,7 +124,13 @@ export default function JewelleryTransactions() {
 
   const displayedRequests = useMemo(() => {
     let list = requests;
-    if (!isSuperAdmin && flowFilter !== "all") {
+    if (isSuperAdmin && flowFilter !== "all") {
+      if (flowFilter === "mint") {
+        list = list.filter((r) => r.reject_reason === "MASTER_MINT");
+      } else if (flowFilter === "disbursed") {
+        list = list.filter((r) => r.reject_reason !== "MASTER_MINT");
+      }
+    } else if (!isSuperAdmin && flowFilter !== "all") {
       if (flowFilter === "inward") {
         list = list.filter(
           (r) => (r.requested_by_email || "").toLowerCase() === myEmail
@@ -676,8 +694,45 @@ export default function JewelleryTransactions() {
             />
           </div>
 
-          {/* Flow Direction Pills (Non-SuperAdmin: Received vs Disbursed) */}
-          {!isSuperAdmin && (
+          {/* Flow Direction Pills */}
+          {isSuperAdmin ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                background: "#F4F8F8",
+                border: "1px solid #D6E2E1",
+                borderRadius: "12px",
+                padding: "4px",
+              }}
+            >
+              {[
+                { key: "all", label: `All Events (${requests.length})` },
+                { key: "mint", label: `📦 Master Stock Added (${mintCount})` },
+                { key: "disbursed", label: `↗️ Stock Disbursed (${disbursedCount})` },
+              ].map((fl) => (
+                <button
+                  key={fl.key}
+                  type="button"
+                  onClick={() => setFlowFilter(fl.key)}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "8px",
+                    border: "none",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    background: flowFilter === fl.key ? "#073B3F" : "transparent",
+                    color: flowFilter === fl.key ? "#FFFFFF" : "#5C706E",
+                    transition: "all 150ms ease",
+                  }}
+                >
+                  {fl.label}
+                </button>
+              ))}
+            </div>
+          ) : (
             <div
               style={{
                 display: "flex",
@@ -777,6 +832,10 @@ export default function JewelleryTransactions() {
                 ? "No jewellery requests submitted by you found in this filter."
                 : flowFilter === "outward"
                 ? "No jewellery requests submitted to you by downlines found in this filter."
+                : flowFilter === "mint"
+                ? "No master stock minting additions logged."
+                : flowFilter === "disbursed"
+                ? "No stock disbursements to downlines logged."
                 : "Transactions matching your filters will appear here once jewellery allocations occur."}
             </p>
           </div>
@@ -794,13 +853,48 @@ export default function JewelleryTransactions() {
               };
               const isInward = (r.requested_by_email || "").toLowerCase() === myEmail;
               const isOutward = (r.requested_to_email || "").toLowerCase() === myEmail;
+              const isMint = r.reject_reason === "MASTER_MINT";
 
               return (
                 <div key={r.id} className="jt-tx-card">
                   <div className="jt-tx-header">
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                       <span className="jt-tx-id">Transfer #{r.id}</span>
-                      {!isSuperAdmin && (
+                      {isMint ? (
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            padding: "2px 8px",
+                            borderRadius: "6px",
+                            fontSize: "11px",
+                            fontWeight: 800,
+                            background: "#EDE9FE",
+                            color: "#6B21A8",
+                            border: "1px solid #DDD6FE",
+                          }}
+                        >
+                          📦 Master Stock Added
+                        </span>
+                      ) : isSuperAdmin ? (
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            padding: "2px 8px",
+                            borderRadius: "6px",
+                            fontSize: "11px",
+                            fontWeight: 800,
+                            background: "#E0F2FE",
+                            color: "#0369A1",
+                            border: "1px solid #BAE6FD",
+                          }}
+                        >
+                          ↗️ Stock Disbursed
+                        </span>
+                      ) : (
                         <span
                           style={{
                             display: "inline-flex",
@@ -839,46 +933,57 @@ export default function JewelleryTransactions() {
                   </div>
 
                   {/* Parties Box */}
-                  <div className="jt-parties-box">
-                    <div className="jt-party-row">
-                      <span className="jt-party-label">Requester:</span>
-                      <div>
-                        <strong style={{ color: "#073B3F" }}>
-                          {r.requested_by_name || r.requested_by_email}
+                  {isMint ? (
+                    <div className="jt-parties-box">
+                      <div className="jt-party-row">
+                        <span className="jt-party-label">Event:</span>
+                        <strong style={{ color: "#6B21A8" }}>
+                          📦 Added to Vault Inventory by Super Admin
                         </strong>
-                        <span
-                          style={{
-                            marginLeft: "6px",
-                            fontSize: "10.5px",
-                            fontWeight: 800,
-                            padding: "2px 6px",
-                            borderRadius: "4px",
-                            background: reqRoleBadge.bg,
-                            color: reqRoleBadge.color,
-                          }}
-                        >
-                          {reqRoleBadge.label}
-                        </span>
-                        {isInward && (
-                          <span style={{ marginLeft: "6px", fontSize: "11px", color: "#166534", fontWeight: 700 }}>
-                            (You)
-                          </span>
-                        )}
                       </div>
                     </div>
-
-                    <div className="jt-party-row">
-                      <span className="jt-party-label">Disbursed By:</span>
-                      <strong style={{ color: "#2C3E3D" }}>
-                        {r.requested_to_name || r.requested_to_email || "Super Admin"}
-                        {isOutward && (
-                          <span style={{ marginLeft: "6px", fontSize: "11px", color: "#0369A1", fontWeight: 700 }}>
-                            (You)
+                  ) : (
+                    <div className="jt-parties-box">
+                      <div className="jt-party-row">
+                        <span className="jt-party-label">Requester:</span>
+                        <div>
+                          <strong style={{ color: "#073B3F" }}>
+                            {r.requested_by_name || r.requested_by_email}
+                          </strong>
+                          <span
+                            style={{
+                              marginLeft: "6px",
+                              fontSize: "10.5px",
+                              fontWeight: 800,
+                              padding: "2px 6px",
+                              borderRadius: "4px",
+                              background: reqRoleBadge.bg,
+                              color: reqRoleBadge.color,
+                            }}
+                          >
+                            {reqRoleBadge.label}
                           </span>
-                        )}
-                      </strong>
+                          {isInward && (
+                            <span style={{ marginLeft: "6px", fontSize: "11px", color: "#166534", fontWeight: 700 }}>
+                              (You)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="jt-party-row">
+                        <span className="jt-party-label">Disbursed By:</span>
+                        <strong style={{ color: "#2C3E3D" }}>
+                          {r.requested_to_name || r.requested_to_email || "Super Admin"}
+                          {isOutward && (
+                            <span style={{ marginLeft: "6px", fontSize: "11px", color: "#0369A1", fontWeight: 700 }}>
+                              (You)
+                            </span>
+                          )}
+                        </strong>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Items list */}
                   <div className="jt-items-list">
@@ -887,26 +992,54 @@ export default function JewelleryTransactions() {
                       const img = p?.images?.[0]?.image;
                       return (
                         <div key={idx} className="jt-item-row">
-                          {img ? (
-                            <img src={img} alt={p?.name} />
-                          ) : (
-                            <div
-                              style={{
-                                width: 40,
-                                height: 40,
-                                borderRadius: 6,
-                                background: "#EFF6F6",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                            >
-                              <JewelryIcon size={18} color="#073B3F" />
-                            </div>
-                          )}
+                          <div
+                            style={{ cursor: p ? "pointer" : "default" }}
+                            onClick={() => p && setPreviewProduct(p)}
+                            title={p ? "Click to zoom image" : ""}
+                          >
+                            {img ? (
+                              <img
+                                src={img}
+                                alt={p?.name}
+                                style={{ width: 42, height: 42, borderRadius: 8, objectFit: "cover" }}
+                              />
+                            ) : (
+                              <div
+                                style={{
+                                  width: 42,
+                                  height: 42,
+                                  borderRadius: 8,
+                                  background: "#EFF6F6",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                              >
+                                <JewelryIcon size={18} color="#073B3F" />
+                              </div>
+                            )}
+                          </div>
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: "13px", fontWeight: 700, color: "#073B3F" }}>
-                              {p?.name || "Jewellery Piece"}
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                              <span style={{ fontSize: "13px", fontWeight: 700, color: "#073B3F" }}>
+                                {p?.name || "Jewellery Piece"}
+                              </span>
+                              {p?.product_code && (
+                                <span
+                                  style={{
+                                    fontSize: "10px",
+                                    fontFamily: "monospace",
+                                    fontWeight: 800,
+                                    color: "#073B3F",
+                                    background: "#EEF4F4",
+                                    padding: "1px 5px",
+                                    borderRadius: "4px",
+                                    border: "1px solid #D6E2E1",
+                                  }}
+                                >
+                                  {p.product_code}
+                                </span>
+                              )}
                             </div>
                             <div style={{ fontSize: "11px", color: "#5C706E" }}>
                               {p?.metal?.toUpperCase()} {p?.grade} | Net: {p?.net_weight || p?.cross_weight}g
@@ -934,9 +1067,9 @@ export default function JewelleryTransactions() {
               <thead>
                 <tr style={{ background: "#F8FAFA", textAlign: "left", borderBottom: "1px solid #E1EBEA" }}>
                   <th style={{ padding: "12px 16px", color: "#5C706E" }}>ID</th>
-                  {!isSuperAdmin && <th style={{ padding: "12px 16px", color: "#5C706E" }}>Direction</th>}
-                  <th style={{ padding: "12px 16px", color: "#5C706E" }}>Requester</th>
-                  <th style={{ padding: "12px 16px", color: "#5C706E" }}>Approver</th>
+                  <th style={{ padding: "12px 16px", color: "#5C706E" }}>Event / Direction</th>
+                  <th style={{ padding: "12px 16px", color: "#5C706E" }}>Requester / Action</th>
+                  <th style={{ padding: "12px 16px", color: "#5C706E" }}>Approver / Vault</th>
                   <th style={{ padding: "12px 16px", color: "#5C706E" }}>Jewellery Items</th>
                   <th style={{ padding: "12px 16px", color: "#5C706E" }}>Status</th>
                   <th style={{ padding: "12px 16px", color: "#5C706E" }}>Date</th>
@@ -947,14 +1080,45 @@ export default function JewelleryTransactions() {
                   const statusInfo = STATUS_CFG[r.status] || STATUS_CFG.pending;
                   const isInward = (r.requested_by_email || "").toLowerCase() === myEmail;
                   const isOutward = (r.requested_to_email || "").toLowerCase() === myEmail;
+                  const isMint = r.reject_reason === "MASTER_MINT";
 
                   return (
                     <tr key={r.id} style={{ borderBottom: "1px solid #F0F4F4" }}>
                       <td style={{ padding: "12px 16px", fontWeight: 700, color: "#073B3F" }}>
                         #{r.id}
                       </td>
-                      {!isSuperAdmin && (
-                        <td style={{ padding: "12px 16px" }}>
+                      <td style={{ padding: "12px 16px" }}>
+                        {isMint ? (
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              padding: "2px 8px",
+                              borderRadius: "6px",
+                              fontSize: "11px",
+                              fontWeight: 800,
+                              background: "#EDE9FE",
+                              color: "#6B21A8",
+                              border: "1px solid #DDD6FE",
+                            }}
+                          >
+                            📦 Master Stock Added
+                          </span>
+                        ) : isSuperAdmin ? (
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              padding: "2px 8px",
+                              borderRadius: "6px",
+                              fontSize: "11px",
+                              fontWeight: 800,
+                              background: "#E0F2FE",
+                              color: "#0369A1",
+                              border: "1px solid #BAE6FD",
+                            }}
+                          >
+                            ↗️ Stock Disbursed
+                          </span>
+                        ) : (
                           <span
                             style={{
                               display: "inline-flex",
@@ -969,19 +1133,62 @@ export default function JewelleryTransactions() {
                           >
                             {isInward ? "↙️ Received" : isOutward ? "↗️ Disbursed" : "Transfer"}
                           </span>
-                        </td>
-                      )}
-                      <td style={{ padding: "12px 16px" }}>
-                        <strong>{r.requested_by_name || r.requested_by_email}</strong>
-                        {isInward && <span style={{ color: "#166534", marginLeft: "4px", fontSize: "11px" }}>(You)</span>}
-                        <div style={{ fontSize: "11px", color: "#7A8987" }}>{r.requested_by_role}</div>
+                        )}
                       </td>
                       <td style={{ padding: "12px 16px" }}>
-                        {r.requested_to_name || r.requested_to_email || "Super Admin"}
-                        {isOutward && <span style={{ color: "#0369A1", marginLeft: "4px", fontSize: "11px" }}>(You)</span>}
+                        {isMint ? (
+                          <strong style={{ color: "#6B21A8" }}>Super Admin (Vault Root)</strong>
+                        ) : (
+                          <>
+                            <strong>{r.requested_by_name || r.requested_by_email}</strong>
+                            {isInward && <span style={{ color: "#166534", marginLeft: "4px", fontSize: "11px" }}>(You)</span>}
+                            <div style={{ fontSize: "11px", color: "#7A8987" }}>{r.requested_by_role}</div>
+                          </>
+                        )}
                       </td>
                       <td style={{ padding: "12px 16px" }}>
-                        {(r.items || []).map((i) => `${i.product?.name || 'Piece'} (x${i.qty})`).join(", ")}
+                        {isMint ? (
+                          <span style={{ color: "#5C706E" }}>Vault Inventory</span>
+                        ) : (
+                          <>
+                            {r.requested_to_name || r.requested_to_email || "Super Admin"}
+                            {isOutward && <span style={{ color: "#0369A1", marginLeft: "4px", fontSize: "11px" }}>(You)</span>}
+                          </>
+                        )}
+                      </td>
+                      <td style={{ padding: "12px 16px" }}>
+                        {(r.items || []).map((i, iIdx) => (
+                          <span
+                            key={iIdx}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              marginRight: "8px",
+                              cursor: i.product ? "pointer" : "default",
+                            }}
+                            onClick={() => i.product && setPreviewProduct(i.product)}
+                            title={i.product ? "Click to zoom image" : ""}
+                          >
+                            <span style={{ color: "#073B3F", fontWeight: 700 }}>{i.product?.name || "Piece"}</span>
+                            {i.product?.product_code && (
+                              <span
+                                style={{
+                                  fontSize: "9.5px",
+                                  fontFamily: "monospace",
+                                  fontWeight: 800,
+                                  background: "#EEF4F4",
+                                  padding: "1px 4px",
+                                  borderRadius: "4px",
+                                  border: "1px solid #D6E2E1",
+                                }}
+                              >
+                                {i.product.product_code}
+                              </span>
+                            )}
+                            <strong style={{ color: "#073B3F" }}>x{i.qty}</strong>
+                          </span>
+                        ))}
                       </td>
                       <td style={{ padding: "12px 16px" }}>
                         <span
@@ -1008,6 +1215,13 @@ export default function JewelleryTransactions() {
           </div>
         )}
       </div>
+
+      {/* High-Res Product Image Modal */}
+      <JewelleryImageModal
+        isOpen={Boolean(previewProduct)}
+        onClose={() => setPreviewProduct(null)}
+        product={previewProduct}
+      />
     </div>
   );
 }

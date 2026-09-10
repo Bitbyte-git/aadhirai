@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import CoinTabs from "./CoinTabs";
+import JewelleryImageModal from "./JewelleryImageModal";
+import EditProductModal from "./EditProductModal";
 import {
   JewelryIcon,
   UploadIcon,
@@ -60,9 +62,11 @@ export default function AddJewellery() {
   const currentRole = localStorage.getItem("role") || "admin";
   const isSuperAdmin = currentRole === "super_admin";
 
-  // Super Admin view mode toggle: 'create' | 'buy'
-  const [adminViewMode, setAdminViewMode] = useState("create");
-  const isBuyMode = !isSuperAdmin || adminViewMode === "buy";
+  // Super Admin view mode toggle: 'create' | 'manage'
+  const [adminTab, setAdminTab] = useState("create");
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [previewProduct, setPreviewProduct] = useState(null);
+  const isBuyMode = !isSuperAdmin;
 
   // ── SUPER ADMIN FORM STATES ──
   const [metal, setMetal] = useState("gold"); // 'gold' | 'silver'
@@ -972,17 +976,20 @@ export default function AddJewellery() {
           <div className="aj-admin-switcher">
             <button
               type="button"
-              className={`aj-admin-switch-btn ${adminViewMode === "create" ? "active" : ""}`}
-              onClick={() => setAdminViewMode("create")}
+              className={`aj-admin-switch-btn ${adminTab === "create" ? "active" : ""}`}
+              onClick={() => setAdminTab("create")}
             >
-              <PlusIcon size={15} /> Register New Master Product
+              <PlusIcon size={15} /> ➕ Add New Master Product
             </button>
             <button
               type="button"
-              className={`aj-admin-switch-btn ${adminViewMode === "buy" ? "active" : ""}`}
-              onClick={() => setAdminViewMode("buy")}
+              className={`aj-admin-switch-btn ${adminTab === "manage" ? "active" : ""}`}
+              onClick={() => {
+                setAdminTab("manage");
+                fetchCatalog();
+              }}
             >
-              <CartIcon size={15} /> Buy / Request Jewellery Catalog ({catalogProducts.length})
+              <JewelryIcon size={15} /> ⚙️ Manage & Edit Products ({catalogProducts.length})
             </button>
           </div>
         )}
@@ -1006,8 +1013,8 @@ export default function AddJewellery() {
           </div>
         </div>
 
-        {/* ── MODE 1: BUY JEWELLERY CATALOG ── */}
-        {isBuyMode ? (
+        {/* ── MODE 1: BUY JEWELLERY CATALOG (NON-SUPER ADMIN ONLY) ── */}
+        {!isSuperAdmin ? (
           <div>
             {/* Filter Bar */}
             <div className="aj-filter-bar">
@@ -1105,7 +1112,12 @@ export default function AddJewellery() {
 
                   return (
                     <div key={product.id} className="aj-card">
-                      <div className="aj-card-img-box">
+                      <div
+                        className="aj-card-img-box"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => setPreviewProduct(product)}
+                        title="Click to zoom image"
+                      >
                         {firstImg ? (
                           <img src={firstImg} alt={product.name} />
                         ) : (
@@ -1117,11 +1129,47 @@ export default function AddJewellery() {
                         >
                           {purityText}
                         </span>
+                        {product.product_code && (
+                          <span
+                            style={{
+                              position: "absolute",
+                              bottom: "8px",
+                              right: "8px",
+                              background: "rgba(7, 59, 63, 0.85)",
+                              color: "#FFFFFF",
+                              padding: "2px 6px",
+                              borderRadius: "6px",
+                              fontSize: "10px",
+                              fontFamily: "monospace",
+                              fontWeight: 800,
+                            }}
+                          >
+                            {product.product_code}
+                          </span>
+                        )}
                       </div>
 
                       <div className="aj-card-body">
-                        <div style={{ fontSize: "11px", fontWeight: 800, color: "#7A8987", textTransform: "uppercase" }}>
-                          {product.category} {product.product_code ? `• ${product.product_code}` : ""}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px", marginBottom: "4px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 800, color: "#7A8987", textTransform: "uppercase" }}>
+                            {product.category}
+                          </span>
+                          {product.product_code && (
+                            <span
+                              style={{
+                                fontSize: "10.5px",
+                                fontFamily: "monospace",
+                                fontWeight: 800,
+                                color: "#073B3F",
+                                background: "#EEF4F4",
+                                padding: "1px 6px",
+                                borderRadius: "4px",
+                                border: "1px solid #D6E2E1",
+                              }}
+                            >
+                              {product.product_code}
+                            </span>
+                          )}
                         </div>
                         <h3 className="aj-card-title">{product.name}</h3>
 
@@ -1211,7 +1259,7 @@ export default function AddJewellery() {
               </div>
             )}
           </div>
-        ) : (
+        ) : adminTab === "create" ? (
           /* ── MODE 2: MASTER CREATE NEW PRODUCT (SUPER ADMIN ONLY) ── */
           <div className="aj-form-card">
             {error && (
@@ -1499,6 +1547,246 @@ export default function AddJewellery() {
               </button>
             </form>
           </div>
+        ) : (
+          /* ── MODE 3: MASTER CATALOG & EDIT PRODUCTS (SUPER ADMIN ONLY) ── */
+          <div>
+            {/* Filter Bar */}
+            <div className="aj-filter-bar">
+              <div className="aj-metal-pills">
+                <button
+                  type="button"
+                  className={`aj-filter-btn ${catalogMetal === "all" ? "active" : ""}`}
+                  onClick={() => setCatalogMetal("all")}
+                >
+                  All Metals
+                </button>
+                <button
+                  type="button"
+                  className={`aj-filter-btn ${catalogMetal === "gold_22k" ? "active" : ""}`}
+                  onClick={() => setCatalogMetal("gold_22k")}
+                >
+                  Gold 22K (916)
+                </button>
+                <button
+                  type="button"
+                  className={`aj-filter-btn ${catalogMetal === "gold_24k" ? "active" : ""}`}
+                  onClick={() => setCatalogMetal("gold_24k")}
+                >
+                  Gold 24K (999)
+                </button>
+                <button
+                  type="button"
+                  className={`aj-filter-btn ${catalogMetal === "silver" ? "active" : ""}`}
+                  onClick={() => setCatalogMetal("silver")}
+                >
+                  Silver 999
+                </button>
+              </div>
+
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <select
+                  value={catalogCategory}
+                  onChange={(e) => setCatalogCategory(e.target.value)}
+                  className="aj-select"
+                  style={{ height: "38px", fontSize: "13px", minWidth: "170px" }}
+                >
+                  {PRODUCT_CATEGORIES.map((cat) => (
+                    <option key={cat.key} value={cat.key}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </select>
+
+                <div className="aj-search-box">
+                  <span className="aj-search-icon">
+                    <SearchIcon size={16} color="#7A8987" />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search by code or name..."
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Catalog Grid */}
+            {catalogLoading ? (
+              <div style={{ textAlign: "center", padding: "60px 0", color: "#5C706E" }}>
+                Loading master jewellery inventory...
+              </div>
+            ) : filteredCatalog.length === 0 ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "60px 20px",
+                  background: "#FFFFFF",
+                  borderRadius: "18px",
+                  border: "1px dashed #B4CECC",
+                  color: "#5C706E",
+                }}
+              >
+                <JewelryIcon size={40} color="#B4CECC" style={{ margin: "0 auto 10px" }} />
+                <h3 style={{ margin: "0 0 6px", color: "#073B3F" }}>No Products Found</h3>
+                <p style={{ margin: 0, fontSize: "13px" }}>
+                  No master jewellery products match the current filters.
+                </p>
+              </div>
+            ) : (
+              <div className="aj-cards-grid">
+                {filteredCatalog.map((product) => {
+                  const firstImg = product.images?.[0]?.image;
+                  const isGold = product.metal?.toLowerCase() === "gold";
+                  const is24 = product.grade?.includes("24");
+                  const badgeBg = isGold ? (is24 ? "#FDF6B2" : "#FEF3C7") : "#F1F5F9";
+                  const badgeColor = isGold ? (is24 ? "#92400E" : "#B45309") : "#475569";
+                  const purityText = isGold ? (is24 ? "Gold 24K (999)" : "Gold 22K (916)") : "Silver 999";
+                  const stock = product.stock_quantity ?? 0;
+                  const lowThreshold = product.low_stock_threshold ?? 5;
+                  const isLow = stock <= lowThreshold;
+
+                  return (
+                    <div key={product.id} className="aj-card">
+                      <div
+                        className="aj-card-img-box"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => setPreviewProduct(product)}
+                        title="Click to zoom image"
+                      >
+                        {firstImg ? (
+                          <img src={firstImg} alt={product.name} />
+                        ) : (
+                          <JewelryIcon size={48} color="#B4CECC" />
+                        )}
+                        <span
+                          className="aj-card-badge-purity"
+                          style={{ background: badgeBg, color: badgeColor }}
+                        >
+                          {purityText}
+                        </span>
+                        {product.product_code && (
+                          <span
+                            style={{
+                              position: "absolute",
+                              bottom: "8px",
+                              right: "8px",
+                              background: "rgba(7, 59, 63, 0.88)",
+                              color: "#FFFFFF",
+                              padding: "2px 7px",
+                              borderRadius: "6px",
+                              fontSize: "11px",
+                              fontFamily: "monospace",
+                              fontWeight: 800,
+                            }}
+                          >
+                            {product.product_code}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="aj-card-body">
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px", marginBottom: "4px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 800, color: "#7A8987", textTransform: "uppercase" }}>
+                            {product.category}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              fontWeight: 800,
+                              padding: "2px 8px",
+                              borderRadius: "6px",
+                              background: isLow ? "#FEF2F2" : "#E6F4EA",
+                              color: isLow ? "#DC2626" : "#166534",
+                              border: `1px solid ${isLow ? "#FCA5A5" : "#A7F3D0"}`,
+                            }}
+                          >
+                            Vault Stock: {stock} pcs
+                          </span>
+                        </div>
+
+                        <h3 className="aj-card-title">{product.name}</h3>
+
+                        <div className="aj-spec-row">
+                          <div>
+                            <span style={{ color: "#7A8987" }}>Gross: </span>
+                            <strong>{product.cross_weight || 0}g</strong>
+                          </div>
+                          <div>
+                            <span style={{ color: "#7A8987" }}>Stone: </span>
+                            <strong>{product.stone_weight || 0}g</strong>
+                          </div>
+                          <div>
+                            <span style={{ color: "#073B3F" }}>Net Metal: </span>
+                            <strong style={{ color: "#073B3F" }}>
+                              {product.net_weight || product.cross_weight || 0}g
+                            </strong>
+                          </div>
+                        </div>
+
+                        <div className="aj-price-row">
+                          <div>
+                            <div style={{ fontSize: "10.5px", color: "#7A8987", textTransform: "uppercase", fontWeight: 700 }}>
+                              Making: {product.making_charge || 0}% | Wastage: {product.wastage_charge || 0}%
+                            </div>
+                            <div style={{ fontSize: "18px", fontWeight: 850, color: "#073B3F" }}>
+                              ₹{Number(product.price || 0).toLocaleString()}
+                              <small style={{ fontSize: "11px", fontWeight: 600, color: "#5C706E" }}> (incl. GST)</small>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Super Admin Exclusive Edit Action */}
+                        <div style={{ marginTop: "14px", display: "flex", gap: "8px" }}>
+                          <button
+                            type="button"
+                            onClick={() => setEditingProduct(product)}
+                            style={{
+                              flex: 1,
+                              height: "40px",
+                              background: "#073B3F",
+                              color: "#FFFFFF",
+                              border: "none",
+                              borderRadius: "10px",
+                              fontSize: "13px",
+                              fontWeight: 750,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "6px",
+                              transition: "all 180ms ease",
+                              boxShadow: "0 2px 8px rgba(7, 59, 63, 0.15)",
+                            }}
+                          >
+                            ✏️ Edit Product
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewProduct(product)}
+                            style={{
+                              height: "40px",
+                              padding: "0 14px",
+                              background: "#F4F8F8",
+                              color: "#073B3F",
+                              border: "1px solid #D6E2E1",
+                              borderRadius: "10px",
+                              fontSize: "12.5px",
+                              fontWeight: 700,
+                              cursor: "pointer",
+                            }}
+                            title="Zoom High-Res Image"
+                          >
+                            🔍 Zoom
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -1663,6 +1951,26 @@ export default function AddJewellery() {
         <div className="aj-toast">
           <CheckIcon size={16} color="#4ADE80" /> {toast}
         </div>
+      )}
+
+      {/* High-Res Product Image Modal */}
+      <JewelleryImageModal
+        isOpen={Boolean(previewProduct)}
+        onClose={() => setPreviewProduct(null)}
+        product={previewProduct}
+      />
+
+      {/* Super Admin Exclusive Edit Product Modal */}
+      {isSuperAdmin && (
+        <EditProductModal
+          isOpen={Boolean(editingProduct)}
+          onClose={() => setEditingProduct(null)}
+          product={editingProduct}
+          onUpdated={() => {
+            fetchCatalog();
+            showToast("Jewellery product updated successfully!");
+          }}
+        />
       )}
     </div>
   );

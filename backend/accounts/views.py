@@ -1330,6 +1330,20 @@ class JewelryProductView(APIView):
                     stock.qty += product.stock_quantity
                     stock.save()
 
+                    # ── Track in History as Super Admin Master Stock Addition ──
+                    mint_req = JewelryRequest.objects.create(
+                        requested_by=request.user,
+                        requested_to=request.user,
+                        status='sent',
+                        reject_reason='MASTER_MINT',
+                        sent_at=timezone.now()
+                    )
+                    JewelryRequestItem.objects.create(
+                        request=mint_req,
+                        product=product,
+                        qty=product.stock_quantity
+                    )
+
             return Response({'message': 'Product created!', 'data': serializer.data}, status=201)
         return Response(serializer.errors, status=400)
 
@@ -1507,6 +1521,12 @@ class JewelryProductDetailView(APIView):
 
         product.save()
 
+        # Sync Super Admin stock holdings if stock_quantity was updated
+        if product.is_internal_asset and 'stock_quantity' in request.data:
+            stk, _ = JewelryStock.objects.get_or_create(user=request.user, product=product, defaults={'qty': 0})
+            stk.qty = product.stock_quantity
+            stk.save(update_fields=['qty'])
+
         new_images = request.FILES.getlist('uploaded_images')
         if new_images:
             last_order = product.images.count()
@@ -1515,6 +1535,9 @@ class JewelryProductDetailView(APIView):
 
         serializer = JewelryProductSerializer(product, context={'request': request})
         return Response(serializer.data)
+
+    def put(self, request, pk):
+        return self.patch(request, pk)
 
     def delete(self, request, pk):
         if request.user.role != 'super_admin':  # ✅ 8 spaces
@@ -4260,7 +4283,7 @@ class JewelryRequestView(APIView):
             target_user = User.objects.filter(role='super_admin').first()
 
         elif role == 'super_admin':
-            target_user = request.user
+            return Response({'error': 'Super Admin is the root master authority and cannot send buy requests.'}, status=400)
         else:
             return Response({'error': 'Your role cannot request jewelry'}, status=403)
 
@@ -4349,13 +4372,27 @@ class JewelryRequestView(APIView):
             status_counts = dict(
                 base_qs.values('status').annotate(c=Count('id')).values_list('status', 'c')
             )
+            total_mint_pieces = JewelryRequestItem.objects.filter(
+                request__in=base_qs.filter(reject_reason='MASTER_MINT')
+            ).aggregate(s=Sum('qty'))['s'] or 0
+
             total_disbursed_pieces = JewelryRequestItem.objects.filter(
-                request__in=base_qs.filter(status='sent')
+                request__in=base_qs.filter(status='sent').exclude(reject_reason='MASTER_MINT')
             ).aggregate(s=Sum('qty'))['s'] or 0
 
             total_pending_pieces = JewelryRequestItem.objects.filter(
                 request__in=base_qs.filter(status='pending')
             ).aggregate(s=Sum('qty'))['s'] or 0
+
+            flow_param = request.query_params.get('flow')
+            if flow_param == 'mint':
+                base_qs = base_qs.filter(reject_reason='MASTER_MINT')
+            elif flow_param == 'disbursed':
+                base_qs = base_qs.filter(status='sent').exclude(reject_reason='MASTER_MINT')
+            elif flow_param == 'inward':
+                base_qs = base_qs.filter(requested_by=request.user)
+            elif flow_param == 'outward':
+                base_qs = base_qs.filter(requested_to=request.user).exclude(reject_reason='MASTER_MINT')
 
             status_filter = request.query_params.get('status')
             if status_filter and status_filter != 'all':
@@ -4380,6 +4417,7 @@ class JewelryRequestView(APIView):
                     'total': sum(status_counts.values()),
                     'disbursed_pieces': total_disbursed_pieces,
                     'pending_pieces': total_pending_pieces,
+                    'mint_pieces': total_mint_pieces,
                 },
             })
 

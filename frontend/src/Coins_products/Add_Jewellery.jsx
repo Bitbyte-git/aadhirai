@@ -336,7 +336,7 @@ export default function AddJewellery() {
       showToast("Jewellery request submitted successfully!");
       setCart([]);
       setCartModalOpen(false);
-      navigate("/jewellery-requests");
+      navigate("/jewellery-requests", { state: { initialTab: "sent" } });
     } catch (err) {
       showToast(err.response?.data?.error || "Failed to submit request.");
     }

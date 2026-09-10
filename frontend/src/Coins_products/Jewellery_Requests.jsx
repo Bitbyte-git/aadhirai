@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import api from "../api";
 import CoinTabs from "./CoinTabs";
 import {
@@ -27,6 +27,7 @@ const ROLE_BADGE_CONFIG = {
 
 export default function JewelleryRequests() {
   const navigate = useNavigate();
+  const location = useLocation();
   const role = localStorage.getItem("role") || "";
   const isSuperAdmin = role === "super_admin";
 
@@ -34,7 +35,10 @@ export default function JewelleryRequests() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
-  const [boxTab, setBoxTab] = useState(role === "promotor" ? "sent" : "received"); // "received" | "sent"
+  const [boxTab, setBoxTab] = useState(
+    location.state?.initialTab || (role === "promotor" ? "sent" : "received")
+  ); // "received" | "sent"
+  const [statusFilter, setStatusFilter] = useState("all"); // "all" | "pending" | "sent" | "rejected"
 
   // Create Request Modal state
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -79,7 +83,11 @@ export default function JewelleryRequests() {
     setLoading(true);
     setError("");
     try {
-      const res = await api.get("/jewelry-requests/", { params: { box: boxTab } });
+      const params = { box: boxTab };
+      if (statusFilter && statusFilter !== "all") {
+        params.status = statusFilter;
+      }
+      const res = await api.get("/jewelry-requests/", { params });
       setRequests(Array.isArray(res.data) ? res.data : res.data.items || []);
     } catch {
       setError("Failed to load jewellery requests.");
@@ -101,7 +109,7 @@ export default function JewelleryRequests() {
 
   useEffect(() => {
     fetchRequests();
-  }, [boxTab]);
+  }, [boxTab, statusFilter]);
 
   useEffect(() => {
     fetchAvailableProducts();
@@ -412,6 +420,26 @@ export default function JewelleryRequests() {
           <div className="jr-header-actions">
             <button
               type="button"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 18px",
+                background: "#FFFFFF",
+                border: "1px solid #D6E2E1",
+                borderRadius: "12px",
+                color: "#073B3F",
+                fontSize: "13px",
+                fontWeight: 700,
+                cursor: "pointer",
+                boxShadow: "0 2px 8px rgba(7, 59, 63, 0.04)",
+              }}
+              onClick={() => navigate("/jewellery-transactions")}
+            >
+              <ClockIcon size={16} color="#073B3F" /> View Transactions History
+            </button>
+            <button
+              type="button"
               className="jr-btn-create"
               onClick={() => setCreateModalOpen(true)}
             >
@@ -420,24 +448,75 @@ export default function JewelleryRequests() {
           </div>
         </div>
 
-        {/* Received vs Sent Toggle */}
-        <div className="jr-box-tabs">
-          {role !== "promotor" && (
+        {/* Filter Controls: Received vs Sent + Status Filter */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "12px",
+            marginBottom: "22px",
+          }}
+        >
+          {/* Received vs Sent Toggle */}
+          <div className="jr-box-tabs" style={{ marginBottom: 0 }}>
+            {role !== "promotor" && (
+              <button
+                type="button"
+                className={`jr-box-btn ${boxTab === "received" ? "active" : ""}`}
+                onClick={() => setBoxTab("received")}
+              >
+                {isSuperAdmin ? "Company Incoming Requests" : "Received Requests"} {boxTab === "received" ? `(${requests.length})` : ""}
+              </button>
+            )}
             <button
               type="button"
-              className={`jr-box-btn ${boxTab === "received" ? "active" : ""}`}
-              onClick={() => setBoxTab("received")}
+              className={`jr-box-btn ${boxTab === "sent" ? "active" : ""}`}
+              onClick={() => setBoxTab("sent")}
             >
-              Received Requests {boxTab === "received" ? `(${requests.length})` : ""}
+              My Sent Requests {boxTab === "sent" ? `(${requests.length})` : ""}
             </button>
-          )}
-          <button
-            type="button"
-            className={`jr-box-btn ${boxTab === "sent" ? "active" : ""}`}
-            onClick={() => setBoxTab("sent")}
+          </div>
+
+          {/* Status Filter Pills */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "#FFFFFF",
+              border: "1px solid #E1EBEA",
+              borderRadius: "12px",
+              padding: "4px",
+            }}
           >
-            My Sent Requests {boxTab === "sent" ? `(${requests.length})` : ""}
-          </button>
+            {[
+              { key: "all", label: "All Statuses" },
+              { key: "pending", label: "Pending" },
+              { key: "sent", label: "Approved" },
+              { key: "rejected", label: "Declined" },
+            ].map((st) => (
+              <button
+                key={st.key}
+                type="button"
+                onClick={() => setStatusFilter(st.key)}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: "8px",
+                  border: "none",
+                  fontSize: "12.5px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  background: statusFilter === st.key ? "#073B3F" : "transparent",
+                  color: statusFilter === st.key ? "#FFFFFF" : "#5C706E",
+                  transition: "all 150ms ease",
+                }}
+              >
+                {st.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Requests List */}

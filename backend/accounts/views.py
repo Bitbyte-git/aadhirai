@@ -4383,15 +4383,26 @@ class JewelryRequestView(APIView):
                 },
             })
 
+        status_param = request.query_params.get('status')
         if box == 'sent':
             reqs = JewelryRequest.objects.filter(requested_by=request.user)
+            if status_param and status_param != 'all':
+                reqs = reqs.filter(status=status_param)
         elif box == 'received' or role == 'super_admin':
             if role == 'super_admin':
-                reqs = JewelryRequest.objects.filter(status='pending')
+                reqs = JewelryRequest.objects.all()
             else:
-                reqs = JewelryRequest.objects.filter(requested_to=request.user, status='pending')
+                reqs = JewelryRequest.objects.filter(requested_to=request.user)
+            if status_param and status_param != 'all':
+                reqs = reqs.filter(status=status_param)
+            elif not status_param:
+                reqs = reqs.filter(status='pending')
         else:
-            reqs = JewelryRequest.objects.filter(requested_to=request.user, status='pending')
+            reqs = JewelryRequest.objects.filter(requested_to=request.user)
+            if status_param and status_param != 'all':
+                reqs = reqs.filter(status=status_param)
+            elif not status_param:
+                reqs = reqs.filter(status='pending')
 
         reqs = reqs.prefetch_related('items__product__images', 'requested_by', 'requested_to').order_by('-created_at')
         serializer = JewelryRequestSerializer(reqs, many=True)
@@ -4429,6 +4440,15 @@ class JewelryRequestApproveView(APIView):
 
         for item in req.items.all():
             stk = JewelryStock.objects.filter(user=stock_user, product=item.product).first()
+            if getattr(stock_user, 'role', None) == 'super_admin':
+                prod_qty = item.product.stock_quantity or 0
+                if (not stk or stk.qty < item.qty) and prod_qty >= item.qty:
+                    if not stk:
+                        stk = JewelryStock.objects.create(user=stock_user, product=item.product, qty=prod_qty)
+                    else:
+                        stk.qty = max(stk.qty, prod_qty)
+                        stk.save(update_fields=['qty'])
+
             available = stk.qty if stk else 0
             if available < item.qty:
                 return Response({
@@ -4439,6 +4459,10 @@ class JewelryRequestApproveView(APIView):
             stk = JewelryStock.objects.get(user=stock_user, product=item.product)
             stk.qty -= item.qty
             stk.save()
+
+            if getattr(stock_user, 'role', None) == 'super_admin':
+                item.product.stock_quantity = max(0, (item.product.stock_quantity or 0) - item.qty)
+                item.product.save(update_fields=['stock_quantity'])
 
             req_stk, _ = JewelryStock.objects.get_or_create(
                 user=req.requested_by, product=item.product, defaults={'qty': 0}

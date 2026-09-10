@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import CoinTabs from "./CoinTabs";
@@ -35,12 +35,14 @@ export default function JewelleryTransactions() {
   const navigate = useNavigate();
   const currentRole = localStorage.getItem("role") || "";
   const isSuperAdmin = currentRole === "super_admin";
+  const myEmail = (localStorage.getItem("email") || "").toLowerCase();
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
-  const [period, setPeriod] = useState("day"); // 'day' (default) | 'week' | 'month' | 'year' | 'custom' | 'all'
+  const [period, setPeriod] = useState("all"); // 'all' (default) | 'day' | 'week' | 'month' | 'year' | 'custom'
+  const [flowFilter, setFlowFilter] = useState("all"); // 'all' | 'inward' | 'outward'
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -95,6 +97,34 @@ export default function JewelleryTransactions() {
     }, 250);
     return () => clearTimeout(handler);
   }, [filter, searchTerm, period, startDate, endDate]);
+
+  const inwardCount = useMemo(() => {
+    return requests.filter(
+      (r) => (r.requested_by_email || "").toLowerCase() === myEmail
+    ).length;
+  }, [requests, myEmail]);
+
+  const outwardCount = useMemo(() => {
+    return requests.filter(
+      (r) => (r.requested_to_email || "").toLowerCase() === myEmail
+    ).length;
+  }, [requests, myEmail]);
+
+  const displayedRequests = useMemo(() => {
+    let list = requests;
+    if (!isSuperAdmin && flowFilter !== "all") {
+      if (flowFilter === "inward") {
+        list = list.filter(
+          (r) => (r.requested_by_email || "").toLowerCase() === myEmail
+        );
+      } else if (flowFilter === "outward") {
+        list = list.filter(
+          (r) => (r.requested_to_email || "").toLowerCase() === myEmail
+        );
+      }
+    }
+    return list;
+  }, [requests, flowFilter, myEmail, isSuperAdmin]);
 
   // Export CSV
   const exportCSV = () => {
@@ -549,12 +579,12 @@ export default function JewelleryTransactions() {
         <div className="jt-period-bar">
           <div className="jt-period-pills">
             {[
+              { key: "all", label: "All Time" },
               { key: "day", label: "Today (Day)" },
               { key: "week", label: "This Week" },
               { key: "month", label: "This Month" },
               { key: "year", label: "This Year" },
               { key: "custom", label: "Custom Date Range" },
-              { key: "all", label: "All Time" },
             ].map((p) => (
               <button
                 key={p.key}
@@ -631,7 +661,7 @@ export default function JewelleryTransactions() {
           </div>
         </div>
 
-        {/* Controls Card: Search + Status Filter Pills + View Mode */}
+        {/* Controls Card: Search + Flow Filter + Status Filter Pills + View Mode */}
         <div className="jt-controls-card">
           <div className="jt-search-wrap">
             <span className="jt-search-icon">
@@ -645,6 +675,46 @@ export default function JewelleryTransactions() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
+          {/* Flow Direction Pills (Non-SuperAdmin: Received vs Disbursed) */}
+          {!isSuperAdmin && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                background: "#F4F8F8",
+                border: "1px solid #D6E2E1",
+                borderRadius: "12px",
+                padding: "4px",
+              }}
+            >
+              {[
+                { key: "all", label: `All (${requests.length})` },
+                { key: "inward", label: `↙️ Received / My Buys (${inwardCount})` },
+                { key: "outward", label: `↗️ Disbursed / Downlines (${outwardCount})` },
+              ].map((fl) => (
+                <button
+                  key={fl.key}
+                  type="button"
+                  onClick={() => setFlowFilter(fl.key)}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "8px",
+                    border: "none",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    background: flowFilter === fl.key ? "#073B3F" : "transparent",
+                    color: flowFilter === fl.key ? "#FFFFFF" : "#5C706E",
+                    transition: "all 150ms ease",
+                  }}
+                >
+                  {fl.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="jt-filter-pills">
             {[
@@ -687,7 +757,7 @@ export default function JewelleryTransactions() {
           <div style={{ textAlign: "center", padding: "60px", color: "#5C706E" }}>
             Loading jewellery transactions...
           </div>
-        ) : requests.length === 0 ? (
+        ) : displayedRequests.length === 0 ? (
           <div
             style={{
               textAlign: "center",
@@ -703,13 +773,17 @@ export default function JewelleryTransactions() {
               No jewellery transactions found
             </div>
             <p style={{ margin: "6px 0 0", fontSize: "13.5px" }}>
-              Transactions matching your filters will appear here once jewellery allocations occur.
+              {flowFilter === "inward"
+                ? "No jewellery requests submitted by you found in this filter."
+                : flowFilter === "outward"
+                ? "No jewellery requests submitted to you by downlines found in this filter."
+                : "Transactions matching your filters will appear here once jewellery allocations occur."}
             </p>
           </div>
         ) : viewMode === "cards" ? (
           /* Cards View */
           <div className="jt-cards-grid">
-            {requests.map((r) => {
+            {displayedRequests.map((r) => {
               const statusInfo = STATUS_CFG[r.status] || STATUS_CFG.pending;
               const StatusIcon = statusInfo.icon;
               const reqRoleBadge = ROLE_BADGE_CONFIG[r.requested_by_role] || {
@@ -718,11 +792,34 @@ export default function JewelleryTransactions() {
                 border: "#E2E8F0",
                 label: r.requested_by_role,
               };
+              const isInward = (r.requested_by_email || "").toLowerCase() === myEmail;
+              const isOutward = (r.requested_to_email || "").toLowerCase() === myEmail;
 
               return (
                 <div key={r.id} className="jt-tx-card">
                   <div className="jt-tx-header">
-                    <span className="jt-tx-id">Transfer #{r.id}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      <span className="jt-tx-id">Transfer #{r.id}</span>
+                      {!isSuperAdmin && (
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            padding: "2px 8px",
+                            borderRadius: "6px",
+                            fontSize: "11px",
+                            fontWeight: 800,
+                            background: isInward ? "#E6F4EA" : isOutward ? "#E0F2FE" : "#F1F5F9",
+                            color: isInward ? "#137333" : isOutward ? "#0369A1" : "#475569",
+                            border: `1px solid ${isInward ? "#CEEAD6" : isOutward ? "#BAE6FD" : "#CBD5E1"}`,
+                          }}
+                        >
+                          {isInward ? "↙️ Stock Received" : isOutward ? "↗️ Stock Disbursed" : "Transfer"}
+                        </span>
+                      )}
+                    </div>
+
                     <span
                       style={{
                         display: "inline-flex",
@@ -762,6 +859,11 @@ export default function JewelleryTransactions() {
                         >
                           {reqRoleBadge.label}
                         </span>
+                        {isInward && (
+                          <span style={{ marginLeft: "6px", fontSize: "11px", color: "#166534", fontWeight: 700 }}>
+                            (You)
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -769,6 +871,11 @@ export default function JewelleryTransactions() {
                       <span className="jt-party-label">Disbursed By:</span>
                       <strong style={{ color: "#2C3E3D" }}>
                         {r.requested_to_name || r.requested_to_email || "Super Admin"}
+                        {isOutward && (
+                          <span style={{ marginLeft: "6px", fontSize: "11px", color: "#0369A1", fontWeight: 700 }}>
+                            (You)
+                          </span>
+                        )}
                       </strong>
                     </div>
                   </div>
@@ -827,6 +934,7 @@ export default function JewelleryTransactions() {
               <thead>
                 <tr style={{ background: "#F8FAFA", textAlign: "left", borderBottom: "1px solid #E1EBEA" }}>
                   <th style={{ padding: "12px 16px", color: "#5C706E" }}>ID</th>
+                  {!isSuperAdmin && <th style={{ padding: "12px 16px", color: "#5C706E" }}>Direction</th>}
                   <th style={{ padding: "12px 16px", color: "#5C706E" }}>Requester</th>
                   <th style={{ padding: "12px 16px", color: "#5C706E" }}>Approver</th>
                   <th style={{ padding: "12px 16px", color: "#5C706E" }}>Jewellery Items</th>
@@ -835,19 +943,42 @@ export default function JewelleryTransactions() {
                 </tr>
               </thead>
               <tbody>
-                {requests.map((r) => {
+                {displayedRequests.map((r) => {
                   const statusInfo = STATUS_CFG[r.status] || STATUS_CFG.pending;
+                  const isInward = (r.requested_by_email || "").toLowerCase() === myEmail;
+                  const isOutward = (r.requested_to_email || "").toLowerCase() === myEmail;
+
                   return (
                     <tr key={r.id} style={{ borderBottom: "1px solid #F0F4F4" }}>
                       <td style={{ padding: "12px 16px", fontWeight: 700, color: "#073B3F" }}>
                         #{r.id}
                       </td>
+                      {!isSuperAdmin && (
+                        <td style={{ padding: "12px 16px" }}>
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              padding: "2px 8px",
+                              borderRadius: "6px",
+                              fontSize: "11px",
+                              fontWeight: 800,
+                              background: isInward ? "#E6F4EA" : isOutward ? "#E0F2FE" : "#F1F5F9",
+                              color: isInward ? "#137333" : isOutward ? "#0369A1" : "#475569",
+                              border: `1px solid ${isInward ? "#CEEAD6" : isOutward ? "#BAE6FD" : "#CBD5E1"}`,
+                            }}
+                          >
+                            {isInward ? "↙️ Received" : isOutward ? "↗️ Disbursed" : "Transfer"}
+                          </span>
+                        </td>
+                      )}
                       <td style={{ padding: "12px 16px" }}>
                         <strong>{r.requested_by_name || r.requested_by_email}</strong>
+                        {isInward && <span style={{ color: "#166534", marginLeft: "4px", fontSize: "11px" }}>(You)</span>}
                         <div style={{ fontSize: "11px", color: "#7A8987" }}>{r.requested_by_role}</div>
                       </td>
                       <td style={{ padding: "12px 16px" }}>
                         {r.requested_to_name || r.requested_to_email || "Super Admin"}
+                        {isOutward && <span style={{ color: "#0369A1", marginLeft: "4px", fontSize: "11px" }}>(You)</span>}
                       </td>
                       <td style={{ padding: "12px 16px" }}>
                         {(r.items || []).map((i) => `${i.product?.name || 'Piece'} (x${i.qty})`).join(", ")}

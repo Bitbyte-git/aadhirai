@@ -19,6 +19,12 @@ export default function Retailer() {
   const [copiedUrlId, setCopiedUrlId] = useState(null)
   const [copyingUrl, setCopyingUrl] = useState(null)
   const [selectedDetail, setSelectedDetail] = useState(null)
+  const [toast, setToast] = useState('')
+
+  const showToast = (msg) => {
+    setToast(msg)
+    setTimeout(() => setToast(''), 3000)
+  }
 
   const handleCopyUrl = async (person, publicId) => {
     setCopyingUrl(person.id)
@@ -30,11 +36,24 @@ export default function Retailer() {
       const url = `${window.location.origin}/register?ref=${res.data.token}`
       await navigator.clipboard.writeText(url)
       setCopiedUrlId(person.id)
+      showToast('Referral link copied to clipboard')
       setTimeout(() => setCopiedUrlId(null), 2000)
     } catch (err) {
       alert('Failed to generate referral URL')
     } finally {
       setCopyingUrl(null)
+    }
+  }
+
+  const handleCopyId = async (idText, uniqueKey) => {
+    if (!idText) return
+    try {
+      await navigator.clipboard.writeText(idText)
+      setCopiedId(uniqueKey)
+      showToast(`Copied ${idText}`)
+      setTimeout(() => setCopiedId(null), 2000)
+    } catch (e) {
+      console.error(e)
     }
   }
 
@@ -86,180 +105,1042 @@ export default function Retailer() {
     fetchData(controller.signal, nextOffset, search, true)
   }
 
-  const text = '#111817'
-  const subtext = '#7A8987'
-  const border = 'rgba(189,207,206,0.78)'
+  const handleRefresh = () => {
+    const controller = new AbortController()
+    setOffset(0)
+    fetchData(controller.signal, 0, search, false)
+  }
+
+  const exportCSV = () => {
+    if (!rows.length) return
+    const headers = ['S.No', 'Retailer ID', 'First Name', 'Last Name', 'Email', 'Mobile', 'City']
+    const csvRows = rows.map((r, i) => [
+      i + 1,
+      `"${r.promotor_id || ''}"`,
+      `"${(r.first_name || '').replace(/"/g, '""')}"`,
+      `"${(r.last_name || '').replace(/"/g, '""')}"`,
+      `"${(r.email || '').replace(/"/g, '""')}"`,
+      `"${r.mobile_number || ''}"`,
+      `"${(r.city_name || '').replace(/"/g, '""')}"`,
+    ])
+    const blob = new Blob([[headers.join(','), ...csvRows.map((r) => r.join(','))].join('\n')], {
+      type: 'text/csv;charset=utf-8;',
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `retailers_${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    showToast('Exported Retailers CSV')
+  }
+
+  // Close action menu on window click
+  useEffect(() => {
+    const closeMenu = () => setActionOpen(null)
+    window.addEventListener('click', closeMenu)
+    return () => window.removeEventListener('click', closeMenu)
+  }, [])
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)', padding: '28px 34px' }}>
+    <div className="mu-root">
       <style>{`
-        @keyframes skelShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-        .ss-action-btn{width:34px;height:34px;border-radius:9px;border:1px solid #D8E3E1;background:#FFFFFF;color:#0C4044;cursor:pointer;font-weight:900;font-size:16px;transition:.2s}
-        .ss-action-btn:hover,.ss-action-btn.is-open{color:#fff;background:#073B3F;border-color:#073B3F;box-shadow:0 10px 22px rgba(7,59,63,.18)}
-        .ss-action-menu{position:absolute;z-index:80;top:44px;right:0;width:220px;padding:8px;border:1px solid rgba(189,207,206,.85);border-radius:14px;background:rgba(255,255,255,.98);box-shadow:0 24px 58px rgba(7,59,63,.2);backdrop-filter:blur(14px)}
-        .ss-action-menu button{width:100%;min-height:40px;padding:0 11px;border:0;border-radius:9px;background:transparent;color:#173230;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;font-size:12px;font-weight:750;cursor:pointer}
-        .ss-action-menu button:hover{color:#073B3F;background:#EDF3F1}
-        .ss-action-menu button span:last-child{color:#A2764C}
-        .mu-page { min-height: 100vh; background: linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%); padding: 28px 34px; box-sizing: border-box; width: 100%; max-width: 100vw; overflow-x: hidden; }
-        .mu-card { background: rgba(253,253,252,0.97); border: 1px solid rgba(189,207,206,0.78); border-radius: 22px; padding: 34px 38px; box-shadow: 0 22px 58px rgba(7,59,63,0.08); box-sizing: border-box; width: 100%; max-width: 100%; }
-        .mu-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 14px; }
-        .mu-actions { display: flex; gap: 10px; align-items: center; flex: 1; justify-content: flex-end; min-width: 0; }
-        .mu-input { height: 42px; width: 280px; max-width: 100%; border: 1px solid rgba(189,207,206,0.78); border-radius: 10px; padding: 0 14px; font-size: 13px; outline: none; box-sizing: border-box; }
-        .mu-back { height: 42px; padding: 0 16px; border-radius: 10px; border: 1px solid rgba(189,207,206,0.78); background: #FFFFFF; color: #0C4044; font-weight: 800; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
-        .mu-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
-        .mu-table { width: 100%; border-collapse: collapse; font-size: 14.5px; min-width: 780px; }
+        .mu-root {
+          min-height: 100vh;
+          width: 100%;
+          overflow-x: hidden;
+          background: #F8FAF9;
+          background-image: 
+            radial-gradient(at 0% 0%, rgba(7, 59, 63, 0.05) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(204, 168, 129, 0.06) 0px, transparent 50%);
+          color: #111817;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          box-sizing: border-box;
+        }
+
+        .mu-shell {
+          max-width: 1440px;
+          margin: 0 auto;
+          padding: 24px 48px 64px;
+          box-sizing: border-box;
+        }
+
+        .mu-topbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 24px;
+        }
+
+        .mu-breadcrumb {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          color: #728A87;
+          font-weight: 500;
+        }
+
+        .mu-back-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: #FFFFFF;
+          border: 1px solid #D9E4E3;
+          padding: 8px 16px;
+          border-radius: 12px;
+          font-size: 13px;
+          font-weight: 700;
+          color: #073B3F;
+          cursor: pointer;
+          transition: all 140ms ease;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+
+        .mu-back-btn:hover {
+          background: #073B3F;
+          color: #FFFFFF;
+          border-color: #073B3F;
+          transform: translateY(-1px);
+        }
+
+        .mu-header-card {
+          background: #FFFFFF;
+          border: 1px solid #E1EBEA;
+          border-radius: 20px;
+          padding: 28px 32px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 24px;
+          box-shadow: 0 6px 24px rgba(7, 59, 63, 0.04);
+          margin-bottom: 24px;
+        }
+
+        .mu-header-info h1 {
+          font-size: 26px;
+          font-weight: 800;
+          color: #073B3F;
+          margin: 0 0 6px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .mu-role-badge {
+          background: #E8F2F1;
+          color: #073B3F;
+          font-size: 11px;
+          font-weight: 800;
+          padding: 4px 10px;
+          border-radius: 999px;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+        }
+
+        .mu-header-sub {
+          font-size: 13.5px;
+          color: #728A87;
+          margin: 0;
+          max-width: 680px;
+          line-height: 1.5;
+        }
+
+        .mu-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-shrink: 0;
+        }
+
+        .mu-refresh-btn, .mu-export-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 18px;
+          border-radius: 12px;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 140ms ease;
+        }
+
+        .mu-refresh-btn {
+          background: #FFFFFF;
+          border: 1px solid #D9E4E3;
+          color: #073B3F;
+        }
+
+        .mu-refresh-btn:hover {
+          background: #F4F8F7;
+          border-color: #073B3F;
+        }
+
+        .mu-export-btn {
+          background: #073B3F;
+          border: 1px solid #073B3F;
+          color: #FFFFFF;
+        }
+
+        .mu-export-btn:hover {
+          background: #0C5258;
+          transform: translateY(-1px);
+        }
+
+        .mu-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+          margin-bottom: 24px;
+        }
+
+        .mu-stat-card {
+          background: #FFFFFF;
+          border: 1px solid #E1EBEA;
+          border-radius: 18px;
+          padding: 20px 22px;
+          box-shadow: 0 4px 16px rgba(7, 59, 63, 0.03);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          transition: all 180ms ease;
+        }
+
+        .mu-stat-card:hover {
+          border-color: #073B3F;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(7, 59, 63, 0.06);
+        }
+
+        .mu-stat-title {
+          font-size: 11px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          color: #728A87;
+          margin-bottom: 8px;
+          display: block;
+        }
+
+        .mu-stat-number {
+          font-size: 24px;
+          font-weight: 800;
+          color: #073B3F;
+          line-height: 1.1;
+        }
+
+        .mu-stat-icon {
+          width: 42px;
+          height: 42px;
+          border-radius: 12px;
+          background: #F4F7F6;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #073B3F;
+          flex-shrink: 0;
+        }
+
+        .mu-panel {
+          background: #FFFFFF;
+          border: 1px solid #E1EBEA;
+          border-radius: 20px;
+          box-shadow: 0 6px 24px rgba(7, 59, 63, 0.04);
+          overflow: hidden;
+        }
+
+        .mu-panel-header {
+          padding: 20px 24px;
+          border-bottom: 1px solid #EDF2F1;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          flex-wrap: wrap;
+        }
+
+        .mu-panel-title-wrap {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .mu-count-badge {
+          padding: 5px 12px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 700;
+          background: #F0F5F4;
+          color: #073B3F;
+        }
+
+        .mu-search-box {
+          display: flex;
+          align-items: center;
+          background: #F4F7F6;
+          border: 1px solid #D9E4E3;
+          border-radius: 12px;
+          padding: 8px 14px;
+          gap: 10px;
+          width: 300px;
+          max-width: 100%;
+          transition: all 180ms ease;
+        }
+
+        .mu-search-box:focus-within {
+          background: #FFFFFF;
+          border-color: #073B3F;
+          box-shadow: 0 0 0 3px rgba(7, 59, 63, 0.1);
+        }
+
+        .mu-search-input {
+          border: none;
+          background: transparent;
+          outline: none;
+          width: 100%;
+          font-size: 13px;
+          color: #111817;
+        }
+
+        .mu-table-wrap {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .mu-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 13.5px;
+        }
+
+        .mu-table thead tr {
+          background: #FAFBFB;
+          border-bottom: 1px solid #EDF2F1;
+        }
+
+        .mu-table th {
+          padding: 14px 16px;
+          font-size: 11px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          color: #728A87;
+          text-align: left;
+          white-space: nowrap;
+        }
+
+        .mu-table tbody tr {
+          border-bottom: 1px solid #EDF2F1;
+          transition: background 120ms ease;
+        }
+
+        .mu-table tbody tr:hover {
+          background: #F5FAF9;
+        }
+
+        .mu-table td {
+          padding: 13px 16px;
+          vertical-align: middle;
+          white-space: nowrap;
+        }
+
+        .mu-sno {
+          font-weight: 800;
+          color: #073B3F;
+          font-family: monospace;
+          text-align: center;
+          width: 44px;
+        }
+
+        .mu-id-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: #F0F5F4;
+          border: 1px solid #D5E3E1;
+          padding: 4px 10px;
+          border-radius: 8px;
+          font-family: monospace;
+          font-size: 12px;
+          font-weight: 700;
+          color: #073B3F;
+          cursor: pointer;
+          transition: all 140ms ease;
+        }
+
+        .mu-id-pill:hover {
+          background: #E3ECEB;
+          border-color: #073B3F;
+        }
+
+        .mu-user-col {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .mu-avatar {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #073B3F, #126368);
+          color: #FFFFFF;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          font-size: 13px;
+          flex-shrink: 0;
+          text-transform: uppercase;
+        }
+
+        .mu-name {
+          font-weight: 700;
+          color: #0A2F33;
+          font-size: 13.5px;
+        }
+
+        .mu-email {
+          color: #728A87;
+          font-size: 12px;
+          margin-top: 2px;
+        }
+
+        .mu-phone-link {
+          color: #364B49;
+          font-weight: 600;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 13px;
+        }
+
+        .mu-phone-link:hover {
+          color: #073B3F;
+          text-decoration: underline;
+        }
+
+        .mu-city-pill {
+          background: #F4F7F6;
+          border: 1px solid #E1EBEA;
+          color: #364B49;
+          padding: 3px 10px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+        }
+
+        .mu-action-cell {
+          position: relative;
+          text-align: right;
+        }
+
+        .mu-action-trigger {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          border: 1px solid #D5E3E1;
+          background: #FFFFFF;
+          color: #073B3F;
+          font-weight: 900;
+          cursor: pointer;
+          transition: all 140ms ease;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .mu-action-trigger:hover, .mu-action-trigger.is-open {
+          background: #073B3F;
+          color: #FFFFFF;
+          border-color: #073B3F;
+          box-shadow: 0 4px 12px rgba(7, 59, 63, 0.15);
+        }
+
+        .mu-menu-popup {
+          position: absolute;
+          z-index: 90;
+          top: calc(100% + 4px);
+          right: 12px;
+          width: 220px;
+          background: #FFFFFF;
+          border: 1px solid #D5E3E1;
+          border-radius: 14px;
+          padding: 6px;
+          box-shadow: 0 16px 40px rgba(7, 59, 63, 0.14);
+          text-align: left;
+        }
+
+        .mu-menu-popup button {
+          width: 100%;
+          padding: 8px 12px;
+          border: none;
+          background: transparent;
+          border-radius: 8px;
+          color: #111817;
+          font-size: 12.5px;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          transition: background 120ms ease;
+        }
+
+        .mu-menu-popup button:hover {
+          background: #F0F5F4;
+          color: #073B3F;
+        }
+
+        .mu-mobile-cards {
+          display: none;
+          flex-direction: column;
+          gap: 12px;
+          padding: 14px;
+        }
+
+        .mu-mobile-card {
+          background: #FFFFFF;
+          border: 1px solid #E1EBEA;
+          border-radius: 16px;
+          padding: 16px;
+          box-shadow: 0 2px 8px rgba(7, 59, 63, 0.03);
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .mu-mobile-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        .mu-mobile-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 8px;
+          background: #F8FAF9;
+          padding: 10px 12px;
+          border-radius: 12px;
+        }
+
+        .mu-mobile-item-label {
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          color: #728A87;
+        }
+
+        .mu-mobile-item-val {
+          font-size: 12.5px;
+          font-weight: 700;
+          color: #073B3F;
+          margin-top: 2px;
+        }
+
+        .mu-loadmore-wrap {
+          padding: 20px;
+          display: flex;
+          justify-content: center;
+          border-top: 1px solid #EDF2F1;
+        }
+
+        .mu-loadmore-btn {
+          padding: 10px 24px;
+          border-radius: 12px;
+          border: 1px solid #D9E4E3;
+          background: #FFFFFF;
+          color: #073B3F;
+          font-weight: 700;
+          font-size: 13px;
+          cursor: pointer;
+          transition: all 140ms ease;
+        }
+
+        .mu-loadmore-btn:hover {
+          background: #073B3F;
+          color: #FFFFFF;
+          border-color: #073B3F;
+        }
+
+        .mu-toast {
+          position: fixed;
+          bottom: 24px;
+          right: 24px;
+          background: #073B3F;
+          color: #FFFFFF;
+          padding: 12px 20px;
+          border-radius: 12px;
+          font-size: 13px;
+          font-weight: 700;
+          box-shadow: 0 10px 30px rgba(7, 59, 63, 0.3);
+          z-index: 9999;
+          animation: toastSlide 200ms ease;
+        }
+
+        @keyframes toastSlide {
+          from { transform: translateY(10px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes skelShimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+
+        .mu-skel-line {
+          height: 14px;
+          border-radius: 4px;
+          background: linear-gradient(90deg, #E7EDEC 25%, #F3F3F0 50%, #E7EDEC 75%);
+          background-size: 200% 100%;
+          animation: skelShimmer 1.4s ease-in-out infinite;
+        }
+
+        @media (max-width: 1100px) {
+          .mu-stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
         @media (max-width: 768px) {
-          .mu-page { padding: 16px 12px !important; }
-          .mu-card { padding: 20px 14px !important; border-radius: 16px !important; }
-          .mu-head { flex-direction: column; align-items: stretch !important; gap: 12px !important; }
-          .mu-actions { width: 100% !important; justify-content: stretch !important; }
-          .mu-input { width: 100% !important; flex: 1 !important; min-width: 0 !important; }
+          .mu-shell { padding: 16px 14px 48px; }
+          .mu-header-card { padding: 20px 18px; flex-direction: column; align-items: flex-start; }
+          .mu-header-actions { width: 100%; }
+          .mu-refresh-btn, .mu-export-btn { flex: 1; justify-content: center; }
+          .mu-stats-grid { grid-template-columns: 1fr; }
+          .mu-table-wrap { display: none; }
+          .mu-mobile-cards { display: flex; }
+          .mu-search-box { width: 100%; }
         }
       `}</style>
-      <div className="mu-card">
-        <div className="mu-head">
-          <p style={{ color: '#0C4044', fontSize: '13px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>
-            RETAILER ({totalCount})
-          </p>
-          <div className="mu-actions">
-            <input value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder="Search by ID, email, phone..."
-              className="mu-input" style={{ color: text }} />
-            <button type="button" onClick={() => navigate('/super-admin')} className="mu-back">
-              ← Back
+
+      <div className="mu-shell">
+        {/* Topbar */}
+        <div className="mu-topbar">
+          <div className="mu-breadcrumb">
+            <span>Manage Users</span>
+            <span>/</span>
+            <span style={{ color: '#073B3F', fontWeight: 700 }}>Retailers</span>
+          </div>
+          <button className="mu-back-btn" onClick={() => navigate('/super-admin')}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            <span>Back to Dashboard</span>
+          </button>
+        </div>
+
+        {/* Header Card */}
+        <div className="mu-header-card">
+          <div className="mu-header-info">
+            <h1>
+              <span>Retailer Network</span>
+              <span className="mu-role-badge">Tier 2 • Promotors</span>
+            </h1>
+            <p className="mu-header-sub">
+              Manage registered retail partners, direct promotion performance, and hierarchy trees.
+            </p>
+          </div>
+          <div className="mu-header-actions">
+            <button className="mu-refresh-btn" onClick={handleRefresh} disabled={loading}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M23 4v6h-6M1 20v-6h6" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+              </svg>
+              <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
+            </button>
+            <button className="mu-export-btn" onClick={exportCSV} disabled={loading || !rows.length}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span>Export CSV</span>
             </button>
           </div>
         </div>
 
-        {loading ? (
-          <div className="mu-table-wrap">
-            <table className="mu-table">
-              <thead>
-                <tr style={{ borderBottom: '1.5px solid rgba(12,64,68,0.22)' }}>
-                  {['S.No', 'First Name', 'Last Name', 'Email', 'Mobile', 'ID', 'City', 'Actions'].map(h => (
-                    <th key={h} style={{ padding: '14px 16px', textAlign: 'left', color: '#0C4044', fontSize: '13px', fontWeight: 900, whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid rgba(12,64,68,0.16)' }}>
-                    {Array.from({ length: 8 }).map((_, j) => (
-                      <td key={j} style={{ padding: '14px 16px' }}>
-                        <div style={{ height: '14px', borderRadius: '4px', width: j === 5 ? '70%' : '80%', background: 'linear-gradient(90deg,#E7EDEC 25%,#F3F3F0 50%,#E7EDEC 75%)', backgroundSize: '200% 100%', animation: 'skelShimmer 1.4s ease-in-out infinite' }} />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* KPI Stats Grid */}
+        <div className="mu-stats-grid">
+          <div className="mu-stat-card">
+            <div>
+              <span className="mu-stat-title">Total Retailers</span>
+              <span className="mu-stat-number">{totalCount}</span>
+            </div>
+            <div className="mu-stat-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            </div>
           </div>
-        ) : rows.length === 0 ? (
-          <p style={{ color: subtext, textAlign: 'center', padding: '60px 0', fontSize: '15px' }}>
-            {search ? `No results for "${search}"` : 'No Retailers yet!'}
-          </p>
-        ) : (
-          <div className="mu-table-wrap">
-            <table className="mu-table">
-              <thead>
-                <tr style={{ borderBottom: '1.5px solid rgba(12,64,68,0.22)' }}>
-                  {['S.No', 'First Name', 'Last Name', 'Email', 'Mobile', 'ID', 'City', 'Actions'].map(h => (
-                    <th key={h} style={{ padding: '14px 16px', textAlign: 'left', color: '#0C4044', fontSize: '13px', fontWeight: 900, whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                                {rows.map((a, i) => (
-                  <tr key={a.id || a.promotor_id} style={{ borderBottom: '1px solid rgba(12,64,68,0.16)' }}>
-                    <td style={{ padding: '14px 16px', color: subtext, fontWeight: 700 }}>{i + 1}</td>
-                    <td style={{ padding: '14px 16px', color: text, fontWeight: 700 }}>{a.first_name}</td>
-                    <td style={{ padding: '14px 16px', color: text, fontWeight: 700 }}>{a.last_name}</td>
-                    <td style={{ padding: '14px 16px', color: text, fontWeight: 650 }}>{a.email}</td>
-                    <td style={{ padding: '14px 16px', color: text, fontWeight: 650 }}>{a.mobile_number}</td>
-                    <td style={{ padding: '14px 16px', color: text, fontFamily: 'monospace', fontWeight: 800 }}>{a.promotor_id}</td>
-                    <td style={{ padding: '14px 16px', color: text, fontWeight: 650 }}>{a.city_name}</td>
-                    <td style={{ padding: '10px 16px', position: 'relative' }}>
-                      <button type="button" className={`ss-action-btn ${actionOpen === a.id ? 'is-open' : ''}`}
-                        onClick={() => setActionOpen(cur => cur === a.id ? null : a.id)}>•••</button>
-                      {actionOpen === a.id && (
-                        <div className="ss-action-menu">
-                          <button type="button" onClick={() => { setSelectedDetail(a); setActionOpen(null) }}>
-                            <span>View profile</span><span>↗</span>
-                          </button>
-                          <button type="button" onClick={() => navigate(`/hierarchy-sales-count?role=promotor&id=${a.id}`)}>
-                            <span>Performance report</span><span>↗</span>
-                          </button>
-                          <button type="button" onClick={() => navigate(`/superadmin-hierarchy-grid?role=promotor&id=${a.id}`)}>
-                            <span>View hierarchy</span><span>↗</span>
-                          </button>
-                          <button type="button" onClick={() => handleCopyUrl(a, a.promotor_id)}>
-                            <span>{copiedUrlId === a.id ? 'URL copied' : copyingUrl === a.id ? 'Copying…' : 'Copy URL'}</span>
-                            <span>{copiedUrlId === a.id ? '✓' : '🔗'}</span>
-                          </button>
-                          <button type="button" onClick={async () => {
-                            await navigator.clipboard.writeText(a.promotor_id || '')
-                            setCopiedId(a.id)
-                            setTimeout(() => setCopiedId(null), 1600)
-                          }}>
-                            <span>{copiedId === a.id ? 'ID copied' : 'Copy ID'}</span>
-                            <span>{copiedId === a.id ? '✓' : '⧉'}</span>
-                          </button>
-                        </div>
-                      )}
-                    </td>
+
+          <div className="mu-stat-card">
+            <div>
+              <span className="mu-stat-title">Loaded on Page</span>
+              <span className="mu-stat-number">{rows.length}</span>
+            </div>
+            <div className="mu-stat-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+                <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+              </svg>
+            </div>
+          </div>
+
+          <div className="mu-stat-card">
+            <div>
+              <span className="mu-stat-title">Search Filter</span>
+              <span className="mu-stat-number" style={{ fontSize: '18px' }}>
+                {search ? `"${search}"` : 'All Retailers'}
+              </span>
+            </div>
+            <div className="mu-stat-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </div>
+          </div>
+
+          <div className="mu-stat-card">
+            <div>
+              <span className="mu-stat-title">Network Tier</span>
+              <span className="mu-stat-number" style={{ fontSize: '18px', color: '#059669' }}>
+                Promotor
+              </span>
+            </div>
+            <div className="mu-stat-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        {/* Panel Container */}
+        <div className="mu-panel">
+          <div className="mu-panel-header">
+            <div className="mu-panel-title-wrap">
+              <span style={{ fontWeight: 800, color: '#073B3F', fontSize: '15px' }}>
+                Retailer Directory
+              </span>
+              <span className="mu-count-badge">
+                Showing {rows.length} of {totalCount}
+              </span>
+            </div>
+
+            <div className="mu-search-box">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#728A87" strokeWidth="2.2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                className="mu-search-input"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search by ID, name, email, phone..."
+              />
+              {searchInput && (
+                <button
+                  type="button"
+                  onClick={() => setSearchInput('')}
+                  style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#728A87', padding: 0 }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Desktop Table */}
+          {loading ? (
+            <div className="mu-table-wrap">
+              <table className="mu-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '44px', textAlign: 'center' }}>S.NO</th>
+                    <th>RETAILER ID</th>
+                    <th>NAME & EMAIL</th>
+                    <th>PHONE NUMBER</th>
+                    <th>CITY</th>
+                    <th style={{ textAlign: 'right' }}>ACTIONS</th>
                   </tr>
-                ))}
-                           </tbody>
-            </table>
-            {loadingMore && (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
+                </thead>
                 <tbody>
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <tr key={`skel-more-${i}`} style={{ borderBottom: '1px solid rgba(12,64,68,0.16)' }}>
-                      {Array.from({ length: 8 }).map((_, j) => (
-                        <td key={j} style={{ padding: '14px 16px' }}>
-                          <div style={{ height: '14px', borderRadius: '4px', width: j === 5 ? '70%' : '80%', background: 'linear-gradient(90deg,#E7EDEC 25%,#F3F3F0 50%,#E7EDEC 75%)', backgroundSize: '200% 100%', animation: 'skelShimmer 1.4s ease-in-out infinite' }} />
-                        </td>
-                      ))}
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <tr key={i}>
+                      <td style={{ textAlign: 'center' }}><div className="mu-skel-line" style={{ width: '20px', margin: '0 auto' }} /></td>
+                      <td><div className="mu-skel-line" style={{ width: '110px' }} /></td>
+                      <td><div className="mu-skel-line" style={{ width: '160px' }} /></td>
+                      <td><div className="mu-skel-line" style={{ width: '100px' }} /></td>
+                      <td><div className="mu-skel-line" style={{ width: '90px' }} /></td>
+                      <td style={{ textAlign: 'right' }}><div className="mu-skel-line" style={{ width: '32px', marginLeft: 'auto' }} /></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            )}
-            {hasMore && !loadingMore && (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0 4px' }}>
-                <button type="button" onClick={handleLoadMore}
-                  style={{ height: '42px', padding: '0 24px', borderRadius: '10px', border: `1px solid ${border}`, background: '#FFFFFF', color: '#0C4044', fontWeight: 800, cursor: 'pointer' }}>
-                  Load More
-                </button>
+            </div>
+          ) : rows.length === 0 ? (
+            <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+              <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: '#F0F5F4', margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#728A87' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
               </div>
-            )}
-          </div>
-        )}
+              <h4 style={{ margin: '0 0 6px', color: '#073B3F', fontSize: '16px', fontWeight: 800 }}>
+                {search ? `No retailers match "${search}"` : 'No Retailers Found'}
+              </h4>
+              <p style={{ margin: 0, color: '#728A87', fontSize: '13.5px' }}>
+                Try adjusting your search criteria or clear the search field.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="mu-table-wrap">
+                <table className="mu-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: '44px', textAlign: 'center' }}>S.NO</th>
+                      <th>RETAILER ID</th>
+                      <th>NAME & EMAIL</th>
+                      <th>PHONE NUMBER</th>
+                      <th>CITY</th>
+                      <th style={{ textAlign: 'right' }}>ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((a, i) => {
+                      const initials = `${(a.first_name || 'R')[0]}${(a.last_name || '')[0] || ''}`.toUpperCase()
+                      return (
+                        <tr key={a.id || a.promotor_id}>
+                          <td className="mu-sno">{i + 1}</td>
+                          <td>
+                            <span
+                              className="mu-id-pill"
+                              onClick={() => handleCopyId(a.promotor_id, `pid-${a.id}`)}
+                              title="Click to copy ID"
+                            >
+                              <span>{a.promotor_id || '—'}</span>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                                {copiedId === `pid-${a.id}` ? (
+                                  <polyline points="20 6 9 17 4 12" />
+                                ) : (
+                                  <>
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                                  </>
+                                )}
+                              </svg>
+                            </span>
+                          </td>
+                          <td>
+                            <div className="mu-user-col">
+                              <div className="mu-avatar">{initials}</div>
+                              <div>
+                                <div className="mu-name">{a.first_name} {a.last_name}</div>
+                                <div className="mu-email">{a.email || 'No email provided'}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            {a.mobile_number ? (
+                              <a href={`tel:${a.mobile_number}`} className="mu-phone-link">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                                </svg>
+                                <span>{a.mobile_number}</span>
+                              </a>
+                            ) : (
+                              <span style={{ color: '#A0B2AF' }}>—</span>
+                            )}
+                          </td>
+                          <td>
+                            {a.city_name ? (
+                              <span className="mu-city-pill">{a.city_name}</span>
+                            ) : (
+                              <span style={{ color: '#A0B2AF' }}>—</span>
+                            )}
+                          </td>
+                          <td className="mu-action-cell" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              className={`mu-action-trigger ${actionOpen === a.id ? 'is-open' : ''}`}
+                              onClick={() => setActionOpen(cur => cur === a.id ? null : a.id)}
+                              title="Actions"
+                            >
+                              •••
+                            </button>
+                            {actionOpen === a.id && (
+                              <div className="mu-menu-popup">
+                                <button type="button" onClick={() => { setSelectedDetail(a); setActionOpen(null); }}>
+                                  <span>View Profile</span>
+                                  <span>↗</span>
+                                </button>
+                                <button type="button" onClick={() => navigate(`/hierarchy-sales-count?role=promotor&id=${a.id}`)}>
+                                  <span>Performance Report</span>
+                                  <span>↗</span>
+                                </button>
+                                <button type="button" onClick={() => navigate(`/superadmin-hierarchy-grid?role=promotor&id=${a.id}`)}>
+                                  <span>View Hierarchy</span>
+                                  <span>↗</span>
+                                </button>
+                                <button type="button" onClick={() => handleCopyUrl(a, a.promotor_id)}>
+                                  <span>{copiedUrlId === a.id ? 'URL Copied!' : copyingUrl === a.id ? 'Copying…' : 'Copy Referral URL'}</span>
+                                  <span>{copiedUrlId === a.id ? '✓' : '🔗'}</span>
+                                </button>
+                                <button type="button" onClick={() => handleCopyId(a.promotor_id, `pid-${a.id}`)}>
+                                  <span>{copiedId === `pid-${a.id}` ? 'ID Copied!' : 'Copy Retailer ID'}</span>
+                                  <span>{copiedId === `pid-${a.id}` ? '✓' : '⧉'}</span>
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile View */}
+              <div className="mu-mobile-cards">
+                {rows.map((a, i) => {
+                  const initials = `${(a.first_name || 'R')[0]}${(a.last_name || '')[0] || ''}`.toUpperCase()
+                  return (
+                    <div key={`mob-${a.id || a.promotor_id}`} className="mu-mobile-card">
+                      <div className="mu-mobile-top">
+                        <div className="mu-user-col">
+                          <div className="mu-avatar">{initials}</div>
+                          <div>
+                            <div className="mu-name">{a.first_name} {a.last_name}</div>
+                            <div className="mu-email">{a.email || 'No email provided'}</div>
+                          </div>
+                        </div>
+                        <span className="mu-id-pill" onClick={() => handleCopyId(a.promotor_id, `pid-${a.id}`)}>
+                          {a.promotor_id}
+                        </span>
+                      </div>
+
+                      <div className="mu-mobile-grid">
+                        <div>
+                          <div className="mu-mobile-item-label">Mobile</div>
+                          <div className="mu-mobile-item-val">{a.mobile_number || '—'}</div>
+                        </div>
+                        <div>
+                          <div className="mu-mobile-item-label">City</div>
+                          <div className="mu-mobile-item-val">{a.city_name || '—'}</div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDetail(a)}
+                          style={{ flex: 1, padding: '9px', borderRadius: '10px', border: '1px solid #D9E4E3', background: '#FFFFFF', color: '#073B3F', fontWeight: 700, fontSize: '12.5px', cursor: 'pointer' }}
+                        >
+                          View Profile
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/hierarchy-sales-count?role=promotor&id=${a.id}`)}
+                          style={{ flex: 1, padding: '9px', borderRadius: '10px', border: '1px solid #073B3F', background: '#073B3F', color: '#FFFFFF', fontWeight: 700, fontSize: '12.5px', cursor: 'pointer' }}
+                        >
+                          Performance ↗
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Load More */}
+              {hasMore && (
+                <div className="mu-loadmore-wrap">
+                  <button
+                    type="button"
+                    className="mu-loadmore-btn"
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? 'Loading more retailers...' : `Load More (${rows.length} / ${totalCount})`}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
+      {/* Detail Modal */}
       {selectedDetail && (
-        <div onClick={() => setSelectedDetail(null)} style={{ position: 'fixed', inset: 0, zIndex: 1350, padding: 20, display: 'grid', placeItems: 'center', background: 'rgba(7,31,34,.52)', backdropFilter: 'blur(8px)' }}>
-          <section onClick={e => e.stopPropagation()} style={{ width: 'min(520px,100%)', overflow: 'hidden', border: '1px solid rgba(204,168,129,.38)', borderRadius: 22, background: 'linear-gradient(155deg,#fff,#F7FAF8)', boxShadow: '0 35px 90px rgba(7,31,34,.3)' }}>
-            <header style={{ padding: '24px 26px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#fff', background: 'linear-gradient(120deg,#073B3F,#0C5254)' }}>
+        <div
+          onClick={() => setSelectedDetail(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 1350, padding: 20, display: 'grid', placeItems: 'center', background: 'rgba(7,31,34,.52)', backdropFilter: 'blur(8px)' }}
+        >
+          <section
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: 'min(540px, 100%)', overflow: 'hidden', border: '1px solid rgba(204,168,129,.38)', borderRadius: 24, background: '#FFFFFF', boxShadow: '0 35px 90px rgba(7,31,34,.3)' }}
+          >
+            <header style={{ padding: '24px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#FFFFFF', background: 'linear-gradient(135deg, #073B3F 0%, #0D4E53 100%)' }}>
               <div>
-                <small style={{ display: 'block', marginBottom: 5, color: '#D9B780', fontSize: 9, fontWeight: 800, letterSpacing: '.16em' }}>RETAILER PROFILE</small>
-                <h3 style={{ margin: 0, fontFamily: 'Georgia,serif', fontSize: 25 }}>{selectedDetail.first_name} {selectedDetail.last_name}</h3>
+                <small style={{ display: 'block', marginBottom: 5, color: '#E1C497', fontSize: 10, fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase' }}>
+                  RETAILER PROFILE
+                </small>
+                <h3 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>
+                  {selectedDetail.first_name} {selectedDetail.last_name}
+                </h3>
               </div>
-              <button type="button" onClick={() => setSelectedDetail(null)} style={{ width: 34, height: 34, border: '1px solid rgba(255,255,255,.25)', borderRadius: '50%', color: '#fff', background: 'rgba(255,255,255,.08)', cursor: 'pointer' }}>×</button>
+              <button
+                type="button"
+                onClick={() => setSelectedDetail(null)}
+                style={{ width: 34, height: 34, border: '1px solid rgba(255,255,255,.25)', borderRadius: '50%', color: '#FFFFFF', background: 'rgba(255,255,255,.1)', cursor: 'pointer', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                ✕
+              </button>
             </header>
-            <div style={{ padding: 24, display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 12 }}>
-              {[['ID', selectedDetail.promotor_id], ['Email', selectedDetail.email], ['Mobile', selectedDetail.mobile_number], ['City', selectedDetail.city_name]].map(([label, value]) => (
-                <div key={label} style={{ padding: 14, border: '1px solid #E0E9E8', borderRadius: 11, background: '#F8FAF9' }}>
-                  <small style={{ display: 'block', marginBottom: 5, color: '#83918F', fontSize: 9, fontWeight: 800, letterSpacing: '.1em', textTransform: 'uppercase' }}>{label}</small>
-                  <strong style={{ color: '#173230', fontSize: 13, overflowWrap: 'anywhere' }}>{value || 'Not provided'}</strong>
+
+            <div style={{ padding: 24, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+              {[
+                ['Retailer ID', selectedDetail.promotor_id],
+                ['Email', selectedDetail.email],
+                ['Mobile Number', selectedDetail.mobile_number],
+                ['City', selectedDetail.city_name],
+              ].map(([label, value]) => (
+                <div key={label} style={{ padding: '14px 16px', border: '1px solid #E5EFEF', borderRadius: 14, background: '#F8FAF9' }}>
+                  <small style={{ display: 'block', marginBottom: 4, color: '#728A87', fontSize: 10, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase' }}>
+                    {label}
+                  </small>
+                  <strong style={{ color: '#073B3F', fontSize: 13.5, overflowWrap: 'anywhere' }}>
+                    {value || 'Not provided'}
+                  </strong>
                 </div>
               ))}
             </div>
-            <footer style={{ padding: '0 24px 24px', display: 'flex', gap: 10 }}>
-              <button type="button" onClick={() => navigate(`/hierarchy-sales-count?role=promotor&id=${selectedDetail.id}`)} style={{ flex: 1, minHeight: 44, border: 0, borderRadius: 11, color: '#fff', background: '#073B3F', fontWeight: 800, cursor: 'pointer' }}>Open performance</button>
-              <button type="button" onClick={() => setSelectedDetail(null)} style={{ minWidth: 100, border: '1px solid #D8E3E1', borderRadius: 11, color: '#53615F', background: '#fff', fontWeight: 750, cursor: 'pointer' }}>Close</button>
+
+            <footer style={{ padding: '0 24px 24px', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setSelectedDetail(null)}
+                style={{ padding: '10px 22px', border: '1px solid #D5E3E1', borderRadius: 12, color: '#073B3F', background: '#F0F5F4', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}
+              >
+                Close
+              </button>
             </footer>
           </section>
+        </div>
+      )}
+
+      {/* Floating Toast */}
+      {toast && (
+        <div className="mu-toast">
+          {toast}
         </div>
       )}
     </div>

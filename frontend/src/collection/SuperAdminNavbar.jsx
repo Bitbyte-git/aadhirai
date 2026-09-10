@@ -301,7 +301,7 @@ export default function SuperAdminNavbar({
       }
     }
 
-    alert(`No match found for "${q}". Please try again.`)
+    alert(`"${q}" ku match edhuvum kidaikala bro. Vera mari try pannunga.`)
   }
 
   const toggleMic = () => {

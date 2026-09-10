@@ -4008,7 +4008,8 @@ class RetailerPromotionListView(APIView):
 
         creator_profiles = list(
             CustomerProfile.objects.filter(
-                user__role='customer', user__created_customers__isnull=False
+                Q(user__role='customer', user__created_customers__isnull=False) |
+                Q(retailer_status__in=['approved', 'rejected'])
             ).select_related('user').distinct()
         )
         if not creator_profiles:
@@ -4070,9 +4071,9 @@ class RetailerPromotionListView(APIView):
             total_value += order_totals.get(creator_id, 0) or 0
 
             eligible = total_value >= self.SALES_THRESHOLD or total_customers >= self.CUSTOMER_COUNT_THRESHOLD
-            if not eligible and cp.retailer_status == 'none':
-                continue
-            if cp.retailer_status == 'rejected':   # ── NEW: reject aana table-la kaamikkathu ──
+            if cp.retailer_status in ['approved', 'rejected']:
+                pass
+            elif not eligible and cp.retailer_status == 'none':
                 continue
 
             results.append({
@@ -4231,7 +4232,8 @@ class WholesaleDealerPromotionListView(APIView):
 
         creator_profiles = list(
             PromotorProfile.objects.filter(
-                user__role='promotor', user__created_customers__isnull=False
+                Q(user__role='promotor', user__created_customers__isnull=False) |
+                Q(wholesale_status__in=['approved', 'rejected'])
             ).select_related('user').distinct()
         )
         if not creator_profiles:
@@ -4269,9 +4271,9 @@ class WholesaleDealerPromotionListView(APIView):
             total_value += order_totals.get(creator_id, 0) or 0
 
             eligible = total_customers >= self.CUSTOMER_THRESHOLD and total_value >= self.SALES_THRESHOLD
-            if not eligible and cp.wholesale_status == 'none':
-                continue
-            if cp.wholesale_status == 'rejected':   # ── NEW ──
+            if cp.wholesale_status in ['approved', 'rejected']:
+                pass
+            elif not eligible and cp.wholesale_status == 'none':
                 continue
 
             results.append({
@@ -4379,7 +4381,8 @@ class DistributorPromotionListView(APIView):
 
         creator_profiles = list(
             SubDealerProfile.objects.filter(
-                user__role='sub_dealer', user__created_promotors__isnull=False
+                Q(user__role='sub_dealer', user__created_promotors__isnull=False) |
+                Q(distributor_status__in=['approved', 'rejected'])
             ).select_related('user').distinct()
         )
         if not creator_profiles:
@@ -4441,9 +4444,9 @@ class DistributorPromotionListView(APIView):
                 total_customers >= self.CUSTOMER_THRESHOLD and
                 total_value >= self.SALES_THRESHOLD
             )
-            if not eligible and cp.distributor_status == 'none':
-                continue
-            if cp.distributor_status == 'rejected':   # ── NEW ──
+            if cp.distributor_status in ['approved', 'rejected']:
+                pass
+            elif not eligible and cp.distributor_status == 'none':
                 continue
 
             results.append({
@@ -4553,7 +4556,8 @@ class SuperStockistPromotionListView(APIView):
 
         creator_profiles = list(
             DealerProfile.objects.filter(
-                user__role='dealer', user__created_sub_dealers__isnull=False
+                Q(user__role='dealer', user__created_sub_dealers__isnull=False) |
+                Q(super_stockist_status__in=['approved', 'rejected'])
             ).select_related('user').distinct()
         )
         if not creator_profiles:
@@ -4630,9 +4634,9 @@ class SuperStockistPromotionListView(APIView):
                 total_customers >= self.CUSTOMER_THRESHOLD and
                 total_value >= self.SALES_THRESHOLD
             )
-            if not eligible and cp.super_stockist_status == 'none':
-                continue
-            if cp.super_stockist_status == 'rejected':   # ── NEW ──
+            if cp.super_stockist_status in ['approved', 'rejected']:
+                pass
+            elif not eligible and cp.super_stockist_status == 'none':
                 continue
 
             results.append({

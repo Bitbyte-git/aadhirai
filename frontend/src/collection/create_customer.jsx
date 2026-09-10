@@ -36,6 +36,24 @@ export default function CreateCustomer() {
   const [passwordError, setPasswordError] = useState("");
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState("success");
+  const [customers, setCustomers] = useState([]);
+const [customersLoading, setCustomersLoading] = useState(true);
+
+const fetchCustomers = () => {
+  setCustomersLoading(true);
+  api
+    .get("/customers/")
+    .then((res) => {
+      const list = res.data?.results || (Array.isArray(res.data) ? res.data : []);
+      setCustomers(list);
+    })
+    .catch(() => setCustomers([]))
+    .finally(() => setCustomersLoading(false));
+};
+
+useEffect(() => {
+  fetchCustomers();
+}, []);
 
   // Info of the customer who is currently logged in (creating this new customer)
   const [superCustomer, setSuperCustomer] = useState(null);
@@ -96,6 +114,7 @@ export default function CreateCustomer() {
     setForm(emptyForm);
     setConfirmPassword("");
     setPasswordError("");
+    fetchCustomers(); // ← real list-ஐ refresh பண்ணு, DB-ல save ஆனது table-ல தெரியும்
   } catch (err) {
     setMsg("Error: " + JSON.stringify(err.response?.data || err.message));
     setMsgType("error");
@@ -547,6 +566,44 @@ export default function CreateCustomer() {
           </form>
         </div>
 
+        <div className="cc-card">
+          <h2 className="cc-section-title">Created Customers ({customers.length})</h2>
+
+          {customersLoading ? (
+  <div className="cc-empty">Loading...</div>
+) : customers.length === 0 ? (
+  <div className="cc-empty">No customers created yet.</div>
+) : (
+            <div className="cc-table-wrap">
+              <table className="cc-table">
+                <thead>
+  <tr>
+    <th>Customer ID</th>
+    <th>First Name</th>
+    <th>Last Name</th>
+    <th>Email</th>
+    <th>Mobile</th>
+    <th>City</th>
+    <th>Created</th>
+  </tr>
+</thead>
+                <tbody>
+                  {customers.map((c, i) => (
+                    <tr key={i}>
+                      <td className="id">{c.customer_id}</td>
+                      <td>{c.first_name}</td>
+                      <td>{c.last_name}</td>
+                      <td>{c.email}</td>
+                      <td>{c.mobile_number}</td>
+                      <td>{c.city_name}</td>
+<td>{new Date(c.created_at).toLocaleDateString("en-IN")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       <CustomerFooter />

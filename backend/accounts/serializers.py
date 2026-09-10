@@ -851,31 +851,53 @@ class JewelryRequestSerializer(serializers.ModelSerializer):
             return None
 
     def get_requested_by_id_str(self, obj):
+        if not obj.requested_by:
+            return ''
         p = self._get_profile_by_user(obj.requested_by)
-        if not p: return ''
+        if not p:
+            return ''
         return getattr(p, f'{obj.requested_by.role}_id', '')
 
     def get_requested_by_name(self, obj):
+        if not obj.requested_by:
+            return ''
         p = self._get_profile_by_user(obj.requested_by)
-        if not p: return obj.requested_by.first_name or obj.requested_by.email
-        return f"{p.first_name} {p.last_name or ''}".strip()
+        if not p:
+            if obj.requested_by.role == 'super_admin':
+                return 'Super Admin'
+            return getattr(obj.requested_by, 'email', '')
+        return f"{getattr(p, 'first_name', '')} {getattr(p, 'last_name', '') or ''}".strip() or getattr(obj.requested_by, 'email', '')
 
     def get_requested_by_phone(self, obj):
+        if not obj.requested_by:
+            return ''
         p = self._get_profile_by_user(obj.requested_by)
-        if not p: return ''
-        return getattr(p, 'mobile_number', '')
+        if not p:
+            return getattr(obj.requested_by, 'phone_number', '') or ''
+        return getattr(p, 'mobile_number', '') or getattr(obj.requested_by, 'phone_number', '') or ''
 
     def get_requested_to_id_str(self, obj):
+        if not obj.requested_to:
+            return ''
         p = self._get_profile_by_user(obj.requested_to)
-        if not p: return ''
+        if not p:
+            return ''
         return getattr(p, f'{obj.requested_to.role}_id', '')
 
     def get_requested_to_name(self, obj):
+        if not obj.requested_to:
+            return ''
         p = self._get_profile_by_user(obj.requested_to)
-        if not p: return (obj.requested_to.first_name if obj.requested_to else '') or ''
-        return f"{p.first_name} {p.last_name or ''}".strip()
+        if not p:
+            if obj.requested_to.role == 'super_admin':
+                return 'Super Admin'
+            return getattr(obj.requested_to, 'email', '')
+        return f"{getattr(p, 'first_name', '')} {getattr(p, 'last_name', '') or ''}".strip() or getattr(obj.requested_to, 'email', '')
 
     def get_requested_to_phone(self, obj):
+        if not obj.requested_to:
+            return ''
         p = self._get_profile_by_user(obj.requested_to)
-        if not p: return ''
-        return getattr(p, 'mobile_number', '')
+        if not p:
+            return getattr(obj.requested_to, 'phone_number', '') or ''
+        return getattr(p, 'mobile_number', '') or getattr(obj.requested_to, 'phone_number', '') or ''

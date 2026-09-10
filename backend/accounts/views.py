@@ -4154,10 +4154,10 @@ class JewelryStockView(APIView):
                     }.get(u.role)
                     id_str = getattr(prof, id_field, '') if (prof and id_field) else ''
                     if prof:
-                        name = f"{prof.first_name} {prof.last_name or ''}".strip()
+                        name = f"{getattr(prof, 'first_name', '')} {getattr(prof, 'last_name', '') or ''}".strip()
                         phone = getattr(prof, 'mobile_number', '')
                     else:
-                        name = f"{u.first_name} {u.last_name or ''}".strip() or u.email
+                        name = 'Super Admin' if u.role == 'super_admin' else (getattr(u, 'email', ''))
                         phone = getattr(u, 'phone_number', '') or ''
 
                     user_map[u.id] = {
@@ -4229,39 +4229,43 @@ class JewelryRequestView(APIView):
         if role == 'promotor':
             try:
                 profile = request.user.promotor_profile
-            except PromotorProfile.DoesNotExist:
-                return Response({'error': 'Promotor profile not found'}, status=404)
-            if not profile.assigned_sub_dealer:
-                return Response({'error': 'No sub dealer assigned to you'}, status=400)
-            target_user = profile.assigned_sub_dealer.user
+                if profile.assigned_sub_dealer and profile.assigned_sub_dealer.user:
+                    target_user = profile.assigned_sub_dealer.user
+            except Exception:
+                pass
+            if not target_user:
+                target_user = User.objects.filter(role='super_admin').first()
 
         elif role == 'sub_dealer':
             try:
                 profile = request.user.sub_dealer_profile
-            except SubDealerProfile.DoesNotExist:
-                return Response({'error': 'Sub dealer profile not found'}, status=404)
-            if not profile.assigned_dealer:
-                return Response({'error': 'No dealer assigned to you'}, status=400)
-            target_user = profile.assigned_dealer.user
+                if profile.assigned_dealer and profile.assigned_dealer.user:
+                    target_user = profile.assigned_dealer.user
+            except Exception:
+                pass
+            if not target_user:
+                target_user = User.objects.filter(role='super_admin').first()
 
         elif role == 'dealer':
             try:
                 profile = request.user.dealer_profile
-            except DealerProfile.DoesNotExist:
-                return Response({'error': 'Dealer profile not found'}, status=404)
-            if not profile.assigned_admin:
-                return Response({'error': 'No admin assigned to you'}, status=400)
-            target_user = profile.assigned_admin.user
+                if profile.assigned_admin and profile.assigned_admin.user:
+                    target_user = profile.assigned_admin.user
+            except Exception:
+                pass
+            if not target_user:
+                target_user = User.objects.filter(role='super_admin').first()
 
         elif role == 'admin':
             target_user = User.objects.filter(role='super_admin').first()
-            if not target_user:
-                return Response({'error': 'Super admin account not found'}, status=404)
 
         elif role == 'super_admin':
-            return Response({'error': 'Super admin can manage stock directly'}, status=400)
+            target_user = request.user
         else:
             return Response({'error': 'Your role cannot request jewelry'}, status=403)
+
+        if not target_user:
+            target_user = User.objects.filter(role='super_admin').first()
 
         items = request.data.get('items', [])
         if not items:

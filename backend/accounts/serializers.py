@@ -666,26 +666,37 @@ class CoinRequestSerializer(serializers.ModelSerializer):
     requested_by_name = serializers.SerializerMethodField()
     requested_by_phone = serializers.SerializerMethodField()
     requested_by_role = serializers.CharField(source='requested_by.role', read_only=True)
+    requested_to_email = serializers.EmailField(source='requested_to.email', read_only=True)
+    requested_to_id_str = serializers.SerializerMethodField()
+    requested_to_name = serializers.SerializerMethodField()
+    requested_to_phone = serializers.SerializerMethodField()
+    requested_to_role = serializers.CharField(source='requested_to.role', read_only=True)
 
     class Meta:
         model = CoinRequest
         fields = ['id', 'requested_by', 'requested_by_email', 'requested_by_id_str',
                   'requested_by_name', 'requested_by_phone', 'requested_by_role',
-                  'requested_to', 'status', 'reject_reason', 'items', 'created_at', 'sent_at']
+                  'requested_to', 'requested_to_email', 'requested_to_id_str', 'requested_to_name', 'requested_to_phone', 'requested_to_role',
+                  'status', 'reject_reason', 'items', 'created_at', 'sent_at']
         read_only_fields = ['requested_by', 'requested_to', 'status', 'reject_reason', 'created_at', 'sent_at']
 
     def _get_profile(self, obj):
+        return self._get_profile_by_user(obj.requested_by)
+
+    def _get_profile_by_user(self, user):
+        if not user:
+            return None
         role_map = {
             'promotor': 'promotor_profile',
             'sub_dealer': 'sub_dealer_profile',
             'dealer': 'dealer_profile',
             'admin': 'admin_profile',
         }
-        attr = role_map.get(obj.requested_by.role)
+        attr = role_map.get(user.role)
         if not attr:
             return None
         try:
-            return getattr(obj.requested_by, attr)
+            return getattr(user, attr)
         except Exception:
             return None
 
@@ -710,6 +721,39 @@ class CoinRequestSerializer(serializers.ModelSerializer):
 
     def get_requested_by_phone(self, obj):
         p = self._get_profile(obj)
+        if p:
+            return getattr(p, 'mobile_number', None)
+        return None
+
+    def get_requested_to_id_str(self, obj):
+        if not obj.requested_to:
+            return None
+        role_id_field = {
+            'promotor': 'promotor_id',
+            'sub_dealer': 'sub_dealer_id',
+            'dealer': 'dealer_id',
+            'admin': 'admin_id',
+        }
+        p = self._get_profile_by_user(obj.requested_to)
+        field = role_id_field.get(obj.requested_to.role)
+        if p and field:
+            return getattr(p, field, None)
+        return None
+
+    def get_requested_to_name(self, obj):
+        if not obj.requested_to:
+            return None
+        p = self._get_profile_by_user(obj.requested_to)
+        if p:
+            name = f"{p.first_name} {p.last_name or ''}".strip()
+            if name:
+                return name
+        return getattr(obj.requested_to, 'email', None)
+
+    def get_requested_to_phone(self, obj):
+        if not obj.requested_to:
+            return None
+        p = self._get_profile_by_user(obj.requested_to)
         if p:
             return getattr(p, 'mobile_number', None)
         return None

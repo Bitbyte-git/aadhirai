@@ -43,6 +43,26 @@ export default function SuperAdminNavbar({
   const [openMenu, setOpenMenu] = useState(null)
   const closeTimerRef = useRef(null)
   const [showMobileDrawer, setShowMobileDrawer] = useState(false)   // ── NEW: hamburger sidebar ──
+  const [searchAlert, setSearchAlert] = useState(null)
+
+  const showSearchAlert = (title, message, query = '', type = 'warning', showSuggestions = true) => {
+    setSearchAlert({
+      title,
+      message,
+      query,
+      type,
+      suggestions: showSuggestions ? [
+        { label: 'Add Product', path: '/add-product' },
+        { label: 'Admin Orders', path: '/admin-orders' },
+        { label: 'Retailers', path: '/superadmin/manage-users/retailer' },
+        { label: 'Wholesale Dealers', path: '/superadmin/manage-users/wholesale-dealer' },
+        { label: 'Distributors', path: '/superadmin/manage-users/distributor' },
+        { label: 'Super Stockists', path: '/superadmin/manage-users/super-stockist' },
+        { label: 'Customers', path: '/superadmin/manage-users/customer' },
+        { label: 'Hierarchy Grid', path: '/superadmin-hierarchy-grid' },
+      ] : []
+    })
+  }
 
   // ── Gold Rate / Today Rates (moved from Dashboard) ──
   const [showRatePopup, setShowRatePopup] = useState(false)
@@ -257,9 +277,7 @@ export default function SuperAdminNavbar({
     const lower = q.toLowerCase()
     const isPersonContext = PERSON_CONTEXT_KEYWORDS.some(k => lower.includes(k))
 
-    // NEW: strip every known page-route keyword — so a plain command like
-    // "add product" or "buy coin" collapses to '' here, telling us instantly
-    // there's no person name to look up.
+    // Fast check: strip route keywords
     const allRouteKeywords = PAGE_ROUTES.flatMap(p => p.keywords)
     const stripPattern = new RegExp(
       [...allRouteKeywords, 'show', 'open', 'of'].sort((a, b) => b.length - a.length).join('|'),
@@ -267,9 +285,7 @@ export default function SuperAdminNavbar({
     )
     const nameOnly = lower.replace(stripPattern, '').trim()
 
-    // FAST PATH: plain page command (e.g. "add product", "buy coin",
-    // "hierarchy grid") — matches instantly against the local list,
-    // zero network delay.
+    // Match page routes directly
     if (!nameOnly || !isPersonContext) {
       for (const page of PAGE_ROUTES) {
         if (page?.keywords?.some(k => lower.includes(k))) {
@@ -279,29 +295,35 @@ export default function SuperAdminNavbar({
       }
     }
 
-    // Only hits the backend when there's a real leftover name/ID AND the
-    // phrase is asking for that person's report/hierarchy —
-    // e.g. "BBCUS123 sales report", "Senthil hierarchy".
-    if (nameOnly && isPersonContext) {
-      try {
-        const res = await api.get('/hierarchy/search-person/', { params: { q: nameOnly } })
-        const results = res.data.results || []
-        if (results.length > 0) {
-          const match = results[0]
-          if (lower.includes('sales report')) {
-            navigate(`/sales-report?role=${match.role}&id=${match.id}`)
-          } else {
-            navigate(`/superadmin-hierarchy-grid?role=${match.role}&id=${match.id}`)
-          }
-          return
+    // Try finding person / customer / partner
+    const searchQuery = nameOnly || q
+    try {
+      const res = await api.get('/hierarchy/search-person/', { params: { q: searchQuery } })
+      const results = res.data.results || []
+      if (results.length > 0) {
+        const match = results[0]
+        if (lower.includes('sales report')) {
+          navigate(`/sales-report?role=${match.role}&id=${match.id}`)
+        } else {
+          navigate(`/superadmin-hierarchy-grid?role=${match.role}&id=${match.id}`)
         }
-      } catch (err) {
-        alert('Search failed bro: ' + (err.response?.data?.error || err.message))
+        return
+      }
+    } catch (err) {
+      if (isPersonContext) {
+        showSearchAlert('Search Error', err.response?.data?.error || err.message || 'An error occurred while searching for this person.', q, 'error', false)
         return
       }
     }
 
-    alert(`"${q}" ku match edhuvum kidaikala bro. Vera mari try pannunga.`)
+    // No match found — show stylish English alert with suggestions
+    showSearchAlert(
+      'No Match Found',
+      'We could not find any matching page, member, or report for your search. Please check the keyword or select from the quick shortcuts below.',
+      q,
+      'warning',
+      true
+    )
   }
 
   const toggleMic = () => {
@@ -310,16 +332,15 @@ export default function SuperAdminNavbar({
       return
     }
 
-    // ── NEW: HTTPS check — Web Speech API needs https:// or localhost ──
     const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost'
     if (!isSecure) {
-      alert('Voice search only works on HTTPS. Please use localhost or an https:// site.')
+      showSearchAlert('Secure Connection Required', 'Voice search requires a secure HTTPS connection or localhost environment.', '', 'info', false)
       return
     }
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognition) {
-      alert('Voice search is not supported in this browser. Please use Chrome.')
+      showSearchAlert('Browser Not Supported', 'Voice search is not supported in this browser. Please use Google Chrome or Microsoft Edge.', '', 'info', false)
       return
     }
     const recognition = new SpeechRecognition()
@@ -337,13 +358,13 @@ export default function SuperAdminNavbar({
       console.error('Speech recognition error:', event.error)
       setIsListening(false)
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-        alert('Microphone permission is blocked. Click the mic icon in the browser address bar and allow access.')
+        showSearchAlert('Microphone Access Blocked', 'Microphone permission is blocked. Click the microphone icon in your browser address bar and choose "Allow".', '', 'warning', false)
       } else if (event.error === 'no-speech') {
-        alert('No speech detected. Please speak clearly.')
+        showSearchAlert('No Speech Detected', 'No voice input was detected. Please click the mic button and speak clearly.', '', 'info', false)
       } else if (event.error === 'language-not-supported') {
-        alert('This language is not supported.')
+        showSearchAlert('Language Not Supported', 'Speech recognition language is not supported by your browser.', '', 'warning', false)
       } else {
-        alert('Voice error: ' + event.error)
+        showSearchAlert('Voice Recognition Issue', `Voice search encountered an issue (${event.error}). Please try again.`, '', 'error', false)
       }
     }
     recognition.onend = () => setIsListening(false)
@@ -358,7 +379,7 @@ export default function SuperAdminNavbar({
       recognition.start()
     } catch (err) {
       console.error('Speech recognition start failed:', err)
-      alert('Failed to start microphone: ' + err.message)
+      showSearchAlert('Microphone Initialization Failed', `Could not start voice search: ${err.message}`, '', 'error', false)
     }
   }
 
@@ -456,6 +477,8 @@ export default function SuperAdminNavbar({
   return (
     <>
       <style>{`
+@keyframes sanAlertFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sanAlertSlideUp { from { transform: translateY(16px) scale(0.97); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
 .san-shell * { box-sizing: border-box; }
 .san-sidebar { position: fixed; inset: 0 auto 0 0; width: 286px; z-index: 70; background: rgba(253,253,252,.98); border-right: 1px solid rgba(189,207,206,.76); box-shadow: 20px 0 48px rgba(7,59,63,.07); padding: 28px 18px; display: flex; flex-direction: column; }
 .san-brand { display: flex; align-items: center; gap: 13px; padding: 0 8px 26px; border-bottom: 1px solid rgba(189,207,206,.66); cursor: pointer; }
@@ -1619,6 +1642,263 @@ export default function SuperAdminNavbar({
                   </a>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── STYLISH SEARCH / VOICE ALERT MODAL ── */}
+      {searchAlert && (
+        <div
+          onClick={() => setSearchAlert(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(7, 31, 34, 0.52)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            zIndex: 1500,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            animation: 'sanAlertFadeIn 180ms ease-out',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#FFFFFF',
+              borderRadius: '24px',
+              width: '100%',
+              maxWidth: '480px',
+              overflow: 'hidden',
+              boxShadow: '0 24px 60px rgba(7, 59, 63, 0.22), 0 4px 16px rgba(0, 0, 0, 0.08)',
+              border: '1px solid rgba(204, 168, 129, 0.35)',
+              position: 'relative',
+              animation: 'sanAlertSlideUp 220ms cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                background:
+                  searchAlert.type === 'error'
+                    ? 'linear-gradient(135deg, #DC2626 0%, #991B1B 100%)'
+                    : searchAlert.type === 'info'
+                    ? 'linear-gradient(135deg, #073B3F 0%, #0C5258 100%)'
+                    : 'linear-gradient(135deg, #073B3F 0%, #114F54 60%, #CC9D42 100%)',
+                padding: '22px 26px 18px',
+                color: '#FFFFFF',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: '16px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.16)',
+                    backdropFilter: 'blur(4px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  }}
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#FFFFFF"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                </div>
+                <div>
+                  <div
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: 800,
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                      color: '#F3E5D0',
+                      marginBottom: '2px',
+                    }}
+                  >
+                    ATHIRAI SUPER ADMIN
+                  </div>
+                  <h3
+                    style={{
+                      margin: 0,
+                      fontSize: '18px',
+                      fontWeight: 800,
+                      color: '#FFFFFF',
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
+                    {searchAlert.title}
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSearchAlert(null)}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  transition: 'all 140ms ease',
+                }}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '22px 26px 16px' }}>
+              {searchAlert.query && (
+                <div
+                  style={{
+                    marginBottom: '14px',
+                    padding: '10px 14px',
+                    background: '#F4F7F6',
+                    borderRadius: '12px',
+                    border: '1px solid #E1EBEA',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      color: '#728A87',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.06em',
+                      flexShrink: 0,
+                    }}
+                  >
+                    Search Query:
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: 'monospace',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      color: '#073B3F',
+                      background: '#FFFFFF',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      border: '1px solid #D5E3E1',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      maxWidth: '300px',
+                    }}
+                  >
+                    "{searchAlert.query}"
+                  </span>
+                </div>
+              )}
+
+              <p style={{ margin: '0 0 16px', color: '#4A5B59', fontSize: '13.5px', lineHeight: 1.55 }}>
+                {searchAlert.message}
+              </p>
+
+              {searchAlert.suggestions && searchAlert.suggestions.length > 0 && (
+                <div style={{ marginTop: '12px' }}>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.06em',
+                      color: '#728A87',
+                      marginBottom: '8px',
+                    }}
+                  >
+                    Suggested Quick Links:
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {searchAlert.suggestions.map((s) => (
+                      <button
+                        key={s.path}
+                        type="button"
+                        onClick={() => {
+                          setSearchAlert(null)
+                          navigate(s.path)
+                        }}
+                        style={{
+                          background: '#F0F5F4',
+                          border: '1px solid #D5E3E1',
+                          borderRadius: '8px',
+                          padding: '6px 12px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          color: '#073B3F',
+                          cursor: 'pointer',
+                          transition: 'all 140ms ease',
+                        }}
+                      >
+                        {s.label} ↗
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div
+              style={{
+                padding: '14px 26px 20px',
+                background: '#FAFBFB',
+                borderTop: '1px solid #EDF2F1',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                gap: '10px',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setSearchAlert(null)}
+                style={{
+                  padding: '9px 24px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: '#073B3F',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(7, 59, 63, 0.25)',
+                  transition: 'all 140ms ease',
+                }}
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

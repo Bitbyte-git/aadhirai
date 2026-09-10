@@ -1,195 +1,767 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import api from '../api'
-import { SkeletonText } from '../components/Skeleton'
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../api";
+import { SkeletonText } from "../components/Skeleton";
+import CoinTabs from "./CoinTabs";
+import {
+  InboxIcon,
+  CoinIcon,
+  UsersIcon,
+  PlusIcon,
+  HistoryIcon,
+  CheckIcon,
+  CloseIcon,
+  CopyIcon,
+  CalendarIcon,
+  ArrowLeftIcon,
+} from "../components/SvgIcons";
 
-const COIN_METAL_LABELS_TEXT = { gold_22k: 'Gold 22K', gold_24k: 'Gold 24K', silver_999: 'Silver 999' }
+const COIN_METAL_LABELS_TEXT = {
+  gold_22k: "Gold 22K (916)",
+  gold_24k: "Gold 24K (999)",
+  silver_999: "Silver 999",
+};
 
 export default function CoinRequests() {
-  const navigate = useNavigate()
-  const [coinRequests, setCoinRequests] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const navigate = useNavigate();
+  const [coinRequests, setCoinRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [approvingReqId, setApprovingReqId] = useState(null)
-  const [approvingAll, setApprovingAll] = useState(false)
-  const [msg, setMsg] = useState('')
-  const [msgType, setMsgType] = useState('success')
-  const [rejectingReqId, setRejectingReqId] = useState(null)
-  const [rejectReason, setRejectReason] = useState('')
-  const [rejectSubmitting, setRejectSubmitting] = useState(false)
+  const [approvingReqId, setApprovingReqId] = useState(null);
+  const [approvingAll, setApprovingAll] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [msgType, setMsgType] = useState("success");
+  const [rejectingReqId, setRejectingReqId] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectSubmitting, setRejectSubmitting] = useState(false);
+  const [copiedId, setCopiedId] = useState(null);
+
+  const handleCopy = (text, id) => {
+    if (!text) return;
+    navigator.clipboard?.writeText(text);
+    setCopiedId(id);
+    setMsgType("success");
+    setMsg(`Copied ${text}`);
+    setTimeout(() => {
+      setCopiedId(null);
+      setMsg("");
+    }, 2200);
+  };
 
   const fetchCoinRequests = async () => {
-    setLoading(true)
+    setLoading(true);
+    setError("");
     try {
-      const res = await api.get('/coin-requests/')
-      setCoinRequests(res.data)
-    } catch (err) {
-      setError('Failed to load coin requests')
+      const res = await api.get("/coin-requests/");
+      setCoinRequests(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setError("Failed to load coin requests.");
     }
-    setLoading(false)
-  }
+    setLoading(false);
+  };
 
-  useEffect(() => { fetchCoinRequests() }, [])
+  useEffect(() => {
+    fetchCoinRequests();
+  }, []);
 
   const approveCoinRequest = async (reqId) => {
-    setApprovingReqId(reqId)
-    setMsg('')
+    setApprovingReqId(reqId);
+    setMsg("");
     try {
-      await api.post(`/coin-requests/${reqId}/approve/`)
-      setMsgType('success')
-      setMsg('Request approved successfully.')
-      fetchCoinRequests()
+      await api.post(`/coin-requests/${reqId}/approve/`);
+      setMsgType("success");
+      setMsg(`Request #${reqId} approved.`);
+      fetchCoinRequests();
     } catch (err) {
-      setMsgType('error')
-      setMsg(err.response?.data?.error || 'Failed to approve request. Please try again.')
+      setMsgType("error");
+      setMsg(err.response?.data?.error || "Failed to approve request.");
     }
-    setApprovingReqId(null)
-  }
+    setApprovingReqId(null);
+  };
 
   const approveAllCoinRequests = async () => {
-    setApprovingAll(true)
-    setMsg('')
+    setApprovingAll(true);
+    setMsg("");
     try {
-      await api.post('/coin-requests/approve-all/')
-      setMsgType('success')
-      setMsg('All requests approved successfully.')
-      fetchCoinRequests()
+      await api.post("/coin-requests/approve-all/");
+      setMsgType("success");
+      setMsg("All requests approved successfully.");
+      fetchCoinRequests();
     } catch (err) {
-      setMsgType('error')
-      setMsg(err.response?.data?.error || 'Failed to approve requests. Please try again.')
+      setMsgType("error");
+      setMsg(err.response?.data?.error || "Failed to approve requests.");
     }
-    setApprovingAll(false)
-  }
+    setApprovingAll(false);
+  };
 
   const rejectCoinRequest = async (reqId) => {
     if (!rejectReason.trim()) {
-      setMsgType('error')
-      setMsg('Please enter a reason for rejection.')
-      return
+      setMsgType("error");
+      setMsg("Please enter a rejection reason.");
+      return;
     }
-    setRejectSubmitting(true)
-    setMsg('')
+    setRejectSubmitting(true);
+    setMsg("");
     try {
-      await api.post(`/coin-requests/${reqId}/reject/`, { message: rejectReason.trim() })
-      setMsgType('success')
-      setMsg('Request rejected successfully.')
-      setRejectingReqId(null)
-      setRejectReason('')
-      fetchCoinRequests()
-    } catch (err) {
-      setMsgType('error')
-      setMsg('Failed to reject request. Please try again.')
+      await api.post(`/coin-requests/${reqId}/reject/`, { message: rejectReason.trim() });
+      setMsgType("success");
+      setMsg(`Request #${reqId} rejected.`);
+      setRejectingReqId(null);
+      setRejectReason("");
+      fetchCoinRequests();
+    } catch {
+      setMsgType("error");
+      setMsg("Failed to reject request.");
     }
-    setRejectSubmitting(false)
-  }
+    setRejectSubmitting(false);
+  };
 
-  const pending = coinRequests.filter(r => r.status === 'pending')
-  const pendingItems = pending.reduce((sum, req) => sum + req.items.reduce((s, i) => s + Number(i.qty || 0), 0), 0)
+  const pending = coinRequests.filter((r) => r.status === "pending");
+  const pendingItems = pending.reduce(
+    (sum, req) => sum + req.items.reduce((s, i) => s + Number(i.qty || 0), 0),
+    0
+  );
+  const uniqueRequesters = new Set(
+    pending.map((r) => r.requested_by_id_str || r.requested_by_email)
+  ).size;
 
   return (
-    <main className="cr-page">
+    <div className="cr-root">
       <style>{`
-        .cr-page{min-height:100vh;background:linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 50%,#E7EDEC 100%);color:#111817;font-family:"Manrope","Inter",system-ui,sans-serif;padding:42px 28px 76px}.cr-wrap{max-width:1240px;margin:0 auto}.cr-hero,.cr-card,.cr-stat,.cr-empty{background:rgba(253,253,252,.95);border:1px solid rgba(189,207,206,.9);border-radius:8px;box-shadow:0 22px 58px rgba(7,59,63,.08)}.cr-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;padding:34px 38px;margin-bottom:18px;position:relative;overflow:hidden}.cr-hero:after{content:"";position:absolute;right:-80px;top:-80px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(187,137,88,.26),transparent 70%)}.cr-kicker{font-size:12px;font-weight:950;letter-spacing:.18em;text-transform:uppercase;color:#BB8958}.cr-title{font-family:Georgia,'Times New Roman',serif;font-size:clamp(38px,5vw,64px);line-height:.95;margin:9px 0 0;color:#073B3F;font-weight:500}.cr-sub{margin:12px 0 0;color:#7A8987;font-weight:750}.cr-actions{position:relative;z-index:1;display:flex;gap:10px;flex-wrap:wrap}.cr-btn{height:46px;border-radius:999px;border:1px solid rgba(12,64,68,.24);background:#FDFDFC;color:#073B3F;padding:0 20px;font-weight:950;cursor:pointer}.cr-btn.primary{border:0;background:linear-gradient(135deg,#0C4044,#073B3F);color:#FDFDFC;box-shadow:0 16px 34px rgba(7,59,63,.16)}.cr-btn.gold{background:#F3E8DE;border-color:#CCA881;color:#9F6130}.cr-btn.danger{background:rgba(201,32,53,.08);border-color:rgba(201,32,53,.28);color:#C92035}.cr-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:22px}.cr-stat{padding:20px}.cr-stat small{display:block;font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.13em;color:#7A8987}.cr-stat strong{display:block;margin-top:8px;font-size:32px;color:#073B3F}.cr-msg{border-radius:8px;padding:14px 16px;margin-bottom:16px;font-weight:850}.cr-msg.success{background:rgba(12,64,68,.09);border:1px solid rgba(12,64,68,.25);color:#0C4044}.cr-msg.error{background:rgba(201,32,53,.08);border:1px solid rgba(201,32,53,.28);color:#C92035}.cr-list{display:grid;gap:15px}.cr-card{padding:20px}.cr-card-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:start;margin-bottom:16px}.cr-id{font-size:15px;font-weight:950;color:#073B3F}.cr-time{font-size:12px;color:#7A8987;font-weight:800;margin-top:5px}.cr-item-list{display:grid;gap:9px}.cr-item{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:13px 14px;border-radius:8px;background:#F3F3F0;border:1px solid rgba(189,207,206,.62);font-weight:850;color:#111817}.cr-item b{color:#BB8958}.cr-reject-box{margin-top:15px;padding:16px;border-radius:8px;background:rgba(201,32,53,.06);border:1px solid rgba(201,32,53,.22)}.cr-reject-box label{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#C92035;font-weight:950;margin-bottom:8px}.cr-reject-box textarea{width:100%;min-height:76px;resize:vertical;box-sizing:border-box;border-radius:8px;border:1px solid rgba(189,207,206,.95);background:#FDFDFC;color:#111817;padding:12px 14px;font:inherit;outline:none}.cr-reject-actions{display:flex;gap:10px;margin-top:10px}.cr-empty{padding:60px 28px;text-align:center;color:#7A8987;font-weight:850}.cr-loading{display:grid;place-items:center;min-height:220px;color:#7A8987;font-weight:900}.cr-error{padding:16px 18px;border-radius:8px;background:rgba(201,32,53,.08);border:1px solid rgba(201,32,53,.24);color:#C92035;font-weight:850}@media(max-width:820px){.cr-page{padding:28px 14px 56px}.cr-hero{display:block;padding:28px 22px}.cr-actions{margin-top:18px}.cr-stats{grid-template-columns:1fr}.cr-card-head{grid-template-columns:1fr}.cr-reject-actions{display:grid}}
+        .cr-root {
+          min-height: 100vh;
+          width: 100%;
+          overflow-x: hidden;
+          background: #F8FAF9;
+          background-image: 
+            radial-gradient(at 0% 0%, rgba(7, 59, 63, 0.05) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(204, 168, 129, 0.06) 0px, transparent 50%);
+          color: #111817;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          box-sizing: border-box;
+          padding: 24px 48px 64px;
+        }
+
+        .cr-shell {
+          width: 100%;
+          max-width: 1440px;
+          margin: 0 auto;
+        }
+
+        .cr-topbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+        }
+
+        .cr-breadcrumb {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          color: #5C706E;
+        }
+
+        .cr-breadcrumb .link {
+          color: #073B3F;
+          cursor: pointer;
+          font-weight: 700;
+          text-decoration: none;
+        }
+
+        .cr-breadcrumb .link:hover {
+          text-decoration: underline;
+        }
+
+        .cr-back-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 16px;
+          background: #FFFFFF;
+          border: 1px solid #D6E2E1;
+          border-radius: 999px;
+          color: #073B3F;
+          font-weight: 700;
+          font-size: 13px;
+          cursor: pointer;
+          box-shadow: 0 2px 6px rgba(7, 59, 63, 0.04);
+          transition: all 180ms ease;
+        }
+
+        .cr-back-btn:hover {
+          background: #F0F5F5;
+          border-color: #073B3F;
+          transform: translateX(-2px);
+        }
+
+        .cr-header-card {
+          background: #FFFFFF;
+          border: 1px solid #E1EBEA;
+          border-radius: 20px;
+          padding: 24px 28px;
+          box-shadow: 0 4px 20px rgba(7, 59, 63, 0.04);
+          margin-bottom: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          flex-wrap: wrap;
+        }
+
+        .cr-header-info h1 {
+          margin: 0;
+          font-size: 24px;
+          font-weight: 800;
+          color: #073B3F;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .cr-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: #FEF3C7;
+          color: #92400E;
+          border: 1px solid #FDE68A;
+          padding: 4px 12px;
+          border-radius: 999px;
+          font-size: 11.5px;
+          font-weight: 700;
+        }
+
+        .cr-header-sub {
+          margin: 4px 0 0;
+          color: #5C706E;
+          font-size: 13px;
+        }
+
+        .cr-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .cr-btn-primary {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 10px 18px;
+          background: #073B3F;
+          border: none;
+          border-radius: 12px;
+          color: #FFFFFF;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          box-shadow: 0 6px 16px rgba(7, 59, 63, 0.18);
+        }
+
+        .cr-btn-primary:hover {
+          background: #0C4E53;
+        }
+
+        .cr-btn-secondary {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 9px 16px;
+          background: #FFFFFF;
+          border: 1px solid #D6E2E1;
+          border-radius: 12px;
+          color: #073B3F;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 180ms ease;
+        }
+
+        .cr-btn-secondary:hover {
+          background: #F0F5F5;
+          border-color: #073B3F;
+        }
+
+        .cr-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 18px;
+          margin-bottom: 24px;
+        }
+
+        .cr-stat-card {
+          background: #FFFFFF;
+          border: 1px solid #E1EBEA;
+          border-radius: 18px;
+          padding: 20px 24px;
+          box-shadow: 0 4px 18px rgba(7, 59, 63, 0.03);
+          transition: transform 180ms ease;
+        }
+
+        .cr-stat-card:hover {
+          transform: translateY(-2px);
+        }
+
+        .cr-stat-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 10px;
+        }
+
+        .cr-stat-label {
+          font-size: 11.5px;
+          font-weight: 700;
+          color: #5C706E;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+        }
+
+        .cr-stat-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .cr-stat-value {
+          font-size: 30px;
+          font-weight: 800;
+          color: #073B3F;
+          line-height: 1;
+          margin-bottom: 4px;
+        }
+
+        .cr-stat-sub {
+          font-size: 12px;
+          color: #7A8987;
+          font-weight: 500;
+        }
+
+        .cr-alert {
+          border-radius: 12px;
+          padding: 12px 16px;
+          font-size: 13px;
+          font-weight: 600;
+          margin-bottom: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .cr-alert.success {
+          background: #E6F4EA;
+          border: 1px solid #CEEAD6;
+          color: #137333;
+        }
+
+        .cr-alert.error {
+          background: #FEF2F2;
+          border: 1px solid #FCA5A5;
+          color: #991B1B;
+        }
+
+        .cr-list-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+
+        .cr-req-card {
+          background: #FFFFFF;
+          border: 1px solid #E1EBEA;
+          border-radius: 18px;
+          padding: 20px 24px;
+          box-shadow: 0 4px 18px rgba(7, 59, 63, 0.03);
+          transition: all 180ms ease;
+        }
+
+        .cr-req-card:hover {
+          border-color: #073B3F;
+        }
+
+        .cr-req-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+          padding-bottom: 14px;
+          border-bottom: 1px solid #EDF3F2;
+          margin-bottom: 14px;
+          flex-wrap: wrap;
+        }
+
+        .cr-id-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+          font-size: 12.5px;
+          font-weight: 800;
+          color: #073B3F;
+          background: #EFF6F6;
+          border: 1px solid #D1DFDE;
+          padding: 3px 8px;
+          border-radius: 6px;
+          cursor: pointer;
+        }
+
+        .cr-btn-approve {
+          background: #073B3F;
+          color: #FFFFFF;
+          border: none;
+          border-radius: 8px;
+          padding: 8px 16px;
+          font-size: 12.5px;
+          font-weight: 700;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .cr-btn-approve:hover:not(:disabled) {
+          background: #0C4E53;
+        }
+
+        .cr-btn-reject {
+          background: #FEF2F2;
+          color: #DC2626;
+          border: 1px solid #FCA5A5;
+          border-radius: 8px;
+          padding: 7px 14px;
+          font-size: 12.5px;
+          font-weight: 700;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .cr-btn-reject:hover {
+          background: #DC2626;
+          color: #FFFFFF;
+        }
+
+        .cr-items-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+          gap: 8px;
+        }
+
+        .cr-item-pill {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: #F8FAFA;
+          border: 1px solid #E1EBEA;
+          border-radius: 10px;
+          padding: 8px 12px;
+          font-size: 12.5px;
+          font-weight: 700;
+        }
+
+        .cr-reject-panel {
+          margin-top: 14px;
+          padding: 14px;
+          background: #FEF2F2;
+          border: 1px solid #FECACA;
+          border-radius: 12px;
+        }
+
+        .cr-reject-textarea {
+          width: 100%;
+          min-height: 60px;
+          background: #FFFFFF;
+          border: 1px solid #FCA5A5;
+          border-radius: 8px;
+          padding: 8px 10px;
+          font-size: 13px;
+          box-sizing: border-box;
+          outline: none;
+        }
+
+        @media (max-width: 1024px) {
+          .cr-stats-grid { grid-template-columns: repeat(2, 1fr); }
+          .cr-root { padding: 16px 16px 40px; }
+        }
+
+        @media (max-width: 600px) {
+          .cr-stats-grid { grid-template-columns: 1fr; }
+          .cr-header-card { flex-direction: column; align-items: flex-start; }
+          .cr-header-actions { width: 100%; }
+        }
       `}</style>
-      <div className="cr-wrap">
-        <section className="cr-hero">
-          <div>
-            <div className="cr-kicker">Approval Desk</div>
-            <h1 className="cr-title">Coin Requests</h1>
-            <p className="cr-sub">Review incoming coin requests and keep the approval flow clear for every internal role.</p>
-          </div>
-          <div className="cr-actions">
-            {pending.length > 0 && <button className="cr-btn primary" disabled={approvingAll} onClick={approveAllCoinRequests}>{approvingAll ? 'Approving...' : 'Approve All'}</button>}
-            <button className="cr-btn" onClick={() => navigate('/coin-transactions')}>Transactions</button>
-            <button className="cr-btn gold" onClick={() => navigate('/buy-coin')}>Buy Coin</button>
-          </div>
-        </section>
 
-        {loading ? (
-          <section className="cr-stats">
-            {[0, 1, 2].map(i => (
-              <div className="cr-stat" key={i}>
-                <SkeletonText width="70%" height="10px" />
-                <div style={{ marginTop: 10 }}><SkeletonText width="40%" height="30px" /></div>
+      <div className="cr-shell">
+        {/* Topbar */}
+        <div className="cr-topbar">
+          <button className="cr-back-btn" onClick={() => navigate(-1)}>
+            <ArrowLeftIcon size={14} color="#073B3F" /> Back
+          </button>
+        </div>
+
+        {/* 4 Tabs Matching User's Image */}
+        <CoinTabs activeTab="Requests Coins" />
+
+        {/* Executive Header Card */}
+        <div className="cr-header-card">
+          <div className="cr-header-info">
+            <h1>
+              <span>Requests Coins</span>
+              <span className="cr-badge">{pending.length} Pending</span>
+            </h1>
+            <p className="cr-header-sub">
+              Review and authorize pending coin requests.
+            </p>
+          </div>
+          <div className="cr-header-actions">
+            {pending.length > 0 && (
+              <button
+                className="cr-btn-primary"
+                disabled={approvingAll}
+                onClick={approveAllCoinRequests}
+              >
+                <CheckIcon size={15} color="#FFFFFF" />
+                {approvingAll ? "Approving..." : `Approve All (${pending.length})`}
+              </button>
+            )}
+            <button className="cr-btn-secondary" onClick={() => navigate("/stored-coins")}>
+              <CoinIcon size={15} color="#073B3F" /> Available Coins
+            </button>
+            <button className="cr-btn-secondary" onClick={() => navigate("/coin-transactions")}>
+              <HistoryIcon size={15} color="#073B3F" /> Transactions
+            </button>
+            <button className="cr-btn-secondary" onClick={() => navigate("/buy-coin")}>
+              <PlusIcon size={15} color="#073B3F" /> Add Coins
+            </button>
+          </div>
+        </div>
+
+        {/* Alerts */}
+        {msg && (
+          <div className={`cr-alert ${msgType}`}>
+            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              {msgType === "success" ? <CheckIcon size={14} color="#137333" /> : "⚠️"}
+              <span>{msg}</span>
+            </span>
+            <button onClick={() => setMsg("")} style={{ background: "none", border: "none", cursor: "pointer" }}>
+              <CloseIcon size={14} color="currentColor" />
+            </button>
+          </div>
+        )}
+
+        {/* 4 Stat Cards */}
+        <div className="cr-stats-grid">
+          <div className="cr-stat-card" style={{ borderLeft: "4px solid #073B3F" }}>
+            <div className="cr-stat-header">
+              <span className="cr-stat-label">Pending</span>
+              <div className="cr-stat-icon" style={{ background: "#EFF6F6", color: "#073B3F" }}>
+                <InboxIcon size={18} color="#073B3F" />
               </div>
-            ))}
-          </section>
-        ) : (
-          <section className="cr-stats">
-            <div className="cr-stat"><small>Pending Requests</small><strong>{pending.length}</strong></div>
-            <div className="cr-stat"><small>Pending Pieces</small><strong>{pendingItems}</strong></div>
-            <div className="cr-stat"><small>Total Loaded</small><strong>{coinRequests.length}</strong></div>
-          </section>
+            </div>
+            <div className="cr-stat-value">
+              {loading ? <SkeletonText width="60px" height="30px" /> : pending.length}
+            </div>
+            <div className="cr-stat-sub">Awaiting review</div>
+          </div>
+
+          <div className="cr-stat-card" style={{ borderLeft: "4px solid #D97706" }}>
+            <div className="cr-stat-header">
+              <span className="cr-stat-label">Pending Pieces</span>
+              <div className="cr-stat-icon" style={{ background: "#FEF3C7", color: "#B45309" }}>
+                <CoinIcon size={18} color="#B45309" />
+              </div>
+            </div>
+            <div className="cr-stat-value">
+              {loading ? <SkeletonText width="60px" height="30px" /> : pendingItems.toLocaleString()}
+            </div>
+            <div className="cr-stat-sub">Requested units</div>
+          </div>
+
+          <div className="cr-stat-card" style={{ borderLeft: "4px solid #166534" }}>
+            <div className="cr-stat-header">
+              <span className="cr-stat-label">Requesters</span>
+              <div className="cr-stat-icon" style={{ background: "#E6F4EA", color: "#137333" }}>
+                <UsersIcon size={18} color="#137333" />
+              </div>
+            </div>
+            <div className="cr-stat-value">
+              {loading ? <SkeletonText width="60px" height="30px" /> : uniqueRequesters}
+            </div>
+            <div className="cr-stat-sub">Downline members</div>
+          </div>
+
+          <div className="cr-stat-card" style={{ borderLeft: "4px solid #64748B" }}>
+            <div className="cr-stat-header">
+              <span className="cr-stat-label">Total Loaded</span>
+              <div className="cr-stat-icon" style={{ background: "#F1F5F9", color: "#475569" }}>
+                <HistoryIcon size={18} color="#475569" />
+              </div>
+            </div>
+            <div className="cr-stat-value">
+              {loading ? <SkeletonText width="60px" height="30px" /> : coinRequests.length}
+            </div>
+            <div className="cr-stat-sub">Requests logged</div>
+          </div>
+        </div>
+
+        {/* Requests List */}
+        {!loading && pending.length === 0 && (
+          <div style={{ textAlign: "center", padding: "48px 20px", background: "#FFFFFF", borderRadius: "18px", border: "1px solid #E1EBEA", color: "#7A8987" }}>
+            <div style={{ fontSize: "16px", fontWeight: 700, color: "#073B3F" }}>No Pending Requests</div>
+            <div style={{ fontSize: "13px", marginTop: "4px" }}>All requests have been addressed.</div>
+          </div>
         )}
 
-        {msg && <div className={`cr-msg ${msgType}`}>{msg}</div>}
-
-        {loading && (
-          <section className="cr-list">
-            {[0, 1, 2].map(i => (
-              <article className="cr-card" key={i}>
-                <div className="cr-card-head">
+        {!loading && pending.length > 0 && (
+          <div className="cr-list-wrap">
+            {pending.map((req) => (
+              <article className="cr-req-card" key={req.id}>
+                <div className="cr-req-head">
                   <div>
-                    <SkeletonText width="130px" height="15px" />
-                    <div style={{ marginTop: 6 }}><SkeletonText width="150px" height="10px" /></div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "6px" }}>
+                      <span
+                        className="cr-id-badge"
+                        title="Copy Requester ID"
+                        onClick={() => handleCopy(req.requested_by_id_str || req.requested_by_email, req.id)}
+                      >
+                        <span>{req.requested_by_id_str || req.requested_by_email}</span>
+                        {copiedId === req.id ? <CheckIcon size={11} color="#137333" /> : <CopyIcon size={11} color="#7A8987" />}
+                      </span>
+                      <span style={{ fontWeight: 800, color: "#111817", fontSize: "14px" }}>
+                        {req.requested_by_name || "Member"}
+                      </span>
+                      <span style={{
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        textTransform: "capitalize",
+                        background: "#E8F0FE",
+                        color: "#1967D2",
+                        padding: "2px 8px",
+                        borderRadius: "12px",
+                      }}>
+                        {req.requested_by_role?.replace('_', ' ')}
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: "12px", color: "#5C706E", display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap", marginBottom: "6px" }}>
+                      {req.requested_by_phone && <span>📞 {req.requested_by_phone}</span>}
+                      {req.requested_by_email && <span>✉️ {req.requested_by_email}</span>}
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <CalendarIcon size={13} color="#7A8987" />
+                        {new Date(req.created_at).toLocaleString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                          hour: "numeric",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}
+                      </span>
+                    </div>
+
+                    {/* Assigned Parent / Approver info */}
+                    <div style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      background: "#F8FAFA",
+                      border: "1px solid #E1EBEA",
+                      padding: "4px 10px",
+                      borderRadius: "8px",
+                      fontSize: "12px"
+                    }}>
+                      <span style={{ color: "#7A8987", fontWeight: 600 }}>Assigned Approver:</span>
+                      <span style={{ color: "#073B3F", fontWeight: 800 }}>
+                        {req.requested_to_name || "Upstream"} ({req.requested_to_role?.replace('_', ' ') || "Parent"})
+                      </span>
+                      {req.requested_to_id_str && (
+                        <span style={{ color: "#5C706E", fontSize: "11px", fontFamily: "monospace" }}>
+                          [{req.requested_to_id_str}]
+                        </span>
+                      )}
+                      {req.requested_to_phone && (
+                        <span style={{ color: "#5C706E", fontSize: "11px" }}>
+                          · 📞 {req.requested_to_phone}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <SkeletonText width="80px" height="36px" />
-                    <SkeletonText width="70px" height="36px" />
+
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                    <button
+                      className="cr-btn-approve"
+                      disabled={approvingReqId === req.id}
+                      onClick={() => approveCoinRequest(req.id)}
+                    >
+                      <CheckIcon size={14} color="#FFFFFF" />
+                      {approvingReqId === req.id ? "Approving..." : "Approve"}
+                    </button>
+                    <button
+                      className="cr-btn-reject"
+                      onClick={() => {
+                        setRejectingReqId(rejectingReqId === req.id ? null : req.id);
+                        setRejectReason("");
+                      }}
+                    >
+                      <CloseIcon size={14} color="#DC2626" /> Decline
+                    </button>
                   </div>
                 </div>
-                <div className="cr-item-list">
-                  <div className="cr-item"><SkeletonText width="60%" height="12px" /></div>
-                  <div className="cr-item"><SkeletonText width="50%" height="12px" /></div>
-                </div>
-              </article>
-            ))}
-          </section>
-        )}
 
-        {error && <div className="cr-error">{error}</div>}
-        {!loading && !error && pending.length === 0 && <div className="cr-empty">No pending coin requests.</div>}
-
-        {!loading && !error && pending.length > 0 && (
-          <section className="cr-list">
-            {pending.map(req => (
-              <article className="cr-card" key={req.id}>
-                <div className="cr-card-head">
-                  <div>
-                    <div className="cr-id">{req.requested_by_id_str || req.requested_by_email}</div>
-                    <div className="cr-time">{new Date(req.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
-                  </div>
-                  <div className="cr-actions">
-                    <button className="cr-btn primary" disabled={approvingReqId === req.id} onClick={() => approveCoinRequest(req.id)}>{approvingReqId === req.id ? 'Approving...' : 'Approve'}</button>
-                    <button className="cr-btn danger" onClick={() => { setRejectingReqId(rejectingReqId === req.id ? null : req.id); setRejectReason('') }}>Reject</button>
-                  </div>
-                </div>
-
-                <div className="cr-item-list">
-                  {req.items.map(item => (
-                    <div className="cr-item" key={item.id}>
-                      <span>{COIN_METAL_LABELS_TEXT[item.metal_type]} - {item.weight_label}</span>
-                      <b>x {item.qty}</b>
+                <div className="cr-items-grid">
+                  {req.items?.map((item) => (
+                    <div className="cr-item-pill" key={item.id || `${item.metal_type}-${item.weight_label}`}>
+                      <span>{COIN_METAL_LABELS_TEXT[item.metal_type] || item.metal_type} ({item.weight_label})</span>
+                      <span style={{ color: "#073B3F" }}>{item.qty} pcs</span>
                     </div>
                   ))}
                 </div>
 
                 {rejectingReqId === req.id && (
-                  <div className="cr-reject-box">
-                    <label>Reason for rejection</label>
-                    <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Explain why this request is being rejected..." />
-                    <div className="cr-reject-actions">
-                      <button className="cr-btn danger" disabled={rejectSubmitting} onClick={() => rejectCoinRequest(req.id)}>{rejectSubmitting ? 'Rejecting...' : 'Confirm Reject'}</button>
-                      <button className="cr-btn" onClick={() => { setRejectingReqId(null); setRejectReason('') }}>Cancel</button>
+                  <div className="cr-reject-panel">
+                    <textarea
+                      className="cr-reject-textarea"
+                      placeholder="Reason for declining..."
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                    />
+                    <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                      <button
+                        className="cr-btn-reject"
+                        disabled={rejectSubmitting}
+                        onClick={() => rejectCoinRequest(req.id)}
+                      >
+                        {rejectSubmitting ? "Declining..." : "Confirm Decline"}
+                      </button>
+                      <button
+                        className="cr-btn-secondary"
+                        style={{ padding: "6px 12px", fontSize: "12px" }}
+                        onClick={() => {
+                          setRejectingReqId(null);
+                          setRejectReason("");
+                        }}
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </div>
                 )}
               </article>
             ))}
-          </section>
+          </div>
         )}
       </div>
-    </main>
-  )
+    </div>
+  );
 }

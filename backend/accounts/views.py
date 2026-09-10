@@ -273,8 +273,11 @@ class CreateAdminView(APIView):
             return Response({'error': 'Permission denied'}, status=403)
         serializer = AdminProfileSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            serializer.save()
-            return Response({'message': 'Admin created successfully'}, status=201)
+            admin_prof = serializer.save()
+            return Response({
+                'message': 'Admin created successfully',
+                'admin_id': getattr(admin_prof, 'admin_id', '')
+            }, status=201)
         return Response(serializer.errors, status=400)
 
     def get(self, request):
@@ -781,8 +784,11 @@ class CreateCustomerView(APIView):
             return Response({'error': 'Permission denied'}, status=403)
         serializer = CustomerProfileSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            serializer.save()
-            return Response({'message': 'Customer created successfully'}, status=201)
+            cp = serializer.save()
+            return Response({
+                'message': 'Customer created successfully',
+                'customer_id': getattr(cp, 'customer_id', '')
+            }, status=201)
         return Response(serializer.errors, status=400)
 
     def get(self, request):
@@ -3707,12 +3713,45 @@ class CoinRequestView(APIView):
 
         # ── NEW: history box — DB level pagination + status filter + aggregate counts ──
         if box == 'history':
-            base_qs = CoinRequest.objects.filter(requested_to=request.user)
+            if request.user.role == 'super_admin':
+                base_qs = CoinRequest.objects.all()
+            else:
+                base_qs = CoinRequest.objects.filter(
+                    Q(requested_to=request.user) | Q(requested_by=request.user)
+                )
 
-            # ── status-wise counts — ONE DB aggregate query, million rows irundhalும் fast ──
+            # Search filter (by person ID, phone, email, name across both requester & approver)
+            search = request.query_params.get('search', '').strip()
+            if search:
+                base_qs = base_qs.filter(
+                    Q(requested_by__email__icontains=search) |
+                    Q(requested_by__promotor_profile__promotor_id__icontains=search) |
+                    Q(requested_by__promotor_profile__first_name__icontains=search) |
+                    Q(requested_by__promotor_profile__last_name__icontains=search) |
+                    Q(requested_by__promotor_profile__mobile_number__icontains=search) |
+                    Q(requested_by__sub_dealer_profile__sub_dealer_id__icontains=search) |
+                    Q(requested_by__sub_dealer_profile__first_name__icontains=search) |
+                    Q(requested_by__sub_dealer_profile__mobile_number__icontains=search) |
+                    Q(requested_by__dealer_profile__dealer_id__icontains=search) |
+                    Q(requested_by__dealer_profile__first_name__icontains=search) |
+                    Q(requested_by__dealer_profile__mobile_number__icontains=search) |
+                    Q(requested_by__admin_profile__admin_id__icontains=search) |
+                    Q(requested_by__admin_profile__first_name__icontains=search) |
+                    Q(requested_by__admin_profile__mobile_number__icontains=search) |
+                    Q(requested_to__email__icontains=search) |
+                    Q(requested_to__promotor_profile__promotor_id__icontains=search) |
+                    Q(requested_to__sub_dealer_profile__sub_dealer_id__icontains=search) |
+                    Q(requested_to__dealer_profile__dealer_id__icontains=search) |
+                    Q(requested_to__admin_profile__admin_id__icontains=search)
+                ).distinct()
+
+            # ── status-wise counts — ONE DB aggregate query ──
             status_counts = dict(
                 base_qs.values('status').annotate(c=Count('id')).values_list('status', 'c')
             )
+
+            total_disbursed_pieces = CoinRequestItem.objects.filter(request__in=base_qs.filter(status='sent')).aggregate(s=Sum('qty'))['s'] or 0
+            total_pending_pieces = CoinRequestItem.objects.filter(request__in=base_qs.filter(status='pending')).aggregate(s=Sum('qty'))['s'] or 0
 
             status_filter = request.query_params.get('status')
             if status_filter and status_filter != 'all':
@@ -3722,7 +3761,7 @@ class CoinRequestView(APIView):
             offset = int(request.query_params.get('offset', 0))
             limit = int(request.query_params.get('limit', 20))
 
-            reqs = base_qs.prefetch_related('items').order_by('-created_at')[offset:offset + limit]
+            reqs = base_qs.prefetch_related('items', 'requested_by', 'requested_to').order_by('-created_at')[offset:offset + limit]
             serializer = CoinRequestSerializer(reqs, many=True)
             return Response({
                 'items': serializer.data,
@@ -3732,13 +3771,20 @@ class CoinRequestView(APIView):
                     'sent': status_counts.get('sent', 0),
                     'rejected': status_counts.get('rejected', 0),
                     'total': sum(status_counts.values()),
+                    'disbursed_pieces': total_disbursed_pieces,
+                    'pending_pieces': total_pending_pieces,
                 },
             })
 
         if box == 'sent':
             reqs = CoinRequest.objects.filter(requested_by=request.user)
         elif box == 'received':
-            reqs = CoinRequest.objects.filter(requested_to=request.user, status='pending')
+            if role == 'super_admin':
+                reqs = CoinRequest.objects.filter(status='pending')
+            else:
+                reqs = CoinRequest.objects.filter(requested_to=request.user, status='pending')
+        elif role == 'super_admin':
+            reqs = CoinRequest.objects.filter(status='pending')
         elif role in receiver_roles:
             reqs = CoinRequest.objects.filter(requested_to=request.user, status='pending')
         else:
@@ -3751,31 +3797,51 @@ class CoinRequestView(APIView):
 
 class CoinRequestApproveView(APIView):
     """Any role approves a pending request sent to them — deducts coins from
-    the approver's own stock and adds them into the requester's stock."""
+    the approver's own stock and adds them into the requester's stock.
+    Super Admin can oversee and approve any pending request across hierarchy."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
         try:
-            coin_request = CoinRequest.objects.prefetch_related('items').get(
-                id=pk, requested_to=request.user, status='pending'
-            )
+            if request.user.role == 'super_admin':
+                coin_request = CoinRequest.objects.prefetch_related('items').get(
+                    id=pk, status='pending'
+                )
+            else:
+                coin_request = CoinRequest.objects.prefetch_related('items').get(
+                    id=pk, requested_to=request.user, status='pending'
+                )
         except CoinRequest.DoesNotExist:
             return Response({'error': 'Request not found or already resolved'}, status=404)
 
+        # If Super Admin approves, try to deduct from assigned parent's stock; fallback to super admin stock
+        approver = coin_request.requested_to if coin_request.requested_to else request.user
+        if request.user.role == 'super_admin':
+            has_parent_stock = True
+            for item in coin_request.items.all():
+                stk = CoinStock.objects.filter(user=approver, metal_type=item.metal_type, weight_label=item.weight_label).first()
+                if not stk or stk.qty < item.qty:
+                    has_parent_stock = False
+                    break
+            stock_user = approver if has_parent_stock else request.user
+        else:
+            stock_user = request.user
+
         for item in coin_request.items.all():
             approver_stock = CoinStock.objects.filter(
-                user=request.user, metal_type=item.metal_type, weight_label=item.weight_label
+                user=stock_user, metal_type=item.metal_type, weight_label=item.weight_label
             ).first()
             available = approver_stock.qty if approver_stock else 0
             if available < item.qty:
+                user_label = "Assigned parent" if stock_user == approver else "Approver"
                 return Response({
                     'error': f'Insufficient stock for {item.metal_type} {item.weight_label}. '
-                             f'Available: {available}, Requested: {item.qty}'
+                             f'{user_label} stock available: {available}, Requested: {item.qty}'
                 }, status=400)
 
         for item in coin_request.items.all():
             approver_stock = CoinStock.objects.get(
-                user=request.user, metal_type=item.metal_type, weight_label=item.weight_label
+                user=stock_user, metal_type=item.metal_type, weight_label=item.weight_label
             )
             approver_stock.qty -= item.qty
             approver_stock.save()
@@ -3797,7 +3863,8 @@ class CoinRequestApproveView(APIView):
 
 
 class CoinRequestRejectView(APIView):
-    """Any role rejects a pending request sent to them, with a reason message."""
+    """Any role rejects a pending request sent to them, with a reason message.
+    Super Admin can reject any pending request across hierarchy."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
@@ -3806,9 +3873,14 @@ class CoinRequestRejectView(APIView):
             return Response({'error': 'Reject reason is required'}, status=400)
 
         try:
-            coin_request = CoinRequest.objects.get(
-                id=pk, requested_to=request.user, status='pending'
-            )
+            if request.user.role == 'super_admin':
+                coin_request = CoinRequest.objects.get(
+                    id=pk, status='pending'
+                )
+            else:
+                coin_request = CoinRequest.objects.get(
+                    id=pk, requested_to=request.user, status='pending'
+                )
         except CoinRequest.DoesNotExist:
             return Response({'error': 'Request not found or already resolved'}, status=404)
 

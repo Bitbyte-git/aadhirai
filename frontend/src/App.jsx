@@ -171,6 +171,19 @@ function ScrollToTop() {
   return null
 }
 
+// -- Safe redirect when accessing /dashboard directly so it never renders blank --
+function DashboardRedirect() {
+  const role = localStorage.getItem('role')
+  if (role === 'super_admin') return <Navigate to="/super-admin" replace />
+  if (role === 'admin') return <Navigate to="/admin" replace />
+  if (role === 'dealer') return <Navigate to="/dealer" replace />
+  if (role === 'sub_dealer') return <Navigate to="/sub-dealer" replace />
+  if (role === 'promotor') return <Navigate to="/promotor" replace />
+  if (role === 'customer') return <Navigate to="/customer" replace />
+  if (role === 'shop') return <Navigate to="/shop-dashboard" replace />
+  return <Navigate to="/login" replace />
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -178,6 +191,8 @@ export default function App() {
       <Suspense fallback={<RouteLoader />}>
         <Routes>
           <Route path="/" element={<WithCustomerNavbar><CustomerDashboard /></WithCustomerNavbar>} />
+          <Route path="/dashboard" element={<DashboardRedirect />} />
+          <Route path="/superadmin" element={<Navigate to="/super-admin" replace />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/super-admin" element={<ProtectedRoute role="super_admin"><SuperAdminDashboard /></ProtectedRoute>} />

@@ -1086,8 +1086,55 @@ useEffect(() => {
     aadhaar_no: '', pan_no: '', occupation: 'employee', occupation_detail: '',
     annual_salary: '', admin_name: '', admin_id: '', admin_contact_no: ''
   })
-   const [confirmPassword, setConfirmPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
+  const [adminSuccessPopup, setAdminSuccessPopup] = useState(null)
+  const [adminErrorPopup, setAdminErrorPopup] = useState(null)
+  const [copiedPopupAdminId, setCopiedPopupAdminId] = useState(false)
+
+  const parseAdminErrorDetails = (err) => {
+    const data = err?.response?.data
+    if (!data) return ['An unexpected network error occurred. Please check your connection and try again.']
+    if (typeof data === 'string') {
+      if (data.includes('<html') || data.includes('<!DOCTYPE')) {
+        return ['Server error occurred. Please contact system support.']
+      }
+      return [data]
+    }
+    if (Array.isArray(data)) {
+      return data.map((item) => (typeof item === 'object' ? JSON.stringify(item) : String(item)))
+    }
+    if (typeof data === 'object') {
+      const messages = []
+      const fieldNames = {
+        first_name: 'First Name',
+        last_name: 'Last Name',
+        email: 'Email Address',
+        mobile_number: 'Mobile Number',
+        password: 'Password',
+        pincode: 'Pincode',
+        city_name: 'City',
+        district: 'District',
+        state: 'State',
+        aadhaar_no: 'Aadhaar Number',
+        pan_no: 'PAN Number',
+        detail: 'System Notice',
+        non_field_errors: 'Authentication Error',
+      }
+      Object.entries(data).forEach(([key, val]) => {
+        const readableKey = fieldNames[key] || key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+        if (Array.isArray(val)) {
+          val.forEach((m) => messages.push(`${readableKey}: ${typeof m === 'object' ? JSON.stringify(m) : m}`))
+        } else if (typeof val === 'object' && val !== null) {
+          messages.push(`${readableKey}: ${JSON.stringify(val)}`)
+        } else {
+          messages.push(`${readableKey}: ${val}`)
+        }
+      })
+      return messages.length > 0 ? messages : ['Validation failed. Please verify the entered information.']
+    }
+    return ['An unexpected error occurred while creating admin.']
+  }
   const [showAnnouncement, setShowAnnouncement] = useState(false)
   const [announcementForm, setAnnouncementForm] = useState({ title: '', message: '', roles: [] })
   const [announcementMsg, setAnnouncementMsg] = useState('')
@@ -1590,8 +1637,20 @@ fetchQuickStats()
   const handleSubmit = async e => {
     e.preventDefault()
 
+    if (!form.email || !form.email.includes('@')) {
+      setAdminErrorPopup({
+        title: 'Invalid Email Address',
+        errors: ['Please provide a valid, properly formatted email address (e.g. name@domain.com).']
+      })
+      return
+    }
+
     if (form.password !== confirmPassword) {
-      setPasswordError('âŒ Passwords do not match')
+      setPasswordError('❌ Passwords do not match')
+      setAdminErrorPopup({
+        title: 'Password Mismatch',
+        errors: ['The entered password and confirmation password do not match. Please re-enter them carefully.']
+      })
       return
     }
 
@@ -1605,17 +1664,41 @@ fetchQuickStats()
         admin_contact_no: undefined,
       }
 
-      console.log('ðŸ“¤ SENDING:', JSON.stringify(cleanedForm, null, 2))  // â† ADD
+      console.log('📤 SENDING:', JSON.stringify(cleanedForm, null, 2))
 
-      await api.post('/admins/', cleanedForm)
-      setMsg('âœ… Admin created successfully!')
+      const res = await api.post('/admins/', cleanedForm)
+      const newAdminId = res.data?.admin_id || ''
+      const createdAdminName = `${form.first_name} ${form.last_name}`.trim()
+
+      setAdminSuccessPopup({
+        title: 'Admin Created Successfully!',
+        admin_id: newAdminId,
+        name: createdAdminName,
+        email: form.email,
+        mobile: form.mobile_number,
+        city: form.city_name,
+      })
+
+      setMsg('✅ Admin created successfully!')
       setShowForm(false)
+      setForm({
+        initial: '', first_name: '', last_name: '', mobile_number: '',
+        gender: 'male', dob: '', married_status: 'single', anniversary_date: '',
+        door_no: '', street_name: '', town_name: '', pincode: '',
+        city_name: '', district: '', state: '', email: '', password: '',
+        aadhaar_no: '', pan_no: '', occupation: 'employee', occupation_detail: '',
+        annual_salary: '', admin_name: '', admin_id: '', admin_contact_no: ''
+      })
       setConfirmPassword('')
       setPasswordError('')
       fetchAdmins()
     } catch (err) {
-      console.log('âŒ ERROR RESPONSE:', err.response?.data)  // â† ADD
-      setMsg('âŒ Error: ' + JSON.stringify(err.response?.data))
+      const errors = parseAdminErrorDetails(err)
+      setAdminErrorPopup({
+        title: 'Admin Creation Failed',
+        errors,
+      })
+      setMsg('❌ Error: ' + errors[0])
     }
   }
 
@@ -5516,8 +5599,380 @@ style={{ width: '100%', padding: '15px', background: announcingSending ? 'rgba(1
   </div>
 )}
 
+      {/* ── ADMIN CREATION SUCCESS MODAL ── */}
+      {adminSuccessPopup && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            backgroundColor: 'rgba(7, 59, 63, 0.65)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            animation: 'fadeIn 0.25s ease',
+          }}
+          onClick={() => setAdminSuccessPopup(null)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '480px',
+              background: '#FFFFFF',
+              borderRadius: '24px',
+              boxShadow: '0 25px 60px -15px rgba(7, 59, 63, 0.3)',
+              overflow: 'hidden',
+              border: '1px solid #E6D6C5',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header Banner */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #073B3F 0%, #0C4044 60%, #155E63 100%)',
+                padding: '26px 28px 22px',
+                color: '#FFFFFF',
+                position: 'relative',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div
+                  style={{
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '50%',
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    border: '2px solid rgba(255, 255, 255, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '22px',
+                    flexShrink: 0,
+                  }}
+                >
+                  ✓
+                </div>
+                <div>
+                  <h3
+                    style={{
+                      margin: 0,
+                      fontSize: '19px',
+                      fontWeight: 800,
+                      fontFamily: '"Cormorant Garamond", Georgia, serif',
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    Admin Created Successfully!
+                  </h3>
+                  <p
+                    style={{
+                      margin: '4px 0 0',
+                      fontSize: '12px',
+                      color: 'rgba(255, 255, 255, 0.8)',
+                    }}
+                  >
+                    New administrator account is active in the hierarchy
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAdminSuccessPopup(null)}
+                style={{
+                  position: 'absolute',
+                  top: '18px',
+                  right: '18px',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                }}
+              >
+                ✕
+              </button>
+            </div>
 
+            {/* Content Body */}
+            <div style={{ padding: '24px 28px' }}>
+              {adminSuccessPopup.admin_id && (
+                <div
+                  style={{
+                    background: 'linear-gradient(135deg, #F9FBFB 0%, #EEF4F4 100%)',
+                    border: '1.5px dashed #0C4044',
+                    borderRadius: '16px',
+                    padding: '16px',
+                    marginBottom: '20px',
+                    textAlign: 'center',
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'block',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      color: '#70817F',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      marginBottom: '4px',
+                    }}
+                  >
+                    Generated Admin ID
+                  </span>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '18px',
+                        fontWeight: 900,
+                        color: '#073B3F',
+                        fontFamily: 'monospace',
+                        letterSpacing: '0.05em',
+                      }}
+                    >
+                      {adminSuccessPopup.admin_id}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(adminSuccessPopup.admin_id);
+                        setCopiedPopupAdminId(true);
+                        setTimeout(() => setCopiedPopupAdminId(false), 2000);
+                      }}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        borderRadius: '8px',
+                        background: copiedPopupAdminId ? '#059669' : '#073B3F',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        cursor: 'pointer',
+                        transition: 'background 0.2s',
+                      }}
+                    >
+                      {copiedPopupAdminId ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
+              {/* Admin Details Summary */}
+              <div
+                style={{
+                  background: '#FDFDFC',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '14px',
+                  padding: '14px 18px',
+                  marginBottom: '22px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                }}
+              >
+                {adminSuccessPopup.name && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                    <span style={{ color: '#6B7280', fontWeight: 600 }}>Full Name:</span>
+                    <span style={{ color: '#111827', fontWeight: 700 }}>{adminSuccessPopup.name}</span>
+                  </div>
+                )}
+                {adminSuccessPopup.email && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                    <span style={{ color: '#6B7280', fontWeight: 600 }}>Email:</span>
+                    <span style={{ color: '#111827', fontWeight: 700 }}>{adminSuccessPopup.email}</span>
+                  </div>
+                )}
+                {adminSuccessPopup.mobile && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                    <span style={{ color: '#6B7280', fontWeight: 600 }}>Mobile:</span>
+                    <span style={{ color: '#111827', fontWeight: 700 }}>{adminSuccessPopup.mobile}</span>
+                  </div>
+                )}
+                {adminSuccessPopup.city && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                    <span style={{ color: '#6B7280', fontWeight: 600 }}>City:</span>
+                    <span style={{ color: '#111827', fontWeight: 700 }}>{adminSuccessPopup.city}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = `Admin ID: ${adminSuccessPopup.admin_id}\nName: ${adminSuccessPopup.name}\nEmail: ${adminSuccessPopup.email}\nMobile: ${adminSuccessPopup.mobile}`;
+                    navigator.clipboard.writeText(text);
+                    setCopiedPopupAdminId(true);
+                    setTimeout(() => setCopiedPopupAdminId(false), 2000);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '12px 18px',
+                    borderRadius: '12px',
+                    border: '1px solid #D1D5DB',
+                    background: '#F9FAFB',
+                    color: '#374151',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {copiedPopupAdminId ? 'Copied Details!' : 'Copy All Details'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdminSuccessPopup(null)}
+                  style={{
+                    flex: 1,
+                    padding: '12px 18px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #073B3F, #0C4044)',
+                    color: '#FFFFFF',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 6px 18px rgba(7, 59, 63, 0.25)',
+                  }}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ADMIN ERROR MODAL ── */}
+      {adminErrorPopup && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            animation: 'fadeIn 0.25s ease',
+          }}
+          onClick={() => setAdminErrorPopup(null)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '480px',
+              background: '#FFFFFF',
+              borderRadius: '24px',
+              boxShadow: '0 25px 60px -15px rgba(220, 38, 38, 0.3)',
+              overflow: 'hidden',
+              border: '1px solid #FECACA',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
+                padding: '22px 28px',
+                color: '#FFFFFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '24px' }}>⚠️</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>
+                    {adminErrorPopup.title || 'Action Required'}
+                  </h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'rgba(255, 255, 255, 0.85)' }}>
+                    Please correct the following fields
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAdminErrorPopup(null)}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: '24px 28px' }}>
+              <p style={{ margin: '0 0 14px', color: '#6B7280', fontSize: '13.5px' }}>
+                Please review and correct the following items:
+              </p>
+              <div
+                style={{
+                  background: '#FEF2F2',
+                  border: '1px solid #FEE2E2',
+                  borderRadius: '14px',
+                  padding: '14px 18px',
+                  marginBottom: '20px',
+                  maxHeight: '260px',
+                  overflowY: 'auto',
+                }}
+              >
+                <ul style={{ margin: 0, paddingLeft: '18px', color: '#991B1B', fontSize: '13.5px', lineHeight: 1.6 }}>
+                  {adminErrorPopup.errors.map((errMsg, i) => (
+                    <li key={i} style={{ fontWeight: 600 }}>{errMsg}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setAdminErrorPopup(null)}
+                  style={{
+                    padding: '10px 24px',
+                    background: '#DC2626',
+                    border: 'none',
+                    borderRadius: '12px',
+                    color: '#FFFFFF',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Review & Fix
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

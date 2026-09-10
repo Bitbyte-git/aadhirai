@@ -189,6 +189,52 @@ export default function AddNewProduct() {
   const [discountAmt, setDiscountAmt] = useState(null)
   const [originalPrice, setOriginalPrice] = useState(null)
   const [lightboxUrl, setLightboxUrl] = useState(null)
+  const [productSuccessPopup, setProductSuccessPopup] = useState(null)
+  const [productErrorPopup, setProductErrorPopup] = useState(null)
+
+  const parseProductError = (err) => {
+    const data = err?.response?.data
+    if (!data) return ['An unexpected network error occurred. Please check your connection and try again.']
+    if (typeof data === 'string') {
+      if (data.includes('<html') || data.includes('<!DOCTYPE')) {
+        return ['Server error occurred. Please contact system support.']
+      }
+      return [data]
+    }
+    if (Array.isArray(data)) {
+      return data.map((item) => (typeof item === 'object' ? JSON.stringify(item) : String(item)))
+    }
+    if (typeof data === 'object') {
+      const messages = []
+      const fieldNames = {
+        name: 'Product Name',
+        category: 'Category',
+        metal: 'Metal',
+        grade: 'Grade',
+        price: 'Price',
+        stock_quantity: 'Stock Quantity',
+        cross_weight: 'Gross Weight',
+        stone_weight: 'Stone Weight',
+        net_weight: 'Net Weight',
+        making_charge: 'Making Charge',
+        stone_value: 'Stone Value',
+        uploaded_images: 'Product Images',
+        detail: 'System Notice',
+      }
+      Object.entries(data).forEach(([key, val]) => {
+        const readableKey = fieldNames[key] || key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+        if (Array.isArray(val)) {
+          val.forEach((m) => messages.push(`${readableKey}: ${typeof m === 'object' ? JSON.stringify(m) : m}`))
+        } else if (typeof val === 'object' && val !== null) {
+          messages.push(`${readableKey}: ${JSON.stringify(val)}`)
+        } else {
+          messages.push(`${readableKey}: ${val}`)
+        }
+      })
+      return messages.length > 0 ? messages : ['Validation failed. Please verify product details.']
+    }
+    return ['An unexpected error occurred while adding the product.']
+  }
 
   const dark = false
   const bg       = 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 52%,#E7EDEC 100%)'
@@ -275,15 +321,26 @@ export default function AddNewProduct() {
   }
 
   const handleSave = async () => {
-    if (!productForm.name.trim())    { setProductMsg('ERR: Name required');     return }
-    if (!productForm.cross_weight)   { setProductMsg('ERR: Cross Weight required');   return }
-    if (!productForm.category)       { setProductMsg('ERR: Category required'); return }
-    if (!productForm.metal)          { setProductMsg('ERR: Metal required');    return }
-    if (!productForm.grade) { setProductMsg('ERR: Grade required'); return }
-    if (!productForm.stock_quantity) { setProductMsg('ERR: Stock Quantity required'); return }
+    const missing = []
+    if (!productForm.name || !productForm.name.trim()) missing.push('Product Name is required')
+    if (!productForm.category) missing.push('Category is required')
+    if (!productForm.metal) missing.push('Metal type is required')
+    if (!productForm.grade) missing.push('Grade is required')
+    if (!productForm.cross_weight) missing.push('Gross Weight is required')
+    if (!productForm.stock_quantity) missing.push('Stock Quantity is required')
+
+    if (missing.length > 0) {
+      setProductErrorPopup({
+        title: 'Validation Error',
+        errors: missing,
+      })
+      setProductMsg('ERR: Required fields missing')
+      return
+    }
+
     setProductSaving(true)
     try {
-          const fd = new FormData()
+      const fd = new FormData()
       Object.entries(productForm).forEach(([k, v]) => {
         if (k === 'subcategory' || k === 'nameChoice') return   // backend model-la illa — skip pannanum
         if (k === 'gift_tags') { fd.append(k, JSON.stringify(v)); return }   // array-ah JSON string-a send pannanum
@@ -293,10 +350,22 @@ export default function AddNewProduct() {
       if (livePrice) fd.append('price', livePrice)
       if (originalPrice) fd.append('original_price', originalPrice)
       productImages.forEach(img => fd.append('uploaded_images', img))
-      await api.post('/jewelry-products/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      
+      const res = await api.post('/jewelry-products/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      const createdItem = res.data || {}
+
+      setProductSuccessPopup({
+        title: 'Product Created Successfully!',
+        name: createdItem.name || productForm.name,
+        category: createdItem.category || productForm.category,
+        metal: createdItem.metal || productForm.metal,
+        grade: createdItem.grade || productForm.grade,
+        price: createdItem.price || livePrice,
+        stock: createdItem.stock_quantity || productForm.stock_quantity,
+        sku: createdItem.sku || '',
+      })
+
       setProductMsg('OK: Product added!')
-      // NEW: redirect venaam — same page-layE irukanum. Form ah mattum reset pannurom,
-      // adhukku apparam innoru product udane add pannalam.
       setProductForm({
         category: '', metal: '', grade: '', name: '', nameChoice: '', description: '',
         cross_weight: '', stone_weight: '', making_charge: '', stone_value: '',
@@ -311,7 +380,14 @@ export default function AddNewProduct() {
       setMakingAmt(null)
       setDiscountAmt(null)
       setOriginalPrice(null)
-    } catch (err) { setProductMsg('ERR: ' + JSON.stringify(err.response?.data || err.message)) }
+    } catch (err) {
+      const errors = parseProductError(err)
+      setProductErrorPopup({
+        title: 'Product Creation Failed',
+        errors,
+      })
+      setProductMsg('ERR: ' + errors[0])
+    }
     setProductSaving(false)
   }
 
@@ -685,6 +761,320 @@ export default function AddNewProduct() {
           <button onClick={() => setLightboxUrl(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(201,32,53,0.85)', border: 'none', color: '#FDFDFC', width: '36px', height: '36px', borderRadius: '50%', fontSize: '16px', cursor: 'pointer', fontWeight: 900 }}>✕</button>
         </div>
       )}
+
+      {/* ── PRODUCT CREATION SUCCESS MODAL ── */}
+      {productSuccessPopup && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            backgroundColor: 'rgba(7, 59, 63, 0.65)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            animation: 'fadeIn 0.25s ease',
+          }}
+          onClick={() => setProductSuccessPopup(null)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '460px',
+              background: '#FFFFFF',
+              borderRadius: '24px',
+              boxShadow: '0 25px 60px -15px rgba(7, 59, 63, 0.3)',
+              overflow: 'hidden',
+              border: '1px solid #E6D6C5',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header Banner */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #073B3F 0%, #0C4044 60%, #155E63 100%)',
+                padding: '24px 28px 20px',
+                color: '#FFFFFF',
+                position: 'relative',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div
+                  style={{
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '50%',
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    border: '2px solid rgba(255, 255, 255, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '22px',
+                    flexShrink: 0,
+                  }}
+                >
+                  ✓
+                </div>
+                <div>
+                  <h3
+                    style={{
+                      margin: 0,
+                      fontSize: '19px',
+                      fontWeight: 800,
+                      fontFamily: '"Cormorant Garamond", Georgia, serif',
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    Product Created Successfully!
+                  </h3>
+                  <p
+                    style={{
+                      margin: '3px 0 0',
+                      fontSize: '12px',
+                      color: 'rgba(255, 255, 255, 0.8)',
+                    }}
+                  >
+                    Item is now published to jewelry inventory
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProductSuccessPopup(null)}
+                style={{
+                  position: 'absolute',
+                  top: '18px',
+                  right: '18px',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div style={{ padding: '24px 28px' }}>
+              <div
+                style={{
+                  background: '#FDFDFC',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '16px',
+                  padding: '16px 20px',
+                  marginBottom: '22px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F3F4F6', paddingBottom: '8px' }}>
+                  <span style={{ color: '#6B7280', fontSize: '12px', fontWeight: 600 }}>Product:</span>
+                  <span style={{ color: '#073B3F', fontSize: '14px', fontWeight: 800 }}>{productSuccessPopup.name}</span>
+                </div>
+                {productSuccessPopup.category && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                    <span style={{ color: '#6B7280', fontWeight: 600 }}>Category:</span>
+                    <span style={{ color: '#111827', fontWeight: 700, textTransform: 'capitalize' }}>{productSuccessPopup.category}</span>
+                  </div>
+                )}
+                {productSuccessPopup.metal && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                    <span style={{ color: '#6B7280', fontWeight: 600 }}>Metal / Grade:</span>
+                    <span style={{ color: '#111827', fontWeight: 700, textTransform: 'capitalize' }}>
+                      {productSuccessPopup.metal} {productSuccessPopup.grade ? `(${productSuccessPopup.grade})` : ''}
+                    </span>
+                  </div>
+                )}
+                {productSuccessPopup.price && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                    <span style={{ color: '#6B7280', fontWeight: 600 }}>Price:</span>
+                    <span style={{ color: '#059669', fontWeight: 800 }}>₹{Number(productSuccessPopup.price).toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                {productSuccessPopup.stock !== undefined && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                    <span style={{ color: '#6B7280', fontWeight: 600 }}>Stock Quantity:</span>
+                    <span style={{ color: '#111827', fontWeight: 700 }}>{productSuccessPopup.stock} units</span>
+                  </div>
+                )}
+                {productSuccessPopup.sku && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                    <span style={{ color: '#6B7280', fontWeight: 600 }}>SKU:</span>
+                    <span style={{ color: '#6B7280', fontFamily: 'monospace', fontWeight: 700 }}>{productSuccessPopup.sku}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setProductSuccessPopup(null)}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    border: '1px solid #D1D5DB',
+                    background: '#F9FAFB',
+                    color: '#374151',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  + Add Another
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProductSuccessPopup(null)
+                    navigate('/add-product')
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #073B3F, #0C4044)',
+                    color: '#FFFFFF',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 6px 18px rgba(7, 59, 63, 0.25)',
+                  }}
+                >
+                  View Products
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PRODUCT CREATION ERROR MODAL ── */}
+      {productErrorPopup && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            animation: 'fadeIn 0.25s ease',
+          }}
+          onClick={() => setProductErrorPopup(null)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '460px',
+              background: '#FFFFFF',
+              borderRadius: '24px',
+              boxShadow: '0 25px 60px -15px rgba(220, 38, 38, 0.3)',
+              overflow: 'hidden',
+              border: '1px solid #FECACA',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
+                padding: '22px 28px',
+                color: '#FFFFFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '24px' }}>⚠️</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>
+                    {productErrorPopup.title || 'Action Required'}
+                  </h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'rgba(255, 255, 255, 0.85)' }}>
+                    Please review and correct the errors
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProductErrorPopup(null)}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: '24px 28px' }}>
+              <div
+                style={{
+                  background: '#FEF2F2',
+                  border: '1px solid #FEE2E2',
+                  borderRadius: '14px',
+                  padding: '14px 18px',
+                  marginBottom: '20px',
+                  maxHeight: '260px',
+                  overflowY: 'auto',
+                }}
+              >
+                <ul style={{ margin: 0, paddingLeft: '18px', color: '#991B1B', fontSize: '13.5px', lineHeight: 1.6 }}>
+                  {productErrorPopup.errors.map((errMsg, i) => (
+                    <li key={i} style={{ fontWeight: 600 }}>{errMsg}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setProductErrorPopup(null)}
+                  style={{
+                    padding: '10px 24px',
+                    background: '#DC2626',
+                    border: 'none',
+                    borderRadius: '12px',
+                    color: '#FFFFFF',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Review & Fix
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

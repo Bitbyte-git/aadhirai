@@ -144,7 +144,7 @@ function WithInternalRoleNavbar({ children }) {
         managementItems={[{ label: 'Dashboard', path: cfg.home }, { label: cfg.hierarchyLabel, path: cfg.hierarchy }, { label: cfg.createLabel, path: cfg.home }]}
         celebrationItems={[{ label: "Today's Birthdays", path: cfg.home }, { label: "Today's Anniversaries", path: cfg.home }, { label: 'Work Anniversaries', path: cfg.home }]}
         announcementItems={[{ label: 'Announcements', path: cfg.home }]}
-        coinItems={[{ label: 'Buy Coin', path: '/buy-coin' }, { label: 'Stored Coin', path: '/stored-coins' }, { label: role === 'promotor' ? 'My Requests' : 'Coin Requests', path: '/coin-requests-page' }, { label: 'Coin Transactions', path: '/coin-transactions' }]}
+        coinItems={[{ label: 'Buy Coin', path: '/buy-coin' }, { label: 'Available Coins', path: '/available-coins' }, { label: role === 'promotor' ? 'My Requests' : 'Coin Requests', path: '/coin-requests-page' }, { label: 'Coin Transactions', path: '/coin-transactions' }]}
         reportItems={[{ label: 'Hierarchy Report', path: cfg.hierarchy }, { label: 'Sales Report', path: '/sales-report' }]}
         actionItems={[{ label: 'Dashboard', icon: 'user', path: cfg.home }, { label: 'Logout', icon: 'logout', variant: 'danger', action: () => { localStorage.clear(); window.location.href = '/login' } }]}
       />
@@ -337,6 +337,7 @@ export default function App() {
           <Route path="/buy-coin" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><BuyCoin /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/coins-reward" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><CoinsReward /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/stored-coins" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><StoredCoins /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/available-coins" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><StoredCoins /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/coin-requests-page" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><CoinRequests /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/coin-transactions" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><TransactionHistory /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/promotions/sales-order-list" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><PromotionSalesOrderList /></WithSuperAdminNavbar></ProtectedRoute>} />

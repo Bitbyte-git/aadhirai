@@ -3798,10 +3798,15 @@ class CoinRequestView(APIView):
 class CoinRequestApproveView(APIView):
     """Any role approves a pending request sent to them — deducts coins from
     the approver's own stock and adds them into the requester's stock.
-    Super Admin can oversee and approve any pending request across hierarchy."""
+    Super Admin can oversee and approve any pending request across hierarchy (requires Super Admin password)."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
+        if request.user.role == 'super_admin':
+            password = request.data.get('password', '').strip()
+            if not password or not request.user.check_password(password):
+                return Response({'error': 'Invalid Super Admin password. Action unauthorized.'}, status=401)
+
         try:
             if request.user.role == 'super_admin':
                 coin_request = CoinRequest.objects.prefetch_related('items').get(
@@ -3864,10 +3869,15 @@ class CoinRequestApproveView(APIView):
 
 class CoinRequestRejectView(APIView):
     """Any role rejects a pending request sent to them, with a reason message.
-    Super Admin can reject any pending request across hierarchy."""
+    Super Admin can reject any pending request across hierarchy (requires Super Admin password)."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
+        if request.user.role == 'super_admin':
+            password = request.data.get('password', '').strip()
+            if not password or not request.user.check_password(password):
+                return Response({'error': 'Invalid Super Admin password. Action unauthorized.'}, status=401)
+
         message = request.data.get('message', '').strip()
         if not message:
             return Response({'error': 'Reject reason is required'}, status=400)
@@ -3894,11 +3904,18 @@ class CoinRequestRejectView(APIView):
 
 class CoinRequestApproveAllView(APIView):
     """Any role approves ALL pending requests sent to them in one click.
-    Deducts from approver's stock and adds to each requester's stock."""
+    Deducts from approver's stock and adds to each requester's stock.
+    Super Admin requires password confirmation."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        pending = CoinRequest.objects.filter(requested_to=request.user, status='pending').prefetch_related('items')
+        if request.user.role == 'super_admin':
+            password = request.data.get('password', '').strip()
+            if not password or not request.user.check_password(password):
+                return Response({'error': 'Invalid Super Admin password. Action unauthorized.'}, status=401)
+            pending = CoinRequest.objects.filter(status='pending').prefetch_related('items')
+        else:
+            pending = CoinRequest.objects.filter(requested_to=request.user, status='pending').prefetch_related('items')
 
         needed = {}
         for coin_request in pending:
@@ -3967,10 +3984,67 @@ class SuperAdminAddCoinsView(APIView):
 
 
 class CoinStockView(APIView):
-    """Logged-in user sees their own coin stock."""
+    """Logged-in user sees their own coin stock.
+    Super Admin can pass ?scope=hierarchy to see coin holdings across all admins, dealers, sub-dealers, promotors."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        scope = request.query_params.get('scope')
+        if scope == 'hierarchy' and request.user.role == 'super_admin':
+            stocks = CoinStock.objects.filter(qty__gt=0).select_related('user').order_by('user__role', 'metal_type')
+            user_map = {}
+            for s in stocks:
+                u = s.user
+                if u.id not in user_map:
+                    role_field = {
+                        'promotor': 'promotor_profile',
+                        'sub_dealer': 'sub_dealer_profile',
+                        'dealer': 'dealer_profile',
+                        'admin': 'admin_profile',
+                        'shop': 'shop_profile',
+                    }.get(u.role)
+                    prof = getattr(u, role_field, None) if role_field else None
+                    id_field = {
+                        'promotor': 'promotor_id',
+                        'sub_dealer': 'sub_dealer_id',
+                        'dealer': 'dealer_id',
+                        'admin': 'admin_id',
+                    }.get(u.role)
+                    id_str = getattr(prof, id_field, '') if (prof and id_field) else ''
+                    if prof:
+                        name = f"{prof.first_name} {prof.last_name or ''}".strip()
+                        phone = getattr(prof, 'mobile_number', '')
+                    else:
+                        name = f"{u.first_name} {u.last_name or ''}".strip() or u.email
+                        phone = getattr(u, 'phone_number', '') or ''
+
+                    user_map[u.id] = {
+                        'user_id': u.id,
+                        'id_str': id_str,
+                        'name': name,
+                        'email': u.email,
+                        'role': u.role,
+                        'phone': phone,
+                        'items': [],
+                        'total_pieces': 0,
+                        'total_grams': 0.0,
+                    }
+                user_map[u.id]['items'].append({
+                    'id': s.id,
+                    'metal_type': s.metal_type,
+                    'weight_label': s.weight_label,
+                    'weight_grams': float(s.weight_grams or 0),
+                    'qty': s.qty,
+                })
+                user_map[u.id]['total_pieces'] += s.qty
+                if s.weight_grams:
+                    user_map[u.id]['total_grams'] += round(float(s.weight_grams) * s.qty, 4)
+
+            result = list(user_map.values())
+            role_order = {'super_admin': 0, 'admin': 1, 'dealer': 2, 'sub_dealer': 3, 'promotor': 4}
+            result.sort(key=lambda x: (role_order.get(x['role'], 99), x['name']))
+            return Response(result)
+
         stock = CoinStock.objects.filter(user=request.user, qty__gt=0).order_by('metal_type', 'weight_grams')
         serializer = CoinStockSerializer(stock, many=True)
         return Response(serializer.data)

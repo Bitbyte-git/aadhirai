@@ -2114,9 +2114,9 @@ const fetchCoinStock = async () => {
               <div className="sa-menu-dropdown">
                 <div className="sa-menu-title"><span className="sa-menu-mark">D</span> Coins</div>
                 <button className="sa-menu-link" onClick={() => { setShowAddCoin(true); setCoinCart([]); setCoinBuyMsg('') }}>Add Coins <span>-&gt;</span></button>
-                <button className="sa-menu-link" onClick={() => navigate('/stored-coins')}>Stored Coin <span>-&gt;</span></button>
+                <button className="sa-menu-link" onClick={() => navigate('/available-coins')}>Available Coins <span>-&gt;</span></button>
                 <button className="sa-menu-link" onClick={() => navigate('/coin-requests-page')}>Coin Requests <span>-&gt;</span></button>
-                <button className="sa-menu-foot" onClick={() => navigate('/stored-coins')}>View All Coins</button>
+                <button className="sa-menu-foot" onClick={() => navigate('/available-coins')}>View All Coins</button>
               </div>
             </div>
 
@@ -2446,9 +2446,9 @@ const fetchCoinStock = async () => {
   <span style={{ fontSize: '12px', fontWeight: 700, color: '#fbbf24' }}>Add Coins</span>
 </div>
 
-<div onClick={() => navigate('/stored-coins')}
+<div onClick={() => navigate('/available-coins')}
   style={{ cursor: 'pointer', padding: '6px 14px', borderRadius: '10px', border: '1px solid rgba(74,222,128,0.4)', background: 'rgba(74,222,128,0.1)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-  <span style={{ fontSize: '12px', fontWeight: 700, color: '#4ade80' }}>Stored Coin</span>
+  <span style={{ fontSize: '12px', fontWeight: 700, color: '#4ade80' }}>Available Coins</span>
 </div>
 
 <div onClick={() => navigate('/coin-requests-page')}

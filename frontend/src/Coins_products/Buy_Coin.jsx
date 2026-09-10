@@ -674,7 +674,7 @@ export default function BuyCoin() {
             </p>
           </div>
           <div className="bc-header-actions">
-            <button className="bc-btn-secondary" onClick={() => navigate("/stored-coins")}>
+            <button className="bc-btn-secondary" onClick={() => navigate("/available-coins")}>
               <CoinIcon size={15} color="#073B3F" /> Available Coins
             </button>
             <button className="bc-btn-secondary" onClick={() => navigate("/coin-requests-page")}>

@@ -245,7 +245,7 @@ export default function SuperAdminNavbar({
     { keywords: ['hierarchy sales report', 'sales count'], path: '/hierarchy-sales-count' },
     { keywords: ['sales report'], path: '/sales-report' },
     { keywords: ['buy coin'], path: '/buy-coin' },
-    { keywords: ['stored coin'], path: '/stored-coins' },
+    { keywords: ['available coin', 'available coins', 'stored coin'], path: '/available-coins' },
     { keywords: ['coin requests'], path: '/coin-requests-page' },
     { keywords: ['coin transactions'], path: '/coin-transactions' },
     { keywords: ['retailer'], path: '/promotions/retailer' },
@@ -420,7 +420,7 @@ export default function SuperAdminNavbar({
   ]
   const coins = [
     ['Add Coins', () => navigate('/buy-coin')],
-    ['Available Coins', () => navigate('/stored-coins')],
+    ['Available Coins', () => navigate('/available-coins')],
     ['Requests Coins', () => navigate('/coin-requests-page')],
     ['Transaction Coins History', () => navigate('/coin-transactions')],
   ]

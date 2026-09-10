@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import logo from '../assets/logo.png'
@@ -1256,7 +1256,7 @@ const handleSubmit = async e => {
         ]}
         coinItems={[
           { label: 'Buy Coin', path: '/buy-coin' },
-          { label: 'Stored Coin', path: '/stored-coins' },
+          { label: 'Available Coins', path: '/available-coins' },
           { label: 'Coin Requests', path: '/coin-requests-page', badge: coinRequests.filter(r => r.status === 'pending').length },
           { label: 'Coin Transactions', path: '/coin-transactions' },
         ]}

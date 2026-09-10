@@ -696,7 +696,7 @@ export default function TransactionHistory() {
             >
               <DownloadIcon size={15} color="#FFFFFF" /> Export CSV
             </button>
-            <button className="ct-btn-secondary" onClick={() => navigate("/stored-coins")}>
+            <button className="ct-btn-secondary" onClick={() => navigate("/available-coins")}>
               <CoinIcon size={15} color="#073B3F" /> Available Coins
             </button>
             <button className="ct-btn-secondary" onClick={() => navigate("/coin-requests-page")}>

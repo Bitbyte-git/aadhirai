@@ -3,7 +3,7 @@ import { PlusIcon, CoinIcon, InboxIcon, HistoryIcon, ArrowRightIcon } from "../c
 
 export const COIN_TABS = [
   { label: "Add Coins", path: "/buy-coin", icon: PlusIcon },
-  { label: "Available Coins", path: "/stored-coins", icon: CoinIcon },
+  { label: "Available Coins", path: "/available-coins", icon: CoinIcon },
   { label: "Requests Coins", path: "/coin-requests-page", icon: InboxIcon },
   { label: "Transaction Coins History", path: "/coin-transactions", icon: HistoryIcon },
 ];

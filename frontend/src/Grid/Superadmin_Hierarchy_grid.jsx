@@ -602,6 +602,16 @@ function printPersonCard(node, role, cfg, color, ancestors, superAdminEmail) {
   printWindow.document.close()
 }
 
+// ── HOVER CHAIN POPUP HELPERS ──
+let _chainHideTimer = null
+function removeChainPopup() {
+  document.querySelectorAll('#chain-popup').forEach(el => el.remove())
+}
+function scheduleHideChainPopup() {
+  clearTimeout(_chainHideTimer)
+  _chainHideTimer = setTimeout(() => removeChainPopup(), 200)
+}
+
 function showChainPopup(anchorEl, ancestors, current, dark, superAdminEmail) {
   clearTimeout(_chainHideTimer)
   removeChainPopup()

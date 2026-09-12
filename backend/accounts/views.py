@@ -946,6 +946,9 @@ class FullHierarchyView(APIView):
             admins = AdminProfile.objects.filter(user=request.user).prefetch_related(dealers_pf)
         else:
             admins = AdminProfile.objects.all().prefetch_related(dealers_pf)
+            admin_id_param = request.query_params.get('admin_id')
+            if admin_id_param:
+                admins = admins.filter(id=admin_id_param)
 
         tree = []
         for admin in admins:

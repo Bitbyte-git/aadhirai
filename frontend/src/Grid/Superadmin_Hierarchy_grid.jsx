@@ -135,129 +135,421 @@ function hexToRgb(hex) {
   return `${r},${g},${b}`
 }
 
-// ── NEW: shared dark print theme (same app color world), used by both print modes ──
+// ── Super Admin Page Theme Print Styles for Profile Card ──
 function getPrintStyles(accent) {
   return `
     * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    body { font-family:'Inter',system-ui,sans-serif; background:radial-gradient(circle at 20% 0%, #0b1a2e 0%, #020617 55%); color:#f8fafc; padding:40px; }
-    .wrapper { max-width:520px; margin:0 auto; }
-    .header { text-align:center; margin-bottom:26px; }
-    .header h1 { font-size:20px; font-weight:800; background:linear-gradient(90deg,#22c55e,#38bdf8); -webkit-background-clip:text; background-clip:text; color:transparent; letter-spacing:0.3px; }
-    .header p { font-size:12px; color:#64748b; margin-top:4px; letter-spacing:0.5px; }
-    .chain-item { background:linear-gradient(160deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)); border:1.5px solid #334155; border-radius:14px; padding:14px 18px; margin-bottom:8px; }
-    .chain-item.current { border-color:${accent}; background:${accent}14; box-shadow:0 0 22px ${accent}33; }
-    .chain-role { font-size:10px; font-weight:800; color:#94a3b8; letter-spacing:1.4px; margin-bottom:4px; text-transform:uppercase; }
-    .chain-item.current .chain-role { color:${accent}; }
-    .chain-id { font-family:monospace; font-size:11px; color:${accent}; margin-bottom:4px; }
-    .chain-name { font-size:16px; font-weight:800; color:#f8fafc; margin-bottom:6px; }
-    .chain-email { font-size:12px; color:#94a3b8; }
-    .chain-info { font-size:12px; color:#94a3b8; margin-top:3px; }
-    .chain-arrow { text-align:center; color:#475569; margin:4px 0; font-size:14px; }
-    .footer { text-align:center; font-size:10px; color:#475569; margin-top:24px; letter-spacing:0.5px; }
-    .count-row { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin:18px 0 22px; }
-    .count-pill { font-size:10px; font-weight:800; border:1px solid; border-radius:20px; padding:4px 12px; }
-    .tree-node { margin-bottom:6px; }
-    .tree-children { margin-left:22px; padding-left:16px; border-left:2px dashed #334155; margin-top:10px; display:flex; flex-direction:column; gap:10px; }
-    .tree-card { background:linear-gradient(160deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)); border:1.5px solid; border-radius:12px; padding:10px 14px; }
-    .tree-role { font-size:9px; font-weight:800; letter-spacing:1.2px; margin-bottom:2px; }
-    .tree-id { font-family:monospace; font-size:10px; margin-bottom:3px; }
-    .tree-name { font-size:13px; font-weight:700; color:#f8fafc; margin-bottom:2px; }
-    .tree-info { font-size:11px; color:#94a3b8; }
-    /* ── org-chart tree — before/after pseudo elements use panni connector lines varaikurom ── */
-    .org-tree-wrapper { overflow:visible; padding:20px 10px; position:relative; text-align:center; width:100%; }
-    #org-scale-inner { display:inline-block; }
-    .org-tree, .org-tree ul, .org-tree li { margin:0; padding:0; list-style:none; }
-    .org-tree { display:flex; justify-content:center; min-width:max-content; }
-    .org-tree ul { display:flex; padding-top:34px; position:relative; }
-    .org-tree li { display:flex; flex-direction:column; align-items:center; padding:34px 14px 0 14px; position:relative; }
-    /* ::before = left half top line, ::after = right half top line — rendu serndhu oru node-oda parent-connector varaikum */
-    .org-tree li::before, .org-tree li::after {
-      content:''; position:absolute; top:0; right:50%; width:50%; height:34px; border-top:2px solid #475569;
+    body { font-family:'Inter',system-ui,-apple-system,sans-serif; background:#F4F8F8; color:#111817; padding:32px 20px; }
+    .wrapper { max-width:540px; margin:0 auto; background:#FFFFFF; border:1.5px solid #D6E2E1; border-radius:20px; padding:32px; box-shadow:0 12px 36px rgba(7,59,63,0.08); }
+    .header { text-align:center; margin-bottom:26px; border-bottom:1.5px solid #E1EBEA; padding-bottom:18px; }
+    .header h1 { font-size:20px; font-weight:800; color:#073B3F; letter-spacing:0.2px; margin-bottom:4px; }
+    .header p { font-size:12.5px; color:#5C706E; font-weight:600; letter-spacing:0.5px; }
+    .chain-item { background:#FFFFFF; border:1.5px solid #E1EBEA; border-left:4px solid #5C706E; border-radius:12px; padding:12px 16px; margin-bottom:10px; text-align:left; box-shadow:0 2px 8px rgba(7,59,63,0.04); }
+    .chain-item.current { border-color:${accent}; border-left:5px solid ${accent}; background:${accent}0A; box-shadow:0 4px 16px rgba(7,59,63,0.1); }
+    .chain-role { font-size:9.5px; font-weight:800; color:#5C706E; letter-spacing:1.2px; margin-bottom:3px; text-transform:uppercase; }
+    .chain-item.current .chain-role { color:${accent}; font-weight:900; }
+    .chain-id { font-family:monospace; font-size:11px; font-weight:700; color:${accent}; margin-bottom:3px; }
+    .chain-name { font-size:15px; font-weight:800; color:#111817; margin-bottom:4px; }
+    .chain-email { font-size:12px; color:#073B3F; font-weight:600; }
+    .chain-info { font-size:11.5px; color:#5C706E; margin-top:2px; }
+    .chain-arrow { text-align:center; color:#073B3F; margin:2px 0 6px; font-size:16px; font-weight:900; line-height:1; }
+    .footer { text-align:center; font-size:10.5px; color:#5C706E; margin-top:26px; border-top:1px solid #E1EBEA; padding-top:14px; }
+    @media print {
+      body { background:#FFFFFF !important; padding:10mm !important; }
+      .wrapper { border:none !important; box-shadow:none !important; padding:0 !important; max-width:100% !important; }
     }
-    .org-tree li::after { right:auto; left:50%; border-left:2px solid #475569; }
-    .org-tree li:only-child::before, .org-tree li:only-child::after { display:none; }
-    .org-tree li:only-child { padding-top:0; }
-    .org-tree li:first-child::before { border:none; }
-    .org-tree li:last-child::after { border:none; }
-    .org-tree li:last-child::before { border-right:2px solid #475569; border-radius:0 8px 0 0; }
-    .org-tree li:first-child::after { border-radius:8px 0 0 0; }
-    /* parent-la irundhu kீழ vertical line varra pseudo element */
-    .org-tree ul ul::before {
-      content:''; position:absolute; top:0; left:50%; border-left:2px solid #475569; width:0; height:34px;
-    }
-    .org-card { display:inline-block; background:linear-gradient(160deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)); border:1.5px solid; border-radius:12px; padding:10px 14px; min-width:150px; }
-    .org-role { font-size:9px; font-weight:800; letter-spacing:1.2px; margin-bottom:2px; }
-    .org-id { font-family:monospace; font-size:10px; margin-bottom:3px; }
-    .org-name { font-size:13px; font-weight:700; color:#f8fafc; margin-bottom:2px; }
-    .org-info { font-size:11px; color:#94a3b8; }
-    @media print { body { padding:20px; } }
   `
 }
 
-// ── NEW: single node card used inside the hierarchy tree ──
-function renderTreeNodeCard(node, role, extraStyle = '') {
-  const cfg = ROLE_CFG[role]
-  const idVal = node[cfg.idKey] || node.id || '—'
-  const name = [node.first_name, node.last_name].filter(Boolean).join(' ') || '—'
-  const phone = node.mobile_number || '—'
-  const city = node.city_name || ''
-  return `<div class="org-card" style="border-color:${cfg.color};${extraStyle}">
-    <div class="org-role" style="color:${cfg.color}">${cfg.label}</div>
-    <div class="org-id" style="color:${cfg.color}">${idVal}</div>
-    <div class="org-name">${name}</div>
-    <div class="org-info">Tel: ${phone}${city ? ' • ' + city : ''}</div>
-  </div>`
-}
-
-// ── NEW: real horizontal org-chart tree using nested <ul><li> + ::before/::after connectors ──
-function renderOrgTreeNode(node, role, extraStyle = '') {
-  const cardHtml = renderTreeNodeCard(node, role, extraStyle)
-  const childRole = CHILD_ROLE[role]
-  const children = childRole ? (node[CHILD_KEY[role]] || []) : []
-  const childrenHtml = children.length
-    ? `<ul>${children.map(ch => `<li>${renderOrgTreeNode(ch, childRole)}</li>`).join('')}</ul>`
-    : ''
-  return `${cardHtml}${childrenHtml}`
-}
-
-// ── NEW: recursively renders every child, grandchild... below a node ──
-function renderDescendantsTree(node, role) {
-  const childRole = CHILD_ROLE[role]
-  if (!childRole) return ''
-  const children = node[CHILD_KEY[role]] || []
-  if (!children.length) return ''
-  return `<div class="tree-children">${children.map(ch => `
-    <div class="tree-node">
-      ${renderTreeNodeCard(ch, childRole)}
-      ${renderDescendantsTree(ch, childRole)}
-    </div>`).join('')}</div>`
-}
-
-// ── NEW: counts every level below a node, for the summary pills ──
-function countDescendants(node, role) {
-  const counts = {}
-  const walk = (n, r) => {
-    const childRole = CHILD_ROLE[r]
-    if (!childRole) return
-    const children = n[CHILD_KEY[r]] || []
-    counts[childRole] = (counts[childRole] || 0) + children.length
-    children.forEach(ch => walk(ch, childRole))
+function countSubtree(adminNode) {
+  const counts = { dealer: 0, sub_dealer: 0, promotor: 0, customer: 0, orders: adminNode.order_count || 0 }
+  const countCust = (c) => {
+    counts.customer++
+    if (c.customers && c.customers.length) {
+      c.customers.forEach(countCust)
+    }
   }
-  walk(node, role)
+  ;(adminNode.dealers || []).forEach(d => {
+    counts.dealer++
+    ;(d.sub_dealers || []).forEach(sd => {
+      counts.sub_dealer++
+      ;(sd.promotors || []).forEach(p => {
+        counts.promotor++
+        ;(p.customers || []).forEach(countCust)
+      })
+    })
+  })
   return counts
 }
 
-// ══════════════════════════════════════════════════════════════════
-// HOVER CHAIN POPUP + PRINT — same behaviour as your old page,
-// only pasted here as-is so nothing breaks.
-// ══════════════════════════════════════════════════════════════════
-let _chainHideTimer = null
-function removeChainPopup() {
-  document.querySelectorAll('#chain-popup').forEach(el => el.remove())
+function renderBracketBranch(node, role, childRole, childKey) {
+  const cfg = ROLE_CFG[role] || { color: '#073B3F', label: role.toUpperCase(), idKey: 'id' }
+  const idVal = node[cfg.idKey] || node.id || '—'
+  const name = [node.first_name, node.last_name].filter(Boolean).join(' ') || node.name || '—'
+  const phone = node.mobile_number || ''
+  const city = node.city_name || ''
+  const orderCount = node.order_count ?? 0
+  const children = childRole && childKey ? (node[childKey] || []) : []
+  const hasChildren = children.length > 0
+  const nextChildRole = CHILD_ROLE[childRole]
+  const nextChildKey = CHILD_KEY[childRole]
+
+  const cardHtml = `
+    <div class="bracket-card" style="border-left-color: ${cfg.color};">
+      <div class="bracket-card-role" style="color: ${cfg.color}; background: ${cfg.color}15;">
+        ${cfg.label}
+      </div>
+      <div class="bracket-card-id" style="color: ${cfg.color};">${idVal}</div>
+      <div class="bracket-card-name" title="${name}">${name}</div>
+      ${phone ? `<div class="bracket-card-sub">📞 ${phone}</div>` : ''}
+      ${city ? `<div class="bracket-card-sub">📍 ${city}</div>` : ''}
+      <div class="bracket-card-footer">
+        <span class="bracket-order-badge">📦 ${orderCount} Orders</span>
+        ${hasChildren ? `<span class="bracket-child-badge" style="color:${cfg.color};">${children.length} ${ROLE_CFG[childRole]?.label || 'Downlines'}</span>` : ''}
+      </div>
+    </div>
+  `
+
+  if (!hasChildren) {
+    return `
+      <div class="bracket-branch">
+        <div class="bracket-node-wrapper">${cardHtml}</div>
+      </div>
+    `
+  }
+
+  const childrenHtml = children.map((ch, idx) => {
+    const isFirst = idx === 0
+    const isLast = idx === children.length - 1
+    const isOnly = children.length === 1
+    const posClass = isOnly ? 'bracket-pos-only' : isFirst ? 'bracket-pos-first' : isLast ? 'bracket-pos-last' : 'bracket-pos-middle'
+
+    return `
+      <div class="bracket-child-row ${posClass}">
+        <div class="bracket-arm"></div>
+        ${renderBracketBranch(ch, childRole, nextChildRole, nextChildKey)}
+      </div>
+    `
+  }).join('')
+
+  return `
+    <div class="bracket-branch">
+      <div class="bracket-node-wrapper">${cardHtml}</div>
+      <div class="bracket-stem"></div>
+      <div class="bracket-children">
+        ${childrenHtml}
+      </div>
+    </div>
+  `
 }
-function scheduleHideChainPopup() {
-  clearTimeout(_chainHideTimer)
-  _chainHideTimer = setTimeout(() => removeChainPopup(), 200)
+
+function printHorizontalBracketTree(adminNode, role, ancestors, superAdminEmail) {
+  const adminName = [adminNode.first_name, adminNode.last_name].filter(Boolean).join(' ') || 'Super Stockist'
+  const adminId = adminNode.admin_id || adminNode.id || ''
+  const counts = countSubtree(adminNode)
+
+  const saCardHtml = `
+    <div class="bracket-card bracket-card-root" style="border-left-color: ${ROLE_CFG.super_admin.color};">
+      <div class="bracket-card-role" style="color: ${ROLE_CFG.super_admin.color}; background: ${ROLE_CFG.super_admin.color}18;">
+        LEVEL 1 • SUPER ADMIN
+      </div>
+      <div class="bracket-card-name" style="margin-top:4px;">Main Portal</div>
+      <div class="bracket-card-sub" style="font-weight:750; color:#073B3F;">${superAdminEmail}</div>
+      <div class="bracket-card-footer" style="margin-top:5px;">
+        <span style="color:#16A34A; font-weight:800;">● Active Root</span>
+      </div>
+    </div>
+  `
+
+  const adminBranchHtml = renderBracketBranch(adminNode, 'admin', 'dealer', 'dealers')
+
+  const fullTreeHtml = `
+    <div class="bracket-branch">
+      <div class="bracket-node-wrapper">${saCardHtml}</div>
+      <div class="bracket-stem"></div>
+      <div class="bracket-children">
+        <div class="bracket-child-row bracket-pos-only">
+          <div class="bracket-arm"></div>
+          ${adminBranchHtml}
+        </div>
+      </div>
+    </div>
+  `
+
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    alert('Pop-up blocked! Please allow pop-ups for this site to print.')
+    return
+  }
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>Hierarchy Tree — ${adminName} (${adminId})</title>
+      <style id="print-orientation-style">
+        @page {
+          size: A4 landscape;
+          margin: 8mm 6mm;
+        }
+      </style>
+      <style>
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        body {
+          font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+          background:#F4F8F8;
+          color:#111817;
+          padding:16px 20px 40px;
+          min-width:100%;
+        }
+
+        .print-toolbar {
+          position:sticky; top:0; z-index:9999;
+          background:#FFFFFF; border:1px solid #D6E2E1; border-radius:12px;
+          padding:10px 16px; margin-bottom:16px;
+          display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
+          box-shadow:0 4px 18px rgba(7,59,63,0.1);
+        }
+        .btn-print {
+          background:#073B3F; color:#FFFFFF; border:none; border-radius:8px;
+          padding:8px 18px; font-weight:800; font-size:13px; cursor:pointer;
+          display:inline-flex; align-items:center; gap:6px; transition:background .15s;
+        }
+        .btn-print:hover { background:#0C4044; }
+        .btn-mode {
+          background:#F4F8F8; color:#073B3F; border:1px solid #D6E2E1; border-radius:8px;
+          padding:7px 14px; font-weight:700; font-size:12px; cursor:pointer;
+        }
+        .btn-mode.active {
+          background:#E6F0F0; border-color:#073B3F; color:#073B3F; font-weight:800;
+        }
+        .btn-action {
+          background:#FFFFFF; color:#5C706E; border:1px solid #D6E2E1; border-radius:8px;
+          padding:7px 12px; font-weight:700; font-size:12px; cursor:pointer;
+        }
+        .btn-close {
+          background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; border-radius:8px;
+          padding:7px 14px; font-weight:700; font-size:12px; cursor:pointer;
+        }
+
+        .report-header {
+          background:linear-gradient(135deg,#073B3F 0%,#0C4044 100%);
+          color:#FFFFFF; border-radius:14px; padding:16px 20px; margin-bottom:12px;
+          display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;
+          box-shadow:0 4px 14px rgba(7,59,63,0.15);
+        }
+        .report-brand h2 { font-size:16px; font-weight:900; letter-spacing:0.5px; color:#FFFFFF; }
+        .report-brand p { font-size:11.5px; color:#D6E2E1; margin-top:2px; font-weight:500; }
+        .report-meta { text-align:right; font-size:11px; color:#E1EBEA; line-height:1.45; }
+        .report-meta strong { color:#FFFFFF; font-weight:800; }
+
+        .report-stats-strip {
+          display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px;
+        }
+        .stat-pill {
+          background:#FFFFFF; border:1.5px solid #D6E2E1; border-radius:9px;
+          padding:6px 12px; font-size:10.5px; font-weight:700;
+          display:inline-flex; align-items:center; gap:6px;
+          box-shadow:0 1px 4px rgba(7,59,63,0.04);
+        }
+        .stat-pill strong { font-size:12px; font-weight:900; }
+
+        .tree-scroll-container {
+          background:#FFFFFF; border:1.5px solid #D6E2E1; border-radius:16px;
+          padding:24px 20px; overflow-x:auto; width:100%; box-shadow:0 4px 20px rgba(7,59,63,0.05);
+        }
+        #bracket-tree-root {
+          display:inline-block; min-width:max-content; position:relative;
+        }
+
+        /* ── BRACKET HIERARCHY TREE CSS ── */
+        .bracket-branch {
+          display:flex; align-items:center; position:relative;
+        }
+        .bracket-node-wrapper {
+          flex-shrink:0; display:flex; align-items:center; z-index:2; position:relative;
+        }
+        .bracket-stem {
+          width:20px; height:2px; background:#073B3F; flex-shrink:0; z-index:1;
+        }
+        .bracket-children {
+          display:flex; flex-direction:column; justify-content:center;
+          position:relative; flex-shrink:0;
+        }
+        .bracket-child-row {
+          display:flex; align-items:center; position:relative; padding:3px 0; margin:0;
+        }
+        .bracket-arm {
+          width:20px; height:2px; background:#073B3F; flex-shrink:0; position:relative; z-index:1;
+        }
+
+        .bracket-child-row.bracket-pos-first::before {
+          content:''; position:absolute; left:0; top:50%; bottom:0; width:2px; background:#073B3F; z-index:1;
+        }
+        .bracket-child-row.bracket-pos-middle::before {
+          content:''; position:absolute; left:0; top:0; bottom:0; width:2px; background:#073B3F; z-index:1;
+        }
+        .bracket-child-row.bracket-pos-last::before {
+          content:''; position:absolute; left:0; top:0; bottom:50%; width:2px; background:#073B3F; z-index:1;
+        }
+        .bracket-child-row.bracket-pos-only::before {
+          display:none;
+        }
+
+        .bracket-card {
+          width:142px; background:#FFFFFF; border:1px solid #D6E2E1;
+          border-left:3.5px solid #073B3F; border-radius:8px;
+          padding:6px 8px; box-shadow:0 1px 4px rgba(7,59,63,0.06);
+          box-sizing:border-box; text-align:left;
+          page-break-inside:avoid; break-inside:avoid;
+        }
+        .bracket-card-root {
+          background:#FAF5FF;
+        }
+        .bracket-card-role {
+          display:inline-block; font-size:8px; font-weight:900;
+          letter-spacing:0.5px; border-radius:4px; padding:1px 5px; text-transform:uppercase;
+        }
+        .bracket-card-id {
+          font-family:monospace; font-size:9.5px; font-weight:800; margin:2px 0 1px;
+        }
+        .bracket-card-name {
+          font-size:11.5px; font-weight:800; color:#111817; line-height:1.2;
+          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        }
+        .bracket-card-sub {
+          font-size:9px; color:#5C706E; margin-top:1px;
+          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        }
+        .bracket-card-footer {
+          display:flex; justify-content:space-between; align-items:center;
+          margin-top:4px; padding-top:3px; border-top:1px dashed #E1EBEA; font-size:8.5px;
+        }
+        .bracket-order-badge {
+          color:#073B3F; font-weight:700;
+        }
+        .bracket-child-badge {
+          font-weight:800;
+        }
+
+        @media print {
+          .no-print { display:none !important; }
+          body {
+            background:#FFFFFF !important; padding:0 !important; margin:0 !important;
+            width:100% !important; max-width:100% !important; overflow-x:hidden !important;
+          }
+          .report-header {
+            box-shadow:none !important; border:1px solid #073B3F; margin-bottom:8px; padding:10px 14px;
+          }
+          .report-stats-strip { margin-bottom:10px; }
+          .tree-scroll-container {
+            border:none !important; padding:4px 0 !important; box-shadow:none !important;
+            overflow:visible !important; width:100% !important; max-width:100% !important;
+          }
+          .bracket-card {
+            box-shadow:none !important; page-break-inside:avoid; break-inside:avoid;
+          }
+          #bracket-tree-root {
+            max-width:100% !important;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="print-toolbar no-print">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button onclick="window.print()" class="btn-print">🖨️ Print / Save as PDF</button>
+          <button onclick="setOrientation('landscape')" class="btn-mode active" id="btn-landscape">📄 Landscape (Recommended)</button>
+          <button onclick="setOrientation('portrait')" class="btn-mode" id="btn-portrait">📄 Portrait</button>
+          <button onclick="zoomFit()" class="btn-action">↔ Fit to Page Width</button>
+          <button onclick="zoomIn()" class="btn-action">🔍 +</button>
+          <button onclick="zoomOut()" class="btn-action">🔍 -</button>
+        </div>
+        <button onclick="window.close()" class="btn-close">✖ Close</button>
+      </div>
+
+      <div class="report-header">
+        <div class="report-brand">
+          <h2>BitByte — Super Stockist Hierarchy Report</h2>
+          <p>Full Downward Organization Network • Left-to-Right Bracket View</p>
+        </div>
+        <div class="report-meta">
+          <div>ROOT SUPER ADMIN: <strong>${superAdminEmail}</strong></div>
+          <div>SUPER STOCKIST: <strong>${adminName} (${adminId})</strong></div>
+          <div>DATE: <strong>${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></div>
+        </div>
+      </div>
+
+      <div class="report-stats-strip">
+        <div class="stat-pill" style="border-color:#16A34A; color:#16A34A;">
+          <span>SUPER STOCKIST</span> <strong>1</strong>
+        </div>
+        <div class="stat-pill" style="border-color:#0284C7; color:#0284C7;">
+          <span>DISTRIBUTORS</span> <strong>${counts.dealer}</strong>
+        </div>
+        <div class="stat-pill" style="border-color:#DC2626; color:#DC2626;">
+          <span>WHOLESALE DEALERS</span> <strong>${counts.sub_dealer}</strong>
+        </div>
+        <div class="stat-pill" style="border-color:#CA8A04; color:#CA8A04;">
+          <span>RETAILERS</span> <strong>${counts.promotor}</strong>
+        </div>
+        <div class="stat-pill" style="border-color:#DB2777; color:#DB2777;">
+          <span>CUSTOMERS</span> <strong>${counts.customer}</strong>
+        </div>
+        <div class="stat-pill" style="border-color:#073B3F; color:#073B3F; background:#E6F0F0;">
+          <span>TOTAL ORDERS</span> <strong>${counts.orders}</strong>
+        </div>
+      </div>
+
+      <div class="tree-scroll-container">
+        <div id="bracket-tree-root">
+          ${fullTreeHtml}
+        </div>
+      </div>
+
+      <script>
+        let currentScale = 1;
+        function applyScale(s) {
+          currentScale = s;
+          const el = document.getElementById('bracket-tree-root');
+          if (el) {
+            el.style.transformOrigin = 'top left';
+            el.style.transform = 'scale(' + currentScale + ')';
+          }
+        }
+        function zoomIn() { applyScale(Math.min(1.5, currentScale + 0.08)); }
+        function zoomOut() { applyScale(Math.max(0.35, currentScale - 0.08)); }
+        function zoomFit() {
+          const el = document.getElementById('bracket-tree-root');
+          if (!el) return;
+          const avail = window.innerWidth - 60;
+          const natural = el.scrollWidth / currentScale;
+          if (natural > avail) {
+            applyScale(avail / natural);
+          } else {
+            applyScale(1);
+          }
+        }
+        function setOrientation(mode) {
+          const style = document.getElementById('print-orientation-style');
+          if (style) {
+            style.textContent = mode === 'portrait' ? '@page { size: A4 portrait; margin: 8mm 6mm; }' : '@page { size: A4 landscape; margin: 8mm 6mm; }';
+          }
+          document.getElementById('btn-landscape').classList.toggle('active', mode === 'landscape');
+          document.getElementById('btn-portrait').classList.toggle('active', mode === 'portrait');
+          zoomFit();
+        }
+
+        window.onload = () => {
+          zoomFit();
+          setTimeout(() => window.print(), 500);
+        };
+      <\/script>
+    </body>
+    </html>
+  `)
+  printWindow.document.close()
 }
 
 function printPersonCard(node, role, cfg, color, ancestors, superAdminEmail) {
@@ -292,6 +584,10 @@ function printPersonCard(node, role, cfg, color, ancestors, superAdminEmail) {
   const currentName = [node.first_name, node.last_name].filter(Boolean).join(' ') || '—'
   const roleLabel = ROLE_CFG[role]?.label || role.toUpperCase()
   const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    alert('Pop-up blocked! Please allow pop-ups for this site to print.')
+    return
+  }
   printWindow.document.write(`
     <!DOCTYPE html><html><head><title>${roleLabel} — ${currentName}</title>
     <style>${getPrintStyles(color)}</style></head>
@@ -301,49 +597,6 @@ function printPersonCard(node, role, cfg, color, ancestors, superAdminEmail) {
       <div class="footer">Printed on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
     </div>
     <script>window.onload = () => { window.print() }<\/script>
-    </body></html>
-  `)
-  printWindow.document.close()
-}
-
-// ── NEW: prints the full downward hierarchy starting from this node ──
-function printHierarchyTree(node, role, ancestors, superAdminEmail) {
-  const cfg = ROLE_CFG[role]
-  const currentName = [node.first_name, node.last_name].filter(Boolean).join(' ') || '—'
-  const orgTreeHtml = `<div class="org-tree"><ul><li>${renderOrgTreeNode(node, role, `box-shadow:0 0 22px ${cfg.color}33;`)}</li></ul></div>`
-
-  const printWindow = window.open('', '_blank')
-  printWindow.document.write(`
-    <!DOCTYPE html><html><head><title>${cfg.label} Hierarchy — ${currentName}</title>
-    <style>${getPrintStyles(cfg.color)}</style>
-    <style id="page-size-style">@page { margin: 10mm; }</style>
-    </head>
-    <body>
-      <div class="header"><h1>BitByte — ${cfg.label} Hierarchy Report</h1><p>Full downward chain, every level</p></div>
-      <div id="org-scale-outer" class="org-tree-wrapper">
-        <div id="org-scale-inner">${orgTreeHtml}</div>
-      </div>
-    <script>
-      window.onload = () => {
-        // ── NEW: scale panrathukku pathila, page size-ah tree size-ku exact-a match pannurom.
-        // Idhu na 100% natural size-la tree varum, edhuvume crop aagathu ──
-        const inner = document.getElementById('org-scale-inner')
-        const header = document.querySelector('.header')
-        const pxToMm = px => (px / 96) * 25.4
-
-        const treeWidthPx = inner.scrollWidth
-        const treeHeightPx = inner.scrollHeight
-        const headerHeightPx = header.offsetHeight
-
-        const pageWidthMm = Math.max(210, pxToMm(treeWidthPx) + 20)
-        const pageHeightMm = pxToMm(treeHeightPx + headerHeightPx) + 40
-
-        const styleTag = document.getElementById('page-size-style')
-        styleTag.textContent = '@page { size: ' + pageWidthMm.toFixed(0) + 'mm ' + pageHeightMm.toFixed(0) + 'mm; margin: 10mm; }'
-
-        setTimeout(() => window.print(), 200)
-      }
-    <\/script>
     </body></html>
   `)
   printWindow.document.close()
@@ -863,16 +1116,30 @@ const [selPromotor, setSelPromotor] = useState(null)
 
   // ── NEW: Print choice popup state — "only this / full hierarchy" select panna ──
   const [printTarget, setPrintTarget] = useState(null) // { node, role, cfg, color, ancestors }
+  const [printLoading, setPrintLoading] = useState(false)
   const openPrintPopup = (target) => setPrintTarget(target)
   const handlePrintOnly = () => {
     const { node, role, cfg, color, ancestors } = printTarget
     printPersonCard(node, role, cfg, color, ancestors, superAdminEmail)
     setPrintTarget(null)
   }
-  const handlePrintHierarchy = () => {
-    const { node, role, ancestors } = printTarget
-    printHierarchyTree(node, role, ancestors, superAdminEmail)
+  const handlePrintHierarchy = async () => {
+    const target = printTarget
     setPrintTarget(null)
+    if (!target) return
+
+    setPrintLoading(true)
+    try {
+      const adminId = target.role === 'admin' ? target.node.id : (target.ancestors?.find(a => a.role === 'admin')?.node?.id || target.node.id)
+      const res = await api.get(`/hierarchy/full/?admin_id=${adminId}`)
+      const fullAdmin = res.data?.admins?.[0] || target.node
+      printHorizontalBracketTree(fullAdmin, target.role, target.ancestors, res.data?.super_admin_email || superAdminEmail)
+    } catch (err) {
+      console.error('Failed to fetch full hierarchy for print:', err)
+      printHorizontalBracketTree(target.node, target.role, target.ancestors, superAdminEmail)
+    } finally {
+      setPrintLoading(false)
+    }
   }
 
   const sendDirectMessage = async () => {
@@ -1574,6 +1841,34 @@ const selectAdmin = (node) => {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── PRINT LOADING MODAL ── */}
+      {printLoading && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(7,59,63,0.45)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+            zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          <div
+            style={{
+              background: '#FFFFFF', border: '1.5px solid #D6E2E1', borderRadius: '20px',
+              padding: '28px 36px', boxShadow: '0 24px 60px rgba(7,59,63,0.22)', textAlign: 'center', maxWidth: '380px'
+            }}
+          >
+            <div style={{
+              width: 38, height: 38, border: '3.5px solid #E1EBEA', borderTop: '3.5px solid #073B3F',
+              borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 14px'
+            }} />
+            <div style={{ color: '#073B3F', fontWeight: 800, fontSize: '15px', marginBottom: '6px' }}>
+              Preparing Hierarchy Print Tree...
+            </div>
+            <div style={{ color: '#5C706E', fontSize: '12px', lineHeight: 1.5 }}>
+              Compiling full downward tree with all distributors, wholesale dealers, retailers, and customers.
+            </div>
           </div>
         </div>
       )}

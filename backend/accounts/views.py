@@ -905,6 +905,22 @@ class FullHierarchyView(APIView):
         if request.user.role not in ['super_admin', 'admin', 'dealer', 'sub_dealer', 'promotor']:
             return Response({'error': 'Permission denied'}, status=403)
 
+        admin_id_param = request.query_params.get('admin_id')
+        if admin_id_param:
+            try:
+                admin_node = AdminProfile.objects.prefetch_related(
+                    'assigned_dealers__assigned_sub_dealers__assigned_promotors__assigned_customers'
+                ).get(id=admin_id_param)
+                orders_by_user = _bulk_orders_for_admin(admin_node)
+                monthly_counts = _monthly_order_counts_map(_collect_user_ids_admin(admin_node))
+                admin_data = _build_admin(admin_node, orders_by_user, monthly_counts)
+                return Response({
+                    'admins': [admin_data],
+                    'super_admin_email': User.objects.filter(role='super_admin').first().email if User.objects.filter(role='super_admin').exists() else '',
+                })
+            except AdminProfile.DoesNotExist:
+                return Response({'admins': [], 'super_admin_email': ''})
+
         customers_pf = Prefetch(
             'assigned_customers',
             queryset=CustomerProfile.objects.filter(assigned_promotor__isnull=False)
@@ -946,9 +962,6 @@ class FullHierarchyView(APIView):
             admins = AdminProfile.objects.filter(user=request.user).prefetch_related(dealers_pf)
         else:
             admins = AdminProfile.objects.all().prefetch_related(dealers_pf)
-            admin_id_param = request.query_params.get('admin_id')
-            if admin_id_param:
-                admins = admins.filter(id=admin_id_param)
 
         tree = []
         for admin in admins:

@@ -639,6 +639,13 @@ class JewelryProduct(models.Model):
         ('brooches', 'Brooches'),
         ('tiepins', 'Tie Pins'),
         ('coins', 'Coins'),
+        ('kada', 'Kada'),
+        ('earchains', 'Ear Chains'),
+        ('armlets', 'Armlets'),
+        ('goldbars', 'Gold Bars'),
+        ('silvercoins', 'Silver Coins'),
+        ('silverbars', 'Silver Bars'),
+        ('articles', 'Articles'),
     ]
     METAL_CHOICES = [
         ('gold', 'Gold'),
@@ -758,8 +765,6 @@ class JewelryProductImage(models.Model):
         return f"Image for {self.product.name}"        
 
 class StockNotifyRequest(models.Model):
-    """Customer 'Notify Me' click pண்ணும்pothு entry create aagும். Product restock
-    aana, Super Admin idha vachi யார் யார் notify pண்ணனும்nு paருவாங்க."""
     product = models.ForeignKey(JewelryProduct, on_delete=models.CASCADE, related_name='notify_requests')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='stock_notify_requests')
     created_at = models.DateTimeField(auto_now_add=True)

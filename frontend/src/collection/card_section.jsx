@@ -170,10 +170,34 @@ export default function CardSection() {
         </section>
 
         {loading ? (
-          <section className="cart-empty">
-            <div className="cart-loader" />
-            <h2>Preparing Your Cart</h2>
-            <p>Loading the jewellery pieces you selected.</p>
+          <section className="cart-layout" style={{ opacity: 0.9 }}>
+            <style>{`
+              @keyframes cartShimmer {
+                0% { background-position: -200% 0; }
+                100% { background-position: 200% 0; }
+              }
+              .cart-skel {
+                background: linear-gradient(90deg, #EAEFEF 25%, #F7F9F9 50%, #EAEFEF 75%);
+                background-size: 200% 100%;
+                animation: cartShimmer 1.5s infinite ease-in-out;
+                border-radius: 12px;
+              }
+            `}</style>
+            <div className="cart-list">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="cart-row" style={{ padding: 14 }}>
+                  <div className="cart-row-media cart-skel" style={{ width: 96, height: 96, borderRadius: 12 }} />
+                  <div style={{ flex: 1 }}>
+                    <div className="cart-skel" style={{ width: '35%', height: 12, marginBottom: 8 }} />
+                    <div className="cart-skel" style={{ width: '70%', height: 18, marginBottom: 10 }} />
+                    <div className="cart-skel" style={{ width: '30%', height: 16 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="cart-summary">
+              <div className="cart-skel" style={{ height: 280, borderRadius: 20 }} />
+            </div>
           </section>
         ) : cart.length === 0 ? (
           <section className="cart-empty">
@@ -702,15 +726,86 @@ const cartStyles = `
   }
 
   @media (max-width: 760px) {
-    .cart-shell { width: min(100% - 24px, 1480px); }
-    .cart-hero { align-items: flex-start; flex-direction: column; }
+    .cart-shell { width: min(100% - 20px, 1480px); padding: 16px 0 54px; }
+    .cart-hero { align-items: flex-start; flex-direction: column; padding: 18px 16px; border-radius: 18px; margin-bottom: 16px; gap: 14px; }
+    .cart-hero h1 { font-size: 32px !important; }
+    .cart-hero p { font-size: 12.5px; }
     .cart-hero-stats { width: 100%; grid-template-columns: 1fr; }
-    .cart-card { grid-template-columns: 1fr; }
-    .cart-image { aspect-ratio: 1.25 / 1; }
-    .cart-product-top,
-    .cart-card-bottom { flex-direction: column; align-items: stretch; }
-    .cart-price { text-align: left; }
-    .cart-trust { grid-template-columns: 1fr; }
+    .cart-card {
+      grid-template-columns: 96px 1fr !important;
+      gap: 12px !important;
+      padding: 12px !important;
+      border-radius: 14px !important;
+      margin-bottom: 12px !important;
+    }
+    .cart-image {
+      width: 96px !important;
+      height: 96px !important;
+      aspect-ratio: 1 / 1 !important;
+      border-radius: 10px !important;
+    }
+    .cart-info h3 {
+      font-size: 13px !important;
+      line-height: 1.25 !important;
+      margin: 2px 0 6px !important;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .cart-metal {
+      font-size: 10px !important;
+    }
+    .cart-remove {
+      font-size: 11px !important;
+      padding: 4px 8px !important;
+    }
+    .cart-product-top {
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: flex-start !important;
+      gap: 8px !important;
+    }
+    .cart-card-bottom {
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      margin-top: 8px !important;
+    }
+    .cart-price strong {
+      font-size: 15px !important;
+    }
+    .cart-price span {
+      font-size: 10.5px !important;
+    }
+    .cart-qty {
+      padding: 2px 6px !important;
+      gap: 8px !important;
+    }
+    .cart-qty button {
+      width: 26px !important;
+      height: 26px !important;
+      font-size: 14px !important;
+    }
+    .cart-qty span {
+      font-size: 12px !important;
+      min-width: 18px !important;
+    }
+    .cart-summary {
+      padding: 20px 16px !important;
+      border-radius: 18px !important;
+      margin-top: 14px !important;
+    }
+    .cart-summary h2 {
+      font-size: 24px !important;
+      margin-bottom: 16px !important;
+    }
+    .cart-checkout {
+      min-height: 48px !important;
+      font-size: 13px !important;
+    }
+    .cart-trust { grid-template-columns: 1fr; gap: 6px; }
   }
 `
 

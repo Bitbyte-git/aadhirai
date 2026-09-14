@@ -4093,7 +4093,11 @@ class CoinStockView(APIView):
                         'admin': 'admin_profile',
                         'shop': 'shop_profile',
                     }.get(u.role)
-                    prof = getattr(u, role_field, None) if role_field else None
+                    try:
+                        prof = getattr(u, role_field, None) if role_field else None
+                    except Exception:
+                        prof = None
+
                     id_field = {
                         'promotor': 'promotor_id',
                         'sub_dealer': 'sub_dealer_id',
@@ -4102,11 +4106,16 @@ class CoinStockView(APIView):
                     }.get(u.role)
                     id_str = getattr(prof, id_field, '') if (prof and id_field) else ''
                     if prof:
-                        name = f"{prof.first_name} {prof.last_name or ''}".strip()
+                        if u.role == 'shop':
+                            name = getattr(prof, 'shop_name', '') or getattr(prof, 'owner_name', '') or u.email
+                        else:
+                            fn = getattr(prof, 'first_name', '')
+                            ln = getattr(prof, 'last_name', '') or ''
+                            name = f"{fn} {ln}".strip() or u.email
                         phone = getattr(prof, 'mobile_number', '')
                     else:
-                        name = f"{u.first_name} {u.last_name or ''}".strip() or u.email
-                        phone = getattr(u, 'phone_number', '') or ''
+                        name = 'Super Admin' if u.role == 'super_admin' else (getattr(u, 'email', '').split('@')[0] if u.email else 'User')
+                        phone = ''
 
                     user_map[u.id] = {
                         'user_id': u.id,
@@ -4184,7 +4193,11 @@ class JewelryStockView(APIView):
                         'admin': 'admin_profile',
                         'shop': 'shop_profile',
                     }.get(u.role)
-                    prof = getattr(u, role_field, None) if role_field else None
+                    try:
+                        prof = getattr(u, role_field, None) if role_field else None
+                    except Exception:
+                        prof = None
+
                     id_field = {
                         'promotor': 'promotor_id',
                         'sub_dealer': 'sub_dealer_id',
@@ -4193,11 +4206,16 @@ class JewelryStockView(APIView):
                     }.get(u.role)
                     id_str = getattr(prof, id_field, '') if (prof and id_field) else ''
                     if prof:
-                        name = f"{getattr(prof, 'first_name', '')} {getattr(prof, 'last_name', '') or ''}".strip()
+                        if u.role == 'shop':
+                            name = getattr(prof, 'shop_name', '') or getattr(prof, 'owner_name', '') or u.email
+                        else:
+                            fn = getattr(prof, 'first_name', '')
+                            ln = getattr(prof, 'last_name', '') or ''
+                            name = f"{fn} {ln}".strip() or u.email
                         phone = getattr(prof, 'mobile_number', '')
                     else:
-                        name = 'Super Admin' if u.role == 'super_admin' else (getattr(u, 'email', ''))
-                        phone = getattr(u, 'phone_number', '') or ''
+                        name = 'Super Admin' if u.role == 'super_admin' else (getattr(u, 'email', '').split('@')[0] if u.email else 'User')
+                        phone = ''
 
                     user_map[u.id] = {
                         'user_id': u.id,

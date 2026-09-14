@@ -323,6 +323,12 @@ function HomeBannerSlider() {
           ))}
         </div>
       )}
+      {newsPinned && (
+        <div
+          className="hero-news-mobile-backdrop"
+          onClick={() => setNewsPinned(false)}
+        />
+      )}
       <div className={`hero-news-popover ${newsPinned ? "open" : ""}`}>
         <button
           className="hero-news-trigger"
@@ -339,6 +345,17 @@ function HomeBannerSlider() {
               <i /> Live
             </span>
             <strong>Tamil Nadu</strong>
+            <button
+              type="button"
+              className="hero-news-close-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                setNewsPinned(false);
+              }}
+              aria-label="Close news"
+            >
+              ✕
+            </button>
           </div>
           <h2>Gold News</h2>
           <p>Stay updated with the latest gold market news from Tamil Nadu</p>
@@ -353,8 +370,12 @@ function HomeBannerSlider() {
               </article>
             ))}
           </div>
-          <button className="hero-news-view-all" type="button">
-            More Updates Stay Here
+          <button
+            className="hero-news-view-all"
+            type="button"
+            onClick={() => setNewsPinned(false)}
+          >
+            Close Updates
           </button>
         </aside>
       </div>
@@ -1479,8 +1500,35 @@ export default function CustomerDashboard() {
           backdrop-filter: blur(10px);
         }
 
-        .hero-news-popover:hover .hero-news-card,
-        .hero-news-popover:focus-within .hero-news-card,
+        .hero-news-close-btn {
+          display: none;
+          background: rgba(7, 59, 63, 0.08);
+          border: 0;
+          border-radius: 50%;
+          width: 28px;
+          height: 28px;
+          color: #073B3F;
+          font-size: 14px;
+          font-weight: 700;
+          cursor: pointer;
+          place-items: center;
+          margin-left: auto;
+        }
+
+        .hero-news-mobile-backdrop {
+          display: none;
+        }
+
+        @media (hover: hover) and (min-width: 769px) {
+          .hero-news-popover:hover .hero-news-card,
+          .hero-news-popover:focus-within .hero-news-card {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+            visibility: visible;
+          }
+        }
+
         .hero-news-popover.open .hero-news-card {
           opacity: 1;
           transform: translateY(0) scale(1);
@@ -1769,45 +1817,99 @@ export default function CustomerDashboard() {
           .announcement-row { grid-template-columns: 1fr; }
         }
 
-        @media (max-width: 680px) {
-          .store-shell { width: calc(100% - 24px); }
-          .store-banner { aspect-ratio: 16 / 8; }
-          .store-category-card { --cat-img-size: clamp(68px, 16vw, 82px); --cat-basis: calc((100% - 30px) / 4); padding: 14px 42px; }
-          .store-cat span { font-size: 11px; }
-          .store-promo-grid { display: flex; gap: 16px; }
-          .store-promo {
-            min-height: 190px;
-            flex: 0 0 min(80vw, 300px);
+        @media (max-width: 768px) {
+          .hero-news-close-btn {
+            display: grid;
           }
-          .product-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-          .newsletter { padding: 20px 16px; grid-template-columns: 1fr; text-align: center; }
-          .newsletter-icon-wrap { margin: 0 auto; }
-          .newsletter-form { width: 100%; }
-          .store-heading { flex-direction: column; align-items: flex-start; }
-          .store-section { padding: 18px 0; }
-          .store-heading h2 { font-size: 1.4rem; }
-          .announcement-row { grid-template-columns: 1fr; }
-          .hero-news-popover { top: 20px; right: 10px; align-items: flex-end; }
-          .hero-news-trigger { min-height: 36px; padding: 0 13px; font-size: 12px; }
-          .hero-news-card { width: calc(100vw - 24px); max-height: min(440px, 78vh); padding: 16px; border-radius: 14px; }
-          .hero-news-card h2 { font-size: 26px; }
-          .hero-news-card p { font-size: 13px; }
-          .hero-news-card-item { grid-template-columns: 44px 1fr; gap: 11px; padding: 11px 0; }
-          .hero-news-card-icon { width: 44px; height: 44px; font-size: 11px; }
-          .hero-news-card-item strong { font-size: 13px; }
-          .hero-news-view-all { min-height: 42px; font-size: 13px; }
+          .hero-news-mobile-backdrop {
+            display: block;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(4px);
+            z-index: 998;
+          }
+          .hero-news-popover.open .hero-news-card {
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            right: auto !important;
+            bottom: auto !important;
+            transform: translate(-50%, -50%) !important;
+            width: min(calc(100vw - 32px), 380px) !important;
+            max-height: min(480px, 80vh) !important;
+            z-index: 999 !important;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35) !important;
+          }
+        }
+
+        @media (max-width: 680px) {
+          .store-shell { width: min(100% - 20px, 100%); margin: 0 auto; }
+          .store-banner { aspect-ratio: 16 / 8.5; }
+          .store-category-card {
+            --cat-img-size: clamp(54px, 15vw, 68px);
+            --cat-basis: calc((100% - 16px) / 3.4);
+            padding: 10px 14px !important;
+          }
+          .store-cat-arrow {
+            display: none !important;
+          }
+          .store-cat-track {
+            gap: 8px !important;
+          }
+          .store-cat span { font-size: 10.5px; font-weight: 700; }
+          .store-promo-grid {
+            display: flex;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            gap: 12px;
+            padding-bottom: 6px;
+            scrollbar-width: none;
+          }
+          .store-promo-grid::-webkit-scrollbar { display: none; }
+          .store-promo {
+            min-height: 155px;
+            flex: 0 0 min(82vw, 270px);
+            padding: 14px;
+          }
+          .store-promo-content h3 { font-size: 16px; }
+          .product-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+          .product-card { border-radius: 12px; }
+          .product-img { min-height: 130px; }
+          .product-body { padding: 8px; }
+          .product-body h3 { font-size: 12.5px; margin-bottom: 6px; line-height: 1.25; min-height: 30px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+          .product-price { font-size: 13.5px; }
+          .product-cart-btn { width: 32px; height: 32px; }
+          .wish-btn { width: 30px; height: 30px; top: 6px; right: 6px; }
+          .product-badge { top: 6px; left: 6px; padding: 4px 7px; font-size: 7.5px; }
+          .newsletter { padding: 18px 14px; grid-template-columns: 1fr; text-align: center; border-radius: 14px; }
+          .newsletter-icon-wrap { margin: 0 auto 8px; width: 44px; height: 44px; }
+          .newsletter-form { width: 100%; flex-direction: column; gap: 8px; }
+          .newsletter-form input { width: 100%; height: 42px; font-size: 13px; }
+          .newsletter-form button { width: 100%; height: 42px; font-size: 12px; }
+          .store-heading { flex-direction: column; align-items: flex-start; gap: 6px; }
+          .store-section { padding: 16px 0; }
+          .store-heading h2 { font-size: 1.3rem; }
+          .view-all-link { min-height: 34px; padding: 0 12px; font-size: 10.5px; align-self: flex-start; }
+          .hero-news-popover { top: 16px; right: 8px; align-items: flex-end; }
+          .hero-news-trigger { min-height: 32px; padding: 0 10px; font-size: 11px; }
         }
 
         @media (max-width: 480px) {
-          .store-shell { width: calc(100% - 16px); }
-          .store-category-card { --cat-img-size: clamp(58px, 18vw, 72px); --cat-basis: calc((100% - 18px) / 3); padding: 12px 36px; }
-          .store-cat span { font-size: 10px; }
-          .product-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-          .product-body { padding: 9px 10px 10px; }
-          .store-promo-content h3 { font-size: 17px; }
-          .store-heading h2 { font-size: 1.2rem; }
-          .store-promo { flex: 0 0 min(88vw, 280px); }
-          .newsletter h2 { font-size: 1.2rem; }
+          .store-shell { width: min(100% - 16px, 100%); }
+          .store-category-card {
+            --cat-img-size: clamp(48px, 14vw, 60px);
+            --cat-basis: calc((100% - 12px) / 3.1);
+            padding: 8px 12px !important;
+          }
+          .store-cat span { font-size: 9.5px; }
+          .product-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 6px !important; }
+          .product-body { padding: 7px 6px; }
+          .product-body h3 { font-size: 11.5px; min-height: 28px; }
+          .store-promo-content h3 { font-size: 15px; }
+          .store-heading h2 { font-size: 1.15rem; }
+          .store-promo { flex: 0 0 min(84vw, 250px); }
+          .newsletter h2 { font-size: 1.1rem; }
         }
 
         .promo-carousel-section {

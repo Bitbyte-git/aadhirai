@@ -492,6 +492,7 @@ function printPersonCard(node, role, cfg, color, ancestors, superAdminEmail) {
 }
 
 function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, superAdminEmail) {
+  if (typeof window !== 'undefined' && window.innerWidth <= 860) return
   clearTimeout(_chainHideTimer)
   removeChainPopup()
 

@@ -312,6 +312,18 @@ export default function WishlistPage() {
         }
 
         .wishlist-empty,
+        
+        @keyframes skelShimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .bb-skel {
+          background: linear-gradient(90deg, #EAEFEF 25%, #F6F8F8 50%, #EAEFEF 75%);
+          background-size: 200% 100%;
+          animation: skelShimmer 1.5s infinite ease-in-out;
+          border-radius: 8px;
+        }
+
         .wishlist-loading {
           border: 1px solid rgba(189,207,206,0.85);
           border-radius: 30px;
@@ -356,15 +368,71 @@ export default function WishlistPage() {
         }
 
         @media (max-width: 860px) {
-          .wishlist-hero { align-items: flex-start; flex-direction: column; }
-          .wishlist-stat { width: 100%; text-align: left; }
+          .wishlist-hero { align-items: flex-start; flex-direction: column; padding: 24px 20px; border-radius: 20px; }
+          .wishlist-stat { width: 100%; text-align: left; padding: 14px 18px; border-radius: 16px; }
           .wishlist-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
-        @media (max-width: 560px) {
-          .wishlist-shell { padding: 22px 12px 52px; }
-          .wishlist-grid { grid-template-columns: 1fr; }
-          .wishlist-name { min-height: 0; }
+        @media (max-width: 640px) {
+          .wishlist-shell { padding: 14px 10px 48px; }
+          .wishlist-hero { margin-bottom: 16px; padding: 18px 16px; border-radius: 16px; }
+          .wishlist-hero h1 { font-size: 30px; }
+          .wishlist-hero p { font-size: 12px; margin-top: 8px; line-height: 1.5; }
+          .wishlist-stat strong { font-size: 32px; }
+          .wishlist-stat span { font-size: 11px; }
+          .wishlist-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 8px !important;
+          }
+          .wishlist-card {
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(12,64,68,0.06);
+          }
+          .wishlist-image {
+            min-height: unset !important;
+            aspect-ratio: 1 / 1 !important;
+            height: auto !important;
+          }
+          .wishlist-remove {
+            width: 30px;
+            height: 30px;
+            top: 7px;
+            right: 7px;
+          }
+          .wishlist-remove svg {
+            width: 15px;
+            height: 15px;
+          }
+          .wishlist-ribbon {
+            top: 7px;
+            font-size: 8px;
+            padding: 3px 10px 3px 6px;
+          }
+          .wishlist-content {
+            padding: 9px 8px 11px;
+          }
+          .wishlist-name {
+            font-size: 13.5px !important;
+            min-height: 32px !important;
+            line-height: 1.2 !important;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            margin-bottom: 4px;
+          }
+          .wishlist-price {
+            font-size: 13.5px !important;
+            margin-bottom: 4px;
+          }
+          .wishlist-meta {
+            margin-top: 6px;
+            padding-top: 6px;
+            font-size: 10px;
+          }
+          .wishlist-view {
+            font-size: 9.5px;
+          }
         }
       `}</style>
 
@@ -385,9 +453,16 @@ export default function WishlistPage() {
         </section>
 
         {loading ? (
-          <section className="wishlist-loading">
-            <h2>Preparing Your Selection</h2>
-            <p>Loading the pieces you saved from the collection.</p>
+          <section className="wishlist-grid">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="wishlist-card" style={{ padding: 12 }}>
+                <div className="wishlist-image bb-skel" style={{ minHeight: 180, borderRadius: 16, marginBottom: 12 }} />
+                <div className="bb-skel" style={{ width: '35%', height: 12, marginBottom: 8 }} />
+                <div className="bb-skel" style={{ width: '75%', height: 16, marginBottom: 8 }} />
+                <div className="bb-skel" style={{ width: '50%', height: 18, marginBottom: 10 }} />
+                <div className="bb-skel" style={{ width: '100%', height: 38, borderRadius: 999 }} />
+              </div>
+            ))}
           </section>
         ) : items.length === 0 ? (
           <section className="wishlist-empty">

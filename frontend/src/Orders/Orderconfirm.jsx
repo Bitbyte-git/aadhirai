@@ -407,15 +407,52 @@ const checkoutStyles = `
 
   @media (max-width: 640px) {
     .oc-main {
-      width: min(100% - 24px, 1320px);
+      width: min(100% - 20px, 1320px);
+      padding: 16px 0 60px;
     }
-    .oc-stepper,
+    .oc-stepper {
+      display: flex;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding-bottom: 4px;
+      gap: 8px;
+    }
+    .oc-stepper::-webkit-scrollbar { display: none; }
     .oc-specs {
       grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .oc-product-band {
+      grid-template-columns: 90px 1fr !important;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 12px;
     }
     .oc-product-img {
-      width: 118px;
-      height: 118px;
+      width: 90px;
+      height: 90px;
+      border-radius: 8px;
+    }
+    .oc-hero {
+      padding: 18px 14px;
+      border-radius: 16px;
+      margin-bottom: 16px;
+    }
+    .oc-hero h1 {
+      font-size: 26px;
+    }
+    .oc-card {
+      padding: 16px 14px;
+      border-radius: 14px;
+      margin-bottom: 14px;
+    }
+    .oc-summary-card {
+      padding: 18px 14px;
+      border-radius: 16px;
+    }
+    .oc-buy {
+      min-height: 48px;
+      font-size: 13px;
     }
   }
 `

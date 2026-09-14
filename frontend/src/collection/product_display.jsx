@@ -44,58 +44,97 @@ const TAG_COLORS = {
 }
 
 function MoreFromCollection({ currentProductId, category, metal, gender, occasion, liveRate }) {
-  const navigate = useNavigate()
   const [products, setProducts] = useState([])
-
-  const calcLivePrice = p => {
-    if (!liveRate) return parseFloat(p.price) || null
-    const netWt = parseFloat(p.net_weight) || 0
-    const makingChargePct = parseFloat(p.making_charge) || 0
-    const discountPct = parseFloat(p.wastage_charge) || 0
-    const stoneVal = parseFloat(p.stone_value) || 0
-    let todayRate = 0
-    if (p.metal === 'gold') todayRate = p.grade === '24k' ? liveRate.gold_24k : liveRate.gold_22k
-    else if (p.metal === 'silver') todayRate = liveRate.silver_999
-    else if (p.metal === 'diamond') todayRate = p.grade === '18k' ? liveRate.diamond_18k : liveRate.diamond_22k
-    else if (p.metal === 'platinum') todayRate = liveRate.platinum_92
-    if (!todayRate || !netWt) return parseFloat(p.price) || null
-    const makingPerGram = todayRate * (makingChargePct / 100)
-    const rateWithMaking = todayRate + makingPerGram
-    const discountPerGram = rateWithMaking * (discountPct / 100)
-    return Math.round(((netWt * (rateWithMaking - discountPerGram)) + stoneVal) * 1.03)
-  }
-
-  const calcOriginalPrice = p => {
-    if (!liveRate) return parseFloat(p.original_price) || null
-    const netWt = parseFloat(p.net_weight) || 0
-    const makingChargePct = parseFloat(p.making_charge) || 0
-    const stoneVal = parseFloat(p.stone_value) || 0
-    let todayRate = 0
-    if (p.metal === 'gold') todayRate = p.grade === '24k' ? liveRate.gold_24k : liveRate.gold_22k
-    else if (p.metal === 'silver') todayRate = liveRate.silver_999
-    else if (p.metal === 'diamond') todayRate = p.grade === '18k' ? liveRate.diamond_18k : liveRate.diamond_22k
-    else if (p.metal === 'platinum') todayRate = liveRate.platinum_92
-    if (!todayRate || !netWt) return parseFloat(p.original_price) || null
-    const makingPerGram = todayRate * (makingChargePct / 100)
-    return Math.round(((netWt * (todayRate + makingPerGram)) + stoneVal) * 1.03)
-  }
+  const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
 
   useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+
     import('../api').then(({ default: api }) => {
-      api.get(`/jewelry-products/?category=${category}&metal=${metal}`)
+      const params = new URLSearchParams()
+      if (category) params.append('category', category)
+      if (metal) params.append('metal', metal)
+      if (gender && gender !== 'all') params.append('gender', gender)
+      if (occasion) params.append('occasion', occasion)
+
+      api.get(`/products/?${params.toString()}`)
         .then(res => {
-          const list = Array.isArray(res.data) ? res.data : []
-          setProducts(list.filter(p => String(p.id) !== String(currentProductId)).slice(0, 4))
+          if (cancelled) return
+          const raw = Array.isArray(res.data) ? res.data : (res.data.results || [])
+          const list = raw
+            .filter(p => String(p.id) !== String(currentProductId) && p.is_active !== false)
+            .slice(0, 8)
+          setProducts(list)
         })
-        .catch(() => {})
+        .catch(() => { if (!cancelled) setProducts([]) })
+        .finally(() => { if (!cancelled) setLoading(false) })
     })
-  }, [category, metal, currentProductId])
 
-  if (products.length === 0) return null
+    return () => { cancelled = true }
+  }, [currentProductId, category, metal, gender, occasion])
 
-  const getImageUrl = img => {
-    if (!img) return null
-    const p = typeof img === 'object' ? (img.image || img.url || '') : img
+  if (loading) {
+    return (
+      <section className="more-collection-section">
+        <style>{`
+          .more-collection-section { position: relative; z-index: 5; width: 100%; padding: 40px clamp(14px,3.5vw,48px) 60px; background: #FDFDFC; }
+          .more-collection-inner { width: 100%; max-width: 1500px; margin: 0 auto; }
+          .more-products-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; width: 100%; }
+          .more-skel-card { border-radius: 16px; overflow: hidden; border: 1px solid rgba(189,207,206,0.6); background: #fff; padding: 10px; }
+          .more-skel-img { width: 100%; aspect-ratio: 1/1; border-radius: 12px; background: linear-gradient(90deg, #edf2f2 25%, #e2eceb 50%, #edf2f2 75%); background-size: 200% 100%; animation: moreShimmer 1.5s infinite; }
+          .more-skel-line { height: 14px; border-radius: 6px; margin-top: 10px; background: linear-gradient(90deg, #edf2f2 25%, #e2eceb 50%, #edf2f2 75%); background-size: 200% 100%; animation: moreShimmer 1.5s infinite; }
+          @keyframes moreShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+          @media (max-width: 1020px) { .more-products-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
+          @media (max-width: 640px) { .more-products-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
+        `}</style>
+        <div className="more-collection-inner">
+          <div style={{ height: 24, width: 220, borderRadius: 8, background: '#edf2f2', marginBottom: 20 }} />
+          <div className="more-products-grid">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="more-skel-card">
+                <div className="more-skel-img" />
+                <div className="more-skel-line" style={{ width: '80%' }} />
+                <div className="more-skel-line" style={{ width: '50%' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (!products.length) return null
+
+  const calcLivePrice = (p) => {
+    const wt = parseFloat(p.net_weight) || parseFloat(p.cross_weight) || 0
+    let rate = 0
+    if (liveRate) {
+      if (p.metal === 'gold') rate = p.grade === '24k' ? liveRate.gold_24k : liveRate.gold_22k
+      else if (p.metal === 'silver') rate = liveRate.silver_999
+    }
+    const metalCost = wt * rate
+    const wastage = parseFloat(p.wastage_charge) || 0
+    const making = parseFloat(p.making_charge) || 0
+    const stone = parseFloat(p.stone_value) || 0
+    const base = metalCost + (metalCost * wastage / 100) + (metalCost * making / 100) + stone
+    const gst = base * 0.03
+    return Math.round(base + gst) || Math.round(parseFloat(p.price) || 0)
+  }
+
+  const calcOriginalPrice = (p) => {
+    const live = calcLivePrice(p)
+    const discount = parseFloat(p.wastage_charge) || 0
+    if (discount > 0 && live > 0) {
+      return Math.round(live / (1 - discount / 100))
+    }
+    return 0
+  }
+
+  const getImageUrl = (imgObj) => {
+    if (!imgObj) return null
+    const p = typeof imgObj === 'string' ? imgObj : (imgObj.image_path || imgObj.image || '')
     if (!p) return null
     if (p.startsWith('http://') || p.startsWith('https://')) return p
     return `https://bitbyte-backend-f66f.onrender.com/${p.replace(/^\/+/, '')}`
@@ -106,40 +145,158 @@ function MoreFromCollection({ currentProductId, category, metal, gender, occasio
   return (
     <section className="more-collection-section">
       <style>{`
-        .more-collection-section { position: relative; z-index: 5; width: 100%; padding: 70px clamp(18px,4vw,54px) 90px; background: radial-gradient(circle at 85% 12%, rgba(209,223,222,0.58), transparent 26%), linear-gradient(180deg,#FDFDFC 0%,#F3F3F0 100%); }
+        .more-collection-section {
+          position: relative;
+          z-index: 5;
+          width: 100%;
+          padding: 60px clamp(16px,4vw,50px) 80px;
+          background: radial-gradient(circle at 85% 12%, rgba(209,223,222,0.5), transparent 26%), linear-gradient(180deg,#FDFDFC 0%,#F3F3F0 100%);
+        }
         .more-collection-inner { width: 100%; max-width: 1500px; margin: 0 auto; }
-        .more-collection-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
-        .more-kicker { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 10px; color: #9F6130; font-size: 12px; font-weight: 900; letter-spacing: 2.8px; text-transform: uppercase; }
-        .more-kicker::before { content: ""; width: 9px; height: 9px; border: 2px solid #BB8958; background: #F3E8DE; transform: rotate(45deg); }
-        .more-collection-head h2 { margin: 0; color: #073B3F; font-family: "Playfair Display", Georgia, serif; font-size: clamp(34px,4vw,54px); line-height: 0.98; letter-spacing: 0; }
-        .more-subcopy { margin: 12px 0 0; color: #52625f; font-size: 14px; line-height: 1.7; max-width: 560px; }
-        .more-view-btn { border: 1px solid rgba(12,64,68,0.28); border-radius: 999px; background: #FDFDFC; color: #073B3F; padding: 14px 22px; font-size: 12px; font-weight: 900; letter-spacing: 1.2px; text-transform: uppercase; cursor: pointer; white-space: nowrap; box-shadow: 0 14px 30px rgba(12,64,68,0.08); transition: transform 0.22s ease, background 0.22s ease, color 0.22s ease; }
-        .more-view-btn:hover { transform: translateY(-3px); background: #073B3F; color: #FDFDFC; }
-        .more-products-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: clamp(22px,2.2vw,34px); }
-        .more-product-card { position: relative; overflow: hidden; border: 1px solid rgba(189,207,206,0.86); border-radius: 24px; background: rgba(253,253,252,0.95); box-shadow: 0 18px 44px rgba(12,64,68,0.08); cursor: pointer; transition: transform 0.28s ease, box-shadow 0.28s ease, border-color 0.28s ease; }
-        .more-product-card:hover { transform: translateY(-8px); border-color: rgba(187,137,88,0.58); box-shadow: 0 30px 70px rgba(12,64,68,0.16); }
-        .more-product-image { position: relative; aspect-ratio: 1.08 / 1; min-height: 320px; overflow: hidden; background: radial-gradient(circle at 50% 38%, rgba(255,255,255,0.92), rgba(243,232,222,0.44) 42%, rgba(231,237,236,0.82)); }
-        .more-product-image img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.55s cubic-bezier(0.22,1,0.36,1), filter 0.35s ease; }
-        .more-product-card:hover .more-product-image img { transform: scale(1.08); filter: saturate(1.05); }
-        .more-ribbon { position: absolute; top: 14px; left: 0; z-index: 2; background: #073B3F; color: #FDFDFC; padding: 7px 18px 7px 14px; font-size: 11px; font-weight: 900; letter-spacing: 1.2px; text-transform: uppercase; clip-path: polygon(0 0,90% 0,100% 50%,90% 100%,0 100%); }
-        .more-hover-cta { position: absolute; left: 16px; right: 16px; bottom: 16px; transform: translateY(14px); opacity: 0; border-radius: 999px; background: rgba(253,253,252,0.94); color: #073B3F; border: 1px solid rgba(12,64,68,0.18); padding: 11px 14px; font-size: 12px; font-weight: 900; letter-spacing: 1px; text-align: center; text-transform: uppercase; transition: transform 0.24s ease, opacity 0.24s ease; box-shadow: 0 16px 30px rgba(17,24,23,0.16); }
-        .more-product-card:hover .more-hover-cta { transform: translateY(0); opacity: 1; }
-        .more-product-body { padding: 18px 18px 20px; }
-        .more-product-name { margin: 0; color: #073B3F; font-family: "Cormorant Garamond", Georgia, serif; font-size: 25px; font-weight: 700; line-height: 1.08; min-height: 54px; }
-        .more-price-row { display: flex; align-items: flex-end; gap: 9px; margin-top: 16px; padding-top: 15px; border-top: 1px solid rgba(189,207,206,0.68); flex-wrap: wrap; }
-        .more-price { color: #073B3F; font-size: 21px; font-weight: 900; }
-        .more-old-price { color: #9F6130; font-size: 13px; font-weight: 700; text-decoration: line-through; opacity: 0.72; }
-        .more-offer { margin-left: auto; border-radius: 999px; background: rgba(12,64,68,0.1); border: 1px solid rgba(12,64,68,0.15); color: #0C4044; padding: 6px 9px; font-size: 11px; font-weight: 900; white-space: nowrap; }
-        @media (max-width: 1180px) { .more-products-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-        @media (max-width: 860px) { .more-collection-head { align-items: flex-start; flex-direction: column; } .more-products-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-        @media (max-width: 560px) { .more-collection-section { padding: 48px 12px 68px; } .more-products-grid { grid-template-columns: 1fr; } .more-product-name { min-height: 0; } }
+        .more-collection-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+        .more-kicker { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 8px; color: #9F6130; font-size: 11px; font-weight: 900; letter-spacing: 2.2px; text-transform: uppercase; }
+        .more-kicker::before { content: ""; width: 8px; height: 8px; border: 2px solid #BB8958; background: #F3E8DE; transform: rotate(45deg); }
+        .more-collection-head h2 { margin: 0; color: #073B3F; font-family: "Playfair Display", Georgia, serif; font-size: clamp(28px,3.8vw,48px); line-height: 1.05; }
+        .more-subcopy { margin: 10px 0 0; color: #52625f; font-size: 13.5px; line-height: 1.65; max-width: 540px; }
+        .more-view-btn { border: 1px solid rgba(12,64,68,0.28); border-radius: 999px; background: #FDFDFC; color: #073B3F; padding: 11px 20px; font-size: 11.5px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; white-space: nowrap; box-shadow: 0 10px 24px rgba(12,64,68,0.06); transition: all 0.22s ease; }
+        .more-view-btn:hover { transform: translateY(-2px); background: #073B3F; color: #FDFDFC; }
+        
+        .more-products-grid {
+          display: grid !important;
+          grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+          gap: 16px !important;
+          align-items: stretch !important;
+          width: 100% !important;
+        }
+        .more-product-card {
+          position: relative !important;
+          overflow: hidden !important;
+          border: 1px solid rgba(189,207,206,0.75) !important;
+          border-radius: 18px !important;
+          background: #FFFFFF !important;
+          box-shadow: 0 6px 20px rgba(12,64,68,0.05) !important;
+          cursor: pointer !important;
+          transition: transform 0.25s ease, box-shadow 0.25s ease !important;
+          display: flex !important;
+          flex-direction: column !important;
+          height: 100% !important;
+          width: 100% !important;
+          max-width: 100% !important;
+        }
+        .more-product-card:hover { transform: translateY(-4px); box-shadow: 0 16px 36px rgba(12,64,68,0.11); }
+        .more-product-image {
+          position: relative !important;
+          aspect-ratio: 1 / 1 !important;
+          width: 100% !important;
+          overflow: hidden !important;
+          background: #F8FAF9 !important;
+        }
+        .more-product-image img { width: 100% !important; height: 100% !important; object-fit: cover !important; display: block !important; transition: transform 0.4s ease; }
+        .more-product-card:hover .more-product-image img { transform: scale(1.05); }
+        .more-ribbon {
+          position: absolute !important;
+          top: 8px !important;
+          left: 0 !important;
+          z-index: 2 !important;
+          background: #073B3F !important;
+          color: #FDFDFC !important;
+          padding: 3.5px 10px 3.5px 7px !important;
+          font-size: 9px !important;
+          font-weight: 800 !important;
+          letter-spacing: 0.6px !important;
+          text-transform: uppercase !important;
+          clip-path: polygon(0 0, 88% 0, 100% 50%, 88% 100%, 0 100%) !important;
+        }
+        .more-hover-cta {
+          position: absolute;
+          bottom: 10px;
+          left: 50%;
+          transform: translateX(-50%) translateY(20px);
+          opacity: 0;
+          background: rgba(7,59,63,0.92);
+          color: #fff;
+          font-size: 11px;
+          font-weight: 800;
+          padding: 6px 14px;
+          border-radius: 999px;
+          white-space: nowrap;
+          transition: all 0.25s ease;
+          pointer-events: none;
+        }
+        .more-product-card:hover .more-hover-cta {
+          transform: translateX(-50%) translateY(0);
+          opacity: 1;
+        }
+        .more-product-body {
+          padding: 12px 12px 14px !important;
+          display: flex !important;
+          flex-direction: column !important;
+          flex: 1 1 auto !important;
+        }
+        .more-product-name {
+          margin: 0 0 8px !important;
+          color: #073B3F !important;
+          font-family: inherit !important;
+          font-size: 13.5px !important;
+          font-weight: 700 !important;
+          line-height: 1.35 !important;
+          display: -webkit-box !important;
+          -webkit-line-clamp: 2 !important;
+          -webkit-box-orient: vertical !important;
+          overflow: hidden !important;
+          min-height: 36px !important;
+        }
+        .more-price-row {
+          margin-top: auto !important;
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 3px !important;
+          padding-top: 8px !important;
+          border-top: 1px solid rgba(189,207,206,0.4) !important;
+          min-height: 44px !important;
+          justify-content: flex-end !important;
+        }
+        .more-price-main {
+          color: #073B3F !important;
+          font-size: 14.5px !important;
+          font-weight: 800 !important;
+          line-height: 1.2 !important;
+        }
+        .more-price-sub {
+          display: flex !important;
+          align-items: center !important;
+          gap: 6px !important;
+          min-height: 18px !important;
+        }
+        .more-old-price { color: #9F6130 !important; font-size: 11px !important; font-weight: 600 !important; text-decoration: line-through !important; opacity: 0.72 !important; }
+        .more-offer { border-radius: 999px !important; background: rgba(12,64,68,0.08) !important; color: #0C4044 !important; padding: 1.5px 6px !important; font-size: 9.5px !important; font-weight: 800 !important; white-space: nowrap !important; }
+
+        @media (max-width: 1020px) {
+          .more-products-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px !important; }
+        }
+
+        @media (max-width: 640px) {
+          .more-collection-section { padding: 24px 10px 45px !important; }
+          .more-collection-head { flex-direction: column; align-items: flex-start; gap: 8px; margin-bottom: 14px; }
+          .more-collection-head h2 { font-size: 20px !important; }
+          .more-subcopy { font-size: 12px !important; }
+          .more-products-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+          .more-product-card { border-radius: 14px !important; }
+          .more-product-body { padding: 9px 8px 11px !important; }
+          .more-product-name { font-size: 12.5px !important; min-height: 34px !important; }
+          .more-price-main { font-size: 13.5px !important; }
+          .more-old-price { font-size: 10px !important; }
+          .more-offer { font-size: 9px !important; padding: 1px 5px !important; }
+          .more-ribbon { padding: 2.5px 8px 2.5px 6px !important; font-size: 8.5px !important; top: 6px !important; }
+          .more-hover-cta { display: none !important; }
+        }
       `}</style>
       <div className="more-collection-inner">
         <div className="more-collection-head">
           <div>
             <p className="more-kicker">You May Also Like</p>
             <h2>More from this Collection</h2>
-            <p className="more-subcopy">Selected pieces from the same {CATEGORY_LABELS[category] || category} family, matched with the current metal and backend pricing logic.</p>
+            <p className="more-subcopy">Selected pieces from the same {CATEGORY_LABELS[category] || category} family, matched with the current metal and live rate pricing.</p>
           </div>
           <button className="more-view-btn" type="button" onClick={() => navigate(collectionRoute)}>View All</button>
         </div>
@@ -162,15 +319,25 @@ function MoreFromCollection({ currentProductId, category, metal, gender, occasio
               >
                 <div className="more-product-image">
                   <span className="more-ribbon">{p.metal?.toUpperCase()} {p.grade?.toUpperCase()}</span>
-                  {firstImg ? <img src={firstImg} alt={p.name} /> : <div style={{ height: '100%', display: 'grid', placeItems: 'center', color: '#073B3F', fontWeight: 900 }}>Team 369</div>}
+                  {firstImg ? <img src={firstImg} alt={p.name} /> : <div style={{ height: '100%', display: 'grid', placeItems: 'center', color: '#073B3F', fontWeight: 900, fontSize: 12 }}>Team 369</div>}
                   <div className="more-hover-cta">View Details</div>
                 </div>
                 <div className="more-product-body">
-                  <h3 className="more-product-name">{p.name}</h3>
+                  <h3 className="more-product-name" title={p.name}>{p.name}</h3>
                   <div className="more-price-row">
-                    <span className="more-price">{price > 0 ? `Rs. ${price.toLocaleString('en-IN')}` : 'Contact'}</span>
-                    {hasDiscount && <span className="more-old-price">Rs. {originalPrice.toLocaleString('en-IN')}</span>}
-                    {hasDiscount && <span className="more-offer">{discountPct}% Off</span>}
+                    <div className="more-price-main">
+                      {price > 0 ? `Rs. ${price.toLocaleString('en-IN')}` : 'Contact'}
+                    </div>
+                    <div className="more-price-sub">
+                      {hasDiscount ? (
+                        <>
+                          <span className="more-old-price">Rs. {originalPrice.toLocaleString('en-IN')}</span>
+                          <span className="more-offer">{discountPct}% Off</span>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: '10.5px', color: '#7A8987', fontWeight: 600 }}>Pure 916 Hallmark</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </article>
@@ -198,7 +365,7 @@ function ProductInfoAndBreakup({ product, metal }) {
             platinum_92: parseFloat(d.platinum_92) || 0,
           })
         })
-        .catch(() => {})
+        .catch(() => { })
     })
   }, [])
 
@@ -275,7 +442,17 @@ function ProductInfoAndBreakup({ product, metal }) {
         .pi-assurance-list b { color: #D1DFDE; font-weight: 900; }
         .pi-assurance-list em { font-style: normal; color: rgba(253,253,252,0.82); text-align: right; }
         @media (max-width: 980px) { .pi-head, .pi-grid { grid-template-columns: 1fr; } }
-        @media (max-width: 640px) { .pi-spec-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 640px) {
+          .product-info-premium { padding: 30px 10px 40px !important; }
+          .pi-head { padding-top: 20px !important; margin-bottom: 16px !important; }
+          .pi-head h2 { font-size: 24px !important; }
+          .pi-grid { padding: 14px 10px !important; gap: 14px !important; }
+          .pi-spec-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
+          .pi-spec-card { min-height: unset !important; padding: 14px !important; }
+          .pi-story { min-height: unset !important; padding: 16px !important; margin-top: 10px !important; }
+          .pi-story h3, .pi-assurance h3 { font-size: 20px !important; }
+          .pi-assurance { padding: 16px !important; }
+        }
       `}</style>
 
       <div className="pi-inner">
@@ -394,11 +571,11 @@ export default function ProductDisplay() {
           diamond_22k: parseFloat(d.diamond_22k) || 0,
           platinum_92: parseFloat(d.platinum_92) || 0,
         })
-      }).catch(() => {})
+      }).catch(() => { })
     })
   }, [])
 
-useEffect(() => {
+  useEffect(() => {
     setLoading(true)
     if (metal === 'diamond' || metal === 'platinum') {
       setProducts([])
@@ -507,7 +684,7 @@ useEffect(() => {
   //   document.body.appendChild(script)
   // })
 
-const handleBuy = () => {
+  const handleBuy = () => {
     if (requireLogin()) return
     if (!product || !displayPrice) return
     navigate('/order-confirm', {
@@ -521,43 +698,43 @@ const handleBuy = () => {
     })
   }
 
-const calcLivePriceMain = () => {
-  if (!liveRate || !product) return Number(product?.price) || null
-  const netWt = parseFloat(product.net_weight) || 0
-  const makingChargePct = parseFloat(product.making_charge) || 0
-  const discountPct = parseFloat(product.wastage_charge) || 0
-  const stoneVal = parseFloat(product.stone_value) || 0
-  let todayRate = 0
-  if (metal === 'gold') todayRate = product.grade === '24k' ? liveRate.gold_24k : liveRate.gold_22k
-  else if (metal === 'silver') todayRate = liveRate.silver_999
-  else if (metal === 'diamond') todayRate = product.grade === '18k' ? liveRate.diamond_18k : liveRate.diamond_22k
-  else if (metal === 'platinum') todayRate = liveRate.platinum_92
-  if (!todayRate || !netWt) return Number(product?.price) || null
-  const makingPerGram = todayRate * (makingChargePct / 100)
-  const rateWithMaking = todayRate + makingPerGram
-  const discountPerGram = rateWithMaking * (discountPct / 100)
-  const effectiveRate = rateWithMaking - discountPerGram
-  return Math.round(((netWt * effectiveRate) + stoneVal) * 1.03)
-}
+  const calcLivePriceMain = () => {
+    if (!liveRate || !product) return Number(product?.price) || null
+    const netWt = parseFloat(product.net_weight) || 0
+    const makingChargePct = parseFloat(product.making_charge) || 0
+    const discountPct = parseFloat(product.wastage_charge) || 0
+    const stoneVal = parseFloat(product.stone_value) || 0
+    let todayRate = 0
+    if (metal === 'gold') todayRate = product.grade === '24k' ? liveRate.gold_24k : liveRate.gold_22k
+    else if (metal === 'silver') todayRate = liveRate.silver_999
+    else if (metal === 'diamond') todayRate = product.grade === '18k' ? liveRate.diamond_18k : liveRate.diamond_22k
+    else if (metal === 'platinum') todayRate = liveRate.platinum_92
+    if (!todayRate || !netWt) return Number(product?.price) || null
+    const makingPerGram = todayRate * (makingChargePct / 100)
+    const rateWithMaking = todayRate + makingPerGram
+    const discountPerGram = rateWithMaking * (discountPct / 100)
+    const effectiveRate = rateWithMaking - discountPerGram
+    return Math.round(((netWt * effectiveRate) + stoneVal) * 1.03)
+  }
 
-const calcOriginalPriceMain = () => {
-  if (!liveRate || !product) return Number(product?.original_price) || null
-  const netWt = parseFloat(product.net_weight) || 0
-  const makingChargePct = parseFloat(product.making_charge) || 0
-  const stoneVal = parseFloat(product.stone_value) || 0
-  let todayRate = 0
-  if (metal === 'gold') todayRate = product.grade === '24k' ? liveRate.gold_24k : liveRate.gold_22k
-  else if (metal === 'silver') todayRate = liveRate.silver_999
-  else if (metal === 'diamond') todayRate = product.grade === '18k' ? liveRate.diamond_18k : liveRate.diamond_22k
-  else if (metal === 'platinum') todayRate = liveRate.platinum_92
-  if (!todayRate || !netWt) return Number(product?.original_price) || null
-  const makingPerGram = todayRate * (makingChargePct / 100)
-  const rateWithMaking = todayRate + makingPerGram
-  return Math.round(((netWt * rateWithMaking) + stoneVal) * 1.03)
-}
+  const calcOriginalPriceMain = () => {
+    if (!liveRate || !product) return Number(product?.original_price) || null
+    const netWt = parseFloat(product.net_weight) || 0
+    const makingChargePct = parseFloat(product.making_charge) || 0
+    const stoneVal = parseFloat(product.stone_value) || 0
+    let todayRate = 0
+    if (metal === 'gold') todayRate = product.grade === '24k' ? liveRate.gold_24k : liveRate.gold_22k
+    else if (metal === 'silver') todayRate = liveRate.silver_999
+    else if (metal === 'diamond') todayRate = product.grade === '18k' ? liveRate.diamond_18k : liveRate.diamond_22k
+    else if (metal === 'platinum') todayRate = liveRate.platinum_92
+    if (!todayRate || !netWt) return Number(product?.original_price) || null
+    const makingPerGram = todayRate * (makingChargePct / 100)
+    const rateWithMaking = todayRate + makingPerGram
+    return Math.round(((netWt * rateWithMaking) + stoneVal) * 1.03)
+  }
 
-const displayPrice = calcLivePriceMain()
-const displayOriginalPrice = calcOriginalPriceMain()
+  const displayPrice = calcLivePriceMain()
+  const displayOriginalPrice = calcOriginalPriceMain()
 
   const requireLogin = () => {
     if (localStorage.getItem('token')) return false
@@ -578,7 +755,7 @@ const displayOriginalPrice = calcOriginalPriceMain()
 
     // ── image area kulla than mouse irukka nu check pannurom — illana zoom hide ──
     const insideImage = e.clientX >= imgRect.left && e.clientX <= imgRect.right &&
-                         e.clientY >= imgRect.top && e.clientY <= imgRect.bottom
+      e.clientY >= imgRect.top && e.clientY <= imgRect.bottom
     if (!insideImage) {
       setShowZoom(false)
       return
@@ -609,11 +786,56 @@ const displayOriginalPrice = calcOriginalPriceMain()
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: bg, color: text, fontFamily: '"Montserrat", sans-serif', position: 'relative', overflow: 'hidden', transition: 'background 0.8s ease, color 0.4s ease' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 70, height: 70, borderRadius: '50%', border: `4px solid ${border}`, borderTopColor: accentColor, margin: '0 auto 18px', animation: 'spin 0.9s linear infinite' }} />
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-          <h2 style={{ margin: 0, color: accentColor }}>Loading product...</h2>
+      <div style={{ minHeight: '100vh', background: '#FDFDFC', color: '#111817', fontFamily: '"Inter",system-ui,sans-serif', padding: '30px 16px 80px' }}>
+        <style>{`
+          @keyframes pdShimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+          }
+          .pd-skel {
+            background: linear-gradient(90deg, #EAEFEF 25%, #F7F9F9 50%, #EAEFEF 75%);
+            background-size: 200% 100%;
+            animation: pdShimmer 1.5s infinite ease-in-out;
+            border-radius: 12px;
+          }
+          .pd-skel-shell {
+            width: min(1480px, 100%);
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+            gap: 36px;
+          }
+          @media (max-width: 900px) {
+            .pd-skel-shell {
+              grid-template-columns: 1fr;
+              gap: 20px;
+            }
+          }
+        `}</style>
+        <div className="pd-skel-shell">
+          <div>
+            <div className="pd-skel" style={{ width: '100%', aspectRatio: '1 / 1', maxHeight: 440, borderRadius: 20, marginBottom: 14 }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="pd-skel" style={{ aspectRatio: '1 / 1', borderRadius: 10 }} />
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="pd-skel" style={{ width: '30%', height: 14, marginBottom: 12 }} />
+            <div className="pd-skel" style={{ width: '85%', height: 28, marginBottom: 10 }} />
+            <div className="pd-skel" style={{ width: '60%', height: 22, marginBottom: 20 }} />
+            <div className="pd-skel" style={{ width: '45%', height: 32, marginBottom: 24 }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 24 }}>
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="pd-skel" style={{ height: 68, borderRadius: 12 }} />
+              ))}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="pd-skel" style={{ height: 48, borderRadius: 999 }} />
+              <div className="pd-skel" style={{ height: 48, borderRadius: 999 }} />
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -1004,14 +1226,52 @@ const displayOriginalPrice = calcOriginalPriceMain()
         }
 
         @media (max-width:900px) {
-          .pd-grid { grid-template-columns: 1fr !important; }
-          .pd-page-shell { padding: 24px 14px 54px; }
-          .pd-detail-card { position: relative; top: auto; }
-          .pd-gallery-note, .pd-assurance-row { grid-template-columns: 1fr; }
-          .pd-trust-grid { grid-template-columns: repeat(2,1fr) !important; }
-          .pd-img-frame { min-height: 440px !important; }
-          .pd-main-img { max-height: 400px !important; }
+          .pd-showcase, .pd-grid {
+            grid-template-columns: 1fr !important;
+            min-width: 0 !important;
+            gap: 18px !important;
+          }
+          .pd-page-shell { padding: 16px 10px 48px; }
+          .pd-image-card {
+            padding: 14px !important;
+            border-radius: 20px !important;
+          }
+          .pd-image-card::before {
+            display: none !important;
+          }
+          .pd-detail-card {
+            position: relative;
+            top: auto;
+            padding: 18px 14px !important;
+            border-radius: 20px !important;
+          }
+          .pd-gallery-note, .pd-assurance-row { grid-template-columns: 1fr; gap: 8px; }
+          .pd-trust-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+          .pd-img-frame {
+            height: auto !important;
+            min-height: unset !important;
+            aspect-ratio: 1 / 1 !important;
+            max-height: 360px !important;
+            padding: 12px !important;
+          }
+          .pd-main-img { max-height: 100% !important; object-fit: contain !important; }
           .pd-zoom-lens { display: none; }
+          .pd-title {
+            font-size: 26px !important;
+            line-height: 1.15 !important;
+          }
+          .pd-spec {
+            padding: 12px 14px !important;
+          }
+          .pd-price-box {
+            padding: 16px 18px !important;
+          }
+          .pd-btn-cart, .pd-btn-buy {
+            flex: 1 1 calc(50% - 6px) !important;
+            min-width: 130px !important;
+            min-height: 48px !important;
+            font-size: 13px !important;
+          }
         }
       `}</style>
 
@@ -1037,7 +1297,7 @@ const displayOriginalPrice = calcOriginalPriceMain()
             <div className="pd-shine" />
 
             {/* Main image frame */}
-<div className="pd-img-frame" ref={imageRef} onMouseMove={handleMouseMove} onMouseLeave={() => setShowZoom(false)} style={{ height: 480, display: 'grid', placeItems: 'center', cursor: 'zoom-in' }}>
+            <div className="pd-img-frame" ref={imageRef} onMouseMove={handleMouseMove} onMouseLeave={() => setShowZoom(false)} style={{ height: 480, display: 'grid', placeItems: 'center', cursor: 'zoom-in' }}>
 
               {/* Tag ribbon */}
               {productTag && !(!product.is_active) && (
@@ -1075,7 +1335,7 @@ const displayOriginalPrice = calcOriginalPriceMain()
                 title={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
               >
                 <svg width="18" height="18" viewBox="0 0 32 32" fill={wishlisted ? '#c0392b' : 'none'} stroke={wishlisted ? '#c0392b' : '#aaa'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M16 27s-11-7.5-11-14.5a6.5 6.5 0 0111-4.7 6.5 6.5 0 0111 4.7c0 7-11 14.5-11 14.5z"/>
+                  <path d="M16 27s-11-7.5-11-14.5a6.5 6.5 0 0111-4.7 6.5 6.5 0 0111 4.7c0 7-11 14.5-11 14.5z" />
                 </svg>
               </button>
 
@@ -1163,9 +1423,9 @@ const displayOriginalPrice = calcOriginalPriceMain()
                         </span>
                       </div>
                     )}
-<div style={{ color: '#073B3F', fontSize: 36, fontWeight: 900, letterSpacing: '0', lineHeight: 1.05, fontFamily: '"Montserrat", sans-serif' }}>
-  {displayPrice ? `₹${displayPrice.toLocaleString('en-IN')}` : 'Contact for Price'}
-</div>
+                    <div style={{ color: '#073B3F', fontSize: 36, fontWeight: 900, letterSpacing: '0', lineHeight: 1.05, fontFamily: '"Montserrat", sans-serif' }}>
+                      {displayPrice ? `₹${displayPrice.toLocaleString('en-IN')}` : 'Contact for Price'}
+                    </div>
                     {hasDiscount && (
                       <>
                         <div style={{ color: '#9F6130', fontSize: 16, fontWeight: 700, textDecoration: 'line-through', marginTop: 8, opacity: 0.78 }}>
@@ -1272,10 +1532,10 @@ const displayOriginalPrice = calcOriginalPriceMain()
             sub: 'Authenticity Guaranteed, Purity Assured',
             svg: (
               <svg width="48" height="48" viewBox="0 0 64 64" fill="none">
-                <polygon points="32,5 42,17 57,17 57,32 42,47 32,59 22,47 7,32 7,17 22,17" fill="rgba(251,191,36,0.15)" stroke="#d97706" strokeWidth="2.5"/>
-                <polygon points="32,12 40,22 52,22 52,32 40,42 32,52 24,42 12,32 12,22 24,22" fill="rgba(251,191,36,0.08)" stroke="#d97706" strokeWidth="1.5"/>
-                <polyline points="22,32 28,38 42,24" stroke="#d97706" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                <line x1="16" y1="50" x2="48" y2="50" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round"/>
+                <polygon points="32,5 42,17 57,17 57,32 42,47 32,59 22,47 7,32 7,17 22,17" fill="rgba(251,191,36,0.15)" stroke="#d97706" strokeWidth="2.5" />
+                <polygon points="32,12 40,22 52,22 52,32 40,42 32,52 24,42 12,32 12,22 24,22" fill="rgba(251,191,36,0.08)" stroke="#d97706" strokeWidth="1.5" />
+                <polyline points="22,32 28,38 42,24" stroke="#d97706" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                <line x1="16" y1="50" x2="48" y2="50" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" />
               </svg>
             ),
           },
@@ -1284,11 +1544,11 @@ const displayOriginalPrice = calcOriginalPriceMain()
             sub: 'Swift & Secure Delivery to Your Doorstep',
             svg: (
               <svg width="48" height="48" viewBox="0 0 64 64" fill="none">
-                <rect x="4" y="24" width="36" height="22" rx="4" fill="rgba(251,191,36,0.15)" stroke="#d97706" strokeWidth="2.5"/>
-                <path d="M40 30 L56 30 L56 46 L40 46 Z" fill="rgba(251,191,36,0.15)" stroke="#d97706" strokeWidth="2.5"/>
-                <path d="M40 36 L52 36" stroke="#d97706" strokeWidth="2" strokeLinecap="round"/>
-                <circle cx="16" cy="50" r="5" fill="#d97706"/>
-                <circle cx="46" cy="50" r="5" fill="#d97706"/>
+                <rect x="4" y="24" width="36" height="22" rx="4" fill="rgba(251,191,36,0.15)" stroke="#d97706" strokeWidth="2.5" />
+                <path d="M40 30 L56 30 L56 46 L40 46 Z" fill="rgba(251,191,36,0.15)" stroke="#d97706" strokeWidth="2.5" />
+                <path d="M40 36 L52 36" stroke="#d97706" strokeWidth="2" strokeLinecap="round" />
+                <circle cx="16" cy="50" r="5" fill="#d97706" />
+                <circle cx="46" cy="50" r="5" fill="#d97706" />
               </svg>
             ),
           },
@@ -1297,10 +1557,10 @@ const displayOriginalPrice = calcOriginalPriceMain()
             sub: 'Your Precious Jewellery, Protected Every Step',
             svg: (
               <svg width="48" height="48" viewBox="0 0 64 64" fill="none">
-                <path d="M32 6 C32 6 12 14 12 30 L12 44 C12 50 22 57 32 60 C42 57 52 50 52 44 L52 30 C52 14 32 6 32 6Z" fill="rgba(251,191,36,0.15)" stroke="#d97706" strokeWidth="2.5"/>
-                <path d="M22 34 C25 39 29 44 32 47 C35 44 41 37 44 30" stroke="#d97706" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                <circle cx="44" cy="22" r="9" fill="rgba(251,191,36,0.2)" stroke="#d97706" strokeWidth="2"/>
-                <polyline points="40,22 43,25 49,18" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M32 6 C32 6 12 14 12 30 L12 44 C12 50 22 57 32 60 C42 57 52 50 52 44 L52 30 C52 14 32 6 32 6Z" fill="rgba(251,191,36,0.15)" stroke="#d97706" strokeWidth="2.5" />
+                <path d="M22 34 C25 39 29 44 32 47 C35 44 41 37 44 30" stroke="#d97706" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <circle cx="44" cy="22" r="9" fill="rgba(251,191,36,0.2)" stroke="#d97706" strokeWidth="2" />
+                <polyline points="40,22 43,25 49,18" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             ),
           },
@@ -1309,9 +1569,9 @@ const displayOriginalPrice = calcOriginalPriceMain()
             sub: '15 Days Easy Returns Guaranteed',
             svg: (
               <svg width="48" height="48" viewBox="0 0 64 64" fill="none">
-                <circle cx="32" cy="32" r="25" fill="rgba(251,191,36,0.15)" stroke="#d97706" strokeWidth="2.5"/>
-                <path d="M32 16 A16 16 0 1 1 16 32" stroke="#d97706" strokeWidth="3" strokeLinecap="round" fill="none"/>
-                <polyline points="14,26 16,32 22,29" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="32" cy="32" r="25" fill="rgba(251,191,36,0.15)" stroke="#d97706" strokeWidth="2.5" />
+                <path d="M32 16 A16 16 0 1 1 16 32" stroke="#d97706" strokeWidth="3" strokeLinecap="round" fill="none" />
+                <polyline points="14,26 16,32 22,29" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 <text x="32" y="37" textAnchor="middle" fontSize="14" fontWeight="900" fill="#d97706">15</text>
               </svg>
             ),

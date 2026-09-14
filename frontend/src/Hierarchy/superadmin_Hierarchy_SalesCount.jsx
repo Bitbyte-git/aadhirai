@@ -433,17 +433,17 @@ export default function SuperAdminHierarchySalesCount() {
         .shier-grid{ position:relative; }
         .stree-panel-fixed{
           position: fixed;
-          top: 124px;
+          top: 88px;
           left: 32px;
           width: 340px;
-          max-height: calc(100vh - 144px);
+          max-height: calc(100vh - 108px);
           overflow-y: auto;
           z-index: 40;
           box-sizing: border-box;
         }
         .shier-right-col{ margin-left: 362px; box-sizing: border-box; }
-        @media (max-width: 1500px) { .stree-panel-fixed{ top:156px; max-height:calc(100vh - 176px); } }
-        @media (max-width: 1100px) { .stree-panel-fixed{ top:102px; max-height:calc(100vh - 122px); } }
+        @media (max-width: 1500px) { .stree-panel-fixed{ top:88px; max-height:calc(100vh - 108px); } }
+        @media (max-width: 1100px) { .stree-panel-fixed{ top:84px; max-height:calc(100vh - 100px); } }
 
         @media (max-width: 960px) {
           .shier-content{ padding:16px 12px 60px !important; }
@@ -465,9 +465,6 @@ export default function SuperAdminHierarchySalesCount() {
         }
 
         @media (max-width: 640px) {
-          .shier-topbar{ padding:14px 16px; flex-direction:column; align-items:flex-start !important; }
-          .shier-topbar-title{ font-size:15px !important; }
-          .shier-topbar-sub{ font-size:11px !important; }
           .shier-content{ padding:14px 10px 60px !important; }
           .stree-children{ margin-left:8px !important; padding-left:8px !important; }
           .stree-item{ padding:10px 12px !important; }
@@ -478,30 +475,7 @@ export default function SuperAdminHierarchySalesCount() {
         }
       `}</style>
 
-            <div className="shier-content">
-        <div className="shier-topbar" style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          flexWrap: 'wrap', gap: 12, marginBottom: 20,
-          background: 'rgba(253,253,252,0.94)', border: '1px solid rgba(189,207,206,0.72)', borderRadius: 16, padding: '14px 20px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(12,64,68,0.08)', border: '1px solid rgba(12,64,68,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <IconChart color="#0C4044" size={18} />
-            </div>
-            <div>
-              <div className="shier-topbar-title" style={{ fontSize: 16, fontWeight: 800, color: '#0C4044', letterSpacing: '0.04em' }}>
-                Hierarchy Performance & Sales
-              </div>
-              <div className="shier-topbar-sub" style={{ fontSize: 12, color: '#7A8987', marginTop: 2 }}>
-                Real-time hierarchy order counts and revenue report
-              </div>
-            </div>
-          </div>
-          <button onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'rgba(201,32,53,0.08)', border: '1px solid rgba(201,32,53,0.3)', color: '#C92035', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
-            <IconBack color="#C92035" /> Back
-          </button>
-        </div>
-
+      <div className="shier-content">
         <div className="shier-grid">
 
           <div className="stree-panel stree-panel-fixed" style={{ background: 'rgba(253,253,252,0.97)', border: '1px solid rgba(189,207,206,0.72)', borderRadius: 16, padding: 14, boxShadow: '0 22px 58px rgba(7,59,63,0.06)' }}>

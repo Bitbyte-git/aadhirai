@@ -1026,6 +1026,9 @@ export default function Report() {
           .report-lane-card{min-width:148px!important;max-width:170px!important;padding:11px 13px!important}
           .report-lane-card div[style*="font-size: 13px"]{font-size:12px!important}
         }
+        .report-topbar{ position: relative !important; z-index: 100 !important; }
+        .sr-actions-wrap{ position: relative !important; z-index: 100 !important; }
+        .print-container{ position: relative !important; z-index: 1 !important; }
         .sr-lane-arrow{
           width:26px;height:26px;border-radius:50%;
           background:#FFFFFF;border:1.5px solid var(--nc);color:var(--nc);
@@ -1036,7 +1039,7 @@ export default function Report() {
         .sr-lane-arrow:hover,.sr-lane-arrow:active{background:var(--nc);color:#FFFFFF;}
       `}</style>
       {/* Page toolbar — plain content, not a sticky navbar bar */}
-      <div className="no-print report-topbar sr-topbar" style={{ padding: '24px 40px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', maxWidth: '1500px', margin: '0 auto' }}>
+      <div className="no-print report-topbar sr-topbar" style={{ padding: '24px 40px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', maxWidth: '1500px', margin: '0 auto', position: 'relative', zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button
             onClick={() => { setGridSelectedNode(null); setSelectedLevel('own'); setSelectedNodeId('') }}
@@ -1051,81 +1054,8 @@ export default function Report() {
           </button>
         </div>
 
-        {/* Drill-down dropdowns + export buttons */}
-        <div className="sr-actions-wrap" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <CustomDropdown
-            value={selectedLevel}
-            onChange={val => startTransition(() => setSelectedLevel(val))}
-            options={availableLevels.map(lvl => ({ value: lvl, label: LEVEL_LABELS[lvl] }))}
-            className="report-control sr-level-dropdown"
-            buttonStyle={{
-              height: '42px',
-              background: cardBg,
-              color: text,
-              border: `1.5px solid ${border}`,
-              borderRadius: '12px',
-              fontSize: '13px',
-              fontWeight: 700,
-            }}
-            style={{ minWidth: '180px' }}
-          />
-
-          {selectedLevel !== 'own' && (
-            <div style={{ position: 'relative' }}>
-              <input
-                value={
-                  showNodeDropdown
-                    ? nodeSearch
-                    : (gridSelectedNode ? nodeName(gridSelectedNode) : '')
-                }
-                onChange={e => { setNodeSearch(e.target.value); setShowNodeDropdown(true) }}
-                onFocus={() => { setShowNodeDropdown(true); setNodeSearch('') }}
-                onBlur={() => setTimeout(() => setShowNodeDropdown(false), 150)}
-                placeholder={`Search ${LEVEL_LABELS[selectedLevel]} by ID, name, phone...`}
-                className="report-control sr-search-input" style={{ background: cardBg, color: text, border: `1px solid ${border}`, borderRadius: '10px', padding: '8px 12px', fontSize: '13px', minWidth: '220px', outline: 'none', boxSizing: 'border-box' }}
-                onFocusCapture={e => e.target.style.borderColor = cfg.color}
-              />
-              {showNodeDropdown && (
-                <div style={{
-                  position: 'absolute', top: '110%', left: 0, right: 0, zIndex: 50,
-                  background: '#FFFCF8', border: `1px solid ${border}`, borderRadius: '10px',
-                  maxHeight: '260px', overflowY: 'auto', boxShadow: '0 18px 34px rgba(14,90,87,0.16)',
-                }}>
-                  {filteredNodes.length === 0 ? (
-                    <div style={{ padding: '12px', color: subtext, fontSize: '13px', textAlign: 'center' }}>No matches found</div>
-                  ) : filteredNodes.map(n => {
-                    const id = n.customer_id || n[`${n.type}_id`] || n.id
-                    const name = n.first_name ? `${n.first_name} ${n.last_name || ''}`.trim() : (n.dealer_name || n.promotor_name || id)
-                    return (
-                      <div
-                        key={id}
-                        onMouseDown={() => {
-                          setSelectedNodeId(id.toString())
-                          setGridSelectedNode(n)   // ── NEW: direct ah scoped node set pannurom, summary/trend/login/coin ella-um udane update aagum ──
-                          setShowNodeDropdown(false)
-                          setNodeSearch('')
-                        }}
-                        style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: `1px solid ${border}` }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(230,241,239,0.72)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <div style={{ color: cfg.color, fontFamily: 'monospace', fontSize: '11px' }}>{id}</div>
-                        <div style={{ color: text, fontSize: '13px', fontWeight: 600 }}>{name}</div>
-                        {n.mobile_number && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: subtext, fontSize: '11px' }}>
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0122 16.92z" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                            {n.mobile_number}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+        {/* Export buttons */}
+        <div className="sr-actions-wrap" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', position: 'relative', zIndex: 100 }}>
 
           <button onClick={handleExportExcel}
             style={{ background: 'linear-gradient(145deg,rgba(14,90,87,0.12),rgba(230,241,239,0.74))', border: '1px solid rgba(14,90,87,0.28)', color: '#0E5A57', borderRadius: '10px', padding: '8px 16px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1150,7 +1080,7 @@ export default function Report() {
         </div>
       </div>
 
-      <div className="print-container sr-main-container" style={{ padding: '32px 40px', maxWidth: '1500px', margin: '0 auto', display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+      <div className="print-container sr-main-container" style={{ padding: '32px 40px', maxWidth: '1500px', margin: '0 auto', display: 'flex', gap: '24px', alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
 
         <div style={{ flex: '1 1 0%', minWidth: 0 }}>
 

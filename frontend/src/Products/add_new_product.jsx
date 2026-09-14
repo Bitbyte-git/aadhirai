@@ -17,24 +17,48 @@ function Icon({ name, size = 16, className = '' }) {
   return <svg {...common}>{icons[name]}</svg>
 }
 
-const CATEGORIES = [
-  { key: 'goldcoin', label: 'Gold Coin', emoji: '' },
-  { key: 'rings', label: 'Rings', emoji: 'R' },
-  { key: 'necklaces', label: 'Necklaces', emoji: 'N' },
-  { key: 'bangles', label: 'Bangles', emoji: 'B' },
-  { key: 'bracelets', label: 'Bracelets', emoji: 'BR' },
-  { key: 'earrings', label: 'Earrings', emoji: 'E' },
-  { key: 'chains', label: 'Chains', emoji: 'C' },
-  { key: 'pendants', label: 'Pendants', emoji: 'P' },
-  { key: 'mangalsutra', label: 'Mangalsutra', emoji: 'M' },
-  { key: 'anklets', label: 'Anklets', emoji: 'A' },
-  { key: 'nosepin', label: 'Nose Pins', emoji: 'NP' },
-  { key: 'toerings', label: 'Toe Rings', emoji: 'TR' },
-  { key: 'cufflinks', label: 'Cufflinks', emoji: 'CF' },
-  { key: 'brooches', label: 'Brooches', emoji: 'BC' },
-  { key: 'tiepins', label: 'Tie Pins', emoji: 'TP' },
-  { key: 'coins', label: 'Gold Bar', emoji: 'CB' },
+const GOLD_PRODUCTS = [
+  { key: 'coins', label: 'Gold Coins' },
+  { key: 'rings', label: 'Rings' },
+  { key: 'bangles', label: 'Bangles' },
+  { key: 'bracelets', label: 'Bracelets' },
+  { key: 'earrings', label: 'Earrings' },
+  { key: 'pendants', label: 'Pendants' },
+  { key: 'chains', label: 'Chains' },
+  { key: 'necklaces', label: 'Necklaces' },
+  { key: 'mangalsutra', label: 'Mangalsutras' },
+  { key: 'anklets', label: 'Anklets' },
+  { key: 'maangtikka', label: 'Maang Tikka' },
+  { key: 'kada', label: 'Kada' },
+  { key: 'nosepin', label: 'Nose Pins' },
+  { key: 'tiepins', label: 'Tie Pins' },
+  { key: 'earchains', label: 'Ear Chains' },
+  { key: 'toerings', label: 'Toe Rings' },
+  { key: 'armlets', label: 'Armlets' },
+  { key: 'goldbars', label: 'Gold Bars' },
 ]
+
+const SILVER_PRODUCTS = [
+  { key: 'silvercoins', label: 'Silver Coins' },
+  { key: 'anklets', label: 'Anklets' },
+  { key: 'rings', label: 'Rings' },
+  { key: 'earrings', label: 'Earrings' },
+  { key: 'bracelets', label: 'Bracelets' },
+  { key: 'bangles', label: 'Bangles' },
+  { key: 'pendants', label: 'Pendants' },
+  { key: 'chains', label: 'Chains' },
+  { key: 'necklaces', label: 'Necklaces' },
+  { key: 'toerings', label: 'Toe Rings' },
+  { key: 'nosepin', label: 'Nose Pins' },
+  { key: 'articles', label: 'Articles' },
+  { key: 'silverbars', label: 'Silver Bars' },
+]
+
+const getProductsByMetal = (metal) => {
+  if (metal === 'gold') return GOLD_PRODUCTS
+  if (metal === 'silver') return SILVER_PRODUCTS
+  return []
+}
 
 const HIDDEN_METALS = ['diamond', 'platinum']  
 const TAGS = ['Bestseller', 'Bridal', 'Premium', 'Statement', 'Stackable', 'New', 'Limited']
@@ -77,7 +101,7 @@ const getAgeOptions = (gender) => {
 
 const SUBCATEGORIES = {
   rings: {
-    gold: ["Men's Gold Ring","Women's Gold Ring","Couple Gold Ring","Kids Gold Ring","Gold Engagement Ring","Gold Wedding Ring","Gold Stone Ring","Gold Plain Ring"],
+    gold: ["Daily Wear Gold Rings", "Lightweight Gold Rings", "Women's Gold Rings", "Men's Gold Rings", "Couple Gold Rings", "Engagement Gold Rings", "Diamond Gold Rings", "Designer Gold Rings", "Personalized Gold Rings", "Traditional Gold Rings", "Kids Gold Rings", "Plain Gold Rings", "Gemstone Gold Rings"],
     silver: ["Men's Silver Ring","Women's Silver Ring","Couple Silver Ring","Kids Silver Ring","Silver Engagement Ring","Silver Wedding Ring","Silver Stone Ring","Silver Plain Ring"],
     diamond: ["Men's Diamond Ring","Women's Diamond Ring","Couple Diamond Ring","Kids Diamond Ring","Diamond Engagement Ring","Diamond Wedding Ring","Diamond Solitaire Ring","Diamond Eternity Ring"],
     platinum: ["Men's Platinum Ring","Women's Platinum Ring","Couple Platinum Ring","Platinum Engagement Ring","Platinum Wedding Ring","Platinum Solitaire Ring","Platinum Plain Ring"],
@@ -95,13 +119,13 @@ const SUBCATEGORIES = {
     platinum: ["Women's Platinum Bangle","Platinum Bridal Bangle","Platinum Wedding Bangle","Platinum Plain Bangle"],
   },
   bracelets: {
-    gold: ["Men's Gold Bracelet","Women's Gold Bracelet","Couple Gold Bracelet","Kids Gold Bracelet","Gold Bridal Bracelet","Gold Wedding Bracelet","Gold Stone Bracelet","Gold Plain Bracelet","Gold Charm Bracelet","Gold Kada Bracelet"],
+    gold: ["Men's Gold Bracelet","Women's Gold Bracelet","Couple Gold Bracelet","Kids Gold Bracelet","Gold Bridal Bracelet","Gold Wedding Bracelet","Gold Stone Bracelet","Gold Plain Bracelet","Gold Charm Bracelet"],
     silver: ["Men's Silver Bracelet","Women's Silver Bracelet","Couple Silver Bracelet","Kids Silver Bracelet","Silver Bridal Bracelet","Silver Wedding Bracelet","Silver Stone Bracelet","Silver Plain Bracelet","Silver Charm Bracelet","Silver Kada Bracelet"],
     diamond: ["Women's Diamond Bracelet","Diamond Tennis Bracelet","Diamond Bridal Bracelet","Diamond Wedding Bracelet","Diamond Charm Bracelet","Diamond Plain Bracelet"],
     platinum: ["Women's Platinum Bracelet","Platinum Tennis Bracelet","Platinum Wedding Bracelet","Platinum Charm Bracelet","Platinum Plain Bracelet"],
   },
   earrings: {
-    gold: ["Men's Gold Earring","Women's Gold Earring","Kids Gold Earring","Gold Stud Earring","Gold Hoop Earring","Gold Drop Earring","Gold Stone Earring","Gold Plain Earring"],
+    gold: ["Daily Wear Gold Earrings", "Lightweight Gold Earrings", "Stud Earrings", "Women's Gold Earrings", "Traditional Gold Earrings", "Designer Gold Earrings", "Jhumka Earrings", "Hoop Earrings", "Diamond Gold Earrings", "Kids Earrings", "Drop Earrings", "Sui Dhaga Earrings"],
     silver: ["Men's Silver Earring","Women's Silver Earring","Kids Silver Earring","Silver Stud Earring","Silver Hoop Earring","Silver Drop Earring","Silver Stone Earring","Silver Plain Earring"],
     diamond: ["Women's Diamond Earring","Diamond Stud Earring","Diamond Hoop Earring","Diamond Drop Earring","Diamond Jhumka Earring","Diamond Plain Earring"],
     platinum: ["Women's Platinum Earring","Platinum Stud Earring","Platinum Hoop Earring","Platinum Drop Earring","Platinum Plain Earring"],
@@ -435,7 +459,18 @@ export default function AddNewProduct() {
           <div className="anp-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '18px', marginBottom: '16px', paddingTop: '18px' }}>
             <div>
               <label style={lblStyle}>Metal *</label>
-              <select value={productForm.metal} onChange={e => setProductForm(f => ({ ...f, metal: e.target.value, grade: '', name: '' }))} style={{ ...inpStyle, cursor: 'pointer' }}>
+              <select
+                value={productForm.metal}
+                onChange={e => setProductForm(f => ({
+                  ...f,
+                  metal: e.target.value,
+                  grade: '',
+                  category: '',
+                  name: '',
+                  nameChoice: '',
+                }))}
+                style={{ ...inpStyle, cursor: 'pointer' }}
+              >
                 <option value="" style={{ background: optionBg }}>-- Select --</option>
                 {!HIDDEN_METALS.includes('gold') && <option value="gold" style={{ background: optionBg }}>🏅 Gold</option>}
                 {!HIDDEN_METALS.includes('silver') && <option value="silver" style={{ background: optionBg }}>🥈 Silver</option>}
@@ -444,7 +479,7 @@ export default function AddNewProduct() {
               </select>
             </div>
 
-                        {(() => {
+            {(() => {
               const m = productForm.metal
               const cat = productForm.category
               const gradeOptions = getGradeOptions(m, cat)
@@ -470,9 +505,20 @@ export default function AddNewProduct() {
 
             <div>
               <label style={lblStyle}>Product *</label>
-              <select value={productForm.category} onChange={e => setProductForm(f => ({ ...f, category: e.target.value, name: '' }))} style={{ ...inpStyle, cursor: 'pointer' }}>
-                <option value="" style={{ background: optionBg }}>-- Select --</option>
-                {CATEGORIES.map(c => <option key={c.key} value={c.key} style={{ background: optionBg }}>{c.emoji} {c.label}</option>)}
+              <select
+                value={productForm.category}
+                onChange={e => setProductForm(f => ({ ...f, category: e.target.value, name: '', nameChoice: '' }))}
+                disabled={!productForm.metal}
+                style={{ ...inpStyle, cursor: productForm.metal ? 'pointer' : 'not-allowed' }}
+              >
+                <option value="" style={{ background: optionBg }}>
+                  {productForm.metal ? '-- Select --' : 'Select metal first'}
+                </option>
+                {getProductsByMetal(productForm.metal).map(c => (
+                  <option key={c.key} value={c.key} style={{ background: optionBg }}>
+                    {c.label}
+                  </option>
+                ))}
               </select>
             </div>
 

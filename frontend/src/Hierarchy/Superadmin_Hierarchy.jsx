@@ -305,7 +305,7 @@ function renderBracketBranch(node, role, childRole, childKey) {
   `
 }
 
-function printHorizontalBracketTree(adminNode, role, ancestors, superAdminEmail) {
+function printHorizontalBracketTree(adminNode, role, ancestors, superAdminEmail, existingWindow = null) {
   const adminName = [adminNode.first_name, adminNode.last_name].filter(Boolean).join(' ') || 'Super Stockist'
   const adminId = adminNode.admin_id || adminNode.id || ''
   const counts = countSubtree(adminNode)
@@ -338,7 +338,7 @@ function printHorizontalBracketTree(adminNode, role, ancestors, superAdminEmail)
     </div>
   `
 
-  const printWindow = window.open('', '_blank')
+  const printWindow = existingWindow || window.open('', '_blank')
   if (!printWindow) {
     alert('Pop-up blocked! Please allow pop-ups for this site to print.')
     return
@@ -605,7 +605,7 @@ function printHorizontalBracketTree(adminNode, role, ancestors, superAdminEmail)
 
         window.onload = () => {
           zoomFit();
-          setTimeout(() => window.print(), 500);
+          setTimeout(() => window.print(), 200);
         };
       <\/script>
     </body>
@@ -615,6 +615,8 @@ function printHorizontalBracketTree(adminNode, role, ancestors, superAdminEmail)
 }
 
 function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, superAdminEmail) {
+  // Mobile responsive la mattum chain popup open aaga koodadhu
+  if (typeof window !== 'undefined' && window.innerWidth <= 860) return
   clearTimeout(_chainHideTimer)
   removeChainPopup()
 
@@ -641,6 +643,9 @@ function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, super
       @keyframes acpGlow{0%,100%{box-shadow:0 0 0px rgba(34,197,94,0)}50%{box-shadow:0 0 20px rgba(34,197,94,0.22)}}
       @keyframes acpShimmer{0%{background-position:-200% center}100%{background-position:200% center}}
       @keyframes acpBadgePop{0%{transform:scale(0.8);opacity:0}100%{transform:scale(1);opacity:1}}
+      @media(max-width:860px){
+        #chain-popup{display:none !important; visibility:hidden !important; pointer-events:none !important;}
+      }
     `
     document.head.appendChild(s)
   }
@@ -968,6 +973,7 @@ const [printTarget, setPrintTarget] = useState(null) // { node, role, cfg, color
 const [printLoading, setPrintLoading] = useState(false)
 const openPrintPopup = (target) => setPrintTarget(target)
 const handlePrintOnly = () => {
+  if (!printTarget) return
   const { node, role, cfg, color, ancestors } = printTarget
   printPersonCard(node, role, cfg, color, ancestors, superAdminEmail)
   setPrintTarget(null)
@@ -977,15 +983,33 @@ const handlePrintHierarchy = async () => {
   setPrintTarget(null)
   if (!target) return
 
+  // ── Open window immediately synchronously to prevent popup blocker ──
+  const printWin = window.open('', '_blank')
+  if (printWin) {
+    printWin.document.write(`
+      <!DOCTYPE html><html><head><title>Preparing Hierarchy Tree...</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #FAFDFD; }
+        .card { text-align: center; background: #FFFFFF; border: 1.5px solid #D6E2E1; border-radius: 16px; padding: 36px 44px; box-shadow: 0 10px 30px rgba(7,59,63,0.06); }
+        .spinner { width: 38px; height: 38px; border: 3px solid #E6F0F0; border-top-color: #073B3F; border-radius: 50%; animation: spin .75s linear infinite; margin: 0 auto 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        h3 { color: #073B3F; font-size: 16px; font-weight: 800; margin: 0 0 6px; }
+        p { color: #7A8987; font-size: 12px; margin: 0; }
+      </style></head>
+      <body><div class="card"><div class="spinner"></div><h3>Preparing Hierarchy Print Tree...</h3><p>Compiling Super Stockist network structure...</p></div></body></html>
+    `)
+    printWin.document.close()
+  }
+
   setPrintLoading(true)
   try {
     const adminId = target.role === 'admin' ? target.node.id : (target.ancestors?.find(a => a.role === 'admin')?.node?.id || target.node.id)
     const res = await api.get(`/hierarchy/full/?admin_id=${adminId}`)
     const fullAdmin = res.data?.admins?.[0] || target.node
-    printHorizontalBracketTree(fullAdmin, target.role, target.ancestors, res.data?.super_admin_email || superAdminEmail)
+    printHorizontalBracketTree(fullAdmin, target.role, target.ancestors, res.data?.super_admin_email || superAdminEmail, printWin)
   } catch (err) {
     console.error('Failed to fetch full hierarchy for print:', err)
-    printHorizontalBracketTree(target.node, target.role, target.ancestors, superAdminEmail)
+    printHorizontalBracketTree(target.node, target.role, target.ancestors, superAdminEmail, printWin)
   } finally {
     setPrintLoading(false)
   }
@@ -1096,7 +1120,51 @@ useLayoutEffect(() => {
     setLoading(true)
     try {
       const res = await api.get('/hierarchy/admins/')
-      setHierarchyData({ super_admin_email: res.data.super_admin_email, admins: res.data.admins })
+      const admins = res.data.admins || []
+      setHierarchyData({ super_admin_email: res.data.super_admin_email, admins })
+
+      if (admins.length > 0) {
+        const firstAdmin = admins[0]
+        const adminKey = `admin_${firstAdmin.id}`
+        setOpenMap({ root: firstAdmin.id })
+
+        try {
+          const dRes = await api.get(`/hierarchy/children/?role=admin&id=${firstAdmin.id}`)
+          const dealers = dRes.data.items || []
+          setChildrenCache(prev => ({ ...prev, [adminKey]: dealers }))
+
+          if (dealers.length > 0) {
+            const firstDealer = dealers[0]
+            const dealerKey = `dealer_${firstDealer.id}`
+            setOpenMap(prev => ({ ...prev, [adminKey]: firstDealer.id }))
+
+            const sdRes = await api.get(`/hierarchy/children/?role=dealer&id=${firstDealer.id}`)
+            const subDealers = sdRes.data.items || []
+            setChildrenCache(prev => ({ ...prev, [dealerKey]: subDealers }))
+
+            if (subDealers.length > 0) {
+              const firstSd = subDealers[0]
+              const sdKey = `sub_dealer_${firstSd.id}`
+              setOpenMap(prev => ({ ...prev, [dealerKey]: firstSd.id }))
+
+              const prRes = await api.get(`/hierarchy/children/?role=sub_dealer&id=${firstSd.id}`)
+              const promotors = prRes.data.items || []
+              setChildrenCache(prev => ({ ...prev, [sdKey]: promotors }))
+
+              if (promotors.length > 0) {
+                const firstPr = promotors[0]
+                const prKey = `promotor_${firstPr.id}`
+                setOpenMap(prev => ({ ...prev, [sdKey]: firstPr.id }))
+
+                const cusRes = await api.get(`/hierarchy/children/?role=promotor&id=${firstPr.id}`)
+                setChildrenCache(prev => ({ ...prev, [prKey]: cusRes.data.items || [] }))
+              }
+            }
+          }
+        } catch (childErr) {
+          console.error('Failed to auto-expand first branch:', childErr)
+        }
+      }
     } catch (err) { console.error(err) }
     setLoading(false)
   }
@@ -1161,11 +1229,11 @@ useLayoutEffect(() => {
         .sh-search-input{ width:100%; background:${inpBg}; border:1px solid ${inpBorder}; border-radius:10px; padding:9px 14px 9px 34px; color:${text}; font-size:13px; outline:none; box-sizing:border-box; }
         .sh-zoom-wrap{ display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.94); border:1px solid rgba(12,64,68,0.16); border-radius:14px; padding:6px; box-shadow:0 12px 28px rgba(7,59,63,0.12); }
         .sh-canvas{ background:#FFFFFF; border:1.5px solid ${border}; border-radius:20px; padding:28px 0; overflow:hidden; min-height:100vh; position:relative; box-shadow:0 18px 42px rgba(7,59,63,0.08); }
-        .sh-superadmin-col{ position:absolute; top:0; left:0; bottom:0; width:200px; z-index:40; background:#FFFFFF; display:flex; flexDirection:column; align-items:center; padding-top:20px; }
+        .sh-superadmin-col{ position:absolute; top:0; left:0; bottom:0; width:200px; z-index:40; background:#FFFFFF; display:flex; flex-direction:column; align-items:center; padding-top:20px; }
         .sh-superadmin-line{ width:2px; flex:1; background:${ROLE_CFG.super_admin.color}; margin-top:6px; }
         .sh-level-labels{ position:absolute; left:0; top:0; width:200px; height:100%; z-index:45; pointer-events:none; }
         .sh-svg-bridge{ position:absolute; top:0; left:0; width:100%; height:100%; z-index:44; pointer-events:none; }
-        .sh-tree-scroll{ overflow-x:auto; overflow-y:hidden; padding:20px 32px 20px 220px; -webkit-overflow-scrolling:touch; }
+        .sh-tree-scroll{ overflow-x:auto; overflow-y:hidden; padding:72px 32px 20px 220px; -webkit-overflow-scrolling:touch; }
 
         .otree-node-wrap{display:flex;flex-direction:column;align-items:center;}
         .otree-card{
@@ -1221,6 +1289,7 @@ useLayoutEffect(() => {
           .sh-svg-bridge { display: none !important; }
           .sh-tree-scroll { padding: 16px 8px !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
           .hierarchy-zoom-chip { min-width: 48px; }
+          #chain-popup { display: none !important; visibility: hidden !important; pointer-events: none !important; }
         }
       `}</style>
 
@@ -1287,14 +1356,14 @@ useLayoutEffect(() => {
       </div>
 
      <div ref={treeWrapperRef} className="sh-canvas">
-        <div className="sh-superadmin-col">
+        <div className="sh-superadmin-col" style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 200, zIndex: 40, background: '#FFFFFF', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 20 }}>
           <div className="otree-card" data-role="super_admin" style={{ '--nc': ROLE_CFG.super_admin.color, minWidth: 150, cursor: 'default' }}>
             <div className="otree-badge" style={{ '--nc': ROLE_CFG.super_admin.color }}>
               <IconShield color={ROLE_CFG.super_admin.color} size={11} /> SUPER ADMIN
             </div>
             <div className="otree-name" style={{ color: text, fontSize: '12px', wordBreak: 'break-all' }}>{superAdminEmail}</div>
           </div>
-          <div className="sh-superadmin-line" />
+          <div className="sh-superadmin-line" style={{ width: 2, flex: 1, background: ROLE_CFG.super_admin.color, marginTop: 6 }} />
         </div>
 
         {!loading && hierarchyData && !filter && !debouncedSearch && (
@@ -1427,7 +1496,8 @@ useLayoutEffect(() => {
         </div>
       )}
 
-      {/* ── NEW: PRINT CHOICE POPUP — Only vs Full Hierarchy ── */}
+
+      {/* ── PRINT CHOICE POPUP — Only vs Full Hierarchy ── */}
       {printTarget && (
         <div
           onClick={() => setPrintTarget(null)}
@@ -1486,34 +1556,6 @@ useLayoutEffect(() => {
             >
               Cancel
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── PRINT LOADING MODAL ── */}
-      {printLoading && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(7,59,63,0.45)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
-            zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}
-        >
-          <div
-            style={{
-              background: '#FFFFFF', border: '1.5px solid #D6E2E1', borderRadius: '20px',
-              padding: '28px 36px', boxShadow: '0 24px 60px rgba(7,59,63,0.22)', textAlign: 'center', maxWidth: '380px'
-            }}
-          >
-            <div style={{
-              width: 38, height: 38, border: '3.5px solid #E1EBEA', borderTop: '3.5px solid #073B3F',
-              borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 14px'
-            }} />
-            <div style={{ color: '#073B3F', fontWeight: 800, fontSize: '15px', marginBottom: '6px' }}>
-              Preparing Hierarchy Print Tree...
-            </div>
-            <div style={{ color: '#5C706E', fontSize: '12px', lineHeight: 1.5 }}>
-              Compiling full downward tree with all distributors, wholesale dealers, retailers, and customers.
-            </div>
           </div>
         </div>
       )}

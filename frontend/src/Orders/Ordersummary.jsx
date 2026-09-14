@@ -754,6 +754,18 @@ export default function OrderSummary() {
         }
 
         .os-empty-icon,
+        
+        @keyframes skelShimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .bb-skel {
+          background: linear-gradient(90deg, #EAEFEF 25%, #F6F8F8 50%, #EAEFEF 75%);
+          background-size: 200% 100%;
+          animation: skelShimmer 1.5s infinite ease-in-out;
+          border-radius: 8px;
+        }
+
         .os-loader-mark {
           width: 72px;
           height: 72px;
@@ -809,32 +821,72 @@ export default function OrderSummary() {
 
           .os-filters {
             justify-content: flex-start;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            padding-bottom: 6px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+          }
+          .os-filters::-webkit-scrollbar {
+            display: none;
           }
         }
 
         @media (max-width: 760px) {
           .os-shell {
-            padding-left: 14px;
-            padding-right: 14px;
+            padding-left: 12px;
+            padding-right: 12px;
+            padding-top: 14px;
           }
 
           .os-hero-card {
             min-height: auto;
-            padding: 28px 20px;
+            padding: 24px 16px;
+            border-radius: 12px;
+          }
+
+          .os-hero-card h1 {
+            font-size: 26px;
+          }
+
+          .os-hero-actions {
+            flex-direction: column;
+            width: 100%;
+          }
+
+          .os-primary-btn,
+          .os-ghost-btn {
+            width: 100%;
+            justify-content: center;
           }
 
           .os-stats {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+          }
+
+          .os-order-card {
+            padding: 16px;
+            border-radius: 12px;
           }
 
           .os-order-main {
-            grid-template-columns: 86px minmax(0, 1fr);
-            gap: 14px;
+            grid-template-columns: 80px minmax(0, 1fr);
+            gap: 12px;
           }
 
           .os-product-media {
-            width: 86px;
-            height: 86px;
+            width: 80px;
+            height: 80px;
+            border-radius: 10px;
+          }
+
+          .os-order-title {
+            font-size: 15px;
+            -webkit-line-clamp: 2;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
           }
 
           .os-price-block {
@@ -848,7 +900,8 @@ export default function OrderSummary() {
 
           .os-chevron {
             position: absolute;
-            right: 24px;
+            right: 16px;
+            top: 16px;
           }
 
           .os-order-strip,
@@ -858,16 +911,43 @@ export default function OrderSummary() {
 
           .os-order-strip {
             flex-direction: column;
+            gap: 6px;
           }
 
           .os-step {
-            grid-template-columns: 30px 1fr;
+            grid-template-columns: 28px 1fr;
             justify-items: start;
             text-align: left;
           }
 
           .os-step:before {
             display: none;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .os-order-main {
+            grid-template-columns: 68px minmax(0, 1fr);
+            gap: 10px;
+          }
+
+          .os-product-media {
+            width: 68px;
+            height: 68px;
+          }
+
+          .os-stat {
+            padding: 12px 14px;
+          }
+
+          .os-stat strong {
+            font-size: 18px;
+          }
+
+          .os-order-meta {
+            flex-wrap: wrap;
+            gap: 6px 10px;
+            font-size: 11px;
           }
         }
       `}</style>
@@ -931,12 +1011,19 @@ export default function OrderSummary() {
           </div>
 
           {loading ? (
-            <div className="os-loading">
-              <div className="os-loader-card">
-                <div className="os-loader-mark" />
-                <h2>Preparing Your Orders</h2>
-                <p>We are bringing your purchase history into a polished view.</p>
-              </div>
+            <div className="os-list">
+              {[1, 2, 3].map(i => (
+                <article key={i} className="os-order-card" style={{ opacity: 0.9 }}>
+                  <div className="os-order-main">
+                    <div className="os-product-media bb-skel" style={{ width: 80, height: 80, borderRadius: 12 }} />
+                    <div style={{ width: '100%' }}>
+                      <div className="bb-skel" style={{ width: '30%', height: 12, marginBottom: 8 }} />
+                      <div className="bb-skel" style={{ width: '65%', height: 18, marginBottom: 10 }} />
+                      <div className="bb-skel" style={{ width: '45%', height: 14 }} />
+                    </div>
+                  </div>
+                </article>
+              ))}
             </div>
           ) : filteredOrders.length === 0 ? (
             <div className="os-empty">

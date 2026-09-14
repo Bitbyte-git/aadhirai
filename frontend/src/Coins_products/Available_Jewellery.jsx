@@ -75,10 +75,12 @@ export default function AvailableJewellery() {
     try {
       const res = await api.get("/jewelry-stock/?scope=hierarchy");
       setHierarchyStock(Array.isArray(res.data) ? res.data : []);
-    } catch {
-      setError("Failed to load hierarchy jewellery holdings.");
+    } catch (err) {
+      console.error("Failed to load hierarchy jewellery holdings:", err);
+      setHierarchyStock([]);
+    } finally {
+      setHierarchyLoading(false);
     }
-    setHierarchyLoading(false);
   };
 
   useEffect(() => {

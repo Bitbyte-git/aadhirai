@@ -227,7 +227,6 @@ img {
   .an-products,
   .coins-grid,
   .wishlist-grid,
-  .more-products-grid,
   .product-grid,
   .profile-overview,
   .profile-stats,
@@ -275,7 +274,6 @@ img {
   .coins-grid,
   .wishlist-grid,
   .product-grid,
-  .more-products-grid,
   .profile-overview,
   .pd-trust-grid,
   .cart-hero-stats,
@@ -340,7 +338,6 @@ img {
   .coins-grid,
   .wishlist-grid,
   .product-grid,
-  .more-products-grid,
   .profile-overview,
   .profile-tabs,
   .profile-edit-grid,
@@ -412,31 +409,48 @@ img {
   }
 }
 
-/* Customer card sizing: prevent sparse product grids from stretching cards too large. */
+/* Customer card sizing: equal height cards and responsive grids */
 .an-products,
 .coins-grid,
-.wishlist-grid,
-.more-products-grid {
+.wishlist-grid {
   grid-template-columns: repeat(auto-fill, minmax(220px, 300px)) !important;
   justify-content: flex-start !important;
-  align-items: start !important;
+  align-items: stretch !important;
   gap: clamp(16px, 1.6vw, 26px) !important;
+}
+
+.more-products-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  align-items: stretch !important;
+  gap: 16px !important;
 }
 
 .product-grid {
   grid-template-columns: repeat(auto-fill, minmax(160px, 220px)) !important;
   justify-content: center !important;
-  align-items: start !important;
+  align-items: stretch !important;
   gap: clamp(10px, 1.2vw, 18px) !important;
 }
 
 .an-product-card,
 .coin-premium-card,
-.wishlist-card,
-.more-product-card {
+.wishlist-card {
   width: 100% !important;
   max-width: 300px !important;
   border-radius: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+}
+
+.more-product-card {
+  width: 100% !important;
+  max-width: 100% !important;
+  border-radius: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
 }
 
 .product-card {
@@ -447,27 +461,47 @@ img {
 
 .an-product-image,
 .coin-premium-image,
-.wishlist-image,
-.more-product-image {
+.wishlist-image {
   aspect-ratio: 1 / 0.92 !important;
   min-height: 0 !important;
 }
 
+.more-product-image,
 .product-img {
   aspect-ratio: 1 / 1 !important;
   min-height: 0 !important;
 }
 
+@media (max-width: 1020px) {
+  .more-products-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+    align-items: stretch !important;
+  }
+}
+
 @media (max-width: 820px) {
   .an-products,
   .coins-grid,
-  .wishlist-grid,
-  .more-products-grid {
+  .wishlist-grid {
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)) !important;
+    align-items: stretch !important;
   }
 
   .product-grid {
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)) !important;
+    align-items: stretch !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .more-products-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    align-items: stretch !important;
+  }
+  .more-product-card {
+    border-radius: 14px !important;
   }
 }
 
@@ -475,7 +509,6 @@ img {
   .an-products,
   .coins-grid,
   .wishlist-grid,
-  .more-products-grid,
   .product-grid {
     grid-template-columns: 1fr !important;
   }

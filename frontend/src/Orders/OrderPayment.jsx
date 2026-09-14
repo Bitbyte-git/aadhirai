@@ -56,6 +56,15 @@ const styles = `
   .op-banner.error{background:rgba(229,62,62,.1);color:#e53e3e;border:1px solid rgba(229,62,62,.3)}
   .op-success-box{text-align:center;padding:40px 20px}
   .op-success-icon{width:70px;height:70px;border-radius:50%;background:rgba(22,163,74,.12);color:#16a34a;display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
+  @media (max-width: 600px) {
+    .op-main { width: min(100% - 20px, 900px); padding: 20px 0 50px; }
+    .op-title { font-size: 26px; margin-bottom: 18px; }
+    .op-card { padding: 18px 16px; border-radius: 12px; margin-bottom: 14px; }
+    .op-order-img { width: 54px; height: 54px; }
+    .op-balance-value { font-size: 26px; }
+    .op-pay-btn, .op-buy-coin-btn { min-height: 48px; font-size: 12.5px; }
+    .op-shortfall-input { padding: 11px 13px; font-size: 14px; }
+  }
 `
 
 export default function OrderPayment() {

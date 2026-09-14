@@ -9,7 +9,30 @@ export default function AffordableProducts() {
   const navigate=useNavigate()
   useEffect(()=>{window.scrollTo(0,0)},[])
   useEffect(()=>{ const fetchData=async()=>{try{const {default:api}=await import('../api');setData((await api.get('/products/affordable/')).data)}catch{/* handled by empty state */}finally{setLoading(false)}};fetchData() },[])
-  if(loading)return <><CustomerNavbar/><div className="coin-shop-loading"><i/><span>Preparing your private coin collection…</span></div><CustomerFooter/></>
+  if(loading)return <div className="coin-shop-page"><CustomerNavbar/><main className="coin-shop-shell" style={{ padding: '24px 16px' }}>
+    <style>{`
+      @keyframes csShimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+      }
+      .cs-skel {
+        background: linear-gradient(90deg, #EAEFEF 25%, #F7F9F9 50%, #EAEFEF 75%);
+        background-size: 200% 100%;
+        animation: csShimmer 1.5s infinite ease-in-out;
+        border-radius: 14px;
+      }
+    `}</style>
+    <div className="cs-skel" style={{ height: 180, borderRadius: 24, marginBottom: 24 }} />
+    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
+      <div className="cs-skel" style={{ width: 180, height: 24 }} />
+      <div className="cs-skel" style={{ width: 100, height: 18 }} />
+    </div>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
+      {[1, 2, 3, 4, 5, 6].map(i => (
+        <div key={i} className="cs-skel" style={{ height: 310, borderRadius: 18 }} />
+      ))}
+    </div>
+  </main><CustomerFooter/></div>
   if(!data)return <><CustomerNavbar/><div className="coin-shop-error">We couldn’t load your coin collection. Please try again.</div><CustomerFooter/></>
   const filteredProducts = data.products.filter(p => p.metal !== 'diamond' && p.metal !== 'platinum')
   return <div className="coin-shop-page"><CustomerNavbar/><main className="coin-shop-shell">

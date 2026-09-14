@@ -433,15 +433,16 @@ function writeSubsecCache(key, data) {
     )
   }
 
-function SkeletonGrid({ count = 4 }) {
+function SkeletonGrid({ count = 8 }) {
   return (
     <section className="an-products">
       {Array.from({ length: count }).map((_, i) => (
         <div className="an-skeleton-card" key={i}>
           <div className="an-skeleton-img" />
-          <div className="an-skeleton-line" style={{ width: '70%' }} />
-          <div className="an-skeleton-line" style={{ width: '45%' }} />
-          <div className="an-skeleton-line" style={{ width: '55%' }} />
+          <div className="an-skeleton-line" style={{ width: '70%', height: 14, marginTop: 12 }} />
+          <div className="an-skeleton-line" style={{ width: '45%', height: 12, marginTop: 8 }} />
+          <div className="an-skeleton-line" style={{ width: '55%', height: 16, marginTop: 8 }} />
+          <div className="an-skeleton-line" style={{ width: '85%', height: 32, borderRadius: 999, marginTop: 10, marginBottom: 12 }} />
         </div>
       ))}
     </section>
@@ -450,6 +451,7 @@ function SkeletonGrid({ count = 4 }) {
 
 function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subcategoryFilter, activeScrollSub, isWedding, isGifting, giftTagFilter, giftTypeFilter }) {
   const { wrapRef, asideRef, style } = useFixedSidebar()
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
   const categories = isGifting
     ? giftingFilterCategories
     : isWedding
@@ -469,8 +471,6 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
   const subcategoryMetal = isWedding ? 'wedding' : (metalFilter || 'gold')
   const subButtonRefs = useRef({})
 
-  // right side-la eந்த subcategory active-a maarudhோ, adhoda left side
-  // button-a smooth-a visible idathukku scroll pannும்
   useEffect(() => {
     if (!activeScrollSub) return
     const el = subButtonRefs.current[activeScrollSub]
@@ -486,109 +486,192 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
   }
 
   const activeSubFilter = isGifting ? giftTypeFilter : subcategoryFilter
+  const activeFilterTag = subcategoryFilter || categoryFilter || giftTagFilter
 
   return (
     <div ref={wrapRef} className="an-filter-wrap">
-      <aside ref={asideRef} className="an-filter" style={style}>
-        <h2>{(metalFilter === 'gold' || isWedding || isGifting) ? 'FILTERS' : 'Shop By'}</h2>
+      {/* Mobile Toggle Bar */}
+      <button
+        type="button"
+        className="an-mobile-filter-bar"
+        onClick={() => setMobileFilterOpen((o) => !o)}
+        aria-expanded={mobileFilterOpen}
+      >
+        <div className="an-mobile-filter-bar-left">
+          <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontWeight: 700 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            Categories
+          </span>
+          {activeFilterTag && (
+            <span className="an-mobile-filter-tag">• {activeFilterTag}</span>
+          )}
+        </div>
+        <span className={`an-mobile-filter-caret ${mobileFilterOpen ? 'open' : ''}`}>
+          {mobileFilterOpen ? '▲' : '▼'}
+        </span>
+      </button>
+
+      {/* Inline Filter: Sticky on Desktop, Inline Accordion on Mobile (NO bottom-up popup, NO full page cover) */}
+      <aside
+        ref={asideRef}
+        className={`an-filter ${mobileFilterOpen ? 'an-filter-mobile-open' : 'an-filter-mobile-closed'}`}
+        style={style}
+      >
+        <h2 className="an-filter-heading">{(metalFilter === 'gold' || isWedding || isGifting) ? 'Categories' : 'Shop By'}</h2>
+        
         <div className="an-filter-section">
-          <div className="an-filter-title">Category <span>{metalFilter === 'gold' ? '^' : '-'}</span></div>
           {categories.map(([label, route, key]) => {
             const subOptions = key
               ? (isGifting ? getGiftingSubcategories(key) : getSubcategories(key, subcategoryMetal))
               : []
             const isOpen = key && expandedKey === key
+            const isCategoryActive = activeRoute === route && !subcategoryFilter && !giftTagFilter
             return (
-              <div key={label}>
-                <button
-                  className={activeRoute === route && !subcategoryFilter && !giftTagFilter ? 'active' : ''}
-                  type="button"
-                  onClick={() => {
-                    if (key && subOptions.length) {
-                      setExpandedKey(isOpen ? null : key)
-                    }
-                    navigate(route)
-                  }}
-                >
-                  {label}
+              <div key={label} className="an-nav-cat-item">
+                <div className={`an-nav-cat-row ${isCategoryActive ? 'active' : ''}`}>
+                  <button
+                    className={`an-nav-cat-title ${isCategoryActive ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => {
+                      navigate(route)
+                      setMobileFilterOpen(false)
+                    }}
+                  >
+                    {label}
+                  </button>
                   {subOptions.length > 0 && (
-                    <span style={{ float: 'right' }}>{isOpen ? '−' : '+'}</span>
-                  )}
-                </button>
-                              {isOpen && subOptions.length > 0 && (
-                <div className="an-filter-subgroup">
-                  {subOptions.map(sub => (
                     <button
-                      key={sub}
-                      ref={el => (subButtonRefs.current[sub] = el)}
                       type="button"
-                      className={(activeScrollSub || activeSubFilter) === sub ? 'active' : ''}
-                      onClick={() => navigate(buildSubcategoryRoute(route, sub))}
+                      className={`an-nav-cat-toggle ${isOpen ? 'open' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setExpandedKey(isOpen ? null : key)
+                      }}
+                      title={isOpen ? 'Collapse' : 'Expand'}
                     >
-                      {sub}
+                      {isOpen ? '−' : '+'}
                     </button>
-                  ))}
+                  )}
                 </div>
-              )}
+
+                {isOpen && subOptions.length > 0 && (
+                  <div className="an-nav-sub-list">
+                    {subOptions.map(sub => {
+                      const isSubActive = (activeScrollSub || activeSubFilter) === sub
+                      return (
+                        <button
+                          key={sub}
+                          ref={el => (subButtonRefs.current[sub] = el)}
+                          type="button"
+                          className={`an-nav-sub-item ${isSubActive ? 'active' : ''}`}
+                          onClick={() => {
+                            navigate(buildSubcategoryRoute(route, sub))
+                            setMobileFilterOpen(false)
+                          }}
+                        >
+                          <span className="an-nav-sub-name">{sub}</span>
+                          {isSubActive && <span className="an-nav-sub-check">✓</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )
           })}
         </div>
-        <button className="an-clear" type="button" onClick={() => navigate('/collection/all')}>Clear All Filters</button>
+
+        <button
+          className="an-clear"
+          type="button"
+          onClick={() => {
+            navigate('/collection/all')
+            setMobileFilterOpen(false)
+          }}
+        >
+          Clear Category Filter
+        </button>
       </aside>
     </div>
   )
 }
 
-  function QuickFilterDropdown({ label, options, currentValue, onSelect }) {
-    const [open, setOpen] = useState(false)
-    const closeTimer = useRef(null)
+function QuickFilterDropdown({ label, options, currentValue, onSelect }) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef(null)
 
-    const openNow = () => {
-      if (closeTimer.current) {
-        clearTimeout(closeTimer.current)
-        closeTimer.current = null
+  useEffect(() => {
+    if (!open) return
+    const handleTouchOrClick = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false)
       }
-      setOpen(true)
     }
-
-    const closeSoon = () => {
-      closeTimer.current = setTimeout(() => setOpen(false), 250)
+    document.addEventListener('mousedown', handleTouchOrClick)
+    document.addEventListener('touchstart', handleTouchOrClick)
+    return () => {
+      document.removeEventListener('mousedown', handleTouchOrClick)
+      document.removeEventListener('touchstart', handleTouchOrClick)
     }
+  }, [open])
 
-    return (
-      <div
-        className="an-qf-dropdown"
-        onMouseEnter={openNow}
-        onMouseLeave={closeSoon}
+  const selectedOption = options.find(([, val]) => val === (currentValue || ''))
+  const hasValue = Boolean(currentValue && currentValue !== '')
+  const displayValue = selectedOption ? selectedOption[0] : ''
+
+  return (
+    <div className="an-qf-dropdown" ref={containerRef}>
+      <button
+        type="button"
+        className={`an-qf-toggle ${hasValue ? 'active' : ''}`}
+        onClick={() => setOpen(prev => !prev)}
+        aria-expanded={open}
       >
-        <span className="an-qf-label">{label}</span>
-        <button type="button" className={`an-qf-toggle ${currentValue ? 'active' : ''}`}>
-          <span className="an-qf-value">
-            {options.find(([, val]) => val === (currentValue || ''))?.[0] || 'All'}
+        <span className="an-qf-value">
+          {hasValue ? `${label}: ${displayValue}` : `${label} ▾`}
+        </span>
+        {hasValue ? (
+          <span
+            className="an-qf-clear-x"
+            onClick={(e) => {
+              e.stopPropagation()
+              onSelect('')
+              setOpen(false)
+            }}
+            title="Clear"
+          >
+            ✕
           </span>
-          <span className={`an-qf-caret ${open ? 'open' : ''}`}>▾</span>
-        </button>
-        <div className={`an-qf-panel ${open ? 'open' : ''}`}>
-          {options.map(([optLabel, optValue]) => (
-            <button
-              key={optLabel}
-              type="button"
-              className={optValue === (currentValue || '') ? 'active' : ''}
-              onClick={() => {
-                onSelect(optValue)
-                setOpen(false)
-              }}
-            >
-              {optLabel}
-            </button>
-          ))}
-        </div>
-      </div>
-    )
-  }
+        ) : null}
+      </button>
 
-  function RightRail({ copy }) {
+      {/* Lightweight Dropdown Menu: directly below pill, NO fixed bottom sheet */}
+      {open && (
+        <div className="an-qf-panel open">
+          {options.map(([optLabel, optValue]) => {
+            const isSelected = optValue === (currentValue || '')
+            return (
+              <button
+                key={optLabel}
+                type="button"
+                className={`an-qf-option-btn ${isSelected ? 'active' : ''}`}
+                onClick={() => {
+                  onSelect(optValue)
+                  setOpen(false)
+                }}
+              >
+                <span className="an-qf-opt-label">{optLabel}</span>
+                {isSelected && <span className="an-qf-opt-check">✓</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RightRail({ copy }) {
     return (
       <aside className="an-right-rail">
         <div className="an-trust-box">
@@ -970,6 +1053,10 @@ export default function AllCollection() {
             box-shadow: 0 12px 36px rgba(7,31,34,0.06);
           }
 
+          .an-mobile-filter-bar {
+            display: none;
+          }
+
           .an-filter-wrap {
             width: 100%;
             min-height: 1px;
@@ -1115,104 +1202,226 @@ export default function AllCollection() {
 
           .an-quick-filters {
             display: flex;
-            gap: 24px;
+            align-items: center;
+            gap: 10px;
             flex-wrap: wrap;
           }
 
           .an-qf-dropdown {
             position: relative;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-
-          .an-qf-label {
-            font-size: 14px;
-            font-weight: 700;
-            color: #111;
-            white-space: nowrap;
+            display: inline-flex;
           }
 
           .an-qf-toggle {
-            border: 1px solid #ded8d1;
-            border-radius: 6px;
+            border: 1.5px solid #ded8d1;
+            border-radius: 999px;
             background: #fff;
-            padding: 8px 14px;
+            padding: 7px 15px;
             cursor: pointer;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 8px;
-            min-width: 140px;
-            justify-content: space-between;
+            font-size: 13px;
+            font-weight: 700;
+            color: #111;
+            box-shadow: 0 2px 6px rgba(7,31,34,0.04);
+            transition: all 0.2s ease;
+          }
+
+          .an-qf-toggle:hover {
+            border-color: #073B3F;
+            background: #f7faf9;
           }
 
           .an-qf-toggle.active {
             border-color: #073B3F;
-            background: #eaf1f0;
+            background: #073B3F;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(7,59,63,0.18);
           }
 
           .an-qf-value {
             font-size: 13px;
             font-weight: 700;
-            color: #111;
+            color: inherit;
             white-space: nowrap;
           }
 
-          .an-qf-toggle.active .an-qf-value {
-            color: #073B3F;
+          .an-qf-clear-x {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 17px;
+            height: 17px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.28);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 900;
+            margin-left: 2px;
+            cursor: pointer;
+          }
+
+          .an-qf-clear-x:hover {
+            background: rgba(255,255,255,0.5);
+          }
+
+          .an-qf-reset-btn {
+            border: 1.5px dashed #c0392b;
+            border-radius: 999px;
+            background: #fff5f5;
+            color: #c0392b;
+            padding: 7px 14px;
+            font-size: 12.5px;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.18s ease;
+          }
+
+          .an-qf-reset-btn:hover {
+            background: #c0392b;
+            color: #fff;
           }
 
           .an-qf-panel {
             position: absolute;
-            top: calc(100% + 6px);
-            right: 0;
-            z-index: 20;
-            min-width: 160px;
+            top: calc(100% + 5px);
+            left: 0;
+            z-index: 1000;
+            min-width: 170px;
             background: #fff;
-            border: 1px solid #e7e1d9;
+            border: 1px solid #ded8d1;
             border-radius: 10px;
-            box-shadow: 0 12px 30px rgba(7,31,34,0.12);
-            padding: 6px;
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-6px);
-            pointer-events: none;
-            transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
+            box-shadow: 0 8px 24px rgba(7,31,34,0.14);
+            padding: 5px;
+            animation: qfFadeIn 0.15s ease-out;
           }
 
-          .an-qf-panel.open {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0);
-            pointer-events: auto;
-          }
-
-          .an-qf-caret {
-            display: inline-block;
-            transition: transform 180ms ease;
-          }
-
-          .an-qf-caret.open {
-            transform: rotate(180deg);
-          }
-
-          .an-qf-panel button {
+          .an-qf-option-btn {
             width: 100%;
             border: 0;
             background: transparent;
             text-align: left;
-            padding: 8px 10px;
-            font-size: 12px;
+            padding: 9px 12px;
+            font-size: 13px;
             font-weight: 600;
             color: #111;
             cursor: pointer;
             border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 0.15s ease;
           }
 
-          .an-qf-panel button:hover,
-          .an-qf-panel button.active {
+          .an-qf-option-btn:hover,
+          .an-qf-option-btn:active {
             background: #eaf1f0;
             color: #073B3F;
+          }
+
+          .an-qf-option-btn.active {
+            background: #eaf1f0;
+            color: #073B3F;
+            font-weight: 800;
+          }
+
+          .an-qf-opt-check {
+            color: #073B3F;
+            font-weight: 900;
+            margin-left: 8px;
+          }
+
+          @keyframes qfFadeIn {
+            from { opacity: 0; transform: translateY(-3px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+
+          /* Navbar-styled category sidebar */
+          .an-nav-cat-item {
+            border-bottom: 1px solid #f2ede7;
+          }
+          .an-nav-cat-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 2px 0;
+          }
+          .an-nav-cat-row.active {
+            background: #f7f3ee;
+            border-radius: 6px;
+          }
+          .an-nav-cat-title {
+            flex: 1;
+            border: none;
+            background: transparent;
+            text-align: left;
+            padding: 9px 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #3b1812;
+            cursor: pointer;
+            transition: color 0.15s ease;
+          }
+          .an-nav-cat-title:hover,
+          .an-nav-cat-title.active {
+            color: #073B3F;
+            font-weight: 700;
+          }
+          .an-nav-cat-toggle {
+            border: none;
+            background: transparent;
+            width: 36px;
+            height: 36px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #6b5048;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            border-radius: 4px;
+          }
+          .an-nav-cat-toggle:hover {
+            background: rgba(0,0,0,0.04);
+          }
+          .an-nav-sub-list {
+            padding: 2px 0 8px 12px;
+            display: grid;
+            gap: 2px;
+          }
+          .an-nav-sub-item {
+            border: none;
+            background: transparent;
+            text-align: left;
+            padding: 7px 10px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #555;
+            cursor: pointer;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.15s ease;
+          }
+          .an-nav-sub-item:hover,
+          .an-nav-sub-item:active {
+            background: #f4ede6;
+            color: #073B3F;
+          }
+          .an-nav-sub-item.active {
+            background: #073B3F;
+            color: #fff;
+            font-weight: 700;
+          }
+          .an-nav-sub-item.active .an-nav-sub-check {
+            color: #fff;
+          }
+          .an-nav-sub-check {
+            color: #073B3F;
+            font-weight: 900;
+            font-size: 13px;
           }
 
           .an-breadcrumb {
@@ -1762,27 +1971,317 @@ export default function AllCollection() {
             .an-products { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
           }
 
-                  @media (max-width: 820px) {
-            .an-shell { width: min(100% - 28px, 1810px); }
-            .an-layout { grid-template-columns: 1fr; padding-top: 18px; }
-            .an-filter { position: static !important; left: auto !important; width: 100% !important; }
-            .an-main-head { grid-template-columns: 1fr; }
-            .an-category-grid,
-            .an-products { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
-            .an-metal-banner { grid-template-columns: 1fr; }
-            .an-banner-badges { display: none; }
+          @media (max-width: 820px) {
+            .an-shell { width: min(100% - 16px, 100%); padding: 0 4px; }
+            .an-layout { grid-template-columns: 1fr; padding: 10px 0 20px; gap: 10px; }
+            .an-right-rail { display: none; }
+
+            /* Mobile Filter Bar — Inline Accordion (NO bottom sheet, NO modal) */
+            .an-mobile-filter-bar {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              width: 100%;
+              padding: 12px 16px;
+              background: #fff;
+              border: 1.5px solid #ded8d1;
+              border-radius: 12px;
+              font-size: 13.5px;
+              font-weight: 700;
+              color: #073B3F;
+              cursor: pointer;
+              box-shadow: 0 2px 8px rgba(7,31,34,0.04);
+              margin-bottom: 8px;
+              transition: all 0.2s ease;
+            }
+            .an-mobile-filter-bar:active {
+              background: #f7faf9;
+            }
+            .an-mobile-filter-bar-left {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+            .an-mobile-filter-tag {
+              color: #8b551e;
+              font-weight: 800;
+              text-transform: capitalize;
+              font-size: 12.5px;
+            }
+            .an-mobile-filter-caret {
+              font-size: 11px;
+              color: #073B3F;
+            }
+
+            /* Inline accordion expansion on mobile — clean in-page expansion */
+            .an-filter.an-filter-mobile-closed {
+              display: none !important;
+            }
+            .an-filter.an-filter-mobile-open {
+              display: block !important;
+              position: static !important;
+              width: 100% !important;
+              max-height: none !important;
+              background: #fff !important;
+              border: 1.5px solid #ded8d1 !important;
+              border-radius: 14px !important;
+              padding: 12px 14px !important;
+              margin-bottom: 14px !important;
+              box-shadow: 0 4px 14px rgba(7,31,34,0.05) !important;
+              animation: inlineFadeDown 0.2s ease-out !important;
+            }
+            @keyframes inlineFadeDown {
+              from { opacity: 0; transform: translateY(-6px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+            .an-filter-heading {
+              font-size: 15px;
+              margin: 0 0 10px;
+              color: #073B3F;
+              font-weight: 800;
+              border-bottom: 1px solid #f2ede7;
+              padding-bottom: 8px;
+            }
+
+            .an-main-head {
+              grid-template-columns: 1fr;
+              gap: 6px;
+              margin: 4px 0 10px;
+            }
+            .an-title h1 {
+              font-size: 20px;
+            }
+            .an-title-mark {
+              width: 110px;
+              height: 8px;
+              margin: 4px 0;
+            }
+            .an-title p {
+              font-size: 12px;
+            }
+            .an-breadcrumb {
+              font-size: 11.5px;
+              margin-bottom: 2px;
+            }
+
+            /* Quick Filters Horizontal Swipeable Pills — Simple Inline Dropdowns */
+            .an-quick-filters {
+              display: flex !important;
+              flex-wrap: nowrap !important;
+              overflow-x: auto !important;
+              -webkit-overflow-scrolling: touch;
+              gap: 8px !important;
+              padding: 4px 2px 8px !important;
+              margin-top: 4px !important;
+              scrollbar-width: none;
+            }
+            .an-quick-filters::-webkit-scrollbar {
+              display: none;
+            }
+            .an-qf-dropdown {
+              flex-shrink: 0;
+              position: relative;
+            }
+            .an-qf-toggle {
+              white-space: nowrap !important;
+              padding: 7px 13px !important;
+              font-size: 12px !important;
+              border-radius: 999px !important;
+            }
+            .an-qf-reset-btn {
+              flex-shrink: 0;
+              padding: 7px 12px !important;
+              font-size: 11.5px !important;
+            }
+            /* Normal dropdown positioned right below the pill on mobile — NEVER covers full page */
+            .an-qf-panel {
+              position: absolute !important;
+              top: calc(100% + 5px) !important;
+              left: 0 !important;
+              right: auto !important;
+              bottom: auto !important;
+              width: max-content !important;
+              min-width: 160px !important;
+              max-width: 240px !important;
+              max-height: 280px !important;
+              overflow-y: auto !important;
+              background: #fff !important;
+              border: 1px solid #ded8d1 !important;
+              border-radius: 10px !important;
+              box-shadow: 0 8px 24px rgba(7,31,34,0.18) !important;
+              padding: 5px !important;
+              z-index: 1000 !important;
+              animation: qfFadeIn 0.15s ease-out !important;
+            }
+            .an-qf-option-btn {
+              padding: 10px 12px !important;
+              font-size: 13px !important;
+            }
+
+            /* Category Tiles Grid */
+            .an-category-grid {
+              grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+              gap: 8px !important;
+            }
+            .an-category-card {
+              min-height: 120px !important;
+              padding: 8px 6px !important;
+            }
+            .an-category-card img {
+              width: 58px !important;
+              height: 58px !important;
+              margin-bottom: 4px !important;
+            }
+            .an-category-card strong {
+              font-size: 12px !important;
+            }
+            .an-category-card span {
+              font-size: 10px !important;
+            }
+
+            /* Metal Banner */
+            .an-metal-banner {
+              grid-template-columns: 1fr;
+              min-height: 100px !important;
+              padding: 14px 16px !important;
+              margin-bottom: 12px !important;
+              border-radius: 10px !important;
+            }
+            .an-banner-title {
+              font-size: 19px !important;
+              margin-bottom: 4px !important;
+            }
+            .an-banner-sub {
+              font-size: 12px !important;
+            }
+            .an-banner-badges {
+              display: none;
+            }
+
+            /* 2-Column Responsive Product Grid */
+            .an-products {
+              display: grid !important;
+              grid-template-columns: repeat(2, 1fr) !important;
+              gap: 8px !important;
+              margin-top: 12px !important;
+              width: 100% !important;
+            }
+            .an-product-card {
+              flex: none !important;
+              width: 100% !important;
+              min-width: 0 !important;
+              border-radius: 10px !important;
+              border: 1px solid #eadfd3 !important;
+              overflow: hidden !important;
+              background: #fff !important;
+              display: flex !important;
+              flex-direction: column !important;
+              box-shadow: 0 4px 12px rgba(92,66,41,.06) !important;
+            }
+            .an-product-image {
+              position: relative !important;
+              width: 100% !important;
+              aspect-ratio: 1 / 1 !important;
+              min-height: unset !important;
+              max-height: unset !important;
+              height: auto !important;
+              background: #fbf4eb !important;
+              overflow: hidden !important;
+              display: block !important;
+            }
+            .an-product-image img {
+              width: 100% !important;
+              height: 100% !important;
+              object-fit: cover !important;
+              display: block !important;
+            }
+            .an-heart {
+              right: 8px !important;
+              top: 8px !important;
+              width: 26px !important;
+              height: 26px !important;
+              font-size: 20px !important;
+            }
+            .an-product-body {
+              padding: 8px 8px 10px !important;
+              display: flex !important;
+              flex-direction: column !important;
+              flex: 1 !important;
+            }
+            .an-product-body h3 {
+              font-size: 12px !important;
+              font-weight: 700 !important;
+              margin: 0 0 3px !important;
+              line-height: 1.22 !important;
+              min-height: 29px !important;
+              display: -webkit-box !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
+              overflow: hidden !important;
+            }
+            .an-product-body p {
+              font-size: 10.5px !important;
+              margin: 0 0 4px !important;
+              color: #666 !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+            .an-product-body strong {
+              font-size: 13.5px !important;
+              font-weight: 800 !important;
+              color: #111 !important;
+              margin-top: auto !important;
+            }
+            .an-rating {
+              margin-top: 5px !important;
+              font-size: 10.5px !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: space-between !important;
+            }
+            .an-rating span {
+              font-size: 10px !important;
+            }
+            .an-rating small {
+              font-size: 9.5px !important;
+            }
+            .an-rating button {
+              width: 26px !important;
+              height: 26px !important;
+            }
+
+            [data-subsection] h2 {
+              font-size: 18px !important;
+              margin-bottom: 10px !important;
+            }
+            .an-skeleton-img {
+              aspect-ratio: 1 / 1 !important;
+              min-height: unset !important;
+              width: 100% !important;
+            }
+            .an-skeleton-card {
+              border-radius: 10px !important;
+            }
           }
 
-          @media (max-width: 520px) {
-            .an-category-grid,
-            .an-promo-grid,
-            .an-products { grid-template-columns: 1fr; }
-            .an-promo { min-height: 190px; padding: 18px; }
-            .an-products { gap: 18px; margin-top: 22px; }
-            .an-product-image { min-height: 0; }
-            .an-promo h3, .an-promo p, .an-promo span { max-width: 82%; }
-            .an-cat-rail { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-
+          @media (max-width: 440px) {
+            .an-category-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 8px !important;
+            }
+            .an-products {
+              gap: 6px !important;
+            }
+            .an-product-body {
+              padding: 6px 6px 8px !important;
+            }
+            .an-product-body h3 {
+              font-size: 11.5px !important;
+            }
+            .an-product-body strong {
+              font-size: 13px !important;
+            }
           }
         `}</style>
 
@@ -1810,7 +2309,6 @@ export default function AllCollection() {
                     options={GENDER_OPTIONS}
                     currentValue={genderFilter}
                     onSelect={(val) => {
-                      // gender maarina, matchaatha age selection reset pannanum
                       const params = new URLSearchParams(searchParams)
                       if (val) params.set('gender', val); else params.delete('gender')
                       params.delete('age')
@@ -1829,6 +2327,23 @@ export default function AllCollection() {
                     currentValue={occasionFilter}
                     onSelect={(val) => updateFilterParam('occasion', val)}
                   />
+                  {(priceFilter || genderFilter || ageFilter || occasionFilter) && (
+                    <button
+                      type="button"
+                      className="an-qf-reset-btn"
+                      onClick={() => {
+                        const params = new URLSearchParams(searchParams)
+                        params.delete('price')
+                        params.delete('gender')
+                        params.delete('age')
+                        params.delete('occasion')
+                        navigate(`${location.pathname}?${params.toString()}`)
+                      }}
+                      title="Clear all quick filters"
+                    >
+                      Reset All ✕
+                    </button>
+                  )}
                 </div>
               </div>
 

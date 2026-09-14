@@ -545,6 +545,18 @@ export default function NearbyShop() {
           flex-wrap: wrap;
         }
 
+        
+        @keyframes skelShimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .bb-skel {
+          background: linear-gradient(90deg, #EAEFEF 25%, #F6F8F8 50%, #EAEFEF 75%);
+          background-size: 200% 100%;
+          animation: skelShimmer 1.5s infinite ease-in-out;
+          border-radius: 8px;
+        }
+
         .nearby-spin {
           width: 40px;
           height: 40px;
@@ -588,10 +600,34 @@ export default function NearbyShop() {
         }
 
         @media (max-width: 560px) {
-          .nearby-shell { padding: 22px 12px 52px; }
-          .nearby-grid { grid-template-columns: 1fr; }
-          .shop-name { min-height: 0; }
-          .shop-image{height:190px}.shop-actions{flex-direction:column}
+          .nearby-shell { padding: 16px 12px 48px; }
+          .nearby-hero { padding: 22px 16px; border-radius: 20px; }
+          .nearby-hero h1 { font-size: 26px; }
+          .nearby-filters {
+            justify-content: flex-start;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            padding-bottom: 6px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+          }
+          .nearby-filters::-webkit-scrollbar {
+            display: none;
+          }
+          .nearby-filter-btn {
+            flex: 0 0 auto;
+            white-space: nowrap;
+            padding: 8px 16px;
+          }
+          .nearby-grid { grid-template-columns: 1fr; gap: 16px; }
+          .shop-card { border-radius: 20px; }
+          .shop-image { height: 160px; }
+          .shop-monogram { width: 82px; height: 82px; }
+          .shop-monogram span { font-size: 28px; }
+          .shop-content { padding: 18px 16px; }
+          .shop-name { font-size: 22px; min-height: 0; line-height: 1.2; }
+          .shop-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+          .shop-btn { min-height: 44px; padding: 10px 8px; font-size: 12px; }
         }
       `}</style>
 
@@ -650,10 +686,19 @@ export default function NearbyShop() {
         )}
 
         {locationGranted && shopsLoading && (
-          <section className="nearby-loading">
-            <div className="nearby-spin" />
-            <h2>Searching Nearby Stores</h2>
-            <p>Using OpenStreetMap data within a 15km radius.</p>
+          <section className="nearby-grid">
+            {[1, 2, 3, 4].map(i => (
+              <article key={i} className="shop-card" style={{ padding: 14 }}>
+                <div className="bb-skel" style={{ height: 150, borderRadius: 16, marginBottom: 14 }} />
+                <div className="bb-skel" style={{ width: '35%', height: 12, marginBottom: 8 }} />
+                <div className="bb-skel" style={{ width: '70%', height: 20, marginBottom: 10 }} />
+                <div className="bb-skel" style={{ width: '85%', height: 14, marginBottom: 14 }} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div className="bb-skel" style={{ height: 42, borderRadius: 999 }} />
+                  <div className="bb-skel" style={{ height: 42, borderRadius: 999 }} />
+                </div>
+              </article>
+            ))}
           </section>
         )}
 

@@ -54,6 +54,7 @@ export default function CustomDropdown({
         position: 'relative',
         display: 'inline-block',
         minWidth: 0,
+        zIndex: open ? 1000 : (style.zIndex || 'auto'),
         ...style,
       }}
     >
@@ -111,7 +112,7 @@ export default function CustomDropdown({
             position: 'absolute',
             top: 'calc(100% + 6px)',
             [align === 'right' ? 'right' : 'left']: 0,
-            zIndex: 150,
+            zIndex: 1050,
             minWidth: '100%',
             maxWidth: 'calc(100vw - 32px)',
             background: 'rgba(255, 255, 255, 0.98)',

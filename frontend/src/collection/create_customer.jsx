@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import api from "../api";
 import CustomerFooter from "./CustomerFooter";
 import CopyUrlButton from "./CopyUrlButton";
+import CustomDropdown from "../components/CustomDropdown";
 
 const OCCUPATIONS = ["employee", "business", "others"];
 
@@ -354,6 +355,18 @@ export default function CreateCustomer() {
           transition: border-color 150ms ease, box-shadow 150ms ease;
         }
 
+        .cc-field select {
+          appearance: none;
+          -webkit-appearance: none;
+          -moz-appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23073B3F' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 14px center;
+          background-size: 14px;
+          padding-right: 38px;
+          cursor: pointer;
+        }
+
         .cc-field input:focus,
         .cc-field select:focus {
           border-color: #073B3F;
@@ -436,13 +449,22 @@ export default function CreateCustomer() {
         }
 
         @media (max-width: 640px) {
-          .cc-shell { width: calc(100% - 24px); padding: 20px 0 40px; }
-          .cc-card { padding: 20px 14px; }
+          .cc-shell { width: calc(100% - 20px); padding: 18px 0 36px; }
+          .cc-card { padding: 20px 14px; border-radius: 14px; margin-bottom: 18px; }
           .cc-grid.cols-2,
           .cc-grid.cols-3,
-          .cc-grid.cols-init { grid-template-columns: 1fr; }
-          .cc-actions { flex-direction: column; }
-          .cc-actions button { width: 100%; }
+          .cc-grid.cols-init { grid-template-columns: 1fr; gap: 12px; }
+          .cc-actions { flex-direction: column; gap: 10px; }
+          .cc-actions button { width: 100%; min-height: 48px; justify-content: center; }
+          .cc-field input,
+          .cc-field select { font-size: 16px; min-height: 46px; }
+          .cc-header h1 { font-size: 1.55rem; }
+        }
+
+        @media (max-width: 480px) {
+          .cc-shell { width: calc(100% - 16px); padding: 14px 0 28px; }
+          .cc-card { padding: 16px 12px; }
+          .cc-section-title { font-size: 18px; margin-bottom: 14px; }
         }
       `}</style>
 
@@ -514,11 +536,18 @@ export default function CreateCustomer() {
             <div className="cc-grid cols-3">
               <div className="cc-field">
                 <label>Gender</label>
-                <select name="gender" value={form.gender} onChange={handleChange}>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
+                <CustomDropdown
+                  value={form.gender}
+                  onChange={(val) => setForm((prev) => ({ ...prev, gender: val }))}
+                  options={[
+                    { value: "male", label: "Male" },
+                    { value: "female", label: "Female" },
+                    { value: "other", label: "Other" },
+                  ]}
+                  placeholder="Select"
+                  style={{ width: "100%" }}
+                  buttonStyle={{ height: "46px", borderRadius: "12px", border: "1px solid #BDCFCE", background: "#FDFDFC" }}
+                />
               </div>
               <div className="cc-field">
                 <label>DOB</label>
@@ -526,11 +555,24 @@ export default function CreateCustomer() {
               </div>
               <div className="cc-field">
                 <label>Married Status</label>
-                <select name="married_status" value={form.married_status} onChange={handleChange}>
-                  <option value="single">Single</option>
-                  <option value="married">Married</option>
-                  <option value="other">Other</option>
-                </select>
+                <CustomDropdown
+                  value={form.married_status}
+                  onChange={(val) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      married_status: val,
+                      anniversary_date: val === "married" ? prev.anniversary_date : "",
+                    }))
+                  }
+                  options={[
+                    { value: "single", label: "Single" },
+                    { value: "married", label: "Married" },
+                    { value: "other", label: "Other" },
+                  ]}
+                  placeholder="Select"
+                  style={{ width: "100%" }}
+                  buttonStyle={{ height: "46px", borderRadius: "12px", border: "1px solid #BDCFCE", background: "#FDFDFC" }}
+                />
               </div>
             </div>
 
@@ -620,14 +662,18 @@ export default function CreateCustomer() {
             <div className="cc-grid cols-3">
               <div className="cc-field">
                 <label>Occupation *</label>
-                <select name="occupation" value={form.occupation} onChange={handleChange} required>
-                  <option value="">Select</option>
-                  {OCCUPATIONS.map((o) => (
-                    <option key={o} value={o}>
-                      {o.charAt(0).toUpperCase() + o.slice(1)}
-                    </option>
-                  ))}
-                </select>
+                <CustomDropdown
+                  value={form.occupation}
+                  onChange={(val) => setForm((prev) => ({ ...prev, occupation: val }))}
+                  options={[
+                    { value: "employee", label: "Employee" },
+                    { value: "business", label: "Business" },
+                    { value: "others", label: "Others" },
+                  ]}
+                  placeholder="Select"
+                  style={{ width: "100%" }}
+                  buttonStyle={{ height: "46px", borderRadius: "12px", border: "1px solid #BDCFCE", background: "#FDFDFC" }}
+                />
               </div>
               <div className="cc-field">
                 <label>Detail</label>

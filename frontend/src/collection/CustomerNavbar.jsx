@@ -44,6 +44,19 @@ function Icon({ name, size = 20, filled = false }) {
         <path d="m20 20-3.8-3.8" />
       </>
     ),
+    shop: (
+      <>
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <polyline points="9 22 9 12 15 12 15 22" />
+      </>
+    ),
+    coin: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <circle cx="12" cy="12" r="6" strokeDasharray="1.5 1.5" />
+        <path d="M12 8v8M9.5 10.5h5" />
+      </>
+    ),
     calendar: (
       <>
         <rect x="4" y="5" width="16" height="15" rx="2" />
@@ -154,13 +167,21 @@ const allJewelleryMega = [
     viewAll: ["View All Gold", "/collection/all?metal=gold"],
     links: [
       ["Gold Rings", "/collection/all?metal=gold&category=rings"],
-      ["Gold Earrings", "/collection/all?metal=gold&category=earrings"],
-      ["Gold Necklaces", "/collection/all?metal=gold&category=necklaces"],
-      ["Gold Pendants", "/collection/all?metal=gold&category=pendants"],
       ["Gold Bangles", "/collection/all?metal=gold&category=bangles"],
+      ["Gold Bracelets", "/collection/all?metal=gold&category=bracelets"],
+      ["Gold Earrings", "/collection/all?metal=gold&category=earrings"],
+      ["Gold Pendants", "/collection/all?metal=gold&category=pendants"],
       ["Gold Chains", "/collection/all?metal=gold&category=chains"],
+      ["Gold Necklaces", "/collection/all?metal=gold&category=necklaces"],
       ["Gold Mangalsutra", "/collection/all?metal=gold&category=mangalsutra"],
       ["Gold Anklets", "/collection/all?metal=gold&category=anklets"],
+      ["Gold Maang Tikka", "/collection/all?metal=gold&category=maangtikka"],
+      ["Gold Kada", "/collection/all?metal=gold&category=kada"],
+      ["Gold Nose Pins", "/collection/all?metal=gold&category=nosepin"],
+      ["Gold Tie Pins", "/collection/all?metal=gold&category=tiepins"],
+      ["Gold Ear Chains", "/collection/all?metal=gold&category=earchains"],
+      ["Gold Toe Rings", "/collection/all?metal=gold&category=toerings"],
+      ["Gold Armlets", "/collection/all?metal=gold&category=armlets"],
     ],
   },
   // Diamond Jewellery section — hidden — future use ku vachurukom
@@ -170,13 +191,17 @@ const allJewelleryMega = [
     icon: "◒",
     viewAll: ["View All Silver", "/collection/all?metal=silver"],
     links: [
+      ["Silver Anklets", "/collection/all?metal=silver&category=anklets"],
       ["Silver Rings", "/collection/all?metal=silver&category=rings"],
       ["Silver Earrings", "/collection/all?metal=silver&category=earrings"],
-      ["Silver Necklaces", "/collection/all?metal=silver&category=necklaces"],
-      ["Silver Pendants", "/collection/all?metal=silver&category=pendants"],
       ["Silver Bracelets", "/collection/all?metal=silver&category=bracelets"],
       ["Silver Bangles", "/collection/all?metal=silver&category=bangles"],
-      ["Silver Anklets", "/collection/all?metal=silver&category=anklets"],
+      ["Silver Pendants", "/collection/all?metal=silver&category=pendants"],
+      ["Silver Chains", "/collection/all?metal=silver&category=chains"],
+      ["Silver Necklaces", "/collection/all?metal=silver&category=necklaces"],
+      ["Silver Toe Rings", "/collection/all?metal=silver&category=toerings"],
+      ["Silver Nose Pins", "/collection/all?metal=silver&category=nosepin"],
+      ["Silver Articles", "/collection/all?metal=silver&category=articles"],
       ["Silver Coins & Items", "/collection/coins?metal=silver"],
     ],
   },
@@ -286,8 +311,10 @@ const metalMega = {
       "◎",
       "/collection/coins?metal=gold",
       [
+        "50mg Gold Coins",
         "100mg Gold Coins",
         "200mg Gold Coins",
+        "250mg Gold Coins",
         "500mg Gold Coins",
         "1g Gold Coins",
         "2g Gold Coins",
@@ -303,16 +330,22 @@ const metalMega = {
       getSubcategories("rings", "gold"),
     ],
     [
-      "Gold Earrings",
-      "♢",
-      "/collection/all?metal=gold&category=earrings",
-      getSubcategories("earrings", "gold"),
-    ],
-    [
       "Gold Bangles",
       "◯",
       "/collection/all?metal=gold&category=bangles",
       getSubcategories("bangles", "gold"),
+    ],
+    [
+      "Gold Bracelets",
+      "◌",
+      "/collection/all?metal=gold&category=bracelets",
+      getSubcategories("bracelets", "gold"),
+    ],
+    [
+      "Gold Earrings",
+      "♢",
+      "/collection/all?metal=gold&category=earrings",
+      getSubcategories("earrings", "gold"),
     ],
     [
       "Gold Pendants",
@@ -339,15 +372,65 @@ const metalMega = {
       getSubcategories("mangalsutra", "gold"),
     ],
     [
-      "Gold Coins & Bars",
-      "◎",
+      "Gold Anklets",
+      "⌁",
+      "/collection/all?metal=gold&category=anklets",
+      getSubcategories("anklets", "gold"),
+    ],
+    [
+      "Gold Maang Tikka",
+      "♢",
+      "/collection/all?metal=gold&category=maangtikka",
+      getSubcategories("maangtikka", "gold"),
+    ],
+    [
+      "Gold Kada",
+      "◯",
+      "/collection/all?metal=gold&category=kada",
+      getSubcategories("kada", "gold"),
+    ],
+    [
+      "Gold Nose Pins",
+      "✦",
+      "/collection/all?metal=gold&category=nosepin",
+      getSubcategories("nosepin", "gold"),
+    ],
+    [
+      "Gold Tie Pins",
+      "―",
+      "/collection/all?metal=gold&category=tiepins",
+      getSubcategories("tiepins", "gold"),
+    ],
+    [
+      "Gold Ear Chains",
+      "⌁",
+      "/collection/all?metal=gold&category=earchains",
+      getSubcategories("earchains", "gold"),
+    ],
+    [
+      "Gold Toe Rings",
+      "◌",
+      "/collection/all?metal=gold&category=toerings",
+      getSubcategories("toerings", "gold"),
+    ],
+    [
+      "Gold Armlets",
+      "◯",
+      "/collection/all?metal=gold&category=armlets",
+      getSubcategories("armlets", "gold"),
+    ],
+    [
+      "Gold Bars",
+      "▣",
       "/collection/coins?metal=gold",
       [
-        "Gold Coins",
-        "Gold Bars",
-        "Gift Coins",
-        "Religious Coins",
-        "Collectible Coins",
+        "1g Gold Bar",
+        "2g Gold Bar",
+        "5g Gold Bar",
+        "10g Gold Bar",
+        "20g Gold Bar",
+        "50g Gold Bar",
+        "100g Gold Bar",
       ],
     ],
   ],
@@ -358,6 +441,8 @@ const metalMega = {
       "◎",
       "/collection/coins?metal=silver",
       [
+        "250mg Silver Coins",
+        "500mg Silver Coins",
         "1g Silver Coins",
         "2g Silver Coins",
         "5g Silver Coins",
@@ -374,12 +459,6 @@ const metalMega = {
       getSubcategories("anklets", "silver"),
     ],
     [
-      "Silver Bracelets",
-      "◌",
-      "/collection/all?metal=silver&category=bracelets",
-      getSubcategories("bracelets", "silver"),
-    ],
-    [
       "Silver Rings",
       "◌",
       "/collection/all?metal=silver&category=rings",
@@ -390,6 +469,12 @@ const metalMega = {
       "♢",
       "/collection/all?metal=silver&category=earrings",
       getSubcategories("earrings", "silver"),
+    ],
+    [
+      "Silver Bracelets",
+      "◌",
+      "/collection/all?metal=silver&category=bracelets",
+      getSubcategories("bracelets", "silver"),
     ],
     [
       "Silver Bangles",
@@ -406,7 +491,7 @@ const metalMega = {
     [
       "Silver Chains",
       "⌁",
-      "/collection/all?metal=silver&category=necklaces",
+      "/collection/all?metal=silver&category=chains",
       getSubcategories("chains", "silver"),
     ],
     [
@@ -416,17 +501,35 @@ const metalMega = {
       getSubcategories("necklaces", "silver"),
     ],
     [
+      "Silver Toe Rings",
+      "◌",
+      "/collection/all?metal=silver&category=toerings",
+      getSubcategories("toerings", "silver"),
+    ],
+    [
+      "Silver Nose Pins",
+      "✦",
+      "/collection/all?metal=silver&category=nosepin",
+      getSubcategories("nosepin", "silver"),
+    ],
+    [
       "Silver Articles",
       "♙",
-      "/collection/all?metal=silver",
+      "/collection/all?metal=silver&category=articles",
+      getSubcategories("articles", "silver"),
+    ],
+    [
+      "Silver Bars",
+      "▣",
+      "/collection/coins?metal=silver",
       [
-        "Pooja Articles",
-        "Silver Utensils",
-        "Home Decor",
-        "Gift Articles",
-        "Return Gifts",
-        "Corporate Gifts",
-        "Kids Articles",
+        "10g Silver Bar",
+        "20g Silver Bar",
+        "50g Silver Bar",
+        "100g Silver Bar",
+        "250g Silver Bar",
+        "500g Silver Bar",
+        "1kg Silver Bar",
       ],
     ],
   ],
@@ -439,8 +542,10 @@ const specialMega = {
       "◎",
       "/collection/coins?metal=gold",
       [
+        "50mg Gold Coins",
         "100mg Gold Coins",
         "200mg Gold Coins",
+        "250mg Gold Coins",
         "500mg Gold Coins",
         "1g Gold Coins",
         "2g Gold Coins",
@@ -469,6 +574,8 @@ const specialMega = {
       "◎",
       "/collection/coins?metal=silver",
       [
+        "250mg Silver Coins",
+        "500mg Silver Coins",
         "1g Silver Coins",
         "2g Silver Coins",
         "5g Silver Coins",
@@ -1456,7 +1563,7 @@ export default function CustomerNavbar() {
           border: 0;
           background: transparent;
           color: var(--bb-ink);
-          width: 28px;
+          width: 32px;
           height: 36px;
           display: grid;
           place-items: center;
@@ -1469,21 +1576,51 @@ export default function CustomerNavbar() {
           transform: translateY(-2px);
         }
 
+        .exact-coin-icon-btn {
+          border: 0;
+          background: transparent;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          width: 34px;
+          height: 36px;
+          position: relative;
+        }
+
+        .exact-coin-disc {
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+          display: grid;
+          place-items: center;
+          box-shadow: 0 2px 7px rgba(181, 132, 47, 0.28);
+          transition: transform 160ms ease, box-shadow 160ms ease;
+        }
+
+        .exact-coin-disc:hover {
+          transform: scale(1.08);
+          box-shadow: 0 3px 10px rgba(181, 132, 47, 0.4);
+        }
+
         .exact-badge {
           position: absolute;
-          top: 0;
-          right: -5px;
+          top: -2px;
+          right: -6px;
           min-width: 17px;
           height: 17px;
           padding: 0 4px;
           border-radius: 999px;
-          background: var(--bb-ruby);
-          color: var(--bb-bg);
+          background: #C92035;
+          color: #fff;
           display: grid;
           place-items: center;
-          font-size: 10px;
+          font-size: 9.5px;
           font-weight: 900;
           line-height: 1;
+          border: 1.5px solid #ffffff;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.18);
         }
 
         .exact-menu {
@@ -1779,15 +1916,116 @@ export default function CustomerNavbar() {
           .exact-actions { grid-area: actions; }
           .rate-dropdown { display: none; }
           .exact-menu { display: none; }
+          .exact-desktop-menu-toggle { display: none !important; }
           .exact-mobile-toggle { display: grid; }
 
-          .exact-mobile-menu.open {
-            display: block;
-            padding: 0 16px 14px;
-            background: var(--bb-bg);
-            border-bottom: 1px solid var(--bb-soft-aqua);
-            max-height: 70vh;
+          .mobile-drawer-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(7, 31, 34, 0.48);
+            backdrop-filter: blur(3px);
+            z-index: 1000;
+            animation: mobileOverlayFade 0.22s ease-out;
+          }
+
+          @keyframes mobileOverlayFade {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+
+          .exact-mobile-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: min(320px, 86vw);
+            height: 100vh;
+            background: #ffffff;
+            z-index: 1001;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 10px 0 40px rgba(7, 31, 34, 0.22);
+            transform: translateX(-100%);
+            transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 0;
+          }
+
+          .exact-mobile-menu.open {
+            transform: translateX(0);
+          }
+
+          .mobile-menu-header {
+            background: linear-gradient(135deg, #073B3F 0%, #0E4B46 100%);
+            color: #fff;
+            padding: 22px 18px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            box-shadow: 0 4px 14px rgba(7, 31, 34, 0.12);
+          }
+
+          .mobile-user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+          }
+
+          .mobile-user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.18);
+            border: 1.5px solid rgba(255, 255, 255, 0.35);
+            color: #fff;
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
+          }
+
+          .mobile-user-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+          }
+
+          .mobile-user-text strong {
+            font-size: 15px;
+            font-weight: 800;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .mobile-user-text span {
+            font-size: 11.5px;
+            color: rgba(255, 255, 255, 0.78);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .mobile-menu-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 0;
+            background: rgba(255, 255, 255, 0.16);
+            color: #fff;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 150ms ease;
+          }
+
+          .mobile-menu-close:active {
+            background: rgba(255, 255, 255, 0.3);
           }
 
           .mobile-menu-rates {
@@ -1795,45 +2033,213 @@ export default function CustomerNavbar() {
             align-items: center;
             justify-content: space-between;
             gap: 8px;
-            padding: 10px 0;
-            border-bottom: 1px solid var(--bb-soft-aqua);
-            font-size: 12px;
-            font-weight: 900;
-            color: var(--bb-teal-dark);
-            flex-wrap: wrap;
+            padding: 10px 16px;
+            background: #F4F9F8;
+            border-bottom: 1px solid #E2ECEB;
           }
 
           .mobile-menu-rates span {
             background: #073B3F;
             color: #fff;
             border-radius: 999px;
-            padding: 5px 12px;
-            font-size: 11px;
-            font-weight: 900;
+            padding: 4px 10px;
+            font-size: 10.5px;
+            font-weight: 800;
             white-space: nowrap;
+          }
+
+          .mobile-menu-divider-label {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #8C7B65;
+            padding: 14px 18px 6px;
+            background: #FAFAF8;
+            border-top: 1px solid #F0ECE6;
+          }
+
+          .mobile-menu-services-list {
+            display: flex;
+            flex-direction: column;
+            padding: 4px 12px;
+          }
+
+          .mobile-service-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 11px 10px;
+            border: 0;
+            border-bottom: 1px solid #F4EFEB;
+            background: transparent;
+            color: #1A2826;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background 140ms ease;
+            width: 100%;
+            text-align: left;
+          }
+
+          .mobile-service-item:active {
+            background: #F3F7F6;
+          }
+
+          .mobile-service-item:last-child {
+            border-bottom: 0;
+          }
+
+          .mobile-service-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          }
+
+          .mobile-service-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: #EDF5F4;
+            color: #073B3F;
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
+          }
+
+          .mobile-service-icon.heart-icon {
+            color: #C92035;
+            background: #FDF2F4;
+          }
+
+          .mobile-service-icon.cart-icon {
+            color: #073B3F;
+            background: #EDF5F4;
+          }
+
+          .mobile-service-icon.coin-icon {
+            color: #B5842F;
+            background: #FDF7E7;
+          }
+
+          .mobile-service-icon.shop-icon {
+            color: #15803D;
+            background: #F0FDF4;
+          }
+
+          .mobile-service-icon.user-icon {
+            color: #073B3F;
+            background: #EDF5F4;
+          }
+
+          .mobile-service-icon.truck-icon {
+            color: #2563EB;
+            background: #EFF6FF;
+          }
+
+          .mobile-service-icon.add-user-icon {
+            color: #7C3AED;
+            background: #F5F3FF;
+          }
+
+          .mobile-service-icon.switch-icon {
+            color: #D97706;
+            background: #FFFBEB;
+          }
+
+          .mobile-service-label {
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #1E293B;
+          }
+
+          .mobile-service-badge {
+            background: #C92035;
+            color: #fff;
+            border-radius: 999px;
+            padding: 2px 8px;
+            font-size: 10.5px;
+            font-weight: 800;
+          }
+
+          .mobile-service-tag {
+            background: #FEF3C7;
+            color: #92400E;
+            border-radius: 999px;
+            padding: 2px 8px;
+            font-size: 10.5px;
+            font-weight: 800;
+          }
+
+          .mobile-service-arrow {
+            color: #94A3B8;
+            font-size: 18px;
+            font-weight: 300;
           }
 
           .mobile-menu-grid {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 8px;
-            padding: 12px 0 4px;
+            padding: 8px 14px 16px;
           }
 
-          .exact-mobile-menu button {
+          .exact-mobile-menu button.mobile-cat-btn {
             border: 1px solid var(--bb-soft-aqua);
-            border-radius: 12px;
+            border-radius: 10px;
             background: var(--bb-surface);
             color: var(--bb-teal-dark);
-            padding: 12px;
-            font-weight: 900;
+            padding: 10px 12px;
+            font-weight: 800;
             text-align: left;
-            font-size: 13px;
+            font-size: 12.5px;
             width: 100%;
+            cursor: pointer;
+            transition: background 140ms ease;
           }
 
-          .exact-mobile-menu button:active {
+          .exact-mobile-menu button.mobile-cat-btn:active {
             background: var(--bb-mist-aqua);
+          }
+
+          .mobile-menu-bottom {
+            margin-top: auto;
+            padding: 14px 16px 24px;
+            border-top: 1px solid #ECE7DF;
+            background: #FAF8F5;
+          }
+
+          .mobile-logout-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 11px 16px;
+            border-radius: 10px;
+            font-size: 13.5px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 140ms ease;
+          }
+
+          .mobile-logout-btn.is-logout {
+            border: 1px solid #FCA5A5;
+            background: #FEF2F2;
+            color: #DC2626;
+          }
+
+          .mobile-logout-btn.is-logout:active {
+            background: #FEE2E2;
+          }
+
+          .mobile-logout-btn.is-login {
+            border: 1px solid #073B3F;
+            background: #073B3F;
+            color: #FFFFFF;
+          }
+
+          .mobile-logout-btn.is-login:active {
+            background: #0E4B46;
           }
         }
 
@@ -1922,85 +2328,172 @@ export default function CustomerNavbar() {
 
         @media (max-width: 900px) {
           .exact-nav-spacer {
-            height: 142px;
+            height: 160px;
           }
 
           .exact-main {
-            height: 96px;
+            height: auto !important;
+            min-height: unset !important;
+            padding: 10px 0 12px;
           }
 
           .exact-main .exact-inner {
+            height: auto;
+            display: grid;
             grid-template-columns: 1fr auto;
             grid-template-areas:
               "brand actions"
               "search search";
-            gap: 10px 12px;
+            row-gap: 10px;
+            column-gap: 12px;
             justify-content: space-between;
-            align-content: center;
+            align-items: center;
           }
 
-          .team-brand { grid-area: brand; }
-          .exact-search-wrap { grid-area: search; min-width: 0; }
-          .exact-actions { grid-area: actions; }
+          .team-brand {
+            grid-area: brand;
+            align-self: center;
+          }
+
+          .team-mark-frame {
+            height: 50px;
+            width: auto;
+          }
+
+          .team-mark {
+            height: 48px;
+            width: auto;
+          }
+
+          .exact-search-wrap {
+            grid-area: search;
+            min-width: 0;
+            width: 100%;
+          }
+
+          .exact-search {
+            height: 44px;
+          }
+
+          .exact-actions {
+            grid-area: actions;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            align-self: center;
+          }
+
           .mobile-menu-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
+
         @media (max-width: 640px) {
           .exact-inner {
             width: 100%;
-            padding-left: 14px;
-            padding-right: 14px;
+            padding-left: 12px;
+            padding-right: 12px;
           }
 
           .exact-strip {
-            height: 36px;
-            font-size: 11px;
+            height: 34px;
+            font-size: 10.5px;
           }
 
           .exact-strip-item {
-            padding: 0 28px;
+            padding: 0 20px;
           }
 
           .exact-nav-spacer {
-            height: 132px;
+            height: 152px;
           }
 
           .exact-main {
-            height: 92px;
+            height: auto !important;
+            min-height: unset !important;
+            padding: 8px 0 10px;
+          }
+
+          .exact-main .exact-inner {
+            row-gap: 8px;
           }
 
           .team-mark {
             width: auto;
-            height: 72px;
+            height: 44px;
           }
 
           .team-mark-frame {
-            width: 130px;
-            height: 74px;
+            width: auto;
+            height: 46px;
             overflow: visible;
           }
 
           .summary-pill {
-            display: none;
+            display: inline-flex !important;
+            padding: 5px 9px;
+            height: 32px;
+            gap: 5px;
+            font-size: 11px;
+            border-radius: 999px;
+          }
+
+          .summary-pill .summary-text {
+            display: inline !important;
+            font-size: 11px;
+            font-weight: 800;
           }
 
           .exact-actions {
             gap: 6px;
+            align-items: center;
           }
 
           .exact-icon {
-            width: 26px;
+            width: 28px;
+            height: 28px;
+          }
+
+          .exact-search {
+            height: 42px;
           }
         }
 
         @media (max-width: 400px) {
           .exact-nav-spacer {
-            height: 126px;
+            height: 146px;
           }
 
           .exact-main {
-            height: 88px;
+            height: auto !important;
+            min-height: unset !important;
+            padding: 6px 0 8px;
+          }
+
+          .exact-main .exact-inner {
+            row-gap: 6px;
+          }
+
+          .team-mark {
+            height: 38px;
+          }
+
+          .team-mark-frame {
+            height: 40px;
+          }
+
+          .summary-pill {
+            padding: 4px 7px;
+            height: 28px;
+            gap: 3px;
+          }
+
+          .summary-pill .summary-text {
+            font-size: 10px;
+          }
+
+          .exact-search {
+            height: 38px;
           }
 
           .exact-search input {
@@ -2008,8 +2501,12 @@ export default function CustomerNavbar() {
           }
 
           .exact-inner {
-            padding-left: 10px;
-            padding-right: 10px;
+            padding-left: 8px;
+            padding-right: 8px;
+          }
+
+          .exact-actions {
+            gap: 4px;
           }
 
           .mobile-menu-grid {
@@ -2227,40 +2724,46 @@ export default function CustomerNavbar() {
             </div>
 
             <div className="exact-actions">
-              {!isLandingPage && (
-                <>
-                  <button
-                    className="summary-pill"
-                    type="button"
-                    onClick={() => requireLogin("/recharge")}
-                  >
-                    <Icon name="star" size={15} />{" "}
-                    <span className="summary-text">AUG Coin</span>
-                  </button>
+              <button
+                className="summary-pill"
+                type="button"
+                onClick={() => requireLogin("/recharge")}
+                title="AUG Coin Wallet"
+              >
+                <Icon name="star" size={15} />{" "}
+                <span className="summary-text">AUG Coin</span>
+              </button>
 
-                  <button
-                    onClick={() => requireLogin("/coin-shop")}
-                    title="Shop with Coins"
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      width: 36, height: 36, borderRadius: '50%',
-                      border: '1.5px solid #D1DFDE', background: '#fff', cursor: 'pointer',
-                    }}
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="12" cy="12" r="9.5" fill="#F0C767" stroke="#B5842F" strokeWidth="1.4"/>
-                      <circle cx="12" cy="12" r="7" fill="none" stroke="#B5842F" strokeWidth="1" opacity="0.55"/>
-                      <text x="12" y="15.8" textAnchor="middle" fontSize="9" fontWeight="900" fill="#B5842F" fontFamily="Inter, sans-serif">$</text>
-                    </svg>
-                  </button>
-                </>
-              )}
+              <button
+                className="exact-coin-icon-btn"
+                type="button"
+                onClick={() => requireLogin("/coin-shop")}
+                title="Shop with Coins"
+                aria-label="AUG Coins"
+              >
+                <span className="exact-coin-disc">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" fill="url(#exactGoldGrad)" stroke="#B5842F" strokeWidth="1.2"/>
+                    <circle cx="12" cy="12" r="7.5" stroke="#FDE08D" strokeWidth="0.8" strokeDasharray="2 1.5"/>
+                    <circle cx="12" cy="12" r="5.2" fill="#E5A630" />
+                    <text x="12" y="14.8" textAnchor="middle" fontSize="6.5" fontWeight="900" fill="#583101" fontFamily="Inter, sans-serif">AUG</text>
+                    <defs>
+                      <linearGradient id="exactGoldGrad" x1="4" y1="4" x2="20" y2="20" gradientUnits="userSpaceOnUse">
+                        <stop stopColor="#FFF2A8"/>
+                        <stop offset="0.45" stopColor="#F5BF46"/>
+                        <stop offset="1" stopColor="#C98B1B"/>
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </span>
+              </button>
 
               <button
                 className="exact-icon"
                 type="button"
                 onClick={() => requireLogin("/wishlist")}
                 aria-label="Wishlist"
+                title="Wishlist"
               >
                 <Icon name="heart" filled={wishlistCount > 0} />
                 {wishlistCount > 0 && (
@@ -2273,29 +2776,28 @@ export default function CustomerNavbar() {
                 type="button"
                 onClick={() => requireLogin("/cart")}
                 aria-label="Cart"
+                title="Cart"
               >
                 <Icon name="cart" />
                 {cartCount > 0 && (
                   <span className="exact-badge">{cartCount}</span>
                 )}
               </button>
-                            {!isLoggedIn && (
+              {!isLoggedIn && (
                 <button className="login-pill" type="button" onClick={goLogin}>
                   Login
                 </button>
               )}
 
-                            {!isLandingPage && (
-                <button
-                  className="exact-icon"
-                  type="button"
-                  onClick={() => setRoleDrawerOpen(true)}
-                  aria-label="Menu"
-                  title="Menu"
-                >
-                  <Icon name="menu" />
-                </button>
-              )}
+              <button
+                className="exact-icon exact-desktop-menu-toggle"
+                type="button"
+                onClick={() => setRoleDrawerOpen(true)}
+                aria-label="Menu"
+                title="Menu"
+              >
+                <Icon name="menu" />
+              </button>
 
               <button
                 className="exact-icon exact-mobile-toggle"
@@ -2389,17 +2891,209 @@ export default function CustomerNavbar() {
           </div>
         </nav>
 
+        {/* Mobile Backdrop Overlay */}
+        {mobileOpen && (
+          <div
+            className="mobile-drawer-overlay"
+            onClick={() => setMobileOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+
         <div className={`exact-mobile-menu ${mobileOpen ? "open" : ""}`}>
+          <div className="mobile-menu-header">
+            <div className="mobile-user-info">
+              <div className="mobile-user-avatar">
+                <Icon name="user" size={20} />
+              </div>
+              <div className="mobile-user-text">
+                <strong>Hello, {isLoggedIn ? (localStorage.getItem("email")?.split("@")[0] || "Customer") : "Guest"}</strong>
+                <span>{isLoggedIn ? "Welcome to Aathirai" : "Sign in for best experience"}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="mobile-menu-close"
+              onClick={() => setMobileOpen(false)}
+              aria-label="Close menu"
+            >
+              <Icon name="close" size={18} />
+            </button>
+          </div>
+
           {rates && (
             <div className="mobile-menu-rates">
-              <span>Gold 22K — {money(rates?.gold_22k)}</span>
-              <span>Silver — {money(rates?.silver_999)}</span>
+              <span>Gold 22K: {money(rates?.gold_22k)}</span>
+              <span>Silver: {money(rates?.silver_999)}</span>
             </div>
           )}
+
+          {/* User Requested Exact Order:
+              1. Wishlist
+              2. Cart
+              3. AUG Coins
+              4. Nearby Shop
+              5. Profile
+              6. Order Summary
+              7. Create Customer
+              (Role switch if applicable)
+              8. Logout (last)
+          */}
+          <div className="mobile-menu-divider-label">Quick Services</div>
+          <div className="mobile-menu-services-list">
+            <button
+              type="button"
+              className="mobile-service-item"
+              onClick={() => {
+                setMobileOpen(false);
+                requireLogin("/wishlist");
+              }}
+            >
+              <div className="mobile-service-left">
+                <span className="mobile-service-icon heart-icon">
+                  <Icon name="heart" size={17} />
+                </span>
+                <span className="mobile-service-label">Wishlist</span>
+              </div>
+              {wishlistCount > 0 ? (
+                <span className="mobile-service-badge">{wishlistCount}</span>
+              ) : (
+                <span className="mobile-service-arrow">›</span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              className="mobile-service-item"
+              onClick={() => {
+                setMobileOpen(false);
+                requireLogin("/cart");
+              }}
+            >
+              <div className="mobile-service-left">
+                <span className="mobile-service-icon cart-icon">
+                  <Icon name="cart" size={17} />
+                </span>
+                <span className="mobile-service-label">Cart</span>
+              </div>
+              {cartCount > 0 ? (
+                <span className="mobile-service-badge">{cartCount}</span>
+              ) : (
+                <span className="mobile-service-arrow">›</span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              className="mobile-service-item"
+              onClick={() => {
+                setMobileOpen(false);
+                requireLogin("/coin-shop");
+              }}
+            >
+              <div className="mobile-service-left">
+                <span className="mobile-service-icon coin-icon">
+                  <Icon name="coin" size={17} />
+                </span>
+                <span className="mobile-service-label">AUG Coins</span>
+              </div>
+              <span className="mobile-service-tag">Rewards</span>
+            </button>
+
+            <button
+              type="button"
+              className="mobile-service-item"
+              onClick={() => {
+                setMobileOpen(false);
+                navigate("/nearby-shop");
+              }}
+            >
+              <div className="mobile-service-left">
+                <span className="mobile-service-icon shop-icon">
+                  <Icon name="shop" size={17} />
+                </span>
+                <span className="mobile-service-label">Nearby Shop</span>
+              </div>
+              <span className="mobile-service-arrow">›</span>
+            </button>
+
+            <button
+              type="button"
+              className="mobile-service-item"
+              onClick={() => {
+                setMobileOpen(false);
+                requireLogin("/profile");
+              }}
+            >
+              <div className="mobile-service-left">
+                <span className="mobile-service-icon user-icon">
+                  <Icon name="user" size={17} />
+                </span>
+                <span className="mobile-service-label">Profile</span>
+              </div>
+              <span className="mobile-service-arrow">›</span>
+            </button>
+
+            <button
+              type="button"
+              className="mobile-service-item"
+              onClick={() => {
+                setMobileOpen(false);
+                requireLogin("/order-summary");
+              }}
+            >
+              <div className="mobile-service-left">
+                <span className="mobile-service-icon truck-icon">
+                  <Icon name="truck" size={17} />
+                </span>
+                <span className="mobile-service-label">Order Summary</span>
+              </div>
+              <span className="mobile-service-arrow">›</span>
+            </button>
+
+            <button
+              type="button"
+              className="mobile-service-item"
+              onClick={() => {
+                setMobileOpen(false);
+                requireLogin("/create-customer");
+              }}
+            >
+              <div className="mobile-service-left">
+                <span className="mobile-service-icon add-user-icon">
+                  <Icon name="userPlus" size={17} />
+                </span>
+                <span className="mobile-service-label">Create Customer</span>
+              </div>
+              <span className="mobile-service-arrow">›</span>
+            </button>
+
+            {roleSwitchCfg && (
+              <button
+                type="button"
+                className="mobile-service-item"
+                onClick={() => {
+                  setMobileOpen(false);
+                  navigate(roleSwitchCfg.path);
+                }}
+              >
+                <div className="mobile-service-left">
+                  <span className="mobile-service-icon switch-icon">
+                    <Icon name="refresh" size={17} />
+                  </span>
+                  <span className="mobile-service-label">{roleSwitchCfg.label}</span>
+                </div>
+                <span className="mobile-service-arrow">›</span>
+              </button>
+            )}
+          </div>
+
+          <div className="mobile-menu-divider-label">Shop by Category</div>
           <div className="mobile-menu-grid">
             {menuItems.map((item) => (
               <button
                 type="button"
+                className="mobile-cat-btn"
                 key={item.label}
                 onClick={() => {
                   setMobileOpen(false);
@@ -2410,10 +3104,25 @@ export default function CustomerNavbar() {
               </button>
             ))}
           </div>
+
+          {/* Logout at the very bottom */}
+          <div className="mobile-menu-bottom">
+            <button
+              type="button"
+              className={`mobile-logout-btn ${isLoggedIn ? "is-logout" : "is-login"}`}
+              onClick={() => {
+                setMobileOpen(false);
+                if (isLoggedIn) logout(); else goLogin();
+              }}
+            >
+              <Icon name={isLoggedIn ? "logout" : "user"} size={16} />
+              <span>{isLoggedIn ? "Logout" : "Login to Your Account"}</span>
+            </button>
+          </div>
         </div>
       </header>
 
-     {roleDrawerOpen && (
+      {roleDrawerOpen && (
         <div
           className="role-drawer-overlay"
           onClick={() => setRoleDrawerOpen(false)}
@@ -2430,6 +3139,50 @@ export default function CustomerNavbar() {
                 <Icon name="close" size={16} />
               </button>
             </div>
+
+            <button
+              className="role-drawer-item"
+              type="button"
+              onClick={() => {
+                setRoleDrawerOpen(false);
+                requireLogin("/wishlist");
+              }}
+            >
+              Wishlist {wishlistCount > 0 ? `(${wishlistCount})` : ""}
+            </button>
+
+            <button
+              className="role-drawer-item"
+              type="button"
+              onClick={() => {
+                setRoleDrawerOpen(false);
+                requireLogin("/cart");
+              }}
+            >
+              Cart {cartCount > 0 ? `(${cartCount})` : ""}
+            </button>
+
+            <button
+              className="role-drawer-item"
+              type="button"
+              onClick={() => {
+                setRoleDrawerOpen(false);
+                requireLogin("/coin-shop");
+              }}
+            >
+              AUG Coins
+            </button>
+
+            <button
+              className="role-drawer-item"
+              type="button"
+              onClick={() => {
+                setRoleDrawerOpen(false);
+                navigate("/nearby-shop");
+              }}
+            >
+              Nearby Shop
+            </button>
 
             <button
               className="role-drawer-item"
@@ -2464,7 +3217,6 @@ export default function CustomerNavbar() {
               Create Customer
             </button>
 
-            
             {roleSwitchCfg && (
               <button
                 className="role-drawer-item"

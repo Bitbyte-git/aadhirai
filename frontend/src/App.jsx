@@ -106,10 +106,26 @@ function ProtectedRoute({ children, role }) {
 
 function RouteLoader() {
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'linear-gradient(180deg,#fffaf4,#fbf7f1)', color: '#1f1712', fontFamily: 'Inter, system-ui, sans-serif' }}>
-      <div style={{ width: 220, borderRadius: 24, padding: 24, background: 'rgba(255,255,255,0.86)', border: '1px solid #eadfd3', boxShadow: '0 18px 48px rgba(63,39,18,0.12)', textAlign: 'center' }}>
-        <div style={{ width: 42, height: 42, margin: '0 auto 14px', borderRadius: '50%', border: '3px solid #eadfd3', borderTopColor: '#8b1a1a', animation: 'spinSlow 900ms linear infinite' }} />
-        <strong>Loading</strong>
+    <div style={{ minHeight: '100vh', background: '#FDFDFC', padding: '36px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <style>{`
+        @keyframes routeShimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .route-skel {
+          background: linear-gradient(90deg, #EAEFEF 25%, #F7F9F9 50%, #EAEFEF 75%);
+          background-size: 200% 100%;
+          animation: routeShimmer 1.5s infinite ease-in-out;
+          border-radius: 12px;
+        }
+      `}</style>
+      <div style={{ width: 'min(1280px, 100%)', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div className="route-skel" style={{ height: 110, borderRadius: 20 }} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="route-skel" style={{ height: 260, borderRadius: 16 }} />
+          ))}
+        </div>
       </div>
     </div>
   )

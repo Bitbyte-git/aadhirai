@@ -187,10 +187,17 @@ export default function Profile() {
     return (
       <div className="profile-page">
         <style>{profileStyles}</style>
-        <main className="profile-center">
-          <div className="profile-loader" />
-          <h2>Loading profile</h2>
-          {slow && <p>Server is waking up. This may take a few seconds.</p>}
+        <main className="profile-shell" style={{ opacity: 0.9 }}>
+          <div className="prof-shimmer" style={{ height: 180, borderRadius: 28, marginBottom: 22 }} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14, marginBottom: 22 }}>
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="prof-shimmer" style={{ height: 80, borderRadius: 18 }} />
+            ))}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
+            <div className="prof-shimmer" style={{ height: 260, borderRadius: 24 }} />
+            <div className="prof-shimmer" style={{ height: 380, borderRadius: 24 }} />
+          </div>
         </main>
         <CustomerFooter />
       </div>
@@ -902,16 +909,79 @@ const profileStyles = `
   }
 
   @media (max-width: 620px) {
-    .profile-shell { width: min(100% - 24px, 1440px); }
-    .profile-overview,
+    .profile-shell { width: min(100% - 20px, 1440px); padding-top: 20px; }
+    .profile-hero {
+      padding: 24px 16px;
+      border-radius: 20px;
+      text-align: center;
+      gap: 16px;
+    }
+    .profile-avatar {
+      margin: 0 auto;
+      width: 80px;
+      height: 80px;
+      font-size: 30px;
+    }
+    .profile-hero h1 {
+      font-size: 26px;
+    }
+    .profile-chip-row {
+      justify-content: center;
+    }
+    .profile-actions {
+      flex-direction: column;
+      width: 100%;
+    }
+    .profile-primary-btn,
+    .profile-secondary-btn {
+      width: 100%;
+      text-align: center;
+    }
+    .profile-overview {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .profile-stat {
+      padding: 14px 12px;
+      border-radius: 16px;
+    }
+    .profile-tabs {
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 8px !important;
+      padding-bottom: 0;
+    }
+    .profile-tabs button {
+      width: 100%;
+      padding: 11px 8px;
+      font-size: 13px;
+      text-align: center;
+      justify-content: center;
+      white-space: nowrap;
+    }
+    .profile-card {
+      padding: 20px 14px;
+      border-radius: 20px;
+    }
     .profile-field-grid,
-    .profile-edit-grid,
-    .profile-tabs { grid-template-columns: 1fr; }
-    .profile-field.wide { grid-column: span 1; }
+    .profile-edit-grid {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .profile-field {
+      min-height: auto;
+      padding: 14px;
+      border-radius: 14px;
+    }
+    .profile-field.wide {
+      grid-column: span 1;
+    }
     .profile-card-head,
     .profile-modal-head,
-    .profile-modal-actions { flex-direction: column; align-items: stretch; }
-    .profile-actions { flex-direction: column; }
+    .profile-modal-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
   }
 `
 

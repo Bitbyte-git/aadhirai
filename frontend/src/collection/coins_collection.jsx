@@ -919,6 +919,18 @@ export default function CoinsCollection() {
           margin-bottom: 80px;
         }
 
+        
+        @keyframes skelShimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .bb-skel {
+          background: linear-gradient(90deg, #EAEFEF 25%, #F6F8F8 50%, #EAEFEF 75%);
+          background-size: 200% 100%;
+          animation: skelShimmer 1.5s infinite ease-in-out;
+          border-radius: 8px;
+        }
+
         .coin-loader {
           width: 48px;
           height: 48px;
@@ -983,17 +995,102 @@ export default function CoinsCollection() {
 
         @media (max-width: 620px) {
           .coins-shell {
-            padding-left: 14px;
-            padding-right: 14px;
+            padding-left: 10px;
+            padding-right: 10px;
+            padding-top: 16px;
+            padding-bottom: 50px;
+          }
+
+          .coins-hero {
+            gap: 12px;
+            margin-bottom: 16px;
           }
 
           .coins-title-panel,
           .coins-rate-panel {
-            border-radius: 24px;
+            border-radius: 18px;
+            padding: 16px 14px;
+          }
+
+          .coins-title-panel h1 {
+            font-size: 26px;
+          }
+
+          .coins-rate-panel strong {
+            font-size: 22px;
           }
 
           .coins-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 8px !important;
+          }
+
+          .coin-premium-card {
+            border-radius: 14px;
+            box-shadow: 0 4px 12px rgba(7,59,63,0.06);
+          }
+
+          .coin-stage {
+            min-height: unset !important;
+            aspect-ratio: 1 / 1 !important;
+            height: auto !important;
+          }
+
+          .coin-badges {
+            top: 7px;
+            left: 7px;
+            gap: 4px;
+          }
+
+          .coin-badges span {
+            padding: 3px 6px;
+            font-size: 8px;
+          }
+
+          .coin-wish {
+            top: 7px;
+            right: 7px;
+            width: 28px;
+            height: 28px;
+          }
+
+          .coin-wish svg {
+            width: 14px;
+            height: 14px;
+          }
+
+          .coin-premium-info {
+            padding: 8px 8px 10px;
+          }
+
+          .coin-premium-info h2 {
+            font-size: 12.5px !important;
+            line-height: 1.25;
+            min-height: 30px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            margin-bottom: 4px;
+          }
+
+          .coin-price {
+            font-size: 13.5px !important;
+            margin-bottom: 4px;
+          }
+
+          .coin-meta {
+            font-size: 10px;
+          }
+
+          .coin-action-row {
+            margin-top: 6px;
+            padding-top: 6px;
+          }
+
+          .coin-action-row button {
+            height: 30px;
+            font-size: 10px;
           }
 
           .coin-sidebar-body {
@@ -1144,11 +1241,16 @@ export default function CoinsCollection() {
 
           <div className="coins-results">
             {loading ? (
-              <section className="coins-loading">
-                <div>
-                  <div className="coin-loader" />
-                  <strong>Loading coin catalogue...</strong>
-                </div>
+              <section className="coins-grid">
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div key={i} className="coin-premium-card" style={{ padding: 12 }}>
+                    <div className="coin-stage bb-skel" style={{ minHeight: 180, borderRadius: 14, marginBottom: 12 }} />
+                    <div className="bb-skel" style={{ width: '40%', height: 12, marginBottom: 8 }} />
+                    <div className="bb-skel" style={{ width: '80%', height: 16, marginBottom: 8 }} />
+                    <div className="bb-skel" style={{ width: '50%', height: 18, marginBottom: 10 }} />
+                    <div className="bb-skel" style={{ width: '100%', height: 36, borderRadius: 999 }} />
+                  </div>
+                ))}
               </section>
             ) : sortedProducts.length === 0 ? (
               <section className="coins-empty">

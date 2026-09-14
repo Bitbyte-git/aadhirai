@@ -243,7 +243,7 @@ function renderBracketBranch(node, role, childRole, childKey) {
   `
 }
 
-function printHorizontalBracketTree(adminNode, role, ancestors, superAdminEmail) {
+function printHorizontalBracketTree(adminNode, role, ancestors, superAdminEmail, existingWindow = null) {
   const adminName = [adminNode.first_name, adminNode.last_name].filter(Boolean).join(' ') || 'Super Stockist'
   const adminId = adminNode.admin_id || adminNode.id || ''
   const counts = countSubtree(adminNode)
@@ -276,7 +276,7 @@ function printHorizontalBracketTree(adminNode, role, ancestors, superAdminEmail)
     </div>
   `
 
-  const printWindow = window.open('', '_blank')
+  const printWindow = existingWindow || window.open('', '_blank')
   if (!printWindow) {
     alert('Pop-up blocked! Please allow pop-ups for this site to print.')
     return
@@ -543,7 +543,7 @@ function printHorizontalBracketTree(adminNode, role, ancestors, superAdminEmail)
 
         window.onload = () => {
           zoomFit();
-          setTimeout(() => window.print(), 500);
+          setTimeout(() => window.print(), 200);
         };
       <\/script>
     </body>
@@ -613,6 +613,8 @@ function scheduleHideChainPopup() {
 }
 
 function showChainPopup(anchorEl, ancestors, current, dark, superAdminEmail) {
+  // Mobile responsive la mattum chain popup open aaga koodadhu
+  if (typeof window !== 'undefined' && window.innerWidth <= 860) return
   clearTimeout(_chainHideTimer)
   removeChainPopup()
 
@@ -639,7 +641,9 @@ function showChainPopup(anchorEl, ancestors, current, dark, superAdminEmail) {
       @keyframes acpGlow{0%,100%{box-shadow:0 0 0px rgba(34,197,94,0)}50%{box-shadow:0 0 20px rgba(34,197,94,0.22)}}
       @keyframes acpShimmer{0%{background-position:-200% center}100%{background-position:200% center}}
       @keyframes acpBadgePop{0%{transform:scale(0.8);opacity:0}100%{transform:scale(1);opacity:1}}
-            @media(max-width:480px){
+      @media(max-width:860px){
+        #chain-popup{display:none !important; visibility:hidden !important; pointer-events:none !important;}
+      }
         #chain-popup{min-width:140px!important;max-width:165px!important;padding:10px!important;border-radius:14px!important}
         #chain-popup > div{padding:8px 9px!important;margin-bottom:5px!important}
         #chain-popup div[style*="width:30px"]{width:20px!important;height:20px!important;border-radius:6px!important}
@@ -1125,10 +1129,11 @@ const [selPromotor, setSelPromotor] = useState(null)
   }
 
   // ── NEW: Print choice popup state — "only this / full hierarchy" select panna ──
-  const [printTarget, setPrintTarget] = useState(null) // { node, role, cfg, color, ancestors }
+  const [printTarget, setPrintTarget] = useState(null)
   const [printLoading, setPrintLoading] = useState(false)
   const openPrintPopup = (target) => setPrintTarget(target)
   const handlePrintOnly = () => {
+    if (!printTarget) return
     const { node, role, cfg, color, ancestors } = printTarget
     printPersonCard(node, role, cfg, color, ancestors, superAdminEmail)
     setPrintTarget(null)
@@ -1138,15 +1143,33 @@ const [selPromotor, setSelPromotor] = useState(null)
     setPrintTarget(null)
     if (!target) return
 
+    // ── Open window immediately synchronously to prevent popup blocker ──
+    const printWin = window.open('', '_blank')
+    if (printWin) {
+      printWin.document.write(`
+        <!DOCTYPE html><html><head><title>Preparing Hierarchy Tree...</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #FAFDFD; }
+          .card { text-align: center; background: #FFFFFF; border: 1.5px solid #D6E2E1; border-radius: 16px; padding: 36px 44px; box-shadow: 0 10px 30px rgba(7,59,63,0.06); }
+          .spinner { width: 38px; height: 38px; border: 3px solid #E6F0F0; border-top-color: #073B3F; border-radius: 50%; animation: spin .75s linear infinite; margin: 0 auto 16px; }
+          @keyframes spin { to { transform: rotate(360deg); } }
+          h3 { color: #073B3F; font-size: 16px; font-weight: 800; margin: 0 0 6px; }
+          p { color: #7A8987; font-size: 12px; margin: 0; }
+        </style></head>
+        <body><div class="card"><div class="spinner"></div><h3>Preparing Hierarchy Print Tree...</h3><p>Compiling Super Stockist network structure...</p></div></body></html>
+      `)
+      printWin.document.close()
+    }
+
     setPrintLoading(true)
     try {
       const adminId = target.role === 'admin' ? target.node.id : (target.ancestors?.find(a => a.role === 'admin')?.node?.id || target.node.id)
       const res = await api.get(`/hierarchy/full/?admin_id=${adminId}`)
       const fullAdmin = res.data?.admins?.[0] || target.node
-      printHorizontalBracketTree(fullAdmin, target.role, target.ancestors, res.data?.super_admin_email || superAdminEmail)
+      printHorizontalBracketTree(fullAdmin, target.role, target.ancestors, res.data?.super_admin_email || superAdminEmail, printWin)
     } catch (err) {
       console.error('Failed to fetch full hierarchy for print:', err)
-      printHorizontalBracketTree(target.node, target.role, target.ancestors, superAdminEmail)
+      printHorizontalBracketTree(target.node, target.role, target.ancestors, superAdminEmail, printWin)
     } finally {
       setPrintLoading(false)
     }
@@ -1792,7 +1815,7 @@ const selectAdmin = (node) => {
         </div>
       )}
 
-      {/* ── NEW: PRINT CHOICE POPUP — Only vs Full Hierarchy ── */}
+      {/* ── PRINT CHOICE POPUP — Only vs Full Hierarchy ── */}
       {printTarget && (
         <div
           onClick={() => setPrintTarget(null)}
@@ -1851,34 +1874,6 @@ const selectAdmin = (node) => {
             >
               Cancel
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── PRINT LOADING MODAL ── */}
-      {printLoading && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(7,59,63,0.45)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
-            zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}
-        >
-          <div
-            style={{
-              background: '#FFFFFF', border: '1.5px solid #D6E2E1', borderRadius: '20px',
-              padding: '28px 36px', boxShadow: '0 24px 60px rgba(7,59,63,0.22)', textAlign: 'center', maxWidth: '380px'
-            }}
-          >
-            <div style={{
-              width: 38, height: 38, border: '3.5px solid #E1EBEA', borderTop: '3.5px solid #073B3F',
-              borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 14px'
-            }} />
-            <div style={{ color: '#073B3F', fontWeight: 800, fontSize: '15px', marginBottom: '6px' }}>
-              Preparing Hierarchy Print Tree...
-            </div>
-            <div style={{ color: '#5C706E', fontSize: '12px', lineHeight: 1.5 }}>
-              Compiling full downward tree with all distributors, wholesale dealers, retailers, and customers.
-            </div>
           </div>
         </div>
       )}

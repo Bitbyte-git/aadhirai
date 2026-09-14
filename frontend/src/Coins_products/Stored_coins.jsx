@@ -108,10 +108,12 @@ export default function StoredCoins() {
     try {
       const res = await api.get("/coin-stock/?scope=hierarchy");
       setHierarchyStock(Array.isArray(res.data) ? res.data : []);
-    } catch {
-      setError("Failed to load team coin holdings.");
+    } catch (err) {
+      console.error("Failed to load team coin holdings:", err);
+      setHierarchyStock([]);
+    } finally {
+      setHierarchyLoading(false);
     }
-    setHierarchyLoading(false);
   };
 
   useEffect(() => {

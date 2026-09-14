@@ -770,6 +770,13 @@ def send_sendgrid_otp_email(to_email, otp_code, recipient_name="Customer"):
     import urllib.error
     import os
 
+    try:
+        from django.conf import settings
+        from dotenv import load_dotenv
+        load_dotenv(settings.BASE_DIR / '.env', override=True)
+    except Exception:
+        pass
+
     api_key = os.environ.get("SENDGRID_API_KEY")
     from_email = os.environ.get("SENDGRID_FROM_EMAIL", "senthil.bitbyte@gmail.com")
     from_name = os.environ.get("SENDGRID_FROM_NAME", "Athirai")

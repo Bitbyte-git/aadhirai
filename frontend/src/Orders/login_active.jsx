@@ -12,7 +12,6 @@ import {
   CopyIcon,
   CheckIcon,
   ArrowLeftIcon,
-  ClockIcon,
 } from "../components/SvgIcons";
 
 // role name → SalesCount page role slug
@@ -23,6 +22,15 @@ const ROLE_SLUG = {
   Promotor: "promotor",
   Customer: "customer",
 };
+
+const PERIOD_OPTIONS = [
+  { value: "today", label: "Today Login" },
+  { value: "3days", label: "3 Days Login" },
+  { value: "week", label: "1 Week Login" },
+  { value: "month", label: "1 Month Login" },
+  { value: "6months", label: "6 Month Login" },
+  { value: "year", label: "1 Year Login" },
+];
 
 export default function LoginActive() {
   const navigate = useNavigate();
@@ -35,11 +43,13 @@ export default function LoginActive() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [periodFilter, setPeriodFilter] = useState("today");
   const [orderFilter, setOrderFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [offset, setOffset] = useState(0);
   const [limit, setLimit] = useState(50);
   const [totalCount, setTotalCount] = useState(0);
+  const [otherCount, setOtherCount] = useState(0);
   const [copiedId, setCopiedId] = useState(null);
   const [toast, setToast] = useState("");
 
@@ -62,12 +72,13 @@ export default function LoginActive() {
       setError("");
       try {
         const isAdminOnly = roleFilter === "Admin";
-        // Default 50 items loaded initially
-        const initialLimit = isAdminOnly ? 5000 : 50;
+        // Default 100 items loaded initially
+        const initialLimit = isAdminOnly ? 5000 : 100;
 
         const res = await api.get("/today-login-status/", {
           params: {
             role: roleFilter,
+            period: periodFilter,
             list_type: "active",
             offset: 0,
             limit: initialLimit,
@@ -75,8 +86,9 @@ export default function LoginActive() {
         });
         let list = [...(res.data.active || [])];
         setTotalCount(res.data.total_count || 0);
+        setOtherCount(res.data.other_count || 0);
         setOffset(initialLimit);
-        setLimit(50);
+        setLimit(100);
         if (scopeIds) list = list.filter((u) => scopeIds.includes(u.id));
         const sorted = list.sort((a, b) => a.level - b.level);
         setData(sorted);
@@ -86,7 +98,7 @@ export default function LoginActive() {
       setLoading(false);
     };
     fetchData();
-  }, [roleFilter]);
+  }, [roleFilter, periodFilter]);
 
   const formatTime = (iso) => {
     if (!iso) return "—";
@@ -124,18 +136,20 @@ export default function LoginActive() {
   }, [data, orderFilter, searchTerm]);
 
   const isAdminOnly = roleFilter === "Admin";
-  const hasMore = !isAdminOnly && data.length < totalCount;
+  // offset tracks how far into the backend's raw recordset we've paged, which is the
+  // correct measure of "more to fetch" — data.length can be lower than that if some
+  // raw rows get dropped (e.g. missing profile) while still being counted in total_count.
+  const hasMore = !isAdminOnly && offset < totalCount;
 
   const loadMore = async () => {
     setLoadingMore(true);
     try {
       const res = await api.get("/today-login-status/", {
-        params: { role: roleFilter, list_type: "active", offset, limit: 50 },
+        params: { role: roleFilter, period: periodFilter, list_type: "active", offset, limit },
       });
       const newList = res.data.active || [];
       setData((prev) => [...prev, ...newList].sort((a, b) => a.level - b.level));
-      setOffset((prev) => prev + 50);
-      setLimit(50);
+      setOffset((prev) => prev + limit);
     } catch {
       setError("Failed to load more users.");
     }
@@ -150,9 +164,10 @@ export default function LoginActive() {
 
   // Summary Metrics
   const activeCount = totalCount || data.length;
+  const totalUsersCount = totalCount + otherCount;
   const usersWithOrders = data.filter((u) => (u.order_count || 0) > 0).length;
   const totalOrdersSum = data.reduce((sum, u) => sum + (Number(u.order_count) || 0), 0);
-  const shownCount = filtered.length;
+  const periodLabel = PERIOD_OPTIONS.find((p) => p.value === periodFilter)?.label || "Today Login";
 
   const exportCSV = () => {
     if (!filtered.length) return;
@@ -591,9 +606,9 @@ export default function LoginActive() {
           <div className="psl-header-card">
             <div className="psl-header-info">
               <h1>
-                <span>Active Users Today</span>
+                <span>Active Users</span>
                 <span className="psl-live-badge">
-                  <span className="psl-live-dot" /> Live Active
+                  <span className="psl-live-dot" /> {periodLabel}
                 </span>
                 {scopeLabel && <span className="psl-scope-badge">{scopeLabel}</span>}
               </h1>
@@ -620,11 +635,24 @@ export default function LoginActive() {
             </div>
           )}
 
-          {/* 4 Stat Cards */}
+          {/* 5 Stat Cards */}
           <div className="psl-stats-grid">
+            <div className="psl-stat-card" style={{ borderLeft: "4px solid #9F6130" }}>
+              <div className="psl-stat-header">
+                <span className="psl-stat-label">Total Users</span>
+                <div className="psl-stat-icon" style={{ background: "#FBF6F0", color: "#9F6130" }}>
+                  <UsersIcon size={18} color="#9F6130" />
+                </div>
+              </div>
+              <div className="psl-stat-val">
+                {loading ? <SkeletonText width="60px" height="30px" /> : totalUsersCount}
+              </div>
+              <div className="psl-stat-sub">All registered users</div>
+            </div>
+
             <div className="psl-stat-card" style={{ borderLeft: "4px solid #073B3F" }}>
               <div className="psl-stat-header">
-                <span className="psl-stat-label">Total Active</span>
+                <span className="psl-stat-label">Active</span>
                 <div className="psl-stat-icon" style={{ background: "#EFF6F6", color: "#073B3F" }}>
                   <UsersIcon size={18} color="#073B3F" />
                 </div>
@@ -632,7 +660,7 @@ export default function LoginActive() {
               <div className="psl-stat-val">
                 {loading ? <SkeletonText width="60px" height="30px" /> : activeCount}
               </div>
-              <div className="psl-stat-sub">Logged in today</div>
+              <div className="psl-stat-sub">{periodLabel}</div>
             </div>
 
             <div className="psl-stat-card" style={{ borderLeft: "4px solid #CCA881" }}>
@@ -659,19 +687,6 @@ export default function LoginActive() {
                 {loading ? <SkeletonText width="60px" height="30px" /> : totalOrdersSum}
               </div>
               <div className="psl-stat-sub">Orders registered</div>
-            </div>
-
-            <div className="psl-stat-card" style={{ borderLeft: "4px solid #6366F1" }}>
-              <div className="psl-stat-header">
-                <span className="psl-stat-label">Showing Records</span>
-                <div className="psl-stat-icon" style={{ background: "#EEF2FF", color: "#4F46E5" }}>
-                  <ClockIcon size={18} color="#4F46E5" />
-                </div>
-              </div>
-              <div className="psl-stat-val">
-                {loading ? <SkeletonText width="60px" height="30px" /> : shownCount}
-              </div>
-              <div className="psl-stat-sub">{filtered.length} of {totalCount} matching</div>
             </div>
           </div>
 
@@ -702,6 +717,16 @@ export default function LoginActive() {
                 <option value="Sub Dealer">Wholesale Dealer (Sub Dealer)</option>
                 <option value="Promotor">Retailer (Promotor)</option>
                 <option value="Customer">Customer</option>
+              </select>
+
+              <select
+                className="psl-select"
+                value={periodFilter}
+                onChange={(e) => setPeriodFilter(e.target.value)}
+              >
+                {PERIOD_OPTIONS.map((p) => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
               </select>
 
               <select

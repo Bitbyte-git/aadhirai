@@ -12,6 +12,7 @@ from .serializers import *
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
+# pyrefly: ignore [missing-import]
 from django.db.models.functions import TruncMonth
 import razorpay
 import hmac
@@ -25,6 +26,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
+# pyrefly: ignore [missing-import]
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -3537,6 +3539,7 @@ class TodayLoginStatusView(APIView):
         '3days': 3,
         'week': 7,
         'month': 30,
+        '6months': 180,
         'year': 365,
     }
 
@@ -3573,6 +3576,7 @@ class TodayLoginStatusView(APIView):
         rollup_counts = _today_rollup_counts()
 
         # ── NEW: role -> level Case/When, DB level la order pண்ணறatuku ──
+        # pyrefly: ignore [missing-import]
         from django.db.models import Case, When, Value, IntegerField
         level_case = Case(
             When(role='admin', then=Value(2)), When(role='dealer', then=Value(3)),
@@ -4238,6 +4242,8 @@ class JewelryStockView(APIView):
                 net = float(p.net_weight or p.cross_weight or 0)
                 first_img = p.images.first()
                 img_url = first_img.image.url if first_img and first_img.image else ''
+                if img_url and not img_url.startswith('http'):
+                    img_url = request.build_absolute_uri(img_url)
 
                 user_map[u.id]['items'].append({
                     'id': s.id,
@@ -4270,6 +4276,13 @@ class JewelryStockView(APIView):
             role_order = {'super_admin': 0, 'admin': 1, 'dealer': 2, 'sub_dealer': 3, 'promotor': 4}
             result.sort(key=lambda x: (role_order.get(x['role'], 99), x['name']))
             return Response(result)
+
+        if request.user.role == 'super_admin':
+            for p in JewelryProduct.objects.filter(is_internal_asset=True, stock_quantity__gt=0):
+                stk, created = JewelryStock.objects.get_or_create(user=request.user, product=p, defaults={'qty': p.stock_quantity})
+                if not created and stk.qty == 0 and p.stock_quantity > 0:
+                    stk.qty = p.stock_quantity
+                    stk.save(update_fields=['qty'])
 
         stocks = JewelryStock.objects.filter(user=request.user, qty__gt=0).select_related('product').prefetch_related('product__images')
         serializer = JewelryStockSerializer(stocks, many=True, context={'request': request})

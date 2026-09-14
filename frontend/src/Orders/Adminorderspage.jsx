@@ -21,6 +21,11 @@ export default function AdminOrdersPage() {
   const [statusUpdating, setStatusUpdating] = useState(null)
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
+  const [visibleCount, setVisibleCount] = useState(100)
+
+  useEffect(() => {
+    setVisibleCount(100)
+  }, [search, filterStatus])
 
   const dark = false
   const bg = '#FDFDFC', text = '#111817', subtext = '#7A8987'
@@ -65,6 +70,8 @@ export default function AdminOrdersPage() {
     const matchSearch = !q || o.order_id?.toLowerCase().includes(q) || o.product_name?.toLowerCase().includes(q) || o.customer_name?.toLowerCase().includes(q) || o.customer_email?.toLowerCase().includes(q)
     return matchStatus && matchSearch
   })
+
+  const displayedOrders = filtered.slice(0, visibleCount)
 
   // Stats
   const stats = {
@@ -166,12 +173,12 @@ export default function AdminOrdersPage() {
             </div>
 
             {/* Rows */}
-            {filtered.map((order, i) => {
+            {displayedOrders.map((order, i) => {
               const st = STATUS_COLORS[order.status] || STATUS_COLORS.pending
               const img = getImageUrl(order.product_image_url)
               const isExpanded = selectedOrder?.id === order.id
               return (
-                <div key={order.id} style={{ borderBottom: `1px solid ${border}`, animation: `fadeIn 0.3s ${i * 0.04}s ease both`, opacity: 0 }}>
+                <div key={order.id} style={{ borderBottom: `1px solid ${border}`, animation: `fadeIn 0.25s ${Math.min(i % 50, 15) * 0.02}s ease both`, opacity: 0 }}>
                   {/* Main row */}
                   <div className="ord-row"
                     onClick={() => setSelectedOrder(isExpanded ? null : order)}
@@ -279,6 +286,40 @@ export default function AdminOrdersPage() {
                 </div>
               )
             })}
+
+            {/* Load More Pagination (100 first, +500 per click) */}
+            {filtered.length > visibleCount ? (
+              <div style={{ padding: '24px 20px', textAlign: 'center', background: 'rgba(231,237,236,0.3)', borderTop: `1px solid ${border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                <div style={{ fontSize: 13, color: subtext, fontWeight: 600 }}>
+                  Showing <span style={{ color: accent, fontWeight: 800 }}>{displayedOrders.length}</span> of <span style={{ color: text, fontWeight: 800 }}>{filtered.length}</span> orders
+                </div>
+                <button
+                  className="orders-action"
+                  onClick={() => setVisibleCount(prev => prev + 500)}
+                  style={{
+                    background: 'linear-gradient(135deg, #0C4044 0%, #073B3F 100%)',
+                    color: '#FDFDFC',
+                    border: '1px solid rgba(12,64,68,0.35)',
+                    borderRadius: 10,
+                    padding: '12px 36px',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 8px 24px rgba(12,64,68,0.22)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    letterSpacing: '0.02em',
+                  }}
+                >
+                  <span>⬇️ Load More (+500 Orders)</span>
+                </button>
+              </div>
+            ) : filtered.length > 100 ? (
+              <div style={{ padding: '16px', textAlign: 'center', background: 'rgba(231,237,236,0.2)', borderTop: `1px solid ${border}`, color: subtext, fontSize: 12, fontWeight: 600 }}>
+                ✓ All {filtered.length} orders loaded
+              </div>
+            ) : null}
           </div>
         )}
       </div>

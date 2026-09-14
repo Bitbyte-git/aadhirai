@@ -41,12 +41,12 @@ export default function AvailableJewellery() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [metalFilter, setMetalFilter] = useState("all");
   const [copiedId, setCopiedId] = useState(null);
+  const [previewItem, setPreviewItem] = useState(null);
 
-  const handleCopy = (text, id) => {
-    if (!text) return;
-    navigator.clipboard?.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+  const getImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
+    return `https://bitbyte-backend-f66f.onrender.com/${url.replace(/^\/+/, "")}`;
   };
 
   // Fetch logged in user's jewelry stock
@@ -55,12 +55,24 @@ export default function AvailableJewellery() {
     setError("");
     try {
       const res = await api.get("/jewelry-stock/");
-      setMyStock(Array.isArray(res.data) ? res.data : []);
+      let data = Array.isArray(res.data) ? res.data : [];
+      if (data.length === 0 && isSuperAdmin) {
+        // Fallback for Super Admin: load internal master assets directly
+        const pRes = await api.get("/jewelry-products/?internal=true");
+        data = (pRes.data || [])
+          .filter((p) => Number(p.stock_quantity) > 0)
+          .map((p) => ({ id: p.id, product: p, qty: Number(p.stock_quantity) }));
+      }
+      setMyStock(data);
     } catch {
       // Fallback: fetch internal products
       try {
         const pRes = await api.get("/jewelry-products/?internal=true");
-        setMyStock((pRes.data || []).map((p) => ({ id: p.id, product: p, qty: p.stock_quantity })));
+        setMyStock(
+          (pRes.data || [])
+            .filter((p) => Number(p.stock_quantity) > 0)
+            .map((p) => ({ id: p.id, product: p, qty: Number(p.stock_quantity) }))
+        );
       } catch {
         setError("Failed to load available jewellery stock.");
       }
@@ -861,21 +873,96 @@ export default function AvailableJewellery() {
                       </div>
                     </div>
 
-                    {/* Itemized list */}
+                    {/* Itemized list with Product Thumbnail & Click to Preview */}
                     <div className="aj-user-items-box">
-                      {user.items?.map((item, idx) => (
-                        <div key={idx} className="aj-mini-item">
-                          <div>
-                            <strong style={{ color: "#073B3F" }}>{item.name}</strong>
-                            <div style={{ fontSize: "11px", color: "#7A8987" }}>
-                              {item.metal?.toUpperCase()} {item.grade} | Gross: {item.cross_weight}g
+                      {user.items?.map((item, idx) => {
+                        const imgUrl = getImageUrl(item.image);
+                        return (
+                          <div
+                            key={idx}
+                            className="aj-mini-item"
+                            style={{ cursor: "pointer", transition: "all 150ms ease" }}
+                            onClick={() =>
+                              setPreviewItem({
+                                ...item,
+                                holder_name: user.name,
+                                holder_role: user.role,
+                                holder_id: user.id_str,
+                                holder_phone: user.phone,
+                              })
+                            }
+                            title="Click to view full photo and product details"
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                              {/* Product Thumbnail */}
+                              <div
+                                style={{
+                                  width: "42px",
+                                  height: "42px",
+                                  borderRadius: "8px",
+                                  overflow: "hidden",
+                                  background: "#FFFFFF",
+                                  border: "1px solid #D6E2E1",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  flexShrink: 0,
+                                  boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
+                                }}
+                              >
+                                {imgUrl ? (
+                                  <img
+                                    src={imgUrl}
+                                    alt={item.name}
+                                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                    onError={(e) => {
+                                      e.target.style.display = "none";
+                                    }}
+                                  />
+                                ) : (
+                                  <span style={{ fontSize: "18px" }}>💍</span>
+                                )}
+                              </div>
+                              <div style={{ minWidth: 0 }}>
+                                <strong
+                                  style={{
+                                    color: "#073B3F",
+                                    fontSize: "12.5px",
+                                    display: "block",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {item.name}
+                                </strong>
+                                <div style={{ fontSize: "11px", color: "#7A8987", marginTop: "2px" }}>
+                                  {item.metal?.toUpperCase()} {item.grade} | Gross: {item.cross_weight}g
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ textAlign: "right", flexShrink: 0, marginLeft: "8px" }}>
+                              <span
+                                style={{
+                                  display: "inline-block",
+                                  padding: "3px 8px",
+                                  background: "#E6F4F2",
+                                  color: "#073B3F",
+                                  borderRadius: "6px",
+                                  fontWeight: 800,
+                                  fontSize: "12px",
+                                }}
+                              >
+                                {item.qty} pcs
+                              </span>
+                              <div style={{ fontSize: "10px", color: "#0C8A7B", marginTop: "2px", fontWeight: 600 }}>
+                                View Photo 🔍
+                              </div>
                             </div>
                           </div>
-                          <div style={{ textAlign: "right", fontWeight: 800, color: "#073B3F" }}>
-                            {item.qty} pcs
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -1021,6 +1108,234 @@ export default function AvailableJewellery() {
           )
         )}
       </div>
+
+      {/* FULL PRODUCT PREVIEW LIGHTBOX MODAL */}
+      {previewItem && (
+        <div
+          className="aj-modal-backdrop"
+          onClick={() => setPreviewItem(null)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(7, 30, 32, 0.78)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+            animation: "fadeIn 200ms ease",
+          }}
+        >
+          <div
+            className="aj-modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#FFFFFF",
+              borderRadius: "20px",
+              maxWidth: "520px",
+              width: "100%",
+              overflow: "hidden",
+              boxShadow: "0 25px 60px rgba(0,0,0,0.3)",
+              display: "flex",
+              flexDirection: "column",
+              animation: "slideUp 220ms ease",
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "16px 20px",
+                borderBottom: "1px solid #EAF0F0",
+                background: "#F8FAFA",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: "11px", fontWeight: 800, color: "#0C8A7B", textTransform: "uppercase" }}>
+                  Product Preview • {previewItem.product_code || `JWL-#${previewItem.product_id || previewItem.id}`}
+                </div>
+                <h3 style={{ margin: "2px 0 0", fontSize: "18px", fontWeight: 800, color: "#073B3F" }}>
+                  {previewItem.name}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewItem(null)}
+                style={{
+                  background: "#EAF0F0",
+                  border: "none",
+                  width: "34px",
+                  height: "34px",
+                  borderRadius: "50%",
+                  cursor: "pointer",
+                  fontSize: "16px",
+                  fontWeight: 700,
+                  color: "#073B3F",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "background 150ms",
+                }}
+                onMouseEnter={(e) => (e.target.style.background = "#DDE7E7")}
+                onMouseLeave={(e) => (e.target.style.background = "#EAF0F0")}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Image Box */}
+            <div
+              style={{
+                background: "#F4F7F7",
+                height: "320px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
+                overflow: "hidden",
+              }}
+            >
+              {getImageUrl(previewItem.image) ? (
+                <img
+                  src={getImageUrl(previewItem.image)}
+                  alt={previewItem.name}
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "100%",
+                    objectFit: "contain",
+                    padding: "16px",
+                  }}
+                />
+              ) : (
+                <div style={{ textAlign: "center", color: "#8E9E9C" }}>
+                  <span style={{ fontSize: "64px", display: "block" }}>💍</span>
+                  <p style={{ margin: "10px 0 0", fontSize: "13.5px", fontWeight: 600 }}>No high-resolution photo uploaded</p>
+                </div>
+              )}
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "14px",
+                  right: "14px",
+                  background: "rgba(7, 59, 63, 0.88)",
+                  color: "#FFFFFF",
+                  padding: "5px 14px",
+                  borderRadius: "20px",
+                  fontSize: "12.5px",
+                  fontWeight: 800,
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                }}
+              >
+                {previewItem.qty} pcs in custody
+              </div>
+            </div>
+
+            {/* Modal Content & Specs */}
+            <div style={{ padding: "20px" }}>
+              {previewItem.holder_name && (
+                <div
+                  style={{
+                    background: "#F0FDF4",
+                    border: "1px solid #BBF7D0",
+                    borderRadius: "12px",
+                    padding: "10px 14px",
+                    marginBottom: "16px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: "10.5px", color: "#166534", fontWeight: 700, textTransform: "uppercase" }}>
+                      CURRENT CUSTODY HOLDER
+                    </div>
+                    <div style={{ fontSize: "14px", fontWeight: 800, color: "#14532D" }}>
+                      {previewItem.holder_name} ({previewItem.holder_id || previewItem.holder_role})
+                    </div>
+                  </div>
+                  {previewItem.holder_phone && (
+                    <div style={{ fontSize: "12px", color: "#166534", fontWeight: 700 }}>
+                      📞 {previewItem.holder_phone}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: "10px",
+                  marginBottom: "16px",
+                }}
+              >
+                <div style={{ background: "#F8FAFA", border: "1px solid #EAEFEF", padding: "12px", borderRadius: "12px", textAlign: "center" }}>
+                  <div style={{ fontSize: "10.5px", color: "#7A8987", fontWeight: 700 }}>METAL & PURITY</div>
+                  <div style={{ fontSize: "13.5px", fontWeight: 800, color: "#073B3F", marginTop: "4px" }}>
+                    {previewItem.metal?.toUpperCase()} {previewItem.grade}
+                  </div>
+                </div>
+                <div style={{ background: "#F8FAFA", border: "1px solid #EAEFEF", padding: "12px", borderRadius: "12px", textAlign: "center" }}>
+                  <div style={{ fontSize: "10.5px", color: "#7A8987", fontWeight: 700 }}>GROSS / NET WT</div>
+                  <div style={{ fontSize: "13.5px", fontWeight: 800, color: "#073B3F", marginTop: "4px" }}>
+                    {previewItem.cross_weight}g / {previewItem.net_weight || previewItem.cross_weight}g
+                  </div>
+                </div>
+                <div style={{ background: "#F8FAFA", border: "1px solid #EAEFEF", padding: "12px", borderRadius: "12px", textAlign: "center" }}>
+                  <div style={{ fontSize: "10.5px", color: "#7A8987", fontWeight: 700 }}>CATEGORY</div>
+                  <div style={{ fontSize: "13.5px", fontWeight: 800, color: "#073B3F", marginTop: "4px" }}>
+                    {previewItem.category || "Jewellery"}
+                  </div>
+                </div>
+              </div>
+
+              {previewItem.price > 0 && (
+                <div
+                  style={{
+                    background: "#F4F8F8",
+                    borderRadius: "10px",
+                    padding: "8px 14px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "16px",
+                    fontSize: "13px",
+                  }}
+                >
+                  <span style={{ color: "#5C706E", fontWeight: 600 }}>Approx. Unit Value:</span>
+                  <strong style={{ color: "#073B3F", fontSize: "15px" }}>₹{Number(previewItem.price).toLocaleString()}</strong>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setPreviewItem(null)}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  borderRadius: "12px",
+                  border: "none",
+                  background: "linear-gradient(135deg, #073B3F 0%, #0C4E53 100%)",
+                  color: "#FFFFFF",
+                  fontWeight: 800,
+                  fontSize: "14px",
+                  cursor: "pointer",
+                  boxShadow: "0 4px 14px rgba(7, 59, 63, 0.2)",
+                }}
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

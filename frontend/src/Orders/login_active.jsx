@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "../api";
 import SuperAdminNavbar from "../collection/SuperAdminNavbar";
@@ -49,9 +49,18 @@ export default function LoginActive() {
   const [offset, setOffset] = useState(0);
   const [limit, setLimit] = useState(50);
   const [totalCount, setTotalCount] = useState(0);
-  const [otherCount, setOtherCount] = useState(0);
   const [copiedId, setCopiedId] = useState(null);
   const [toast, setToast] = useState("");
+  // "active" = only today/period-active users, "all" = active+inactive combined
+  const [viewMode, setViewMode] = useState("active");
+  const [selectedCard, setSelectedCard] = useState("active");
+  // Stable counters for the stat cards — independent of viewMode so they don't
+  // shift around just because the table switches between active/all.
+  const [statActiveCount, setStatActiveCount] = useState(0);
+  const [statTotalUsers, setStatTotalUsers] = useState(0);
+  // Guards against out-of-order responses: if the user clicks another card before
+  // an in-flight fetch resolves, that stale response must not overwrite newer state.
+  const fetchIdRef = useRef(0);
 
   const showToast = (text) => {
     setToast(text);
@@ -67,38 +76,71 @@ export default function LoginActive() {
   };
 
   useEffect(() => {
+    const myFetchId = ++fetchIdRef.current;
+    const isCurrent = () => fetchIdRef.current === myFetchId;
+
     const fetchData = async () => {
       setLoading(true);
       setError("");
       try {
         const isAdminOnly = roleFilter === "Admin";
-        // Default 100 items loaded initially
-        const initialLimit = isAdminOnly ? 5000 : 100;
 
-        const res = await api.get("/today-login-status/", {
-          params: {
-            role: roleFilter,
-            period: periodFilter,
-            list_type: "active",
-            offset: 0,
-            limit: initialLimit,
-          },
-        });
-        let list = [...(res.data.active || [])];
-        setTotalCount(res.data.total_count || 0);
-        setOtherCount(res.data.other_count || 0);
-        setOffset(initialLimit);
-        setLimit(100);
-        if (scopeIds) list = list.filter((u) => scopeIds.includes(u.id));
-        const sorted = list.sort((a, b) => a.level - b.level);
-        setData(sorted);
+        if (viewMode === "all") {
+          // "Total Users" view: the deployed backend doesn't understand list_type=all yet,
+          // but it already supports "active" and "inactive" separately — fetch both and
+          // merge client-side instead of waiting on a backend deploy.
+          const bigLimit = 5000;
+          const [activeRes, inactiveRes] = await Promise.all([
+            api.get("/today-login-status/", {
+              params: { role: roleFilter, period: periodFilter, list_type: "active", offset: 0, limit: bigLimit },
+            }),
+            api.get("/today-login-status/", {
+              params: { role: roleFilter, period: periodFilter, list_type: "inactive", offset: 0, limit: bigLimit },
+            }),
+          ]);
+          if (!isCurrent()) return;
+          const activeList = activeRes.data.active || [];
+          const inactiveList = inactiveRes.data.inactive || [];
+          let list = [...activeList, ...inactiveList];
+          const activeTotal = activeRes.data.total_count || 0;
+          const inactiveTotal = inactiveRes.data.total_count || 0;
+          setTotalCount(activeTotal + inactiveTotal);
+          setStatActiveCount(activeTotal);
+          setStatTotalUsers(activeTotal + inactiveTotal);
+          setOffset(list.length);
+          setLimit(bigLimit);
+          if (scopeIds) list = list.filter((u) => scopeIds.includes(u.id));
+          setData(list.sort((a, b) => a.level - b.level));
+        } else {
+          // Default 100 items loaded initially
+          const initialLimit = isAdminOnly ? 5000 : 100;
+
+          const res = await api.get("/today-login-status/", {
+            params: {
+              role: roleFilter,
+              period: periodFilter,
+              list_type: "active",
+              offset: 0,
+              limit: initialLimit,
+            },
+          });
+          if (!isCurrent()) return;
+          let list = [...(res.data.active || [])];
+          setTotalCount(res.data.total_count || 0);
+          setStatActiveCount(res.data.total_count || 0);
+          setStatTotalUsers((res.data.total_count || 0) + (res.data.other_count || 0));
+          setOffset(initialLimit);
+          setLimit(100);
+          if (scopeIds) list = list.filter((u) => scopeIds.includes(u.id));
+          setData(list.sort((a, b) => a.level - b.level));
+        }
       } catch {
-        setError("Failed to load active users.");
+        if (isCurrent()) setError("Failed to load users.");
       }
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     };
     fetchData();
-  }, [roleFilter, periodFilter]);
+  }, [roleFilter, periodFilter, viewMode]);
 
   const formatTime = (iso) => {
     if (!iso) return "—";
@@ -116,6 +158,7 @@ export default function LoginActive() {
   const filtered = useMemo(() => {
     return data.filter((u) => {
       const oc = u.order_count ?? 0;
+      if (orderFilter === "any" && oc === 0) return false;
       if (orderFilter === "0" && oc !== 0) return false;
       if (orderFilter === "1-10" && !(oc >= 1 && oc <= 10)) return false;
       if (orderFilter === "11-20" && !(oc >= 11 && oc <= 20)) return false;
@@ -139,14 +182,17 @@ export default function LoginActive() {
   // offset tracks how far into the backend's raw recordset we've paged, which is the
   // correct measure of "more to fetch" — data.length can be lower than that if some
   // raw rows get dropped (e.g. missing profile) while still being counted in total_count.
-  const hasMore = !isAdminOnly && offset < totalCount;
+  // "all" view already fetches everyone in one shot, so there's never more to load there.
+  const hasMore = viewMode === "active" && !isAdminOnly && offset < totalCount;
 
   const loadMore = async () => {
+    const myFetchId = fetchIdRef.current;
     setLoadingMore(true);
     try {
       const res = await api.get("/today-login-status/", {
         params: { role: roleFilter, period: periodFilter, list_type: "active", offset, limit },
       });
+      if (fetchIdRef.current !== myFetchId) return;
       const newList = res.data.active || [];
       setData((prev) => [...prev, ...newList].sort((a, b) => a.level - b.level));
       setOffset((prev) => prev + limit);
@@ -162,12 +208,33 @@ export default function LoginActive() {
     navigate(`/hierarchy-sales-count?role=${slug}&id=${u.db_id}&period=today`);
   };
 
-  // Summary Metrics
-  const activeCount = totalCount || data.length;
-  const totalUsersCount = totalCount + otherCount;
+  // Summary Metrics — activeCount/totalUsersCount come from stable backend counters
+  // so they stay put no matter which list (active/all) is currently on screen.
+  const activeCount = statActiveCount;
+  const totalUsersCount = statTotalUsers;
   const usersWithOrders = data.filter((u) => (u.order_count || 0) > 0).length;
   const totalOrdersSum = data.reduce((sum, u) => sum + (Number(u.order_count) || 0), 0);
   const periodLabel = PERIOD_OPTIONS.find((p) => p.value === periodFilter)?.label || "Today Login";
+
+  const handleTotalUsersCardClick = () => {
+    setViewMode("all");
+    setOrderFilter("all");
+    setSelectedCard("total");
+  };
+  const handleActiveCardClick = () => {
+    setViewMode("active");
+    setOrderFilter("all");
+    setSelectedCard("active");
+  };
+  const handleUsersWithOrdersCardClick = () => {
+    setOrderFilter("any");
+    setSelectedCard("orders");
+  };
+  const handleTotalOrdersCardClick = () => {
+    setPeriodFilter("today");
+    setOrderFilter("any");
+    setSelectedCard("todayOrders");
+  };
 
   const exportCSV = () => {
     if (!filtered.length) return;
@@ -367,10 +434,20 @@ export default function LoginActive() {
             padding: 20px 24px;
             box-shadow: 0 4px 18px rgba(7, 59, 63, 0.03);
             position: relative;
-            transition: transform 180ms ease;
+            transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+            cursor: pointer;
+            user-select: none;
           }
           .psl-stat-card:hover {
             transform: translateY(-2px);
+            box-shadow: 0 8px 22px rgba(7, 59, 63, 0.08);
+          }
+          .psl-stat-card:active {
+            transform: translateY(0);
+          }
+          .psl-stat-card.psl-stat-selected {
+            border-color: #073B3F;
+            box-shadow: 0 0 0 2px rgba(7, 59, 63, 0.14), 0 8px 22px rgba(7, 59, 63, 0.08);
           }
           .psl-stat-header {
             display: flex;
@@ -606,9 +683,9 @@ export default function LoginActive() {
           <div className="psl-header-card">
             <div className="psl-header-info">
               <h1>
-                <span>Active Users</span>
+                <span>{viewMode === "all" ? "All Users" : "Active Users"}</span>
                 <span className="psl-live-badge">
-                  <span className="psl-live-dot" /> {periodLabel}
+                  <span className="psl-live-dot" /> {viewMode === "all" ? "Active + Inactive" : periodLabel}
                 </span>
                 {scopeLabel && <span className="psl-scope-badge">{scopeLabel}</span>}
               </h1>
@@ -635,61 +712,6 @@ export default function LoginActive() {
             </div>
           )}
 
-          {/* 5 Stat Cards */}
-          <div className="psl-stats-grid">
-            <div className="psl-stat-card" style={{ borderLeft: "4px solid #9F6130" }}>
-              <div className="psl-stat-header">
-                <span className="psl-stat-label">Total Users</span>
-                <div className="psl-stat-icon" style={{ background: "#FBF6F0", color: "#9F6130" }}>
-                  <UsersIcon size={18} color="#9F6130" />
-                </div>
-              </div>
-              <div className="psl-stat-val">
-                {loading ? <SkeletonText width="60px" height="30px" /> : totalUsersCount}
-              </div>
-              <div className="psl-stat-sub">All registered users</div>
-            </div>
-
-            <div className="psl-stat-card" style={{ borderLeft: "4px solid #073B3F" }}>
-              <div className="psl-stat-header">
-                <span className="psl-stat-label">Active</span>
-                <div className="psl-stat-icon" style={{ background: "#EFF6F6", color: "#073B3F" }}>
-                  <UsersIcon size={18} color="#073B3F" />
-                </div>
-              </div>
-              <div className="psl-stat-val">
-                {loading ? <SkeletonText width="60px" height="30px" /> : activeCount}
-              </div>
-              <div className="psl-stat-sub">{periodLabel}</div>
-            </div>
-
-            <div className="psl-stat-card" style={{ borderLeft: "4px solid #CCA881" }}>
-              <div className="psl-stat-header">
-                <span className="psl-stat-label">Users With Orders</span>
-                <div className="psl-stat-icon" style={{ background: "#FBF6F0", color: "#9F6130" }}>
-                  <UserIcon size={18} color="#9F6130" />
-                </div>
-              </div>
-              <div className="psl-stat-val">
-                {loading ? <SkeletonText width="60px" height="30px" /> : usersWithOrders}
-              </div>
-              <div className="psl-stat-sub">Active shoppers</div>
-            </div>
-
-            <div className="psl-stat-card" style={{ borderLeft: "4px solid #166534" }}>
-              <div className="psl-stat-header">
-                <span className="psl-stat-label">Total Orders Today</span>
-                <div className="psl-stat-icon" style={{ background: "#F0FDF4", color: "#166534" }}>
-                  <OrdersIcon size={18} color="#166534" />
-                </div>
-              </div>
-              <div className="psl-stat-val">
-                {loading ? <SkeletonText width="60px" height="30px" /> : totalOrdersSum}
-              </div>
-              <div className="psl-stat-sub">Orders registered</div>
-            </div>
-          </div>
-
           {/* Search & Filter Bar */}
           <div className="psl-controls-card">
             <div className="psl-search-wrap">
@@ -709,7 +731,7 @@ export default function LoginActive() {
               <select
                 className="psl-select"
                 value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
+                onChange={(e) => { setRoleFilter(e.target.value); setSelectedCard(""); }}
               >
                 <option value="all">All Roles</option>
                 <option value="Admin">Admin</option>
@@ -722,7 +744,7 @@ export default function LoginActive() {
               <select
                 className="psl-select"
                 value={periodFilter}
-                onChange={(e) => setPeriodFilter(e.target.value)}
+                onChange={(e) => { setPeriodFilter(e.target.value); setSelectedCard(""); }}
               >
                 {PERIOD_OPTIONS.map((p) => (
                   <option key={p.value} value={p.value}>{p.label}</option>
@@ -732,9 +754,10 @@ export default function LoginActive() {
               <select
                 className="psl-select"
                 value={orderFilter}
-                onChange={(e) => setOrderFilter(e.target.value)}
+                onChange={(e) => { setOrderFilter(e.target.value); setSelectedCard(""); }}
               >
                 <option value="all">All Orders</option>
+                <option value="any">Has Orders</option>
                 <option value="0">0 Orders</option>
                 <option value="1-10">1 – 10 Orders</option>
                 <option value="11-20">11 – 20 Orders</option>
@@ -743,10 +766,85 @@ export default function LoginActive() {
             </div>
           </div>
 
+          {/* Stat Cards — click one to filter the table below */}
+          <div className="psl-stats-grid">
+            <div
+              className={`psl-stat-card${selectedCard === "total" ? " psl-stat-selected" : ""}`}
+              style={{ borderLeft: "4px solid #9F6130" }}
+              onClick={handleTotalUsersCardClick}
+              title="Show all users (active + inactive)"
+            >
+              <div className="psl-stat-header">
+                <span className="psl-stat-label">Total Users</span>
+                <div className="psl-stat-icon" style={{ background: "#FBF6F0", color: "#9F6130" }}>
+                  <UsersIcon size={18} color="#9F6130" />
+                </div>
+              </div>
+              <div className="psl-stat-val">
+                {loading ? <SkeletonText width="60px" height="30px" /> : totalUsersCount}
+              </div>
+              <div className="psl-stat-sub">All registered users</div>
+            </div>
+
+            <div
+              className={`psl-stat-card${selectedCard === "active" ? " psl-stat-selected" : ""}`}
+              style={{ borderLeft: "4px solid #073B3F" }}
+              onClick={handleActiveCardClick}
+              title="Show only active users"
+            >
+              <div className="psl-stat-header">
+                <span className="psl-stat-label">Active</span>
+                <div className="psl-stat-icon" style={{ background: "#EFF6F6", color: "#073B3F" }}>
+                  <UsersIcon size={18} color="#073B3F" />
+                </div>
+              </div>
+              <div className="psl-stat-val">
+                {loading ? <SkeletonText width="60px" height="30px" /> : activeCount}
+              </div>
+              <div className="psl-stat-sub">{periodLabel}</div>
+            </div>
+
+            <div
+              className={`psl-stat-card${selectedCard === "orders" ? " psl-stat-selected" : ""}`}
+              style={{ borderLeft: "4px solid #CCA881" }}
+              onClick={handleUsersWithOrdersCardClick}
+              title="Show only users with orders"
+            >
+              <div className="psl-stat-header">
+                <span className="psl-stat-label">Users With Orders</span>
+                <div className="psl-stat-icon" style={{ background: "#FBF6F0", color: "#9F6130" }}>
+                  <UserIcon size={18} color="#9F6130" />
+                </div>
+              </div>
+              <div className="psl-stat-val">
+                {loading ? <SkeletonText width="60px" height="30px" /> : usersWithOrders}
+              </div>
+              <div className="psl-stat-sub">Active shoppers</div>
+            </div>
+
+            <div
+              className={`psl-stat-card${selectedCard === "todayOrders" ? " psl-stat-selected" : ""}`}
+              style={{ borderLeft: "4px solid #166534" }}
+              onClick={handleTotalOrdersCardClick}
+              title="Show today's users with orders"
+            >
+              <div className="psl-stat-header">
+                <span className="psl-stat-label">Total Orders Today</span>
+                <div className="psl-stat-icon" style={{ background: "#F0FDF4", color: "#166534" }}>
+                  <OrdersIcon size={18} color="#166534" />
+                </div>
+              </div>
+              <div className="psl-stat-val">
+                {loading ? <SkeletonText width="60px" height="30px" /> : totalOrdersSum}
+              </div>
+              <div className="psl-stat-sub">Orders registered</div>
+            </div>
+          </div>
+
           {/* Luxury Table Card */}
           <div className="psl-table-card">
             <div className="psl-table-header">
-              <span className="psl-table-title">Active User Records</span>
+              <span className="psl-table-title">{viewMode === "all" ? "All User Records" : "Active User Records"}</span>
               <span style={{ fontSize: "12px", color: "#5C706E", fontWeight: 700 }}>
                 Showing {filtered.length} of {totalCount} users
               </span>

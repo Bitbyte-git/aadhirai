@@ -738,7 +738,8 @@ export default function ProductDisplay() {
 
   const requireLogin = () => {
     if (localStorage.getItem('token')) return false
-    navigate('/contact')
+    const currentPath = window.location.pathname + window.location.search
+    navigate(`/register?redirect=${encodeURIComponent(currentPath)}`)
     return true
   }
 

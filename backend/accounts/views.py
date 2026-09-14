@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from rest_framework.decorators import api_view, permission_classes
-from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink,  Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem
+from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink, EmailOTP, Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem
 from django.db.models import Prefetch, Count, Q, Sum, Max
 from django.core.cache import cache   # ── NEW: for month_rollup/status caching ──
 from django.db.models.functions import TruncHour, TruncDate, TruncWeek, TruncMonth
@@ -574,6 +574,7 @@ class DashboardView(APIView):
                     'street_name': p.street_name,
                     'town_name': p.town_name,
                     'city_name': p.city_name,
+                    'pincode': p.pincode,
                     'district': p.district,
                     'state': p.state,
                     'aadhaar_no': p.aadhaar_no,
@@ -757,7 +758,299 @@ class PublicCustomerRegisterView(APIView):
         link.save(update_fields=['used', 'used_by', 'used_at'])
 
         return Response({'message': 'Customer registered successfully'}, status=201)
-    
+
+
+def send_sendgrid_otp_email(to_email, otp_code, recipient_name="Customer"):
+    """
+    Sends a high-deliverability transactional verification email using SendGrid v3 API.
+    Designed according to anti-spam best practices so the mail lands in the Primary inbox.
+    """
+    import json
+    import urllib.request
+    import urllib.error
+    import os
+
+    api_key = os.environ.get("SENDGRID_API_KEY")
+    from_email = os.environ.get("SENDGRID_FROM_EMAIL", "senthil.bitbyte@gmail.com")
+    from_name = os.environ.get("SENDGRID_FROM_NAME", "Athirai")
+
+    clean_name = (recipient_name or "Valued Customer").strip()
+    subject = f"Your Athirai Verification Code: {otp_code}"
+
+    text_content = f"""Hello {clean_name},
+
+Thank you for choosing Athirai Fine Jewellery.
+
+Your verification code is: {otp_code}
+
+This code will expire in 10 minutes. Please enter this code on the registration page to complete your account setup and unlock direct ordering.
+
+For your security, please do not share this one-time code with anyone.
+
+Best regards,
+Athirai Jewellery Team
+https://athirai.com
+"""
+
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Athirai Verification Code</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f7f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f7f6; padding: 40px 15px;">
+    <tr>
+      <td align="center">
+        <!-- Main Card -->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(7, 59, 63, 0.08); border: 1px solid #e2eceb;">
+          
+          <!-- Header Bar -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #073B3F 0%, #0c4e53 100%); padding: 34px 30px; text-align: center;">
+              <h1 style="margin: 0; color: #d4af37; font-size: 26px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;">
+                ATHIRAI
+              </h1>
+              <p style="margin: 6px 0 0; color: #e0f2f1; font-size: 13px; letter-spacing: 1px; text-transform: uppercase;">
+                Fine Jewellery &bull; Direct Customer Verification
+              </p>
+            </td>
+          </tr>
+
+          <!-- Content Body -->
+          <tr>
+            <td style="padding: 38px 32px; background-color: #ffffff;">
+              <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.5; color: #1a2e2b;">
+                Hello <strong>{clean_name}</strong>,
+              </p>
+              <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #4a5d59;">
+                Welcome to Athirai! To complete your registration and unlock instant purchasing, please enter the one-time verification code below:
+              </p>
+
+              <!-- OTP Code Display -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0;">
+                <tr>
+                  <td align="center">
+                    <div style="background-color: #f7faf9; border: 2px dashed #073B3F; border-radius: 12px; padding: 18px 28px; display: inline-block;">
+                      <span style="font-family: 'Courier New', Courier, monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #073B3F; display: block;">
+                        {otp_code}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: #738784; text-align: center;">
+                &bull; This code is valid for <strong>10 minutes</strong>.<br>
+                &bull; If you did not request this verification, please safely ignore this email.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #fbfdfc; padding: 22px 30px; text-align: center; border-top: 1px solid #edf4f3;">
+              <p style="margin: 0 0 6px; font-size: 12px; color: #889995;">
+                Sent with care by <strong>Athirai Jewellery</strong>
+              </p>
+              <p style="margin: 0; font-size: 11px; color: #a0b0ac;">
+                &copy; 2026 Athirai. All rights reserved. &bull; senthil.bitbyte@gmail.com
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+"""
+
+    payload = {
+        "personalizations": [
+            {
+                "to": [{"email": to_email, "name": clean_name}],
+                "subject": subject
+            }
+        ],
+        "from": {
+            "email": from_email,
+            "name": from_name
+        },
+        "reply_to": {
+            "email": from_email,
+            "name": f"{from_name} Support"
+        },
+        "content": [
+            {
+                "type": "text/plain",
+                "value": text_content
+            },
+            {
+                "type": "text/html",
+                "value": html_content
+            }
+        ]
+    }
+
+    req = urllib.request.Request(
+        "https://api.sendgrid.com/v3/mail/send",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        },
+        method="POST"
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=12) as response:
+            return True, f"Sent successfully (Status {response.status})"
+    except urllib.error.HTTPError as e:
+        err_msg = e.read().decode('utf-8', errors='ignore')
+        return False, f"SendGrid error {e.code}: {err_msg}"
+    except Exception as e:
+        return False, f"Email delivery failed: {str(e)}"
+
+
+class RegisterSendOTPView(APIView):
+    """Generates and dispatches a 6-digit OTP to the customer's email via SendGrid."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = (request.data.get('email') or '').strip().lower()
+        first_name = (request.data.get('first_name') or '').strip()
+
+        if not email or '@' not in email:
+            return Response({'error': 'A valid email address is required.'}, status=400)
+
+        # Check if user already exists
+        if User.objects.filter(email=email).exists():
+            return Response({'error': 'An account with this email address already exists. Please sign in.'}, status=400)
+
+        # Generate 6-digit numeric OTP
+        otp_code = f"{random.randint(100000, 999999)}"
+
+        # Clear existing unverified OTPs for this email
+        EmailOTP.objects.filter(email=email, is_verified=False).delete()
+
+        # Create fresh OTP record
+        EmailOTP.objects.create(
+            email=email,
+            otp=otp_code,
+            purpose='register'
+        )
+
+        # Dispatch via SendGrid
+        success, msg = send_sendgrid_otp_email(email, otp_code, first_name)
+        print(f"[AUTH OTP] Email: {email} | OTP: {otp_code} | SendGrid: {success} ({msg})")
+
+        response_data = {
+            'message': f'Verification OTP sent to {email}. Valid for 10 minutes.'
+        }
+        if not success:
+            if getattr(settings, 'DEBUG', False):
+                response_data['debug_otp'] = otp_code
+                response_data['warning'] = f"SendGrid: {msg}"
+            else:
+                return Response({'error': f'Unable to send verification email: {msg}'}, status=502)
+
+        return Response(response_data, status=200)
+
+
+class RegisterVerifyOTPView(APIView):
+    """Verifies the email OTP, registers user + profile, and issues JWT tokens for immediate checkout."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        data = request.data
+        email = (data.get('email') or '').strip().lower()
+        otp = (data.get('otp') or '').strip()
+        password = data.get('password')
+
+        if not email or not otp:
+            return Response({'error': 'Email and OTP are required.'}, status=400)
+        if not password:
+            return Response({'error': 'Password is required.'}, status=400)
+
+        if User.objects.filter(email=email).exists():
+            return Response({'error': 'An account with this email already exists.'}, status=400)
+
+        # Validate OTP
+        otp_record = EmailOTP.objects.filter(email=email, is_verified=False).order_by('-created_at').first()
+        if not otp_record or not otp_record.is_valid() or otp_record.otp != otp:
+            return Response({'error': 'Invalid or expired OTP. Please request a new code.'}, status=400)
+
+        # Handle optional referral token
+        ref_token = data.get('ref')
+        referrer = None
+        assigned_promotor = None
+        ref_link_obj = None
+
+        if ref_token:
+            try:
+                ref_link_obj = ReferralLink.objects.select_related('referrer').get(token=ref_token)
+                if not ref_link_obj.used:
+                    referrer = ref_link_obj.referrer
+                    if referrer.role == 'promotor':
+                        try:
+                            assigned_promotor = referrer.promotor_profile
+                        except Exception:
+                            assigned_promotor = None
+                    elif referrer.role == 'customer':
+                        try:
+                            assigned_promotor = referrer.customer_profile.assigned_promotor
+                        except Exception:
+                            assigned_promotor = None
+            except ReferralLink.DoesNotExist:
+                pass
+
+        profile_fields = [
+            'initial', 'first_name', 'last_name', 'mobile_number',
+            'gender', 'dob', 'married_status', 'anniversary_date',
+            'door_no', 'street_name', 'town_name', 'city_name', 'pincode',
+            'district', 'state', 'aadhaar_no', 'pan_no',
+            'occupation', 'occupation_detail', 'annual_salary',
+        ]
+        profile_data = {f: data.get(f) for f in profile_fields if data.get(f) not in [None, '']}
+
+        user = User.objects.create_user(email=email, password=password, role='customer')
+        try:
+            profile = CustomerProfile.objects.create(
+                user=user,
+                created_by=referrer,
+                assigned_promotor=assigned_promotor,
+                **profile_data
+            )
+        except Exception as e:
+            user.delete()
+            return Response({'error': str(e)}, status=400)
+
+        # Mark OTP as verified
+        otp_record.is_verified = True
+        otp_record.save(update_fields=['is_verified'])
+
+        # Mark referral link as used if applicable
+        if ref_link_obj and not ref_link_obj.used:
+            ref_link_obj.used = True
+            ref_link_obj.used_by = user
+            ref_link_obj.used_at = timezone.now()
+            ref_link_obj.save(update_fields=['used', 'used_by', 'used_at'])
+
+        # Generate JWT tokens for instant auto-login
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'message': 'Registration successful! You are now logged in.',
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'role': user.role,
+            'email': user.email,
+            'customer_id': getattr(profile, 'customer_id', ''),
+            'name': f"{profile.first_name} {profile.last_name}".strip()
+        }, status=201)
+
+
 class CreatePromotorView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -826,6 +1119,111 @@ class CreateCustomerView(APIView):
         return Response({
             'results': serializer.data,
             'total_count': total_count,
+            'has_more': offset + limit < total_count,
+        })
+
+
+class GeneralCustomerListView(APIView):
+    """
+    Returns list of customers registered directly/online with full profile,
+    contact info, address, registered timestamp, and order stats.
+    Accessible to Super Admin.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role not in ['super_admin', 'admin']:
+            return Response({'error': 'Permission denied'}, status=403)
+
+        search = request.query_params.get('search', '').strip()
+        filter_type = request.query_params.get('type', 'all').strip()
+
+        qs = CustomerProfile.objects.select_related('user', 'created_by', 'assigned_promotor').order_by('-created_at')
+
+        if filter_type == 'direct':
+            qs = qs.filter(created_by__isnull=True)
+        elif filter_type == 'referred':
+            qs = qs.filter(created_by__isnull=False)
+
+        if search:
+            qs = qs.filter(
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(customer_id__icontains=search) |
+                Q(mobile_number__icontains=search) |
+                Q(user__email__icontains=search) |
+                Q(city_name__icontains=search) |
+                Q(district__icontains=search) |
+                Q(state__icontains=search) |
+                Q(pincode__icontains=search)
+            )
+
+        offset = int(request.query_params.get('offset', 0))
+        limit = int(request.query_params.get('limit', 200))
+        total_count = qs.count()
+
+        direct_count = CustomerProfile.objects.filter(created_by__isnull=True).count()
+        all_count = CustomerProfile.objects.count()
+
+        page = qs[offset:offset + limit]
+
+        user_ids = [cp.user_id for cp in page if cp.user_id]
+        orders_map = {}
+        if user_ids:
+            from django.db.models import Count, Sum
+            order_stats = JewelryOrder.objects.filter(user_id__in=user_ids).values('user_id').annotate(
+                order_count=Count('id'),
+                total_spent=Sum('total_price')
+            )
+            for o in order_stats:
+                orders_map[o['user_id']] = {
+                    'order_count': o['order_count'],
+                    'total_spent': float(o['total_spent'] or 0)
+                }
+
+        results = []
+        for cp in page:
+            u = cp.user
+            stats = orders_map.get(cp.user_id, {'order_count': 0, 'total_spent': 0})
+            address_parts = [cp.door_no, cp.street_name, cp.town_name, cp.city_name, cp.district, cp.state]
+            valid_addr = ", ".join([p for p in address_parts if p])
+            if cp.pincode:
+                valid_addr = f"{valid_addr} - {cp.pincode}" if valid_addr else cp.pincode
+
+            results.append({
+                'id': cp.id,
+                'user_id': cp.user_id,
+                'customer_id': cp.customer_id,
+                'name': f"{cp.first_name} {cp.last_name or ''}".strip(),
+                'first_name': cp.first_name,
+                'last_name': cp.last_name,
+                'email': u.email if u else '',
+                'mobile_number': cp.mobile_number,
+                'gender': cp.gender,
+                'dob': cp.dob,
+                'married_status': cp.married_status,
+                'door_no': cp.door_no,
+                'street_name': cp.street_name,
+                'town_name': cp.town_name,
+                'city_name': cp.city_name,
+                'district': cp.district,
+                'state': cp.state,
+                'pincode': cp.pincode,
+                'full_address': valid_addr,
+                'created_at': cp.created_at,
+                'is_active': u.is_active if u else True,
+                'is_direct': cp.created_by_id is None,
+                'order_count': stats['order_count'],
+                'total_spent': stats['total_spent'],
+                'referrer_name': f"{cp.created_by.email}" if cp.created_by else "Direct Online",
+                'promotor_id': cp.assigned_promotor.promotor_id if cp.assigned_promotor else None,
+            })
+
+        return Response({
+            'results': results,
+            'total_count': total_count,
+            'direct_count': direct_count,
+            'all_count': all_count,
             'has_more': offset + limit < total_count,
         })
 
@@ -3609,14 +4007,27 @@ class TodayLoginStatusView(APIView):
         active_qs = base_qs.filter(active_q)
         inactive_qs = base_qs.exclude(active_q)
 
-        # ── NEW: eppadi 'inactive' page ku 'inactive' mattum fetch pண்ணும், 'active' page ku 'active' mattum ──
+        # ── NEW: eppadi 'inactive' page ku 'inactive' mattum fetch pண்ணும், 'active' page ku 'active' mattum,
+        # 'all' na active+inactive rendum sேrthu fetch pண்ணும் ──
         list_type = request.query_params.get('list_type', 'inactive')
         offset = int(request.query_params.get('offset', 0))
         limit = int(request.query_params.get('limit', 20))
 
-        target_qs = active_qs if list_type == 'active' else inactive_qs
-        total_count = target_qs.count()
-        other_count = inactive_qs.count() if list_type == 'active' else active_qs.count()
+        active_total = active_qs.count()
+        inactive_total = inactive_qs.count()
+
+        if list_type == 'all':
+            target_qs = base_qs
+            total_count = active_total + inactive_total
+            other_count = 0
+        elif list_type == 'active':
+            target_qs = active_qs
+            total_count = active_total
+            other_count = inactive_total
+        else:
+            target_qs = inactive_qs
+            total_count = inactive_total
+            other_count = active_total
 
         # ── NEW: DB level la LIMIT/OFFSET — idhu than real pagination ──
         page_users = target_qs[offset:offset + limit]
@@ -3655,6 +4066,10 @@ class TodayLoginStatusView(APIView):
             'list_type': list_type,
             'total_count': total_count,
             'other_count': other_count,
+            # ── NEW: stable counters that don't shift when list_type changes — stat cards use these ──
+            'active_count': active_total,
+            'grand_total_count': active_total + inactive_total,
+            'results': entries,
             'active': entries if list_type == 'active' else [],
             'inactive': entries if list_type == 'inactive' else [],
         })

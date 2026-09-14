@@ -1131,5 +1131,27 @@ class ReferralLink(models.Model):
     used_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.token} — {self.referrer.email} (used={self.used})"              
+        return f"{self.token} — {self.referrer.email} (used={self.used})"
 
+
+class EmailOTP(models.Model):
+    """Stores temporary 6-digit email OTPs for customer registration & authentication."""
+    email = models.EmailField(db_index=True)
+    otp = models.CharField(max_length=6)
+    purpose = models.CharField(max_length=30, default='register')
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_verified = models.BooleanField(default=False)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['email', 'otp', 'is_verified']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def is_valid(self):
+        from django.utils import timezone
+        import datetime
+        return not self.is_verified and (timezone.now() - self.created_at) < datetime.timedelta(minutes=10)
+
+    def __str__(self):
+        return f"OTP for {self.email} ({self.otp}) - verified={self.is_verified}"

@@ -671,9 +671,9 @@ export default function CustomerDashboard() {
     );
   };
 
-  const requireLogin = () => {
+  const requireLogin = (route = "") => {
     if (isLoggedIn) return false;
-    navigate("/contact");
+    navigate(route ? `/register?redirect=${encodeURIComponent(route)}` : "/register");
     return true;
   };
 

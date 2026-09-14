@@ -8,7 +8,7 @@ import InternalRoleNavbar from './collection/InternalRoleNavbar'
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const RegisterPage = lazy(() => import('./pages/RegisterPage'))
-const Contact = lazy(() => import('./pages/Contact'))
+const Register = lazy(() => import('./pages/Register'))
 const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminDashboard'))
 const SuperadminHierarchy = lazy(() => import('./Hierarchy/Superadmin_Hierarchy'))
 const SuperadminHierarchyGrid = lazy(() => import('./Grid/Superadmin_Hierarchy_grid'))
@@ -30,6 +30,8 @@ const ShopDashboard = lazy(() => import('./pages/ShopDashboard'))
 const AddShop = lazy(() => import('./Superadmin/AddShop'))
 const Profile = lazy(() => import('./collection/profile'))
 const CreateCustomer = lazy(() => import('./collection/create_customer'))
+const GeneralCustomer = lazy(() => import('./Superadmin/Manage_Users/GeneralCustomer'))
+const CreateAdmin = lazy(() => import('./collection/CreateAdmin'))
 const CoinsCollection = lazy(() => import('./collection/coins_collection'))
 const AllCollection = lazy(() => import('./collection/all_collection'))
 const ProductDisplay = lazy(() => import('./collection/product_display'))
@@ -220,7 +222,7 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/superadmin" element={<Navigate to="/super-admin" replace />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/register" element={<WithCustomerNavbar><Register /></WithCustomerNavbar>} />
           <Route path="/super-admin" element={<ProtectedRoute role="super_admin"><SuperAdminDashboard /></ProtectedRoute>} />
           <Route path="/superadmin-hierarchy" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><SuperadminHierarchy /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/superadmin-hierarchy-grid" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><SuperadminHierarchyGrid /></WithSuperAdminNavbar></ProtectedRoute>} />
@@ -239,9 +241,11 @@ export default function App() {
           <Route path="/customer" element={<WithCustomerNavbar><CustomerDashboard /></WithCustomerNavbar>} />
           <Route path="/shop-dashboard" element={<ProtectedRoute role="shop"><ShopDashboard /></ProtectedRoute>} />
           <Route path="/add-shop" element={<WithSuperAdminNavbar><AddShop /></WithSuperAdminNavbar>} />
-          <Route path="/contact" element={<WithCustomerNavbar><Contact /></WithCustomerNavbar>} />
+          <Route path="/contact" element={<Navigate to="/register" replace />} />
           <Route path="/profile" element={<WithCustomerNavbar><Profile /></WithCustomerNavbar>} />
           <Route path="/create-customer" element={<ProtectedRoute role={["customer", "promotor", "sub_dealer", "dealer", "admin", "super_admin"]}><WithAnyNavbar><CreateCustomer /></WithAnyNavbar></ProtectedRoute>} />
+          <Route path="/general-customers" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><GeneralCustomer /></WithSuperAdminNavbar></ProtectedRoute>} />
+          <Route path="/create-admin" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><CreateAdmin /></WithSuperAdminNavbar></ProtectedRoute>} />
 
           {/* hide for daimond and platinim  */}
           {/* <Route path="/collection/rings" element={<Navigate to={collectionPath('rings')} replace />} />

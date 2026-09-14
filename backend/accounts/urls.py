@@ -3,12 +3,12 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     LoginView, CreateAdminView, CreateShopView, MyShopProfileView, CreateDealerView,
-    CreateSubDealerView, CreatePromotorView, CreateCustomerView,
+    CreateSubDealerView, CreatePromotorView, CreateCustomerView, GeneralCustomerListView,
     DashboardView, AdminListForAdminView, DealerListForDealerView,
     SubDealerListForView, PromotorListForView,  FullHierarchyView, AnnouncementView, AnnouncementReplyView, DashboardQuickStatsView,ProfileUpdateRequestView, ProfileUpdateApproveView,MetalRateView,MetalOrderView, MetalOrderSummaryView, JewelryProductView, JewelryProductDetailView, SoldOutProductsView,StockNotifyRequestView, JewelryProductImageDeleteView, HomeBannerView, HomeBannerDetailView, CartView, CartItemQtyView, WishlistView, JewelryOrderView, create_razorpay_order, verify_payment, ping,
 HierarchySubtreeOrdersView, HierarchyAdminsView, HierarchyChildrenView, SalesReportView, OrderTimeSeriesView, TodayLoginStatusView,OrderTimeSeriesView, CoinRequestView, CoinRequestApproveView, CoinRequestRejectView, CoinRequestApproveAllView, CoinStockView, SuperAdminAddCoinsView, CoinStockForUserView, MyHierarchyView, TodayRewardsView, MyBasicInfoView,
  RetailerPromotionListView, RetailerPromotionActionView, WholesaleDealerPromotionListView, WholesaleDealerPromotionActionView, DistributorPromotionListView, DistributorPromotionActionView, SuperStockistPromotionListView, SuperStockistPromotionActionView, PromotionCustomerListView, PromotionCustomerListView, PromotionNodeListView,
- ReferrerInfoView, PublicCustomerRegisterView,GenerateReferralLinkView, RechargeCreateOrderView, RechargeVerifyPaymentView, WalletView, RechargeHistoryView, RechargeStatementView, PayWithCoinsView, PaymentsSummaryView, UserLookupView, SendCoinsView, AdminUserHistoryView, AdminSentHistoryView, AutoPayCreateView, AutoPayConfirmView, AutoPayStatusView, AutoPayToggleView, autopay_webhook,AutoPayMandateListView, AffordableProductsView,
+ ReferrerInfoView, PublicCustomerRegisterView, RegisterSendOTPView, RegisterVerifyOTPView, GenerateReferralLinkView, RechargeCreateOrderView, RechargeVerifyPaymentView, WalletView, RechargeHistoryView, RechargeStatementView, PayWithCoinsView, PaymentsSummaryView, UserLookupView, SendCoinsView, AdminUserHistoryView, AdminSentHistoryView, AutoPayCreateView, AutoPayConfirmView, AutoPayStatusView, AutoPayToggleView, autopay_webhook,AutoPayMandateListView, AffordableProductsView,
  HierarchyPersonSearchView, SalesSummaryView, SalesTrendView, HierarchyNodeOrdersView, HierarchyNodeInfoView, HierarchyPathToNodeView, 
  JewelryStockView, JewelryRequestView, JewelryRequestApproveView, JewelryRequestRejectView,
 )
@@ -28,6 +28,7 @@ urlpatterns = [
     path('promotors/', CreatePromotorView.as_view()),            # NEW
     path('promotors/list/', PromotorListForView.as_view()),      # NEW
     path('customers/', CreateCustomerView.as_view()),  
+    path('general-customers/', GeneralCustomerListView.as_view(), name='general-customers'),
     path('my-info/', MyBasicInfoView.as_view()),          # NEW
     path('hierarchy/full/', FullHierarchyView.as_view()),  # ✅ correct
     path('hierarchy/subtree-orders/', HierarchySubtreeOrdersView.as_view()),  # ← NEW
@@ -87,6 +88,8 @@ urlpatterns = [
     path('promotion-nodes/', PromotionNodeListView.as_view(), name='promotion-nodes'),
     path('referrer-info/', ReferrerInfoView.as_view(), name='referrer-info'),
     path('public-register-customer/', PublicCustomerRegisterView.as_view(), name='public-register-customer'),
+    path('register-send-otp/', RegisterSendOTPView.as_view(), name='register-send-otp'),
+    path('register-verify-otp/', RegisterVerifyOTPView.as_view(), name='register-verify-otp'),
     path('generate-referral-link/', GenerateReferralLinkView.as_view(), name='generate-referral-link'),
     path('recharge/create-order/', RechargeCreateOrderView.as_view()),
     path('recharge/verify/', RechargeVerifyPaymentView.as_view()),

@@ -989,7 +989,7 @@ export default function CustomerNavbar() {
 
   const requireLogin = (route) => {
     if (!isLoggedIn) {
-      navigate("/contact");
+      navigate(route ? `/register?redirect=${encodeURIComponent(route)}` : "/register");
       return;
     }
     navigate(route);

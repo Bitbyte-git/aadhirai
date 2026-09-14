@@ -1173,12 +1173,9 @@ useEffect(() => {
   gold22k: null, gold24k: null, silver: null,
   diamond18k: null, diamond22k: null, platinum92: null,
 })
-const [showTodayRates, setShowTodayRates] = useState(false)
+  const [showTodayRates, setShowTodayRates] = useState(false)
   const [metalLoading, setMetalLoading] = useState(false)
   const [usdToInr, setUsdToInr] = useState(null)
-
-
-
 
   // move superadmin model
   const [showRatePopup, setShowRatePopup] = useState(false)
@@ -1583,12 +1580,14 @@ fetchQuickStats()
 }
 
   useEffect(() => {
+    fetchMetalPrices()
     const open = searchParams.get('open')
     if (!open) return
     if (open === 'birthday') setShowBirthdayList(true)
     else if (open === 'anniversary') setShowAnniversaryList(true)
     else if (open === 'joindate') setShowJoinDateList(true)
     else if (open === 'rate') setShowRatePopup(true)
+    else if (open === 'today-rates' || open === 'gold-rate') { setShowTodayRates(true); fetchMetalPrices() }
     else if (open === 'requests') { setShowRequests(true); setRequestMsg('') }
     else if (open === 'announcement') { setShowAnnouncement(true); setAnnouncementMsg('') }
     else if (open === 'myannouncements') { setShowMyAnnouncements(true); fetchMyAnnouncements() }
@@ -3169,10 +3168,39 @@ return (
   Add Shop
 </button>
 
+            <button
+              type="button"
+              onClick={() => {
+                fetchMetalPrices()
+                setShowTodayRates(true)
+              }}
+              className="sa-btn-today-rates"
+              style={{
+                padding: '11px 22px',
+                background: 'linear-gradient(135deg, rgba(204,168,129,0.18), rgba(187,137,88,0.1))',
+                border: '1px solid rgba(204,168,129,0.5)',
+                borderRadius: '12px',
+                fontWeight: 800,
+                color: '#8A5A25',
+                fontSize: '14px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 8px rgba(204,168,129,0.12)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8A5A25" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>
+              </svg>
+              Today Gold Rate
+            </button>
+
             <div className="sa-admin-action-split">
               <button
                 type="button"
-                onClick={() => setShowForm(!showForm)}
+                onClick={() => navigate('/create-admin')}
                 className="sa-btn-create-admin"
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -3181,7 +3209,7 @@ return (
                   <line x1="19" y1="8" x2="19" y2="14" />
                   <line x1="22" y1="11" x2="16" y2="11" />
                 </svg>
-                {showForm ? '✕ Close Admin Form' : '+ Create Admin'}
+                + Create Admin
               </button>
 
               <button
@@ -4451,10 +4479,10 @@ style={{ background: 'linear-gradient(165deg,#FFFFFF 0%,#FDFCFA 60%,#FBF6ED 100%
                 { label: 'Gold 22K', color: '#8A5A25', rgb: '204,168,129', value: metalPrices.gold22k, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8A5A25" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9h3.5a2 2 0 010 4H10M9 15h4M12 7v2M12 15v2"/></svg> },
                 { label: 'Gold 24K', color: '#8A5A25', rgb: '204,168,129', value: metalPrices.gold24k, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8A5A25" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9h3.5a2 2 0 010 4H10M9 15h4M12 7v2M12 15v2"/></svg> },
                 { label: 'Silver 999', color: '#0C4044', rgb: '12,64,68', value: metalPrices.silver, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0C4044" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9h3.5a2 2 0 010 4H10M9 15h4M12 7v2M12 15v2"/></svg> },
-                { label: 'Diamond 18K', color: '#53615F', rgb: '209,223,222', value: metalPrices.diamond18k, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#53615F" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12l4 6-10 12L2 9l4-6z"/><path d="M2 9h20M9 3l3 6-3 12M15 3l-3 6 3 12"/></svg> },
-                { label: 'Diamond 22K', color: '#0C4044', rgb: '12,64,68', value: metalPrices.diamond22k, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0C4044" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12l4 6-10 12L2 9l4-6z"/><path d="M2 9h20M9 3l3 6-3 12M15 3l-3 6 3 12"/></svg> },
-                { label: 'Platinum 92', color: '#53615F', rgb: '231,237,236', value: metalPrices.platinum92, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#53615F" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="#53615F"/></svg> },
-              ].map(item => (
+                { label: 'Diamond 18K', color: '#53615F', rgb: '209,223,222', value: metalPrices.diamond18k, hide: true, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#53615F" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12l4 6-10 12L2 9l4-6z"/><path d="M2 9h20M9 3l3 6-3 12M15 3l-3 6 3 12"/></svg> },
+                { label: 'Diamond 22K', color: '#0C4044', rgb: '12,64,68', value: metalPrices.diamond22k, hide: true, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0C4044" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12l4 6-10 12L2 9l4-6z"/><path d="M2 9h20M9 3l3 6-3 12M15 3l-3 6 3 12"/></svg> },
+                { label: 'Platinum 92', color: '#53615F', rgb: '231,237,236', value: metalPrices.platinum92, hide: true, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#53615F" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="#53615F"/></svg> },
+              ].filter(item => !item.hide).map(item => (
                 <div key={item.label} style={{ background: '#FFFFFF', border: `1px solid rgba(${item.rgb},0.3)`, borderRadius: '14px', padding: '12px 18px', marginBottom: '9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: `0 4px 14px rgba(${item.rgb},0.07)`, transition: 'all 0.2s ease' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: `linear-gradient(145deg,rgba(${item.rgb},0.16),rgba(${item.rgb},0.06))`, border: `1px solid rgba(${item.rgb},0.32)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{item.icon}</div>

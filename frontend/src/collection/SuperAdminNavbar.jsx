@@ -226,6 +226,10 @@ export default function SuperAdminNavbar({
     }
   }
 
+  useEffect(() => {
+    fetchMetalPrices()
+  }, [])
+
   const openMenuNow = (label) => {
     clearTimeout(closeTimerRef.current)
     setOpenMenu(label)
@@ -258,16 +262,11 @@ export default function SuperAdminNavbar({
     { keywords: ['today birthday', 'birthday'], path: '/super-admin?open=birthday' },
     { keywords: ['work anniversary', 'join date', 'join anniversary'], path: '/super-admin?open=joindate' },
     { keywords: ['anniversary'], path: '/super-admin?open=anniversary' },
-    { keywords: ['gold rate', 'today rate'], path: '/super-admin?open=rate' },
+    { keywords: ['gold rate', 'today rate', 'today gold rate'], path: '/super-admin?open=today-rates' },
     { keywords: ['requests', 'profile request'], path: '/super-admin?open=requests' },
     { keywords: ['send announcement'], path: '/super-admin?open=announcement' },
     { keywords: ['my announcements'], path: '/super-admin?open=myannouncements' },
   ]
-
-  // NEW: these two keywords are the ONLY ones that mean "search for a
-  // person" — every other command is a plain page navigation and should
-  // never touch the network, so it stays instant.
-  const PERSON_CONTEXT_KEYWORDS = ['sales report', 'hierarchy']
 
   const submitVoiceSearch = async (query) => {
     const q = (query || '').trim()
@@ -275,7 +274,6 @@ export default function SuperAdminNavbar({
     setVoiceQuery('')
 
     const lower = q.toLowerCase()
-    const isPersonContext = PERSON_CONTEXT_KEYWORDS.some(k => lower.includes(k))
 
     // Fast check: strip route keywords
     const allRouteKeywords = PAGE_ROUTES.flatMap(p => p.keywords)
@@ -286,76 +284,52 @@ export default function SuperAdminNavbar({
     const nameOnly = lower.replace(stripPattern, '').trim()
 
     // Match page routes directly
-    if (!nameOnly || !isPersonContext) {
-      for (const page of PAGE_ROUTES) {
-        if (page?.keywords?.some(k => lower.includes(k))) {
-          navigate(page.path)
-          return
-        }
+    for (const page of PAGE_ROUTES) {
+      if (page?.keywords?.some(k => lower.includes(k))) {
+        navigate(page.path)
+        return
       }
     }
 
     // Try finding person / customer / partner
     const searchQuery = nameOnly || q
     try {
-      const res = await api.get('/hierarchy/search-person/', { params: { q: searchQuery } })
-      const results = res.data.results || []
-      if (results.length > 0) {
-        const match = results[0]
-        if (lower.includes('sales report')) {
-          navigate(`/sales-report?role=${match.role}&id=${match.id}`)
-        } else {
-          navigate(`/superadmin-hierarchy-grid?role=${match.role}&id=${match.id}`)
-        }
+      const res = await api.get(`/users/search/?q=${encodeURIComponent(searchQuery)}`)
+      const found = res.data?.results || res.data || []
+      if (found.length > 0) {
+        navigate(`/superadmin/manage-users/customer?search=${encodeURIComponent(searchQuery)}`)
         return
       }
-    } catch (err) {
-      if (isPersonContext) {
-        showSearchAlert('Search Error', err.response?.data?.error || err.message || 'An error occurred while searching for this person.', q, 'error', false)
-        return
-      }
-    }
+    } catch { /* ignore */ }
 
-    // No match found — show stylish English alert with suggestions
+    // Fallback: search alert modal
     showSearchAlert(
-      'No Match Found',
-      'We could not find any matching page, member, or report for your search. Please check the keyword or select from the quick shortcuts below.',
-      q,
-      'warning',
+      'Navigation Notice',
+      `No direct page or record matched "${query}". Please check the quick suggestions below:`,
+      query,
+      'info',
       true
     )
   }
 
   const toggleMic = () => {
     if (isListening) {
-      recognitionRef.current?.stop()
+      if (recognitionRef.current) recognitionRef.current.stop()
+      setIsListening(false)
       return
     }
-
-    const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost'
-    if (!isSecure) {
-      showSearchAlert('Secure Connection Required', 'Voice search requires a secure HTTPS connection or localhost environment.', '', 'info', false)
-      return
-    }
-
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognition) {
-      showSearchAlert('Browser Not Supported', 'Voice search is not supported in this browser. Please use Google Chrome or Microsoft Edge.', '', 'info', false)
+      showSearchAlert('Feature Not Supported', 'Voice search is not supported in this browser. Please use Google Chrome or Microsoft Edge.', '', 'warning', false)
       return
     }
     const recognition = new SpeechRecognition()
     recognition.lang = 'en-IN'
-    recognition.interimResults = true
-    recognition.continuous = false
-    recognition.onstart = () => { setIsListening(true); console.log('🎤 recognition started') }
-    recognition.onaudiostart = () => console.log('🎤 audio capture started')
-    recognition.onsoundstart = () => console.log('🎤 sound detected')
-    recognition.onspeechstart = () => console.log('🎤 speech detected')
-    recognition.onspeechend = () => console.log('🎤 speech ended')
-    recognition.onsoundend = () => console.log('🎤 sound ended')
-    recognition.onaudioend = () => console.log('🎤 audio capture ended')
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+
+    recognition.onstart = () => setIsListening(true)
     recognition.onerror = (event) => {
-      console.error('Speech recognition error:', event.error)
       setIsListening(false)
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         showSearchAlert('Microphone Access Blocked', 'Microphone permission is blocked. Click the microphone icon in your browser address bar and choose "Allow".', '', 'warning', false)
@@ -369,10 +343,9 @@ export default function SuperAdminNavbar({
     }
     recognition.onend = () => setIsListening(false)
     recognition.onresult = (event) => {
-      let transcript = ''
-      for (let i = 0; i < event.results.length; i++) transcript += event.results[i][0].transcript
+      let transcript = event.results[0][0].transcript
       setVoiceQuery(transcript)
-      if (event.results[event.results.length - 1].isFinal) submitVoiceSearch(transcript)
+      submitVoiceSearch(transcript)
     }
     recognitionRef.current = recognition
     try {
@@ -395,20 +368,23 @@ export default function SuperAdminNavbar({
     navigate('/login')
   }
 
-    const management = [
-  ['Gold Rate', () => { setShowRatePopup(true); fetchMetalPrices() }],
-  ['Add Product', () => navigate('/add-product')],
-  ['Orders', () => navigate('/admin-orders')],
-  ['Requests', () => { setShowRequests(true); setRequestMsg(''); fetchProfileRequests() }],
-  ['Hierarchy Grid', () => navigate('/superadmin-hierarchy-grid')],
-  ['Hierarchy Tree', () => navigate('/superadmin-hierarchy')],
-  ['Super Stockists', () => navigate('/superadmin/manage-users/super-stockist')],
-  ['Distributors', () => navigate('/superadmin/manage-users/distributor')],
-  ['Wholesale Dealers', () => navigate('/superadmin/manage-users/wholesale-dealer')],
-  ['Retailers', () => navigate('/superadmin/manage-users/retailer')],
-  ['Customers', () => navigate('/superadmin/manage-users/customer')],
-  ['Create Customer', () => navigate('/create-customer')],
-]
+  const management = [
+    ['Today Gold Rate', () => { setShowTodayRates(true); fetchMetalPrices() }],
+    ['Add Gold Rate', () => { setShowRatePopup(true); fetchMetalPrices() }],
+    ['Add Product', () => navigate('/add-product')],
+    ['Orders', () => navigate('/admin-orders')],
+    ['Requests', () => { setShowRequests(true); setRequestMsg(''); fetchProfileRequests() }],
+    ['Hierarchy Grid', () => navigate('/superadmin-hierarchy-grid')],
+    ['Hierarchy Tree', () => navigate('/superadmin-hierarchy')],
+    ['Super Stockists', () => navigate('/superadmin/manage-users/super-stockist')],
+    ['Distributors', () => navigate('/superadmin/manage-users/distributor')],
+    ['Wholesale Dealers', () => navigate('/superadmin/manage-users/wholesale-dealer')],
+    ['Retailers', () => navigate('/superadmin/manage-users/retailer')],
+    ['Customers', () => navigate('/superadmin/manage-users/customer')],
+    ['Create Admin', () => navigate('/create-admin')],
+    ['General Customer', () => navigate('/general-customers')],
+    ['Create Customer', () => navigate('/create-customer')],
+  ]
  const celebrations = [
   ["Today's Birthdays", () => { setShowBirthdayList(true); fetchCelebrations() }],
   ["Today's Anniversaries", () => { setShowAnniversaryList(true); fetchCelebrations() }],
@@ -657,102 +633,13 @@ export default function SuperAdminNavbar({
                 <Icon name="stock" size={16} />Inventory
               </button>
             </div>
-                     <button className="san-hamburger" type="button" onClick={() => setShowMobileDrawer(true)} aria-label="Open menu">
+
+            <button className="san-hamburger" type="button" onClick={() => setShowMobileDrawer(true)} aria-label="Open menu">
               <Icon name="menu" size={22} />
             </button>
           </div>
         </header>
         <div className="san-top-spacer" />
-
-        {/* ── MOBILE DRAWER ── */}
-        {showMobileDrawer && (
-          <div
-            className="san-drawer-overlay"
-            onClick={() => setShowMobileDrawer(false)}
-          >
-            <div
-              className="san-drawer"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="san-drawer-head">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <img src={logo} alt="Athirai" style={{ width: '36px', height: '36px', objectFit: 'contain' }} />
-                  <div>
-                    <div className="san-drawer-title">ATHIRAI</div>
-                    <small style={{ color: '#BB8958', fontSize: '9px', fontWeight: 900, letterSpacing: '0.14em' }}>SUPER ADMIN</small>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="san-drawer-close"
-                  onClick={() => setShowMobileDrawer(false)}
-                  aria-label="Close menu"
-                >
-                  <Icon name="close" size={20} />
-                </button>
-              </div>
-
-              <div className="san-drawer-groups">
-                <button
-                  type="button"
-                  className="san-drawer-link"
-                  onClick={() => {
-                    setShowMobileDrawer(false)
-                    navigate('/super-admin')
-                  }}
-                >
-                  <Icon name="home" size={17} /> Dashboard
-                </button>
-
-                <button
-                  type="button"
-                  className="san-drawer-link"
-                  onClick={() => {
-                    setShowMobileDrawer(false)
-                    navigate('/sold-out-products')
-                  }}
-                >
-                  <Icon name="stock" size={17} /> Stock Notifications
-                </button>
-
-                {mobileMenuGroups.map(([groupTitle, groupItems]) => (
-                  <div className="san-drawer-group" key={groupTitle}>
-                    <strong>{groupTitle}</strong>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      {groupItems.map(([itemText, itemAction]) => (
-                        <button
-                          key={itemText}
-                          type="button"
-                          className="san-drawer-link"
-                          style={{ padding: '9px 12px', fontSize: '13px' }}
-                          onClick={() => {
-                            setShowMobileDrawer(false)
-                            itemAction()
-                          }}
-                        >
-                          {itemText}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid rgba(189,207,206,0.6)' }}>
-                <button
-                  type="button"
-                  className="san-drawer-link logout"
-                  onClick={() => {
-                    setShowMobileDrawer(false)
-                    handleLogout()
-                  }}
-                >
-                  <Icon name="logout" size={17} /> Logout
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ── RATE ENTRY POPUP ── */}
@@ -761,9 +648,9 @@ export default function SuperAdminNavbar({
           onClick={() => setShowRatePopup(false)}
           style={{
             position: 'fixed', inset: 0,
-            background: 'rgba(17,24,23,0.45)',
+            background: 'rgba(17,24,23,0.55)',
             backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
-            zIndex: 1300,
+            zIndex: 1600,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: '20px'
           }}
@@ -940,7 +827,7 @@ export default function SuperAdminNavbar({
       {showTodayRates && (
         <div
           onClick={() => setShowTodayRates(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,23,0.45)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,23,0.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 1600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <div
             onClick={e => e.stopPropagation()}
@@ -974,10 +861,10 @@ export default function SuperAdminNavbar({
               { label: 'Gold 22K', color: '#8A5A25', rgb: '204,168,129', value: metalPrices.gold22k },
               { label: 'Gold 24K', color: '#8A5A25', rgb: '204,168,129', value: metalPrices.gold24k },
               { label: 'Silver 999', color: '#0C4044', rgb: '12,64,68', value: metalPrices.silver },
-              { label: 'Diamond 18K', color: '#53615F', rgb: '209,223,222', value: metalPrices.diamond18k },
-              { label: 'Diamond 22K', color: '#0C4044', rgb: '12,64,68', value: metalPrices.diamond22k },
-              { label: 'Platinum 92', color: '#53615F', rgb: '231,237,236', value: metalPrices.platinum92 },
-            ].map(item => (
+              { label: 'Diamond 18K', color: '#53615F', rgb: '209,223,222', value: metalPrices.diamond18k, hide: true },
+              { label: 'Diamond 22K', color: '#0C4044', rgb: '12,64,68', value: metalPrices.diamond22k, hide: true },
+              { label: 'Platinum 92', color: '#53615F', rgb: '231,237,236', value: metalPrices.platinum92, hide: true },
+            ].filter(item => !item.hide).map(item => (
               <div key={item.label} style={{ background: '#FFFFFF', border: `1px solid rgba(${item.rgb},0.3)`, borderRadius: '14px', padding: '12px 18px', marginBottom: '9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   <div style={{ color: item.color, fontWeight: 800, fontSize: '13px' }}>{item.label}</div>

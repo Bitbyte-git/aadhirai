@@ -18,6 +18,9 @@ import {
   PhoneIcon,
   MailIcon,
   ArrowRightIcon,
+  PackageIcon,
+  ArrowUpRightIcon,
+  ArrowDownLeftIcon,
 } from "../components/SvgIcons";
 
 const ROLE_BADGE_CONFIG = {
@@ -712,29 +715,36 @@ export default function JewelleryTransactions() {
               }}
             >
               {[
-                { key: "all", label: `All Events (${requests.length})` },
-                { key: "mint", label: `📦 Master Stock Added (${mintCount})` },
-                { key: "disbursed", label: `↗️ Stock Disbursed (${disbursedCount})` },
-              ].map((fl) => (
-                <button
-                  key={fl.key}
-                  type="button"
-                  onClick={() => setFlowFilter(fl.key)}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: "8px",
-                    border: "none",
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    background: flowFilter === fl.key ? "#073B3F" : "transparent",
-                    color: flowFilter === fl.key ? "#FFFFFF" : "#5C706E",
-                    transition: "all 150ms ease",
-                  }}
-                >
-                  {fl.label}
-                </button>
-              ))}
+                { key: "all", label: `All Events (${requests.length})`, icon: null },
+                { key: "mint", label: `Master Stock Added (${mintCount})`, icon: PackageIcon },
+                { key: "disbursed", label: `Stock Disbursed (${disbursedCount})`, icon: ArrowUpRightIcon },
+              ].map((fl) => {
+                const Icon = fl.icon;
+                return (
+                  <button
+                    key={fl.key}
+                    type="button"
+                    onClick={() => setFlowFilter(fl.key)}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "5px",
+                      padding: "6px 12px",
+                      borderRadius: "8px",
+                      border: "none",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      background: flowFilter === fl.key ? "#073B3F" : "transparent",
+                      color: flowFilter === fl.key ? "#FFFFFF" : "#5C706E",
+                      transition: "all 150ms ease",
+                    }}
+                  >
+                    {Icon && <Icon size={13} color={flowFilter === fl.key ? "#FFFFFF" : "#5C706E"} />}
+                    <span>{fl.label}</span>
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <div
@@ -749,29 +759,36 @@ export default function JewelleryTransactions() {
               }}
             >
               {[
-                { key: "all", label: `All (${requests.length})` },
-                { key: "inward", label: `↙️ Received / My Buys (${inwardCount})` },
-                { key: "outward", label: `↗️ Disbursed / Downlines (${outwardCount})` },
-              ].map((fl) => (
-                <button
-                  key={fl.key}
-                  type="button"
-                  onClick={() => setFlowFilter(fl.key)}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: "8px",
-                    border: "none",
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    background: flowFilter === fl.key ? "#073B3F" : "transparent",
-                    color: flowFilter === fl.key ? "#FFFFFF" : "#5C706E",
-                    transition: "all 150ms ease",
-                  }}
-                >
-                  {fl.label}
-                </button>
-              ))}
+                { key: "all", label: `All (${requests.length})`, icon: null },
+                { key: "inward", label: `Received / My Buys (${inwardCount})`, icon: ArrowDownLeftIcon },
+                { key: "outward", label: `Disbursed / Downlines (${outwardCount})`, icon: ArrowUpRightIcon },
+              ].map((fl) => {
+                const Icon = fl.icon;
+                return (
+                  <button
+                    key={fl.key}
+                    type="button"
+                    onClick={() => setFlowFilter(fl.key)}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "5px",
+                      padding: "6px 12px",
+                      borderRadius: "8px",
+                      border: "none",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      background: flowFilter === fl.key ? "#073B3F" : "transparent",
+                      color: flowFilter === fl.key ? "#FFFFFF" : "#5C706E",
+                      transition: "all 150ms ease",
+                    }}
+                  >
+                    {Icon && <Icon size={13} color={flowFilter === fl.key ? "#FFFFFF" : "#5C706E"} />}
+                    <span>{fl.label}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -868,7 +885,7 @@ export default function JewelleryTransactions() {
                           style={{
                             display: "inline-flex",
                             alignItems: "center",
-                            gap: "4px",
+                            gap: "5px",
                             padding: "2px 8px",
                             borderRadius: "6px",
                             fontSize: "11px",
@@ -878,14 +895,15 @@ export default function JewelleryTransactions() {
                             border: "1px solid #DDD6FE",
                           }}
                         >
-                          📦 Master Stock Added
+                          <PackageIcon size={13} color="#6B21A8" />
+                          <span>Master Stock Added</span>
                         </span>
                       ) : isSuperAdmin ? (
                         <span
                           style={{
                             display: "inline-flex",
                             alignItems: "center",
-                            gap: "4px",
+                            gap: "5px",
                             padding: "2px 8px",
                             borderRadius: "6px",
                             fontSize: "11px",
@@ -895,14 +913,15 @@ export default function JewelleryTransactions() {
                             border: "1px solid #BAE6FD",
                           }}
                         >
-                          ↗️ Stock Disbursed
+                          <ArrowUpRightIcon size={13} color="#0369A1" />
+                          <span>Stock Disbursed</span>
                         </span>
                       ) : (
                         <span
                           style={{
                             display: "inline-flex",
                             alignItems: "center",
-                            gap: "4px",
+                            gap: "5px",
                             padding: "2px 8px",
                             borderRadius: "6px",
                             fontSize: "11px",
@@ -912,7 +931,19 @@ export default function JewelleryTransactions() {
                             border: `1px solid ${isInward ? "#CEEAD6" : isOutward ? "#BAE6FD" : "#CBD5E1"}`,
                           }}
                         >
-                          {isInward ? "↙️ Stock Received" : isOutward ? "↗️ Stock Disbursed" : "Transfer"}
+                          {isInward ? (
+                            <>
+                              <ArrowDownLeftIcon size={13} color="#137333" />
+                              <span>Stock Received</span>
+                            </>
+                          ) : isOutward ? (
+                            <>
+                              <ArrowUpRightIcon size={13} color="#0369A1" />
+                              <span>Stock Disbursed</span>
+                            </>
+                          ) : (
+                            <span>Transfer</span>
+                          )}
                         </span>
                       )}
                     </div>
@@ -940,8 +971,9 @@ export default function JewelleryTransactions() {
                     <div className="jt-parties-box">
                       <div className="jt-party-row">
                         <span className="jt-party-label">Event:</span>
-                        <strong style={{ color: "#6B21A8" }}>
-                          📦 Added to Vault Inventory by Super Admin
+                        <strong style={{ color: "#6B21A8", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                          <PackageIcon size={15} color="#6B21A8" />
+                          <span>Added to Vault Inventory by Super Admin</span>
                         </strong>
                       </div>
                     </div>
@@ -1103,6 +1135,8 @@ export default function JewelleryTransactions() {
                           <span
                             style={{
                               display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
                               padding: "2px 8px",
                               borderRadius: "6px",
                               fontSize: "11px",
@@ -1112,12 +1146,15 @@ export default function JewelleryTransactions() {
                               border: "1px solid #DDD6FE",
                             }}
                           >
-                            📦 Master Stock Added
+                            <PackageIcon size={12} color="#6B21A8" />
+                            <span>Master Stock Added</span>
                           </span>
                         ) : isSuperAdmin ? (
                           <span
                             style={{
                               display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
                               padding: "2px 8px",
                               borderRadius: "6px",
                               fontSize: "11px",
@@ -1127,12 +1164,15 @@ export default function JewelleryTransactions() {
                               border: "1px solid #BAE6FD",
                             }}
                           >
-                            ↗️ Stock Disbursed
+                            <ArrowUpRightIcon size={12} color="#0369A1" />
+                            <span>Stock Disbursed</span>
                           </span>
                         ) : (
                           <span
                             style={{
                               display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
                               padding: "2px 8px",
                               borderRadius: "6px",
                               fontSize: "11px",
@@ -1142,10 +1182,23 @@ export default function JewelleryTransactions() {
                               border: `1px solid ${isInward ? "#CEEAD6" : isOutward ? "#BAE6FD" : "#CBD5E1"}`,
                             }}
                           >
-                            {isInward ? "↙️ Received" : isOutward ? "↗️ Disbursed" : "Transfer"}
+                            {isInward ? (
+                              <>
+                                <ArrowDownLeftIcon size={12} color="#137333" />
+                                <span>Received</span>
+                              </>
+                            ) : isOutward ? (
+                              <>
+                                <ArrowUpRightIcon size={12} color="#0369A1" />
+                                <span>Disbursed</span>
+                              </>
+                            ) : (
+                              <span>Transfer</span>
+                            )}
                           </span>
                         )}
                       </td>
+
                       <td style={{ padding: "12px 16px" }}>
                         {isMint ? (
                           <strong style={{ color: "#6B21A8" }}>Super Admin (Vault Root)</strong>

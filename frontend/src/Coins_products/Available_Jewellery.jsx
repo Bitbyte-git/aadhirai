@@ -15,6 +15,7 @@ import {
   PhoneIcon,
   MailIcon,
   ArrowRightIcon,
+  EyeIcon,
 } from "../components/SvgIcons";
 
 const ROLE_BADGE_CONFIG = {
@@ -40,6 +41,7 @@ export default function AvailableJewellery() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [metalFilter, setMetalFilter] = useState("all");
+  const [hierarchyPurityFilter, setHierarchyPurityFilter] = useState("all");
   const [copiedId, setCopiedId] = useState(null);
   const [previewItem, setPreviewItem] = useState(null);
 
@@ -123,22 +125,52 @@ export default function AvailableJewellery() {
 
   // Filtered hierarchy members
   const filteredHierarchy = useMemo(() => {
-    return hierarchyStock.filter((user) => {
-      if (roleFilter !== "all" && user.role !== roleFilter) return false;
-      if (search.trim()) {
-        const q = search.toLowerCase();
-        const matchName = user.name?.toLowerCase().includes(q);
-        const matchId = user.id_str?.toLowerCase().includes(q);
-        const matchEmail = user.email?.toLowerCase().includes(q);
-        const matchPhone = user.phone?.toLowerCase().includes(q);
-        const matchItem = user.items?.some(
-          (i) => i.name?.toLowerCase().includes(q) || i.product_code?.toLowerCase().includes(q)
-        );
-        if (!matchName && !matchId && !matchEmail && !matchPhone && !matchItem) return false;
-      }
-      return true;
-    });
-  }, [hierarchyStock, roleFilter, search]);
+    return hierarchyStock
+      .filter((user) => {
+        if (roleFilter !== "all" && user.role !== roleFilter) return false;
+
+        // Purity filter from top stat button cards
+        if (hierarchyPurityFilter === "gold_22k") {
+          if (!user.gold_22k_pieces || user.gold_22k_pieces <= 0) return false;
+        } else if (hierarchyPurityFilter === "gold_24k") {
+          if (!user.gold_24k_pieces || user.gold_24k_pieces <= 0) return false;
+        } else if (hierarchyPurityFilter === "silver_999") {
+          if (!user.silver_pieces || user.silver_pieces <= 0) return false;
+        }
+
+        if (search.trim()) {
+          const q = search.toLowerCase();
+          const matchName = user.name?.toLowerCase().includes(q);
+          const matchId = user.id_str?.toLowerCase().includes(q);
+          const matchEmail = user.email?.toLowerCase().includes(q);
+          const matchPhone = user.phone?.toLowerCase().includes(q);
+          const matchItem = user.items?.some(
+            (i) => i.name?.toLowerCase().includes(q) || i.product_code?.toLowerCase().includes(q)
+          );
+          if (!matchName && !matchId && !matchEmail && !matchPhone && !matchItem) return false;
+        }
+        return true;
+      })
+      .map((user) => {
+        if (hierarchyPurityFilter === "all") return user;
+        const matchingItems = (user.items || []).filter((i) => {
+          const m = (i.metal || "").toLowerCase();
+          const g = (i.grade || "").toLowerCase();
+          if (hierarchyPurityFilter === "gold_22k") {
+            return m === "gold" && !g.includes("24");
+          } else if (hierarchyPurityFilter === "gold_24k") {
+            return m === "gold" && g.includes("24");
+          } else if (hierarchyPurityFilter === "silver_999") {
+            return m === "silver";
+          }
+          return true;
+        });
+        return {
+          ...user,
+          items: matchingItems,
+        };
+      });
+  }, [hierarchyStock, roleFilter, hierarchyPurityFilter, search]);
 
   // Hierarchy top aggregate stats
   const hierarchyAggregates = useMemo(() => {
@@ -294,15 +326,40 @@ export default function AvailableJewellery() {
 
         .aj-stat-card {
           background: #FFFFFF;
-          border: 1px solid #E1EBEA;
+          border: 1.5px solid #E1EBEA;
           border-radius: 18px;
           padding: 18px 20px;
           box-shadow: 0 2px 12px rgba(7, 59, 63, 0.03);
-          transition: transform 180ms ease;
+          transition: all 180ms ease;
+          cursor: pointer;
+          position: relative;
+          user-select: none;
         }
 
         .aj-stat-card:hover {
-          transform: translateY(-2px);
+          transform: translateY(-3px);
+          box-shadow: 0 6px 20px rgba(7, 59, 63, 0.08);
+          border-color: #073B3F;
+        }
+
+        .aj-stat-card.active {
+          border-color: #073B3F !important;
+          box-shadow: 0 6px 22px rgba(7, 59, 63, 0.14);
+          background: #F8FBFB;
+        }
+
+        .aj-stat-card.active::after {
+          content: "Active Filter ✓";
+          position: absolute;
+          top: 12px;
+          right: 14px;
+          font-size: 10px;
+          font-weight: 800;
+          padding: 2px 8px;
+          border-radius: 10px;
+          background: #073B3F;
+          color: #FFFFFF;
+          letter-spacing: 0.02em;
         }
 
         .aj-stat-label {
@@ -658,65 +715,105 @@ export default function AvailableJewellery() {
           </div>
         )}
 
-        {/* Top 4 Stat Cards */}
+        {/* Top 4 Stat Cards as Clickable Filter Buttons */}
         {scope === "hierarchy" && isSuperAdmin ? (
           <div className="aj-stats-grid">
-            <div className="aj-stat-card" style={{ borderLeft: "4px solid #073B3F" }}>
+            <div
+              className={`aj-stat-card ${hierarchyPurityFilter === "all" ? "active" : ""}`}
+              style={{ borderLeft: "4px solid #073B3F" }}
+              onClick={() => setHierarchyPurityFilter("all")}
+              title="Click to view all team jewellery holdings"
+            >
               <div className="aj-stat-label">Total Jewellery in Team</div>
               <div className="aj-stat-val">{hierarchyAggregates.totalPieces.toLocaleString()} pcs</div>
-              <div className="aj-stat-sub">Distributed across all roles</div>
+              <div className="aj-stat-sub">Distributed across all roles • Click to view all</div>
             </div>
 
-            <div className="aj-stat-card" style={{ borderLeft: "4px solid #D97706" }}>
+            <div
+              className={`aj-stat-card ${hierarchyPurityFilter === "gold_22k" ? "active" : ""}`}
+              style={{ borderLeft: "4px solid #D97706" }}
+              onClick={() => setHierarchyPurityFilter(hierarchyPurityFilter === "gold_22k" ? "all" : "gold_22k")}
+              title="Click to filter only Gold 22K holdings"
+            >
               <div className="aj-stat-label">Gold 22K (916) Holdings</div>
               <div className="aj-stat-val">{hierarchyAggregates.gold22kPieces} pcs</div>
-              <div className="aj-stat-sub">{hierarchyAggregates.gold22kGrams} g total net</div>
+              <div className="aj-stat-sub">{hierarchyAggregates.gold22kGrams} g total net • Click to filter</div>
             </div>
 
-            <div className="aj-stat-card" style={{ borderLeft: "4px solid #EAB308" }}>
+            <div
+              className={`aj-stat-card ${hierarchyPurityFilter === "gold_24k" ? "active" : ""}`}
+              style={{ borderLeft: "4px solid #EAB308" }}
+              onClick={() => setHierarchyPurityFilter(hierarchyPurityFilter === "gold_24k" ? "all" : "gold_24k")}
+              title="Click to filter only Gold 24K holdings"
+            >
               <div className="aj-stat-label">Gold 24K (999) Holdings</div>
               <div className="aj-stat-val">{hierarchyAggregates.gold24kPieces} pcs</div>
-              <div className="aj-stat-sub">{hierarchyAggregates.gold24kGrams} g total net</div>
+              <div className="aj-stat-sub">{hierarchyAggregates.gold24kGrams} g total net • Click to filter</div>
             </div>
 
-            <div className="aj-stat-card" style={{ borderLeft: "4px solid #475569" }}>
+            <div
+              className={`aj-stat-card ${hierarchyPurityFilter === "silver_999" ? "active" : ""}`}
+              style={{ borderLeft: "4px solid #475569" }}
+              onClick={() => setHierarchyPurityFilter(hierarchyPurityFilter === "silver_999" ? "all" : "silver_999")}
+              title="Click to filter only Silver 999 holdings"
+            >
               <div className="aj-stat-label">Silver 999 Holdings</div>
               <div className="aj-stat-val">{hierarchyAggregates.silverPieces} pcs</div>
-              <div className="aj-stat-sub">{hierarchyAggregates.silverGrams} g total net</div>
+              <div className="aj-stat-sub">{hierarchyAggregates.silverGrams} g total net • Click to filter</div>
             </div>
           </div>
         ) : (
           <div className="aj-stats-grid">
-            <div className="aj-stat-card" style={{ borderLeft: "4px solid #073B3F" }}>
+            <div
+              className={`aj-stat-card ${metalFilter === "all" ? "active" : ""}`}
+              style={{ borderLeft: "4px solid #073B3F" }}
+              onClick={() => setMetalFilter("all")}
+              title="Click to show all vault designs"
+            >
               <div className="aj-stat-label">My In-Hand Designs</div>
-              <div className="aj-stat-val">{filteredMyStock.length} designs</div>
+              <div className="aj-stat-val">{myStock.length} designs</div>
               <div className="aj-stat-sub">
-                {filteredMyStock.reduce((s, i) => s + (i.qty || 0), 0)} total pieces
+                {myStock.reduce((s, i) => s + (i.qty || 0), 0)} total pieces • Click to view all
               </div>
             </div>
 
-            <div className="aj-stat-card" style={{ borderLeft: "4px solid #D97706" }}>
+            <div
+              className={`aj-stat-card ${metalFilter === "gold" ? "active" : ""}`}
+              style={{ borderLeft: "4px solid #D97706" }}
+              onClick={() => setMetalFilter(metalFilter === "gold" ? "all" : "gold")}
+              title="Click to filter Gold designs"
+            >
               <div className="aj-stat-label">Gold Designs</div>
               <div className="aj-stat-val">
-                {filteredMyStock.filter((s) => s.product?.metal?.toLowerCase() === "gold").length}
+                {myStock.filter((s) => s.product?.metal?.toLowerCase() === "gold").length}
               </div>
-              <div className="aj-stat-sub">Available in vault</div>
+              <div className="aj-stat-sub">Available in vault • Click to filter</div>
             </div>
 
-            <div className="aj-stat-card" style={{ borderLeft: "4px solid #475569" }}>
+            <div
+              className={`aj-stat-card ${metalFilter === "silver" ? "active" : ""}`}
+              style={{ borderLeft: "4px solid #475569" }}
+              onClick={() => setMetalFilter(metalFilter === "silver" ? "all" : "silver")}
+              title="Click to filter Silver designs"
+            >
               <div className="aj-stat-label">Silver Designs</div>
               <div className="aj-stat-val">
-                {filteredMyStock.filter((s) => s.product?.metal?.toLowerCase() === "silver").length}
+                {myStock.filter((s) => s.product?.metal?.toLowerCase() === "silver").length}
               </div>
-              <div className="aj-stat-sub">Available in vault</div>
+              <div className="aj-stat-sub">Available in vault • Click to filter</div>
             </div>
 
-            <div className="aj-stat-card" style={{ borderLeft: "4px solid #166534" }}>
+            <div
+              className="aj-stat-card"
+              style={{ borderLeft: "4px solid #166534" }}
+              onClick={() => setMetalFilter("all")}
+              title="All stock is active and ready for allocation"
+            >
               <div className="aj-stat-label">Status</div>
               <div className="aj-stat-val" style={{ color: "#166534", fontSize: "22px" }}>
                 Active Stock
               </div>
-              <div className="aj-stat-sub">Ready for allocation</div>
+              <div className="aj-stat-sub">Ready for allocation • Click to reset</div>
             </div>
           </div>
         )}
@@ -920,7 +1017,7 @@ export default function AvailableJewellery() {
                                     }}
                                   />
                                 ) : (
-                                  <span style={{ fontSize: "18px" }}>💍</span>
+                                  <JewelryIcon size={22} color="#0C8A7B" />
                                 )}
                               </div>
                               <div style={{ minWidth: 0 }}>
@@ -956,8 +1053,20 @@ export default function AvailableJewellery() {
                               >
                                 {item.qty} pcs
                               </span>
-                              <div style={{ fontSize: "10px", color: "#0C8A7B", marginTop: "2px", fontWeight: 600 }}>
-                                View Photo 🔍
+                              <div
+                                style={{
+                                  fontSize: "10.5px",
+                                  color: "#0C8A7B",
+                                  marginTop: "3px",
+                                  fontWeight: 700,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "3px",
+                                  justifyContent: "flex-end",
+                                }}
+                              >
+                                <EyeIcon size={12} color="#0C8A7B" />
+                                <span>View Photo</span>
                               </div>
                             </div>
                           </div>
@@ -1082,24 +1191,8 @@ export default function AvailableJewellery() {
                           </div>
                           <div style={{ fontSize: "11px", color: "#7A8987" }}>with 3% tax</div>
                         </div>
-
-                        <button
-                          type="button"
-                          style={{
-                            padding: "7px 14px",
-                            background: "#EFF6F6",
-                            border: "1px solid #CEE3E1",
-                            borderRadius: "8px",
-                            color: "#073B3F",
-                            fontSize: "12.5px",
-                            fontWeight: 700,
-                            cursor: "pointer",
-                          }}
-                          onClick={() => navigate("/jewellery-requests")}
-                        >
-                          Request Flow
-                        </button>
                       </div>
+
                     </div>
                   </div>
                 );
@@ -1185,8 +1278,9 @@ export default function AvailableJewellery() {
                 }}
                 onMouseEnter={(e) => (e.target.style.background = "#DDE7E7")}
                 onMouseLeave={(e) => (e.target.style.background = "#EAF0F0")}
+                title="Close preview"
               >
-                ✕
+                <CloseIcon size={16} color="#073B3F" />
               </button>
             </div>
 
@@ -1215,7 +1309,9 @@ export default function AvailableJewellery() {
                 />
               ) : (
                 <div style={{ textAlign: "center", color: "#8E9E9C" }}>
-                  <span style={{ fontSize: "64px", display: "block" }}>💍</span>
+                  <div style={{ display: "flex", justifyContent: "center", marginBottom: "8px" }}>
+                    <JewelryIcon size={64} color="#0C8A7B" />
+                  </div>
                   <p style={{ margin: "10px 0 0", fontSize: "13.5px", fontWeight: 600 }}>No high-resolution photo uploaded</p>
                 </div>
               )}
@@ -1261,8 +1357,9 @@ export default function AvailableJewellery() {
                     </div>
                   </div>
                   {previewItem.holder_phone && (
-                    <div style={{ fontSize: "12px", color: "#166534", fontWeight: 700 }}>
-                      📞 {previewItem.holder_phone}
+                    <div style={{ fontSize: "12px", color: "#166534", fontWeight: 700, display: "flex", alignItems: "center", gap: "5px" }}>
+                      <PhoneIcon size={13} color="#166534" />
+                      <span>{previewItem.holder_phone}</span>
                     </div>
                   )}
                 </div>

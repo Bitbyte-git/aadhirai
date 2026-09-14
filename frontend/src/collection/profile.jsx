@@ -32,6 +32,7 @@ const PROFILE_FIELDS = [
   ['anniversary_date', 'Anniversary Date'],
   ['door_no', 'Door No'],
   ['street_name', 'Street'],
+  ['pincode', 'Pincode'],
   ['town_name', 'Town'],
   ['city_name', 'City'],
   ['district', 'District'],
@@ -231,6 +232,7 @@ export default function Profile() {
     address: [
       ['Door No', profile.door_no],
       ['Street', profile.street_name, true],
+      ['Pincode', profile.pincode],
       ['Town', profile.town_name],
       ['City', profile.city_name],
       ['District', profile.district],

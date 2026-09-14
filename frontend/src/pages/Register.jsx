@@ -183,11 +183,7 @@ export default function Register() {
       setCanResend(false);
       setOtpDigits(["", "", "", "", "", ""]);
       setOtpError("");
-      if (res.data?.debug_otp) {
-        setOtpNotice(`Testing Code: ${res.data.debug_otp} (${res.data.warning || ''})`);
-      } else {
-        setOtpNotice("");
-      }
+      setOtpNotice("");
       setGlobalMsg({
         type: "success",
         text: res.data?.message || "Verification code sent to your email!",
@@ -1132,12 +1128,6 @@ export default function Register() {
                   {canResend ? "Resend OTP Code" : `Resend in ${resendTimer}s`}
                 </button>
               </div>
-
-              {otpNotice && (
-                <div style={{ fontSize: "11px", color: "#BB8958", marginTop: "6px", background: "rgba(187, 137, 88, 0.08)", padding: "6px 10px", borderRadius: "8px" }}>
-                  {otpNotice}
-                </div>
-              )}
             </div>
           </div>
         </div>

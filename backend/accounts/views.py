@@ -777,6 +777,7 @@ def send_sendgrid_otp_email(to_email, otp_code, recipient_name="Customer"):
     except Exception:
         pass
 
+    resend_api_key = os.environ.get("RESEND_API_KEY")
     api_key = os.environ.get("SENDGRID_API_KEY")
     from_email = os.environ.get("SENDGRID_FROM_EMAIL", "senthil.bitbyte@gmail.com")
     from_name = os.environ.get("SENDGRID_FROM_NAME", "Athirai")
@@ -873,6 +874,36 @@ https://athirai.com
 </body>
 </html>
 """
+
+    if resend_api_key:
+        resend_from = os.environ.get("RESEND_FROM_EMAIL", f"{from_name} <onboarding@resend.dev>")
+        resend_reply_to = os.environ.get("RESEND_REPLY_TO", "senthil.bitbyte@gmail.com")
+        resend_payload = {
+            "from": resend_from,
+            "to": [to_email],
+            "reply_to": resend_reply_to,
+            "subject": subject,
+            "html": html_content,
+            "text": text_content,
+        }
+        resend_req = urllib.request.Request(
+            "https://api.resend.com/emails",
+            data=json.dumps(resend_payload).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {resend_api_key}",
+                "Content-Type": "application/json",
+                "User-Agent": "resend-python/2.0.0"
+            },
+            method="POST"
+        )
+        try:
+            with urllib.request.urlopen(resend_req, timeout=12) as response:
+                return True, f"Sent via Resend (Status {response.status})"
+        except urllib.error.HTTPError as e:
+            err_msg = e.read().decode('utf-8', errors='ignore')
+            return False, f"Resend error {e.code}: {err_msg}"
+        except Exception as e:
+            return False, f"Resend email delivery failed: {str(e)}"
 
     payload = {
         "personalizations": [

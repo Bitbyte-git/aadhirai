@@ -28,8 +28,8 @@ const AlertIcon = ({ size = 16 }) => (
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Montserrat:wght@400;500;600;700;800;900&display=swap');
   @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-  .op-page{min-height:100vh;background:#FDFDFC;font-family:"Montserrat",system-ui,sans-serif;color:${DARK}}
-  .op-main{width:min(900px,calc(100% - 40px));margin:0 auto;padding:44px 0 90px;animation:fadeUp .4s ease both}
+  .op-page{min-height:100vh;background:radial-gradient(circle at 12% 15%, rgba(209,223,222,.55), transparent 30%), radial-gradient(circle at 88% 85%, rgba(187,137,88,.08), transparent 32%), linear-gradient(135deg,#FDFDFC 0%,#F6EFE7 55%,#EDF2F1 100%);font-family:"Montserrat",system-ui,sans-serif;color:${DARK}}
+  .op-main{width:min(1040px,calc(100% - 40px));margin:0 auto;padding:44px 0 90px;animation:fadeUp .4s ease both}
   .op-kicker{margin:0 0 8px;color:${GOLD};font-size:12px;font-weight:900;letter-spacing:2.4px;text-transform:uppercase}
   .op-title{margin:0 0 28px;color:${RED};font-family:"Playfair Display",serif;font-size:clamp(28px,4vw,40px)}
   .op-card{border:1px solid rgba(189,207,206,.8);border-radius:14px;background:#fff;box-shadow:0 18px 46px rgba(12,64,68,.08);padding:26px;margin-bottom:20px}

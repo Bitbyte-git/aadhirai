@@ -11,7 +11,7 @@ HierarchySubtreeOrdersView, HierarchyAdminsView, HierarchyChildrenView, SalesRep
  ReferrerInfoView, PublicCustomerRegisterView, RegisterSendOTPView, RegisterVerifyOTPView, GenerateReferralLinkView, RechargeCreateOrderView, RechargeVerifyPaymentView, WalletView, RechargeHistoryView, RechargeStatementView, PayWithCoinsView, PaymentsSummaryView, UserLookupView, SendCoinsView, AdminUserHistoryView, AdminSentHistoryView, AutoPayCreateView, AutoPayConfirmView, AutoPayStatusView, AutoPayToggleView, autopay_webhook,AutoPayMandateListView, AffordableProductsView,
  HierarchyPersonSearchView, SalesSummaryView, SalesTrendView, HierarchyNodeOrdersView, HierarchyNodeInfoView, HierarchyPathToNodeView, 
  JewelryStockView, JewelryRequestView, JewelryRequestApproveView, JewelryRequestRejectView,
- MemberHoldingsDetailView, JewelryStockDetailView, OrderReceiptPDFView,
+ MemberHoldingsDetailView, JewelryStockDetailView, OrderReceiptPDFView, AdminOrdersListView,
 )
 
 urlpatterns = [
@@ -62,6 +62,7 @@ urlpatterns = [
     path('wishlist/', WishlistView.as_view()),
     path('orders/', JewelryOrderView.as_view()),
     path('orders/<int:pk>/', JewelryOrderView.as_view()),
+    path('admin-orders/', AdminOrdersListView.as_view()),
     path('orders/<str:order_id>/receipt/', OrderReceiptPDFView.as_view()),
     path('create-razorpay-order/', create_razorpay_order),
     path('verify-payment/', verify_payment),

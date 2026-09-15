@@ -14,6 +14,13 @@ export default function SuperStockist() {
   const [offset, setOffset] = useState(0)
   const [hasMore, setHasMore] = useState(false)
   const [totalCount, setTotalCount] = useState(0)
+  const [activeTab, setActiveTab] = useState('all') // 'all' | 'active' | 'inactive'
+  const [stats, setStats] = useState({
+    total_count: 0,
+    today_active: 0,
+    today_inactive: 0,
+    today_orders: 0,
+  })
   const [actionOpen, setActionOpen] = useState(null)
   const [copiedId, setCopiedId] = useState(null)
   const [copiedUrlId, setCopiedUrlId] = useState(null)
@@ -57,18 +64,30 @@ export default function SuperStockist() {
     }
   }
 
-  const fetchAdmins = async (signal, currentOffset, searchTerm, append, retryCount = 0) => {
+  const fetchAdmins = async (signal, currentOffset, searchTerm, append, retryCount = 0, currentTab = activeTab) => {
     if (append) setLoadingMore(true)
     else setLoading(true)
     try {
       const res = await api.get('/hierarchy/admins/', {
         signal,
-        params: { offset: currentOffset, limit: PAGE_SIZE, search: searchTerm },
+        params: {
+          offset: currentOffset,
+          limit: PAGE_SIZE,
+          search: searchTerm,
+          today_status: currentTab !== 'all' ? currentTab : undefined,
+        },
       })
       const newRows = res.data.admins || res.data.results || []
       setRows(prev => (append ? [...prev, ...newRows] : newRows))
       setHasMore(!!res.data.has_more)
-      setTotalCount(res.data.total_count || 0)
+      const total = res.data.total_count || 0
+      setTotalCount(total)
+      setStats({
+        total_count: total,
+        today_active: res.data.today_active_count ?? 0,
+        today_inactive: res.data.today_inactive_count ?? total,
+        today_orders: res.data.today_orders_count ?? 0,
+      })
       setLoading(false)
       setLoadingMore(false)
     } catch (e) {
@@ -76,7 +95,7 @@ export default function SuperStockist() {
       console.error('fetch admins error:', e)
       if (retryCount < 5) {
         setTimeout(() => {
-          fetchAdmins(signal, currentOffset, searchTerm, append, retryCount + 1)
+          fetchAdmins(signal, currentOffset, searchTerm, append, retryCount + 1, currentTab)
         }, 1500)
       } else {
         if (!append) setRows([])
@@ -94,46 +113,21 @@ export default function SuperStockist() {
   useEffect(() => {
     const controller = new AbortController()
     setOffset(0)
-    fetchAdmins(controller.signal, 0, search, false)
+    fetchAdmins(controller.signal, 0, search, false, 0, activeTab)
     return () => controller.abort()
-  }, [search])
+  }, [search, activeTab])
 
   const handleLoadMore = () => {
     const controller = new AbortController()
     const nextOffset = offset + PAGE_SIZE
     setOffset(nextOffset)
-    fetchAdmins(controller.signal, nextOffset, search, true)
+    fetchAdmins(controller.signal, nextOffset, search, true, 0, activeTab)
   }
 
   const handleRefresh = () => {
     const controller = new AbortController()
     setOffset(0)
-    fetchAdmins(controller.signal, 0, search, false)
-  }
-
-  const exportCSV = () => {
-    if (!rows.length) return
-    const headers = ['S.No', 'Admin ID', 'First Name', 'Last Name', 'Email', 'Mobile', 'City']
-    const csvRows = rows.map((r, i) => [
-      i + 1,
-      `"${r.admin_id || ''}"`,
-      `"${(r.first_name || '').replace(/"/g, '""')}"`,
-      `"${(r.last_name || '').replace(/"/g, '""')}"`,
-      `"${(r.email || '').replace(/"/g, '""')}"`,
-      `"${r.mobile_number || ''}"`,
-      `"${(r.city_name || '').replace(/"/g, '""')}"`,
-    ])
-    const blob = new Blob([[headers.join(','), ...csvRows.map((r) => r.join(','))].join('\n')], {
-      type: 'text/csv;charset=utf-8;',
-    })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `super_stockists_${new Date().toISOString().slice(0, 10)}.csv`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    showToast('Exported Super Stockists CSV')
+    fetchAdmins(controller.signal, 0, search, false, 0, activeTab)
   }
 
   useEffect(() => {
@@ -253,7 +247,7 @@ export default function SuperStockist() {
           flex-shrink: 0;
         }
 
-        .mu-refresh-btn, .mu-export-btn {
+        .mu-refresh-btn {
           display: inline-flex;
           align-items: center;
           gap: 8px;
@@ -263,9 +257,6 @@ export default function SuperStockist() {
           font-weight: 700;
           cursor: pointer;
           transition: all 140ms ease;
-        }
-
-        .mu-refresh-btn {
           background: #FFFFFF;
           border: 1px solid #D9E4E3;
           color: #073B3F;
@@ -274,17 +265,6 @@ export default function SuperStockist() {
         .mu-refresh-btn:hover {
           background: #F4F8F7;
           border-color: #073B3F;
-        }
-
-        .mu-export-btn {
-          background: #073B3F;
-          border: 1px solid #073B3F;
-          color: #FFFFFF;
-        }
-
-        .mu-export-btn:hover {
-          background: #0C5258;
-          transform: translateY(-1px);
         }
 
         .mu-stats-grid {
@@ -304,12 +284,87 @@ export default function SuperStockist() {
           align-items: center;
           justify-content: space-between;
           transition: all 180ms ease;
+          position: relative;
+        }
+
+        .mu-stat-card.is-clickable {
+          cursor: pointer;
+          user-select: none;
         }
 
         .mu-stat-card:hover {
           border-color: #073B3F;
           transform: translateY(-2px);
           box-shadow: 0 8px 24px rgba(7, 59, 63, 0.06);
+        }
+
+        .mu-stat-card.is-active-tab {
+          border-color: #073B3F;
+          box-shadow: 0 8px 24px rgba(7, 59, 63, 0.12);
+          background: #F8FBFA;
+          transform: translateY(-2px);
+        }
+
+        .mu-pulse-badge {
+          background: #DCFCE7;
+          color: #15803D;
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          padding: 2px 7px;
+          border-radius: 999px;
+          letter-spacing: 0.05em;
+        }
+
+        .mu-filter-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: #073B3F;
+          color: #FFFFFF;
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 11.5px;
+          font-weight: 700;
+          border: none;
+          cursor: pointer;
+          transition: opacity 140ms ease;
+        }
+
+        .mu-filter-chip:hover {
+          opacity: 0.88;
+        }
+
+        .mu-status-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          white-space: nowrap;
+        }
+
+        .mu-status-pill.is-active {
+          background: #ECFDF5;
+          color: #059669;
+          border: 1px solid #A7F3D0;
+        }
+
+        .mu-status-pill.is-inactive {
+          background: #F3F4F6;
+          color: #6B7280;
+          border: 1px solid #E5E7EB;
+        }
+
+        .mu-status-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #10B981;
+          box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
         }
 
         .mu-stat-title {
@@ -750,25 +805,22 @@ export default function SuperStockist() {
               </svg>
               <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
             </button>
-            <button className="mu-export-btn" onClick={exportCSV} disabled={loading || !rows.length}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              <span>Export CSV</span>
-            </button>
           </div>
         </div>
 
         {/* KPI Stats Grid */}
         <div className="mu-stats-grid">
-          <div className="mu-stat-card">
+          {/* Card 1: Total Super Stockists */}
+          <div
+            className={`mu-stat-card is-clickable ${activeTab === 'all' ? 'is-active-tab' : ''}`}
+            onClick={() => setActiveTab('all')}
+            title="Click to view all super stockists"
+          >
             <div>
               <span className="mu-stat-title">Total Super Stockists</span>
-              <span className="mu-stat-number">{totalCount}</span>
+              <span className="mu-stat-number">{stats.total_count}</span>
             </div>
-            <div className="mu-stat-icon">
+            <div className="mu-stat-icon" style={{ background: '#E8F2F1', color: '#073B3F' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                 <circle cx="9" cy="7" r="4" />
@@ -778,44 +830,62 @@ export default function SuperStockist() {
             </div>
           </div>
 
-          <div className="mu-stat-card">
+          {/* Card 2: Today Active */}
+          <div
+            className={`mu-stat-card is-clickable ${activeTab === 'active' ? 'is-active-tab' : ''}`}
+            onClick={() => setActiveTab('active')}
+            title="Click to view super stockists active/logged in today"
+          >
             <div>
-              <span className="mu-stat-title">Loaded on Page</span>
-              <span className="mu-stat-number">{rows.length}</span>
+              <span className="mu-stat-title" style={{ color: '#059669' }}>Today Active</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="mu-stat-number" style={{ color: '#059669' }}>{stats.today_active}</span>
+                {stats.today_active > 0 && <span className="mu-pulse-badge">Live</span>}
+              </div>
             </div>
-            <div className="mu-stat-icon">
+            <div className="mu-stat-icon" style={{ background: '#ECFDF5', color: '#059669' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
-                <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="8.5" cy="7" r="4" />
+                <polyline points="17 11 19 13 23 9" />
               </svg>
             </div>
           </div>
 
-          <div className="mu-stat-card">
+          {/* Card 3: Today Inactive */}
+          <div
+            className={`mu-stat-card is-clickable ${activeTab === 'inactive' ? 'is-active-tab' : ''}`}
+            onClick={() => setActiveTab('inactive')}
+            title="Click to view super stockists inactive today"
+          >
             <div>
-              <span className="mu-stat-title">Search Filter</span>
-              <span className="mu-stat-number" style={{ fontSize: '18px' }}>
-                {search ? `"${search}"` : 'All Stockists'}
-              </span>
+              <span className="mu-stat-title" style={{ color: '#D97706' }}>Today Inactive</span>
+              <span className="mu-stat-number" style={{ color: '#D97706' }}>{stats.today_inactive}</span>
             </div>
-            <div className="mu-stat-icon">
+            <div className="mu-stat-icon" style={{ background: '#FFFBEB', color: '#D97706' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <line x1="18" y1="8" x2="23" y2="13" />
+                <line x1="23" y1="8" x2="18" y2="13" />
               </svg>
             </div>
           </div>
 
-          <div className="mu-stat-card">
+          {/* Card 4: Today Order */}
+          <div
+            className="mu-stat-card"
+            title="Overall count of orders received today across super stockists network"
+          >
             <div>
-              <span className="mu-stat-title">Network Tier</span>
-              <span className="mu-stat-number" style={{ fontSize: '18px', color: '#D97706' }}>
-                Master Stockist
-              </span>
+              <span className="mu-stat-title" style={{ color: '#0284C7' }}>Today Order</span>
+              <span className="mu-stat-number" style={{ color: '#0284C7' }}>{stats.today_orders}</span>
             </div>
-            <div className="mu-stat-icon">
+            <div className="mu-stat-icon" style={{ background: '#F0F9FF', color: '#0284C7' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
               </svg>
             </div>
           </div>
@@ -829,8 +899,19 @@ export default function SuperStockist() {
                 Super Stockist Directory
               </span>
               <span className="mu-count-badge">
-                Showing {rows.length} of {totalCount}
+                Showing {rows.length} of {activeTab === 'active' ? stats.today_active : activeTab === 'inactive' ? stats.today_inactive : totalCount}
               </span>
+              {activeTab !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('all')}
+                  className="mu-filter-chip"
+                  title="Clear filter and show all"
+                >
+                  <span>Filtered: Today {activeTab === 'active' ? 'Active' : 'Inactive'}</span>
+                  <span>✕</span>
+                </button>
+              )}
             </div>
 
             <div className="mu-search-box">
@@ -867,6 +948,7 @@ export default function SuperStockist() {
                     <th>NAME & EMAIL</th>
                     <th>PHONE NUMBER</th>
                     <th>CITY</th>
+                    <th>TODAY STATUS</th>
                     <th style={{ textAlign: 'right' }}>ACTIONS</th>
                   </tr>
                 </thead>
@@ -877,6 +959,7 @@ export default function SuperStockist() {
                       <td><div className="mu-skel-line" style={{ width: '110px' }} /></td>
                       <td><div className="mu-skel-line" style={{ width: '160px' }} /></td>
                       <td><div className="mu-skel-line" style={{ width: '100px' }} /></td>
+                      <td><div className="mu-skel-line" style={{ width: '90px' }} /></td>
                       <td><div className="mu-skel-line" style={{ width: '90px' }} /></td>
                       <td style={{ textAlign: 'right' }}><div className="mu-skel-line" style={{ width: '32px', marginLeft: 'auto' }} /></td>
                     </tr>
@@ -893,10 +976,10 @@ export default function SuperStockist() {
                 </svg>
               </div>
               <h4 style={{ margin: '0 0 6px', color: '#073B3F', fontSize: '16px', fontWeight: 800 }}>
-                {search ? `No super stockists match "${search}"` : 'No Super Stockists Found'}
+                {search ? `No super stockists match "${search}"` : activeTab !== 'all' ? `No super stockists found with status "Today ${activeTab === 'active' ? 'Active' : 'Inactive'}"` : 'No Super Stockists Found'}
               </h4>
               <p style={{ margin: 0, color: '#728A87', fontSize: '13.5px' }}>
-                Try adjusting your search criteria or clear the search field.
+                {activeTab !== 'all' ? 'Try switching to All Stockists or adjusting your search.' : 'Try adjusting your search criteria or clear the search field.'}
               </p>
             </div>
           ) : (
@@ -910,6 +993,7 @@ export default function SuperStockist() {
                       <th>NAME & EMAIL</th>
                       <th>PHONE NUMBER</th>
                       <th>CITY</th>
+                      <th>TODAY STATUS</th>
                       <th style={{ textAlign: 'right' }}>ACTIONS</th>
                     </tr>
                   </thead>
@@ -964,6 +1048,18 @@ export default function SuperStockist() {
                               <span className="mu-city-pill">{a.city_name}</span>
                             ) : (
                               <span style={{ color: '#A0B2AF' }}>—</span>
+                            )}
+                          </td>
+                          <td>
+                            {a.is_active_today ? (
+                              <span className="mu-status-pill is-active">
+                                <span className="mu-status-dot" />
+                                <span>Active Today</span>
+                              </span>
+                            ) : (
+                              <span className="mu-status-pill is-inactive">
+                                <span>Inactive Today</span>
+                              </span>
                             )}
                           </td>
                           <td className="mu-action-cell" onClick={(e) => e.stopPropagation()}>
@@ -1021,9 +1117,21 @@ export default function SuperStockist() {
                             <div className="mu-email">{a.email || 'No email provided'}</div>
                           </div>
                         </div>
-                        <span className="mu-id-pill" onClick={() => handleCopyId(a.admin_id, `aid-${a.id}`)}>
-                          {a.admin_id}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+                          <span className="mu-id-pill" onClick={() => handleCopyId(a.admin_id, `aid-${a.id}`)}>
+                            {a.admin_id}
+                          </span>
+                          {a.is_active_today ? (
+                            <span className="mu-status-pill is-active" style={{ fontSize: '10px', padding: '2px 8px' }}>
+                              <span className="mu-status-dot" />
+                              Active Today
+                            </span>
+                          ) : (
+                            <span className="mu-status-pill is-inactive" style={{ fontSize: '10px', padding: '2px 8px' }}>
+                              Inactive Today
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="mu-mobile-grid">
@@ -1110,6 +1218,10 @@ export default function SuperStockist() {
                 ['Email', selectedDetail.email],
                 ['Mobile Number', selectedDetail.mobile_number],
                 ['City', selectedDetail.city_name],
+                ['Today Status', selectedDetail.is_active_today ? 'Active Today' : 'Inactive Today'],
+                ['Today Orders', selectedDetail.today_order_count || 0],
+                ['Last Login', selectedDetail.last_login ? new Date(selectedDetail.last_login).toLocaleString() : 'Never'],
+                ['Total Direct Dealers', selectedDetail.dealer_count || 0],
               ].map(([label, value]) => (
                 <div key={label} style={{ padding: '14px 16px', border: '1px solid #E5EFEF', borderRadius: 14, background: '#F8FAF9' }}>
                   <small style={{ display: 'block', marginBottom: 4, color: '#728A87', fontSize: 10, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase' }}>

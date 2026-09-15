@@ -744,6 +744,10 @@ export default function ProductDisplay() {
   }
 
   const calculatedWeightText = product?.net_weight ? `${parseFloat(product.net_weight)} gm` : '—'
+  // Real stock, not just the is_active flag — is_active only flips to false as a side
+  // effect of an order draining stock to 0 through checkout, so a product whose stock
+  // was set to 0 any other way (admin edit, etc.) would otherwise still show as buyable.
+  const isSoldOut = product ? (product.is_active === false || (typeof product.stock_quantity === 'number' && product.stock_quantity <= 0)) : false
   const productName = product?.name || product?.title || 'Jewellery Product'
   const productDesc = product?.desc || product?.description || product?.short_description || 'Premium handcrafted jewellery from BitByte Jewellers.'
   const productTag = product?.tag || product?.label || (isGold ? 'Premium' : 'Minimal')
@@ -983,7 +987,10 @@ export default function ProductDisplay() {
           position: relative;
           z-index: 5;
           width: 100%;
-          padding: clamp(34px, 4vw, 58px) clamp(18px, 4.5vw, 72px) 72px;
+          /* Top padding kept small — CustomerNavbar's own .exact-nav-spacer already
+             reserves the space its fixed navbar needs, so stacking a big top padding
+             here on top of that just left an oversized empty gap before the breadcrumb. */
+          padding: clamp(10px, 1.2vw, 18px) clamp(18px, 4.5vw, 72px) 72px;
           background:
             radial-gradient(circle at 13% 22%, rgba(209,223,222,0.7), transparent 27%),
             linear-gradient(135deg, #FDFDFC 0%, #F3E8DE 48%, #E7EDEC 100%);
@@ -1026,14 +1033,18 @@ export default function ProductDisplay() {
         }
 
         .pd-img-frame {
-          min-height: clamp(520px, 56vw, 650px) !important;
+          /* Square, matched to the product photo's own aspect ratio — a fixed
+             min-height independent of width left a tall frame around a square image,
+             wasting space above/below it instead of the photo filling its card. */
+          aspect-ratio: 1 / 1 !important;
           height: auto !important;
+          min-height: 0 !important;
           border: 0 !important;
           border-radius: 26px !important;
           background:
             radial-gradient(circle at 50% 48%, rgba(255,255,255,0.96), rgba(243,232,222,0.34) 48%, rgba(231,237,236,0.72) 100%) !important;
           box-shadow: inset 0 0 0 1px rgba(218,194,169,0.55), inset 0 -45px 90px rgba(12,64,68,0.06);
-          padding: clamp(22px, 3vw, 46px) !important;
+          padding: clamp(14px, 2vw, 26px) !important;
           overflow: hidden !important;
           position: relative !important;
         }
@@ -1042,7 +1053,7 @@ export default function ProductDisplay() {
           width: 100% !important;
           height: 100% !important;
           max-width: 100% !important;
-          max-height: clamp(470px, 50vw, 590px) !important;
+          max-height: 100% !important;
           object-fit: contain !important;
           filter: drop-shadow(0 32px 48px rgba(7,59,63,0.18)) !important;
         }
@@ -1298,17 +1309,17 @@ export default function ProductDisplay() {
             <div className="pd-shine" />
 
             {/* Main image frame */}
-            <div className="pd-img-frame" ref={imageRef} onMouseMove={handleMouseMove} onMouseLeave={() => setShowZoom(false)} style={{ height: 480, display: 'grid', placeItems: 'center', cursor: 'zoom-in' }}>
+            <div className="pd-img-frame" ref={imageRef} onMouseMove={handleMouseMove} onMouseLeave={() => setShowZoom(false)} style={{ display: 'grid', placeItems: 'center', cursor: 'zoom-in' }}>
 
               {/* Tag ribbon */}
-              {productTag && !(!product.is_active) && (
+              {productTag && !isSoldOut && (
                 <div style={{ position: 'absolute', top: 16, left: 0, background: '#8B1A1A', color: '#fff', padding: '5px 16px 5px 12px', fontSize: 10, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', clipPath: 'polygon(0 0, 92% 0, 100% 50%, 92% 100%, 0 100%)', zIndex: 20 }}>
                   {productTag}
                 </div>
               )}
 
               {/* NEW: Sold Out stamp — Amazon/Flipkart style */}
-              {!product.is_active && (
+              {isSoldOut && (
                 <div style={{
                   position: 'absolute', top: 16, left: 0, zIndex: 20,
                   background: '#C92035', color: '#fff',
@@ -1321,7 +1332,9 @@ export default function ProductDisplay() {
                 </div>
               )}
 
-              {/* Wishlist */}
+              {/* Wishlist — sits over the image, but must never trigger the zoom
+                  lens (the image now fills the frame edge-to-edge, so this button's
+                  own pixels overlap the image bounds handleMouseMove checks against) */}
               <button
                 onClick={async () => {
                   if (!product) return
@@ -1332,6 +1345,8 @@ export default function ProductDisplay() {
                     window.dispatchEvent(new Event('bb_wishlist_update'))
                   } catch (err) { console.error(err) }
                 }}
+                onMouseMove={e => e.stopPropagation()}
+                onMouseEnter={() => setShowZoom(false)}
                 style={{ position: 'absolute', top: 16, right: 16, width: 40, height: 40, borderRadius: '50%', border: wishlisted ? '1.5px solid #c0392b' : '1px solid #ddd', background: wishlisted ? 'rgba(192,57,43,0.1)' : 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 20, transition: 'all 0.2s ease' }}
                 title={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
               >
@@ -1342,7 +1357,7 @@ export default function ProductDisplay() {
 
               {mainImage && (
                 <img ref={mainImageRef} className="pd-main-img" src={mainImage} onError={e => { e.currentTarget.style.display = 'none' }}
-                  style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain', filter: product.is_active ? 'drop-shadow(0 20px 36px rgba(0,0,0,0.14))' : 'drop-shadow(0 20px 36px rgba(0,0,0,0.14)) grayscale(0.55) opacity(0.85)', transition: 'transform 0.55s cubic-bezier(0.34,1.56,0.64,1)' }} />
+                  style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain', filter: isSoldOut ? 'drop-shadow(0 20px 36px rgba(0,0,0,0.14)) grayscale(0.55) opacity(0.85)' : 'drop-shadow(0 20px 36px rgba(0,0,0,0.14))', transition: 'transform 0.55s cubic-bezier(0.34,1.56,0.64,1)' }} />
               )}
 
               {showZoom && mainImage && (
@@ -1369,6 +1384,19 @@ export default function ProductDisplay() {
 
           {/* ── DETAIL SIDE ── */}
           <div className="pd-detail-card">
+
+            {/* Product code — top-right corner */}
+            {product?.product_code && (
+              <div style={{
+                position: 'absolute', top: 18, right: 22,
+                fontSize: 10.5, fontWeight: 700, letterSpacing: '0.5px',
+                color: '#9AA8A6', background: 'rgba(122,137,135,0.08)',
+                border: '1px solid rgba(122,137,135,0.2)', borderRadius: 20,
+                padding: '4px 12px',
+              }}>
+                {product.product_code}
+              </div>
+            )}
 
             {/* Metal + Category eyebrow */}
             <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase', color: '#b8860b' }}>
@@ -1441,7 +1469,7 @@ export default function ProductDisplay() {
                 )
               })()}
 
-              {!product.is_active && (
+              {isSoldOut && (
                 <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 4, padding: '10px 16px', marginTop: 12, color: '#f87171', fontWeight: 700, fontSize: 12, textAlign: 'center', letterSpacing: '0.5px' }}>
                   ⚠️ Currently Unavailable
                 </div>
@@ -1459,7 +1487,7 @@ export default function ProductDisplay() {
             </div>
 
             {/* CTA buttons */}
-            {product.is_active ? (
+            {!isSoldOut ? (
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                 <button className="pd-btn-cart" onClick={handleAddToCart}>
                   {showAdded ? '✓ Added to Cart' : '🛒 Add to Cart'}
@@ -1505,9 +1533,9 @@ export default function ProductDisplay() {
                   }}
                     style={{
                       width: '100%', padding: '14px 0', border: 'none', borderRadius: 10,
-                      background: 'linear-gradient(135deg,#1f6feb,#2563eb)', color: '#fff',
+                      background: 'linear-gradient(135deg,#16a34a,#15803d)', color: '#fff',
                       fontWeight: 800, fontSize: 15, cursor: 'pointer',
-                      boxShadow: '0 8px 20px rgba(37,99,235,0.28)',
+                      boxShadow: '0 8px 20px rgba(22,163,74,0.28)',
                       transition: 'transform 0.15s ease'
                     }}
                     onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}

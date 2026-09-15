@@ -2657,7 +2657,92 @@ class JewelryOrderView(APIView):
             order.status = status_val
             order.save()
         return Response(JewelryOrderSerializer(order, context={'request': request}).data)
-    
+
+
+def _admin_orders_period_queryset(period, start_date, end_date):
+    """Today / Week / Month / Year / Custom — same shape as the other period
+    filters in this file. 'today' is the default so the Admin Orders page's
+    first load is always small instead of pulling every order ever placed."""
+    qs = JewelryOrder.objects.all()
+    today = timezone.now().date()
+
+    if period == 'today':
+        qs = qs.filter(created_at__date=today)
+    elif period == 'week':
+        start_of_week = today - timedelta(days=today.weekday())
+        qs = qs.filter(created_at__date__gte=start_of_week, created_at__date__lte=today)
+    elif period == 'month':
+        qs = qs.filter(created_at__year=today.year, created_at__month=today.month)
+    elif period == 'year':
+        qs = qs.filter(created_at__year=today.year)
+    elif period == 'custom' and start_date and end_date:
+        qs = qs.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
+    # period == 'all' — no date filter, everything
+
+    return qs
+
+
+class AdminOrdersListView(APIView):
+    """Dedicated, paginated Super Admin orders list — JewelryOrderView.get()
+    (used everywhere else, including the customer's own order history) loads
+    every single order with no limit, which is fine for one customer's orders
+    but becomes very slow once thousands of orders exist across all customers.
+    This view period-filters at the DB level (default: today), paginates with
+    offset/limit, and computes the stat cards via DB aggregates — never by
+    loading full rows into Python."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'super_admin':
+            return Response({'error': 'Permission denied'}, status=403)
+
+        period = request.query_params.get('period', 'today')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        status_filter = request.query_params.get('status', 'all')
+        search = request.query_params.get('search', '').strip()
+        offset = int(request.query_params.get('offset', 0))
+        limit = int(request.query_params.get('limit', 100))
+
+        period_qs = _admin_orders_period_queryset(period, start_date, end_date)
+
+        # ── Stat cards — DB aggregate over the period scope only, unaffected by
+        # the status/search filter below so the counts stay stable while browsing ──
+        status_counts = dict(
+            period_qs.values('status').annotate(c=Count('id')).values_list('status', 'c')
+        )
+        total_revenue = period_qs.aggregate(s=Sum('total_price'))['s'] or 0
+
+        qs = period_qs.select_related('user', 'product').order_by('-created_at')
+        if status_filter and status_filter != 'all':
+            qs = qs.filter(status=status_filter)
+        if search:
+            qs = qs.filter(
+                Q(order_id__icontains=search) | Q(product_name__icontains=search) |
+                Q(customer_name__icontains=search) | Q(customer_phone__icontains=search) |
+                Q(user__email__icontains=search)
+            )
+
+        total_count = qs.count()
+        page = qs[offset:offset + limit]
+        serializer = JewelryOrderSerializer(page, many=True, context={'request': request})
+
+        return Response({
+            'results': serializer.data,
+            'total_count': total_count,
+            'has_more': offset + limit < total_count,
+            'stats': {
+                'total': sum(status_counts.values()),
+                'pending': status_counts.get('pending', 0),
+                'confirmed': status_counts.get('confirmed', 0),
+                'processing': status_counts.get('processing', 0),
+                'shipped': status_counts.get('shipped', 0),
+                'delivered': status_counts.get('delivered', 0),
+                'cancelled': status_counts.get('cancelled', 0),
+                'revenue': float(total_revenue),
+            },
+        })
+
 # ── COMMISSION DISTRIBUTION ENGINE ──
 # Order oda buyer-ஐ irundhu மேலே ஏறி, created_by chain walk pண்ணி commission distribute pண்ணும்.
 COMMISSION_POOL_PERCENT = Decimal('27.00')
@@ -3304,20 +3389,34 @@ class HierarchyAdminsView(APIView):
         if request.user.role not in ['super_admin', 'admin', 'dealer', 'sub_dealer', 'promotor']:
             return Response({'error': 'Permission denied'}, status=403)
 
-        admins = AdminProfile.objects.all().only(
-            'id', 'user_id', 'admin_id', 'first_name', 'last_name', 'mobile_number', 'city_name'
+        today = timezone.localtime(timezone.now()).date()
+
+        # All admin profiles with related user
+        all_admin_profiles = list(AdminProfile.objects.select_related('user').all())
+        total_all_count = len(all_admin_profiles)
+
+        # Active user IDs for today (last_login today or DailyLoginLog today)
+        active_user_ids = set(
+            User.objects.filter(role='admin', last_login__date=today).values_list('id', flat=True)
+        ) | set(
+            DailyLoginLog.objects.filter(user__role='admin', login_date=today).values_list('user_id', flat=True)
         )
 
-        # NEW: search filter — Python-level (admin_id/name/mobile match)
+        today_active_count = sum(1 for a in all_admin_profiles if a.user_id in active_user_ids)
+        today_inactive_count = max(0, total_all_count - today_active_count)
+        today_orders_count = JewelryOrder.objects.filter(created_at__date=today).count()
+
+        # NEW: search filter — Python-level (admin_id/name/mobile/email match)
         search = request.query_params.get('search', '').strip().lower()
         if search:
-            admins = [a for a in admins if (
+            admins = [a for a in all_admin_profiles if (
                 search in (a.admin_id or '').lower() or
                 search in f"{a.first_name} {a.last_name}".lower() or
-                search in (a.mobile_number or '')
+                search in (a.mobile_number or '') or
+                search in (a.user.email if a.user else '').lower()
             )]
         else:
-            admins = list(admins)
+            admins = all_admin_profiles
 
         admin_ids = [a.user_id for a in admins]
 
@@ -3327,6 +3426,7 @@ class HierarchyAdminsView(APIView):
         )
 
         rollup_counts = _month_rollup_counts()
+        today_rollup = _today_rollup_counts()
         status_map = _month_status_map()
 
         # ── NEW: red/orange/yellow/green breakdown of each admin's DIRECT dealers ──
@@ -3344,27 +3444,47 @@ class HierarchyAdminsView(APIView):
         results = []
         for a in admins:
             oc = rollup_counts.get(('admin', a.id), 0)
+            today_oc = today_rollup.get(('admin', a.id), 0)
             status = status_map.get(('admin', a.id), 'red')
+            is_active_today = a.user_id in active_user_ids
+            last_login = a.user.last_login.isoformat() if (a.user and a.user.last_login) else None
+            email = a.user.email if a.user else ''
             results.append({
                 'id': a.id, 'user_id': a.user_id, 'admin_id': a.admin_id,
                 'first_name': a.first_name, 'last_name': a.last_name,
+                'email': email,
                 'mobile_number': a.mobile_number, 'city_name': a.city_name,
                 'dealer_count': dealer_counts.get(a.id, 0),
-                'order_count': oc, 'status': status,
+                'order_count': oc,
+                'today_order_count': today_oc,
+                'is_active_today': is_active_today,
+                'last_login': last_login,
+                'status': status,
                 'child_status_counts': child_status_by_admin.get(a.id, {'red': 0, 'orange': 0, 'yellow': 0, 'green': 0}),
             })
 
-        # NEW: offset/limit pagination — first batch 300, "Load More" click panna next batch
-        total_count = len(results)
+        # Optional today_status filter: 'active' | 'inactive' | 'all'
+        today_status = request.query_params.get('today_status')
+        if today_status == 'active':
+            results = [r for r in results if r['is_active_today']]
+        elif today_status == 'inactive':
+            results = [r for r in results if not r['is_active_today']]
+
+        total_filtered = len(results)
         offset = int(request.query_params.get('offset', 0))
         limit = int(request.query_params.get('limit', 300))
         page = results[offset:offset + limit]
 
+        super_admin_user = User.objects.filter(role='super_admin').first()
         return Response({
-            'super_admin_email': User.objects.filter(role='super_admin').first().email,
+            'super_admin_email': super_admin_user.email if super_admin_user else '',
             'admins': page,
-            'total_count': total_count,
-            'has_more': offset + limit < total_count,
+            'total_count': total_all_count,
+            'today_active_count': today_active_count,
+            'today_inactive_count': today_inactive_count,
+            'today_orders_count': today_orders_count,
+            'filtered_count': total_filtered,
+            'has_more': offset + limit < total_filtered,
         })
 
 

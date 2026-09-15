@@ -812,7 +812,7 @@ export default function OrderConfirm() {
 
         {/* ── ADDRESS POPUP ── */}
         {showAddressPopup && (
-          <div className="address-overlay" onClick={() => setShowAddressPopup(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div className="address-overlay" onClick={() => setShowAddressPopup(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto', padding: '16px', paddingTop: 'clamp(24px, 9vh, 130px)', paddingBottom: 40 }}>
             <div className="address-modal" role="dialog" aria-modal="true" aria-labelledby="address-modal-title" onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 8, width: '100%', maxWidth: 680, maxHeight: '92vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.25)' }}>
               {/* Header */}
               <div className="address-modal-header" style={{ padding: '22px 28px', borderBottom: '1px solid #f0ebe4', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>

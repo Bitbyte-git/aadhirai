@@ -1,6 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
+import {
+  OrdersIcon, RefreshIcon, InboxIcon, JewelryIcon, PackageIcon, BullionIcon,
+  SettingsIcon, PhoneIcon, LocationIcon, CalendarIcon, DownloadIcon, CheckIcon,
+  SearchIcon,
+} from '../components/SvgIcons'
 
 const STATUS_COLORS = {
   pending:    { bg: 'rgba(204,168,129,0.16)', border: 'rgba(204,168,129,0.48)', color: '#BB8958' },
@@ -11,39 +16,109 @@ const STATUS_COLORS = {
   cancelled:  { bg: 'rgba(201,32,53,0.10)',   border: 'rgba(201,32,53,0.42)',   color: '#C92035' },
 }
 
+const PERIODS = [
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'Week' },
+  { key: 'month', label: 'Month' },
+  { key: 'year', label: 'Year' },
+  { key: 'custom', label: 'Custom Date' },
+]
+
+const STATUS_LIST = ['all', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled']
+const FIRST_PAGE_SIZE = 100
+const LOAD_MORE_SIZE = 500
+
 const API_BASE = 'https://bitbyte-backend-f66f.onrender.com'
+
+function SkeletonRow() {
+  const shimmer = { background: 'linear-gradient(90deg,#EAEFEF 25%,#F6F8F8 50%,#EAEFEF 75%)', backgroundSize: '200% 100%', animation: 'aopShimmer 1.5s infinite ease-in-out', borderRadius: 6 }
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 120px 120px 140px 160px 40px', gap: 0, padding: '14px 20px', alignItems: 'center', borderBottom: '1px solid rgba(189,207,206,0.72)' }}>
+      <div>
+        <div style={{ ...shimmer, width: '70%', height: 12, marginBottom: 8 }} />
+        <div style={{ ...shimmer, width: '50%', height: 10 }} />
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ ...shimmer, width: 40, height: 40, borderRadius: 8 }} />
+        <div style={{ flex: 1 }}>
+          <div style={{ ...shimmer, width: '80%', height: 12, marginBottom: 8 }} />
+          <div style={{ ...shimmer, width: '50%', height: 10 }} />
+        </div>
+      </div>
+      <div>
+        <div style={{ ...shimmer, width: '80%', height: 12, marginBottom: 8 }} />
+        <div style={{ ...shimmer, width: '60%', height: 10 }} />
+      </div>
+      <div style={{ ...shimmer, width: '70%', height: 14 }} />
+      <div style={{ ...shimmer, width: '60%', height: 12 }} />
+      <div style={{ ...shimmer, width: 70, height: 22, borderRadius: 20 }} />
+      <div />
+    </div>
+  )
+}
 
 export default function AdminOrdersPage() {
   const navigate = useNavigate()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [statusUpdating, setStatusUpdating] = useState(null)
+  const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
-  const [visibleCount, setVisibleCount] = useState(100)
+  const [period, setPeriod] = useState('today')
+  const [customStart, setCustomStart] = useState('')
+  const [customEnd, setCustomEnd] = useState('')
+  const [totalCount, setTotalCount] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [stats, setStats] = useState({ total: 0, pending: 0, confirmed: 0, processing: 0, shipped: 0, delivered: 0, cancelled: 0, revenue: 0 })
 
-  useEffect(() => {
-    setVisibleCount(100)
-  }, [search, filterStatus])
+  const fetchIdRef = useRef(0)
 
   const dark = false
   const bg = '#FDFDFC', text = '#111817', subtext = '#7A8987'
   const accent = '#0C4044', border = 'rgba(189,207,206,0.72)'
   const cardBg = 'rgba(253,253,252,0.97)', cardBorder = '1px solid rgba(189,207,206,0.72)'
 
+  // Debounce the search box — don't hammer the API on every keystroke
   useEffect(() => {
-    fetchOrders()
-  }, [])
+    const t = setTimeout(() => setSearch(searchInput.trim()), 400)
+    return () => clearTimeout(t)
+  }, [searchInput])
 
-  const fetchOrders = async () => {
-    setLoading(true)
+  const fetchOrders = useCallback(async (offset, limit, append) => {
+    if (period === 'custom' && (!customStart || !customEnd)) return
+    const myId = ++fetchIdRef.current
+    if (append) setLoadingMore(true); else setLoading(true)
+
     try {
-      const res = await api.get('/orders/')
-      setOrders(Array.isArray(res.data) ? res.data.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)) : [])
-    } catch { setOrders([]) }
-    setLoading(false)
-  }
+      const params = { period, status: filterStatus, search, offset, limit }
+      if (period === 'custom') { params.start_date = customStart; params.end_date = customEnd }
+      const res = await api.get('/admin-orders/', { params })
+      if (myId !== fetchIdRef.current) return
+
+      const data = res.data || {}
+      setOrders(prev => append ? [...prev, ...(data.results || [])] : (data.results || []))
+      setTotalCount(data.total_count || 0)
+      setHasMore(!!data.has_more)
+      if (data.stats) setStats(data.stats)
+    } catch {
+      if (myId !== fetchIdRef.current) return
+      if (!append) { setOrders([]); setTotalCount(0); setHasMore(false) }
+    } finally {
+      if (myId !== fetchIdRef.current) return
+      setLoading(false)
+      setLoadingMore(false)
+    }
+  }, [period, filterStatus, search, customStart, customEnd])
+
+  // Fresh fetch whenever period/status/search/custom-range changes
+  useEffect(() => {
+    fetchOrders(0, FIRST_PAGE_SIZE, false)
+  }, [fetchOrders])
+
+  const loadMore = () => fetchOrders(orders.length, LOAD_MORE_SIZE, true)
 
   const updateStatus = async (orderId, newStatus) => {
     setStatusUpdating(orderId)
@@ -51,6 +126,16 @@ export default function AdminOrdersPage() {
       await api.patch(`/orders/${orderId}/`, { status: newStatus })
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o))
       if (selectedOrder?.id === orderId) setSelectedOrder(prev => ({ ...prev, status: newStatus }))
+      setStats(prev => {
+        // keep the stat cards in sync without a full refetch
+        const next = { ...prev }
+        const order = orders.find(o => o.id === orderId)
+        if (order && order.status !== newStatus) {
+          if (next[order.status] > 0) next[order.status] -= 1
+          next[newStatus] = (next[newStatus] || 0) + 1
+        }
+        return next
+      })
     } catch { alert('Status update failed') }
     setStatusUpdating(null)
   }
@@ -64,30 +149,11 @@ export default function AdminOrdersPage() {
   const inr = n => `₹${Math.round(n).toLocaleString('en-IN')}`
   const formatDate = d => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 
-  const filtered = orders.filter(o => {
-    const matchStatus = filterStatus === 'all' || o.status === filterStatus
-    const q = search.toLowerCase()
-    const matchSearch = !q || o.order_id?.toLowerCase().includes(q) || o.product_name?.toLowerCase().includes(q) || o.customer_name?.toLowerCase().includes(q) || o.customer_email?.toLowerCase().includes(q)
-    return matchStatus && matchSearch
-  })
-
-  const displayedOrders = filtered.slice(0, visibleCount)
-
-  // Stats
-  const stats = {
-    total: orders.length,
-    pending: orders.filter(o => o.status === 'pending').length,
-    confirmed: orders.filter(o => o.status === 'confirmed').length,
-    shipped: orders.filter(o => o.status === 'shipped').length,
-    delivered: orders.filter(o => o.status === 'delivered').length,
-    revenue: orders.reduce((s, o) => s + parseFloat(o.total_price || 0), 0),
-  }
-
   return (
     <div className="orders-shell" style={{ minHeight: '100vh', background: bg, color: text, fontFamily: '"Inter",system-ui,sans-serif' }}>
       <style>{`
         @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes aopShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
         .ord-row{transition:background 0.2s,border-color 0.2s,transform 0.2s,box-shadow 0.2s;cursor:pointer;}
         .ord-row:hover{background:rgba(189,207,206,0.16) !important;box-shadow:inset 3px 0 0 rgba(12,64,68,0.42);}
         .orders-shell{background:radial-gradient(circle at 12% 0%,rgba(204,168,129,0.16),transparent 28%),radial-gradient(circle at 88% 2%,rgba(12,64,68,0.09),transparent 28%),#FDFDFC;}
@@ -97,6 +163,8 @@ export default function AdminOrdersPage() {
         .orders-filter:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(7,59,63,.08);}
         .orders-action{transition:transform .2s ease,box-shadow .2s ease,background .2s ease;}
         .orders-action:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(7,59,63,.13);}
+        .orders-period{transition:all .18s ease;}
+        .orders-period:hover{transform:translateY(-1px);}
       `}</style>
 
       {/* Navbar */}
@@ -106,16 +174,37 @@ export default function AdminOrdersPage() {
             ← Dashboard
           </button>
           <div>
-            <div style={{ color: accent, fontWeight: 800, fontSize: 16, letterSpacing: '0.05em' }}>🛍️ JEWELRY ORDERS</div>
+            <div style={{ color: accent, fontWeight: 800, fontSize: 16, letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <OrdersIcon size={17} color={accent} /> JEWELRY ORDERS
+            </div>
             <div style={{ color: subtext, fontSize: 11, marginTop: 2 }}>All customer orders — manage & track</div>
           </div>
         </div>
-        <button className="orders-action" onClick={fetchOrders} style={{ background: 'linear-gradient(135deg,#0C4044,#073B3F)', border: '1px solid rgba(12,64,68,0.28)', color: '#FDFDFC', borderRadius: 8, padding: '8px 18px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
-          🔄 Refresh
+        <button className="orders-action" onClick={() => fetchOrders(0, orders.length || FIRST_PAGE_SIZE, false)} style={{ background: 'linear-gradient(135deg,#0C4044,#073B3F)', border: '1px solid rgba(12,64,68,0.28)', color: '#FDFDFC', borderRadius: 8, padding: '8px 18px', cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <RefreshIcon size={14} color="#FDFDFC" /> Refresh
         </button>
       </div>
 
       <div style={{ padding: '32px 36px', maxWidth: 1400, margin: '0 auto' }}>
+
+        {/* Period filter */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+          {PERIODS.map(p => (
+            <button key={p.key} className="orders-period" onClick={() => setPeriod(p.key)}
+              style={{ padding: '9px 18px', borderRadius: 999, border: `1.5px solid ${period === p.key ? accent : border}`, background: period === p.key ? 'linear-gradient(135deg,#0C4044,#073B3F)' : 'rgba(253,253,252,0.8)', color: period === p.key ? '#FDFDFC' : text, fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
+              {p.label}
+            </button>
+          ))}
+          {period === 'custom' && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 4 }}>
+              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
+                style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${border}`, fontSize: 12.5, color: text, background: '#fff' }} />
+              <span style={{ color: subtext, fontSize: 12 }}>to</span>
+              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
+                style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${border}`, fontSize: 12.5, color: text, background: '#fff' }} />
+            </div>
+          )}
+        </div>
 
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 14, marginBottom: 32 }}>
@@ -136,17 +225,20 @@ export default function AdminOrdersPage() {
 
         {/* Filters */}
         <div style={{ display: 'flex', gap: 14, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center' }}>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search order ID, product, customer..."
-            style={{ flex: 1, minWidth: 240, background: 'rgba(253,253,252,0.92)', border: `1px solid ${border}`, borderRadius: 10, padding: '10px 16px', color: text, fontSize: 13, outline: 'none' }}
-          />
-          <div style={{ display: 'flex', gap: 8 }}>
-            {['all', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'].map(s => (
+          <div style={{ flex: 1, minWidth: 240, position: 'relative' }}>
+            <SearchIcon size={15} color={subtext} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
+            <input
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+              placeholder="Search order ID, product, customer..."
+              style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(253,253,252,0.92)', border: `1px solid ${border}`, borderRadius: 10, padding: '10px 16px 10px 38px', color: text, fontSize: 13, outline: 'none' }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {STATUS_LIST.map(s => (
               <button className="orders-filter" key={s} onClick={() => setFilterStatus(s)}
                 style={{ padding: '8px 14px', borderRadius: 8, border: `1px solid ${filterStatus === s ? accent : border}`, background: filterStatus === s ? 'linear-gradient(135deg,#0C4044,#073B3F)' : 'rgba(253,253,252,0.72)', color: filterStatus === s ? '#FDFDFC' : subtext, fontSize: 11, fontWeight: 700, cursor: 'pointer', textTransform: 'capitalize', transition: 'all 0.15s' }}>
-                {s === 'all' ? `All (${orders.length})` : `${s} (${orders.filter(o => o.status === s).length})`}
+                {s === 'all' ? `All (${stats.total})` : `${s} (${stats[s] || 0})`}
               </button>
             ))}
           </div>
@@ -154,13 +246,17 @@ export default function AdminOrdersPage() {
 
         {/* Table */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '80px 0' }}>
-            <div style={{ width: 36, height: 36, border: `3px solid rgba(189,207,206,0.65)`, borderTop: `3px solid ${accent}`, borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 14px' }}/>
-            <div style={{ color: subtext, fontSize: 13 }}>Loading orders...</div>
+          <div style={{ background: cardBg, border: cardBorder, borderRadius: 16, overflow: 'hidden', boxShadow: '0 24px 58px rgba(7,59,63,0.08)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 120px 120px 140px 160px 40px', gap: 0, padding: '12px 20px', borderBottom: `1px solid ${border}`, background: 'rgba(231,237,236,0.38)' }}>
+              {['Order ID', 'Product', 'Customer', 'Total', 'Payment', 'Status', ''].map(h => (
+                <div key={h} style={{ fontSize: 10, fontWeight: 800, color: subtext, letterSpacing: '1.2px', textTransform: 'uppercase' }}>{h}</div>
+              ))}
+            </div>
+            {Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : orders.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 0', color: subtext }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
+            <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><InboxIcon size={40} color={subtext} /></div>
             <div style={{ fontSize: 15 }}>No orders found</div>
           </div>
         ) : (
@@ -173,7 +269,7 @@ export default function AdminOrdersPage() {
             </div>
 
             {/* Rows */}
-            {displayedOrders.map((order, i) => {
+            {orders.map((order, i) => {
               const st = STATUS_COLORS[order.status] || STATUS_COLORS.pending
               const img = getImageUrl(order.product_image_url)
               const isExpanded = selectedOrder?.id === order.id
@@ -190,8 +286,8 @@ export default function AdminOrdersPage() {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{ width: 40, height: 40, borderRadius: 6, overflow: 'hidden', background: 'rgba(231,237,236,0.65)', flexShrink: 0 }}>
-                        {img ? <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/> : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 18 }}>💍</div>}
+                      <div style={{ width: 40, height: 40, borderRadius: 6, overflow: 'hidden', background: 'rgba(231,237,236,0.65)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {img ? <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/> : <JewelryIcon size={18} color={subtext} />}
                       </div>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 600, color: text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{order.product_name}</div>
@@ -225,22 +321,25 @@ export default function AdminOrdersPage() {
 
                       {/* Delivery */}
                       <div>
-                        <div style={{ fontSize: 10, fontWeight: 800, color: accent, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 12 }}>📦 Delivery Details</div>
+                        <div style={{ fontSize: 10, fontWeight: 800, color: accent, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <PackageIcon size={13} color={accent} /> Delivery Details
+                        </div>
                         <div style={{ background: 'rgba(253,253,252,0.86)', border: `1px solid ${border}`, borderRadius: 10, padding: '12px 16px' }}>
                           <div style={{ fontSize: 14, fontWeight: 700, color: text, marginBottom: 6 }}>{order.customer_name}</div>
-                          <div style={{ fontSize: 12, color: subtext, lineHeight: 1.8 }}>
-                            📞 {order.customer_phone}{order.customer_alt_phone ? ` / Alt: ${order.customer_alt_phone}` : ''}<br/>
-                            📍 {order.address_line1}{order.address_line2 ? `, ${order.address_line2}` : ''}<br/>
-                            {order.city}, {order.state} – {order.pincode}
+                          <div style={{ fontSize: 12, color: subtext, lineHeight: 1.9 }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><PhoneIcon size={12} color={subtext} /> {order.customer_phone}{order.customer_alt_phone ? ` / Alt: ${order.customer_alt_phone}` : ''}</span>
+                            <span style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 4 }}><LocationIcon size={12} color={subtext} style={{ marginTop: 2, flexShrink: 0 }} /> {order.address_line1}{order.address_line2 ? `, ${order.address_line2}` : ''}, {order.city}, {order.state} – {order.pincode}</span>
                           </div>
-                          {order.customer_dob && <div style={{ fontSize: 11, color: subtext, marginTop: 8 }}>🎂 DOB: {order.customer_dob}</div>}
-                          {order.customer_anniversary && <div style={{ fontSize: 11, color: subtext }}>💍 Anniversary: {order.customer_anniversary}</div>}
+                          {order.customer_dob && <div style={{ fontSize: 11, color: subtext, marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}><CalendarIcon size={11} color={subtext} /> DOB: {order.customer_dob}</div>}
+                          {order.customer_anniversary && <div style={{ fontSize: 11, color: subtext, display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}><CalendarIcon size={11} color={subtext} /> Anniversary: {order.customer_anniversary}</div>}
                         </div>
                       </div>
 
                       {/* Product + Price */}
                       <div>
-                        <div style={{ fontSize: 10, fontWeight: 800, color: accent, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 12 }}>💰 Order Details</div>
+                        <div style={{ fontSize: 10, fontWeight: 800, color: accent, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <BullionIcon size={13} color={accent} /> Order Details
+                        </div>
                         <div style={{ background: 'rgba(253,253,252,0.86)', border: `1px solid ${border}`, borderRadius: 10, padding: '12px 16px' }}>
                           {[
                             { label: 'Product', value: order.product_name },
@@ -261,7 +360,9 @@ export default function AdminOrdersPage() {
 
                       {/* Status update */}
                       <div>
-                        <div style={{ fontSize: 10, fontWeight: 800, color: accent, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 12 }}>⚙️ Update Status</div>
+                        <div style={{ fontSize: 10, fontWeight: 800, color: accent, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <SettingsIcon size={13} color={accent} /> Update Status
+                        </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                           {['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'].map(s => {
                             const sc = STATUS_COLORS[s]
@@ -269,8 +370,9 @@ export default function AdminOrdersPage() {
                             return (
                               <button key={s} disabled={isCurrent || statusUpdating === order.id}
                                 onClick={() => updateStatus(order.id, s)}
-                                style={{ padding: '8px 16px', borderRadius: 8, border: `1.5px solid ${isCurrent ? sc.border : border}`, background: isCurrent ? sc.bg : 'rgba(253,253,252,0.76)', color: isCurrent ? sc.color : subtext, fontSize: 12, fontWeight: isCurrent ? 800 : 500, cursor: isCurrent ? 'default' : 'pointer', textTransform: 'capitalize', textAlign: 'left', transition: 'all 0.15s' }}>
-                                {isCurrent ? '● ' : '○ '}{s}
+                                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 8, border: `1.5px solid ${isCurrent ? sc.border : border}`, background: isCurrent ? sc.bg : 'rgba(253,253,252,0.76)', color: isCurrent ? sc.color : subtext, fontSize: 12, fontWeight: isCurrent ? 800 : 500, cursor: isCurrent ? 'default' : 'pointer', textTransform: 'capitalize', textAlign: 'left', transition: 'all 0.15s' }}>
+                                {isCurrent ? <CheckIcon size={13} color={sc.color} /> : <span style={{ width: 13, height: 13, borderRadius: '50%', border: `1.5px solid ${subtext}`, display: 'inline-block' }} />}
+                                {s}
                                 {statusUpdating === order.id && !isCurrent && ' ...'}
                               </button>
                             )
@@ -288,14 +390,15 @@ export default function AdminOrdersPage() {
             })}
 
             {/* Load More Pagination (100 first, +500 per click) */}
-            {filtered.length > visibleCount ? (
+            {hasMore ? (
               <div style={{ padding: '24px 20px', textAlign: 'center', background: 'rgba(231,237,236,0.3)', borderTop: `1px solid ${border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
                 <div style={{ fontSize: 13, color: subtext, fontWeight: 600 }}>
-                  Showing <span style={{ color: accent, fontWeight: 800 }}>{displayedOrders.length}</span> of <span style={{ color: text, fontWeight: 800 }}>{filtered.length}</span> orders
+                  Showing <span style={{ color: accent, fontWeight: 800 }}>{orders.length}</span> of <span style={{ color: text, fontWeight: 800 }}>{totalCount}</span> orders
                 </div>
                 <button
                   className="orders-action"
-                  onClick={() => setVisibleCount(prev => prev + 500)}
+                  onClick={loadMore}
+                  disabled={loadingMore}
                   style={{
                     background: 'linear-gradient(135deg, #0C4044 0%, #073B3F 100%)',
                     color: '#FDFDFC',
@@ -304,7 +407,8 @@ export default function AdminOrdersPage() {
                     padding: '12px 36px',
                     fontSize: 13,
                     fontWeight: 700,
-                    cursor: 'pointer',
+                    cursor: loadingMore ? 'not-allowed' : 'pointer',
+                    opacity: loadingMore ? 0.7 : 1,
                     boxShadow: '0 8px 24px rgba(12,64,68,0.22)',
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -312,12 +416,13 @@ export default function AdminOrdersPage() {
                     letterSpacing: '0.02em',
                   }}
                 >
-                  <span>⬇️ Load More (+500 Orders)</span>
+                  <DownloadIcon size={14} color="#FDFDFC" />
+                  <span>{loadingMore ? 'Loading...' : `Load More (+${LOAD_MORE_SIZE} Orders)`}</span>
                 </button>
               </div>
-            ) : filtered.length > 100 ? (
-              <div style={{ padding: '16px', textAlign: 'center', background: 'rgba(231,237,236,0.2)', borderTop: `1px solid ${border}`, color: subtext, fontSize: 12, fontWeight: 600 }}>
-                ✓ All {filtered.length} orders loaded
+            ) : orders.length >= FIRST_PAGE_SIZE ? (
+              <div style={{ padding: '16px', textAlign: 'center', background: 'rgba(231,237,236,0.2)', borderTop: `1px solid ${border}`, color: subtext, fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <CheckIcon size={13} color={subtext} /> All {totalCount} orders loaded
               </div>
             ) : null}
           </div>

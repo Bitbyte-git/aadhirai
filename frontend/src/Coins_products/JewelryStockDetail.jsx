@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
+import { SkeletonText } from "../components/Skeleton";
 import {
   JewelryIcon,
   ArrowLeftIcon,
@@ -67,9 +68,26 @@ export default function JewelryStockDetail() {
     return (
       <div className="jsd-page">
         <div className="jsd-container">
-          <div className="jsd-loading-card">
-            <div className="jsd-spinner" />
-            <p>Loading jewellery specifications & live today's rate valuation...</p>
+          <div className="jsd-main-grid">
+            <div className="jsd-gallery-col">
+              <div className="jsd-main-img-card" style={{ background: "#EAEFEF" }} />
+              <div className="jsd-gallery-metrics">
+                <div className="jsd-gm-item">
+                  <SkeletonText width="70%" height="10px" />
+                  <div style={{ marginTop: 6 }}><SkeletonText width="50%" height="16px" /></div>
+                </div>
+                <div className="jsd-gm-item">
+                  <SkeletonText width="70%" height="10px" />
+                  <div style={{ marginTop: 6 }}><SkeletonText width="60%" height="16px" /></div>
+                </div>
+              </div>
+            </div>
+            <div className="jsd-details-col">
+              <SkeletonText width="140px" height="26px" />
+              <div style={{ marginTop: 16 }}><SkeletonText width="65%" height="32px" /></div>
+              <div style={{ marginTop: 10 }}><SkeletonText width="100%" height="14px" /></div>
+              <div style={{ marginTop: 24 }}><SkeletonText width="100%" height="180px" /></div>
+            </div>
           </div>
         </div>
         <style>{styles}</style>
@@ -393,8 +411,9 @@ const styles = `
 }
 
 .jsd-container {
-  max-width: 1240px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
 }
 
 .jsd-loading-card, .jsd-error-card {

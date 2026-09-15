@@ -992,6 +992,31 @@ export default function CoinRequests() {
         </div>
 
         {/* Requests List */}
+        {loading && (
+          <div className="cr-list-wrap">
+            {[0, 1, 2].map((i) => (
+              <article className="cr-req-card" key={i}>
+                <div className="cr-req-head">
+                  <div className="cr-req-main-info" style={{ width: "100%" }}>
+                    <div className="cr-req-title-row">
+                      <SkeletonText width="140px" height="22px" />
+                      <SkeletonText width="100px" height="16px" />
+                      <SkeletonText width="70px" height="16px" />
+                    </div>
+                    <div className="cr-contact-row" style={{ marginTop: "10px" }}>
+                      <SkeletonText width="120px" height="14px" />
+                      <SkeletonText width="160px" height="14px" />
+                    </div>
+                  </div>
+                </div>
+                <div style={{ marginTop: "16px" }}>
+                  <SkeletonText width="100%" height="46px" />
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
         {!loading && pending.length === 0 && (
           <div style={{ textAlign: "center", padding: "48px 20px", background: "#FFFFFF", borderRadius: "18px", border: "1px solid #E1EBEA", color: "#7A8987" }}>
             <div style={{ fontSize: "16px", fontWeight: 700, color: "#073B3F" }}>No Pending Requests</div>

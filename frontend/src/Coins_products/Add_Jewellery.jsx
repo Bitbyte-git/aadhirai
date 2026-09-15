@@ -21,6 +21,8 @@ import {
   TrashIcon,
   SearchIcon,
   BullionIcon,
+  SettingsIcon,
+  EditIcon,
 } from "../components/SvgIcons";
 
 // Categories identical to add_new_product / backend CATEGORY_CHOICES
@@ -916,6 +918,9 @@ export default function AddJewellery() {
           color: #FFFFFF;
           font-size: 11px;
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .aj-submit-btn {
@@ -1019,7 +1024,7 @@ export default function AddJewellery() {
               className={`aj-admin-switch-btn ${adminTab === "create" ? "active" : ""}`}
               onClick={() => setAdminTab("create")}
             >
-              <PlusIcon size={15} /> ➕ Add New Master Product
+              <PlusIcon size={15} /> Add New Master Product
             </button>
             <button
               type="button"
@@ -1029,7 +1034,7 @@ export default function AddJewellery() {
                 fetchCatalog();
               }}
             >
-              <JewelryIcon size={15} /> ⚙️ Manage & Edit Products ({catalogProducts.length})
+              <SettingsIcon size={15} /> Manage & Edit Products ({catalogProducts.length})
             </button>
           </div>
         )}
@@ -1571,7 +1576,7 @@ export default function AddJewellery() {
                             className="aj-remove-img"
                             onClick={() => removeImage(idx)}
                           >
-                            ✕
+                            <CloseIcon size={12} color="#FFFFFF" />
                           </button>
                         </div>
                       ))}
@@ -1806,7 +1811,7 @@ export default function AddJewellery() {
                               boxShadow: "0 2px 8px rgba(7, 59, 63, 0.15)",
                             }}
                           >
-                            ✏️ Edit Product
+                            <EditIcon size={14} color="#FFFFFF" /> Edit Product
                           </button>
                           <button
                             type="button"
@@ -1821,10 +1826,14 @@ export default function AddJewellery() {
                               fontSize: "12.5px",
                               fontWeight: 700,
                               cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "6px",
                             }}
                             title="Zoom High-Res Image"
                           >
-                            🔍 Zoom
+                            <SearchIcon size={13} color="#073B3F" /> Zoom
                           </button>
                         </div>
                       </div>

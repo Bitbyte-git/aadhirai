@@ -18,6 +18,8 @@ import {
   PhoneIcon,
   MailIcon,
   CalendarIcon,
+  ArrowRightIcon,
+  CrownIcon,
 } from "../components/SvgIcons";
 
 const COIN_METAL_LABELS_TEXT = {
@@ -1029,6 +1031,9 @@ export default function TransactionHistory() {
           font-weight: 700;
           z-index: 9999;
           box-shadow: 0 8px 24px rgba(7, 59, 63, 0.25);
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
 
         @media (max-width: 1024px) {
@@ -1047,7 +1052,7 @@ export default function TransactionHistory() {
         }
       `}</style>
 
-      {toast && <div className="ct-toast">✓ {toast}</div>}
+      {toast && <div className="ct-toast"><CheckIcon size={14} color="#FFFFFF" /> {toast}</div>}
 
       <div className="ct-shell">
         {/* Topbar */}
@@ -1068,6 +1073,9 @@ export default function TransactionHistory() {
               <span className="ct-badge">Audit Ledger</span>
               {currentRole === "super_admin" && (
                 <span style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
                   background: "linear-gradient(135deg, #073B3F 0%, #0C4E53 100%)",
                   color: "#FFFFFF",
                   fontSize: "11px",
@@ -1076,7 +1084,7 @@ export default function TransactionHistory() {
                   borderRadius: "999px",
                   letterSpacing: "0.4px"
                 }}>
-                  👑 Master Hierarchy View
+                  <CrownIcon size={12} color="#FFFFFF" /> Master Hierarchy View
                 </span>
               )}
             </h1>
@@ -1250,10 +1258,12 @@ export default function TransactionHistory() {
                   cursor: "pointer",
                   padding: "0 8px",
                   fontSize: "14px",
-                  fontWeight: 700
+                  fontWeight: 700,
+                  display: "inline-flex",
+                  alignItems: "center"
                 }}
               >
-                ✕
+                <CloseIcon size={13} color="#7A8987" />
               </button>
             )}
           </div>
@@ -1429,7 +1439,7 @@ export default function TransactionHistory() {
 
                         {/* Flow Arrow */}
                         <div className="ct-flow-arrow-wrap">
-                          <span className="ct-flow-arrow">➔</span>
+                          <span className="ct-flow-arrow"><ArrowRightIcon size={20} color="#073B3F" /></span>
                           <span className="ct-flow-arrow-label">Routed To</span>
                         </div>
 

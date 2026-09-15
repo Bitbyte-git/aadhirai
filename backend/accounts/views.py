@@ -28,6 +28,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+from reportlab.graphics.shapes import Drawing, Polygon, Line, Circle
 # pyrefly: ignore [missing-import]
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -1113,8 +1114,13 @@ class RegisterSendOTPView(APIView):
 
         threading.Thread(target=_dispatch, daemon=True).start()
 
+        # Email verification is hidden from the user (see Register.jsx) — the OTP
+        # is returned directly so the frontend can auto-verify without showing a
+        # code-entry screen. The EmailOTP record + verify flow above stays fully
+        # intact for whenever email delivery is turned back into a visible step.
         return Response({
-            'message': f'Verification OTP sent to {email}. Valid for 10 minutes.'
+            'message': f'Verification OTP sent to {email}. Valid for 10 minutes.',
+            'otp': otp_code,
         }, status=200)
 
 
@@ -4876,6 +4882,45 @@ class CoinStockView(APIView):
             result.sort(key=lambda x: (role_order.get(x['role'], 99), x['name']))
             return Response(result)
 
+        if request.user.role == 'super_admin':
+            INITIAL_COINS = [
+                ('gold_22k', '50 mg', 0.05, 500),
+                ('gold_22k', '100 mg', 0.1, 500),
+                ('gold_22k', '150 mg', 0.15, 300),
+                ('gold_22k', '200 mg', 0.2, 300),
+                ('gold_22k', '500 mg', 0.5, 200),
+                ('gold_22k', '1 gm', 1.0, 200),
+                ('gold_22k', '2 gm', 2.0, 100),
+                ('gold_22k', '4 gm', 4.0, 100),
+                ('gold_22k', '8 gm', 8.0, 50),
+                ('gold_24k', '50 mg', 0.05, 500),
+                ('gold_24k', '100 mg', 0.1, 500),
+                ('gold_24k', '200 mg', 0.2, 300),
+                ('gold_24k', '500 mg', 0.5, 200),
+                ('gold_24k', '1 gm', 1.0, 200),
+                ('gold_24k', '2 gm', 2.0, 100),
+                ('gold_24k', '4 gm', 4.0, 100),
+                ('gold_24k', '8 gm', 8.0, 50),
+                ('silver_999', '500 mg', 0.5, 500),
+                ('silver_999', '1 gm', 1.0, 500),
+                ('silver_999', '2 gm', 2.0, 300),
+                ('silver_999', '5 gm', 5.0, 200),
+                ('silver_999', '10 gm', 10.0, 200),
+                ('silver_999', '20 gm', 20.0, 100),
+                ('silver_999', '50 gm', 50.0, 50),
+                ('silver_999', '100 gm', 100.0, 50),
+            ]
+            for m_type, w_label, w_grams, qty in INITIAL_COINS:
+                stk, created = CoinStock.objects.get_or_create(
+                    user=request.user,
+                    metal_type=m_type,
+                    weight_label=w_label,
+                    defaults={'weight_grams': w_grams, 'qty': qty}
+                )
+                if not created and stk.qty == 0:
+                    stk.qty = qty
+                    stk.save(update_fields=['qty'])
+
         stock = CoinStock.objects.filter(user=request.user, qty__gt=0).order_by('metal_type', 'weight_grams')
         serializer = CoinStockSerializer(stock, many=True)
         return Response(serializer.data)
@@ -6964,6 +7009,27 @@ class RechargeStatementView(APIView):
         return FileResponse(buffer, as_attachment=True, filename=filename, content_type='application/pdf')
 
 
+def _gem_icon(size=20, color=None):
+    """A small vector diamond/gem mark — real vector shapes (not a raster emoji),
+    so it stays crisp at any zoom, same spirit as an SVG icon."""
+    color = color or colors.HexColor('#BB8958')
+    d = Drawing(size, size)
+    half = size / 2
+    d.add(Polygon(points=[half, size, size, half * 0.62, half, 0, 0, half * 0.62], fillColor=color, strokeColor=None))
+    d.add(Polygon(points=[half, size, size * 0.5, half * 0.62, half, size * 0.38], fillColor=colors.white, strokeColor=None, fillOpacity=0.22))
+    return d
+
+
+def _check_icon(size=12, color=None):
+    """A small vector checkmark-in-circle badge, used next to the order status."""
+    color = color or colors.HexColor('#16764F')
+    d = Drawing(size, size)
+    d.add(Circle(size / 2, size / 2, size / 2, fillColor=color, strokeColor=None))
+    d.add(Line(size * 0.27, size * 0.52, size * 0.43, size * 0.67, strokeColor=colors.white, strokeWidth=1.6))
+    d.add(Line(size * 0.43, size * 0.67, size * 0.75, size * 0.32, strokeColor=colors.white, strokeWidth=1.6))
+    return d
+
+
 class OrderReceiptPDFView(APIView):
     """Athirai-branded PDF receipt for a single order — used by the 'Download Receipt'
     button on the order-confirmed screen and the order-history list."""
@@ -6979,73 +7045,144 @@ class OrderReceiptPDFView(APIView):
             return Response({'error': 'Permission denied'}, status=403)
 
         buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=30, bottomMargin=30, leftMargin=36, rightMargin=36)
+        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=30, bottomMargin=34, leftMargin=36, rightMargin=36)
         styles = getSampleStyleSheet()
+
         brand_style = ParagraphStyle('Brand', parent=styles['Title'], textColor=colors.HexColor('#BB8958'),
-                                      fontSize=26, leading=30, alignment=TA_CENTER, spaceAfter=2)
-        tagline_style = ParagraphStyle('Tagline', parent=styles['Normal'], textColor=colors.HexColor('#7A8987'),
-                                        fontSize=10, alignment=TA_CENTER, spaceAfter=18)
-        heading_style = ParagraphStyle('Heading', parent=styles['Heading2'], textColor=colors.HexColor('#073B3F'),
-                                        fontSize=13, spaceBefore=10, spaceAfter=8)
-        right_style = ParagraphStyle('Right', parent=styles['Normal'], alignment=TA_RIGHT)
+                                      fontSize=24, leading=26, alignment=TA_CENTER, spaceAfter=0)
+        tagline_style = ParagraphStyle('Tagline', parent=styles['Normal'], textColor=colors.HexColor('#E0F2F1'),
+                                        fontSize=9.5, alignment=TA_CENTER, backColor=colors.HexColor('#073B3F'))
+        box_heading_style = ParagraphStyle('BoxHeading', parent=styles['Normal'], textColor=colors.HexColor('#073B3F'),
+                                            fontName='Helvetica-Bold', fontSize=10.5, spaceAfter=10)
+        label_style = ParagraphStyle('Label', parent=styles['Normal'], textColor=colors.HexColor('#7A8987'),
+                                      fontName='Helvetica-Bold', fontSize=7.5, spaceAfter=2)
+        value_style = ParagraphStyle('Value', parent=styles['Normal'], textColor=colors.HexColor('#111817'),
+                                      fontName='Helvetica-Bold', fontSize=10.5, spaceAfter=9, leading=13)
+        status_value_style = ParagraphStyle('StatusValue', parent=value_style, textColor=colors.HexColor('#16764F'), spaceAfter=0)
+        footer_style = ParagraphStyle('Footer', parent=styles['Normal'], textColor=colors.HexColor('#7A8987'),
+                                       fontSize=8.5, alignment=TA_CENTER)
+
+        content_width = doc.width  # everything below is sized off this so edges line up exactly
         elements = []
 
-        header_table = Table([[
-            Paragraph('ATHIRAI', brand_style),
-        ]], colWidths=['100%'])
+        # ── Header band: vector gem mark + brand name, full content width ──
+        brand_row = Table([[_gem_icon(20), Paragraph('ATHIRAI', brand_style)]], colWidths=[24, None])
+        brand_row.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (1, 0), (1, 0), 8),
+            ('LEFTPADDING', (0, 0), (0, 0), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        brand_row.hAlign = 'CENTER'
+
+        header_table = Table([[brand_row], [Paragraph('FINE JEWELLERY &bull; ORDER RECEIPT', tagline_style)]],
+                              colWidths=[content_width])
         header_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#073B3F')),
-            ('TOPPADDING', (0, 0), (-1, -1), 16),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (0, 0), 18),
+            ('BOTTOMPADDING', (0, 0), (0, 0), 6),
+            ('TOPPADDING', (0, 1), (0, 1), 0),
+            ('BOTTOMPADDING', (0, 1), (0, 1), 18),
         ]))
         elements.append(header_table)
-        elements.append(Paragraph('Fine Jewellery — Order Receipt', ParagraphStyle(
-            'TaglineOnBrand', parent=tagline_style, textColor=colors.HexColor('#E0F2F1'),
-            backColor=colors.HexColor('#073B3F'), spaceAfter=18,
-        )))
-        elements.append(Spacer(1, 10))
+        elements.append(Spacer(1, 18))
 
-        elements.append(Paragraph(f"<b>Order ID:</b> {order.order_id}", styles['Normal']))
-        elements.append(Paragraph(f"<b>Order Date:</b> {order.created_at.strftime('%d %b %Y, %I:%M %p')}", styles['Normal']))
-        elements.append(Paragraph(f"<b>Status:</b> {order.get_status_display()}", styles['Normal']))
-        elements.append(Spacer(1, 14))
+        # ── Order Information / Delivered To — two boxed columns, same total width as header ──
+        status_row = Table([[_check_icon(11), Paragraph(order.get_status_display(), status_value_style)]], colWidths=[15, None])
+        status_row.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        status_row.hAlign = 'LEFT'
 
-        elements.append(Paragraph('Delivered To', heading_style))
-        elements.append(Paragraph(order.customer_name, styles['Normal']))
-        elements.append(Paragraph(order.customer_phone, styles['Normal']))
+        box_style = TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F5F8F8')),
+            ('BOX', (0, 0), (-1, -1), 0.75, colors.HexColor('#D1DFDE')),
+            ('LEFTPADDING', (0, 0), (-1, -1), 16),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 16),
+            ('TOPPADDING', (0, 0), (-1, -1), 14),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 14),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ])
+
+        order_info_box = Table([[[
+            Paragraph('ORDER INFORMATION', box_heading_style),
+            Paragraph('ORDER ID', label_style), Paragraph(order.order_id, value_style),
+            Paragraph('ORDER DATE', label_style),
+            Paragraph(order.created_at.strftime('%d %b %Y, %I:%M %p'), value_style),
+            Paragraph('STATUS', label_style), status_row,
+        ]]], colWidths=[content_width * 0.48])
+        order_info_box.setStyle(box_style)
+
         address = f"{order.address_line1}, {order.address_line2}" if order.address_line2 else order.address_line1
-        elements.append(Paragraph(f"{address}, {order.city}, {order.state} - {order.pincode}", styles['Normal']))
-        elements.append(Spacer(1, 14))
+        delivered_box = Table([[[
+            Paragraph('DELIVERED TO', box_heading_style),
+            Paragraph(order.customer_name, value_style),
+            Paragraph(order.customer_phone, ParagraphStyle('Phone', parent=value_style, fontSize=9.5, fontName='Helvetica', spaceAfter=6)),
+            Paragraph(f"{address}, {order.city}, {order.state} - {order.pincode}",
+                      ParagraphStyle('Addr', parent=value_style, fontSize=9.5, fontName='Helvetica', leading=13, spaceAfter=0)),
+        ]]], colWidths=[content_width * 0.48])
+        delivered_box.setStyle(box_style)
 
-        elements.append(Paragraph('Order Details', heading_style))
+        info_grid = Table([[order_info_box, '', delivered_box]], colWidths=[content_width * 0.48, content_width * 0.04, content_width * 0.48])
+        info_grid.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        elements.append(info_grid)
+        elements.append(Spacer(1, 20))
+
+        # ── Order Details — same full content width as everything above ──
+        elements.append(Paragraph('ORDER DETAILS', box_heading_style))
         purity = f"{order.product_metal.upper()} {order.product_grade.upper()}".strip()
         data = [
             ['Product', 'Metal / Purity', 'Category', 'Qty', 'Unit Price', 'Amount'],
             [order.product_name, purity, order.product_category.title(), str(order.quantity),
              f"Rs. {order.unit_price:,.2f}", f"Rs. {order.total_price:,.2f}"],
         ]
-        table = Table(data, colWidths=[130, 90, 75, 35, 75, 85])
+        col_fracs = [0.26, 0.18, 0.15, 0.08, 0.16, 0.17]
+        table = Table(data, colWidths=[content_width * f for f in col_fracs])
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#073B3F')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, -1), 9),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D1DFDE')),
             ('ALIGN', (3, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 7),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white]),
         ]))
         elements.append(table)
-        elements.append(Spacer(1, 10))
+        elements.append(Spacer(1, 4))
 
-        elements.append(Paragraph(f"<b>Total Amount Paid: Rs. {order.total_price:,.2f}</b>", right_style))
-        elements.append(Paragraph(f"Payment Method: {order.get_payment_method_display()}", right_style))
-        elements.append(Spacer(1, 24))
+        # ── Total bar — same full content width, shaded, right-aligned amount ──
+        total_table = Table([
+            ['Payment Method', order.get_payment_method_display()],
+            ['TOTAL AMOUNT PAID', f"Rs. {order.total_price:,.2f}"],
+        ], colWidths=[content_width * 0.6, content_width * 0.4])
+        total_table.setStyle(TableStyle([
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 16), ('RIGHTPADDING', (0, 0), (-1, -1), 16),
+            ('TOPPADDING', (0, 0), (-1, -1), 8), ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('FONTSIZE', (0, 0), (-1, 0), 9.5),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#5C706E')),
+            ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#F5F8F8')),
+            ('LINEABOVE', (0, 1), (-1, 1), 0.75, colors.HexColor('#D1DFDE')),
+            ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 1), (-1, 1), 13),
+            ('TEXTCOLOR', (0, 1), (-1, 1), colors.HexColor('#073B3F')),
+        ]))
+        elements.append(total_table)
+        elements.append(Spacer(1, 30))
 
         elements.append(Paragraph(
-            'Thank you for shopping with Athirai. This is a computer-generated receipt.',
-            ParagraphStyle('Footer', parent=styles['Normal'], textColor=colors.HexColor('#7A8987'),
-                            fontSize=9, alignment=TA_CENTER),
+            'Thank you for shopping with Athirai. This is a computer-generated receipt.', footer_style,
         ))
 
         doc.build(elements)

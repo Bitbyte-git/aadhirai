@@ -14,6 +14,7 @@ import {
   InboxIcon,
   HistoryIcon,
   CheckIcon,
+  WarningIcon,
 } from "../components/SvgIcons";
 
 const METALS = [
@@ -822,7 +823,7 @@ export default function BuyCoin() {
 
             {msg && (
               <div className={`bc-alert ${msgType}`}>
-                {msgType === "success" ? <CheckIcon size={14} color="#137333" /> : "⚠️"}
+                {msgType === "success" ? <CheckIcon size={14} color="#137333" /> : <WarningIcon size={14} color="#C92035" />}
                 <span>{msg}</span>
               </div>
             )}

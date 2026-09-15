@@ -12,7 +12,7 @@ import {
   MailIcon,
   SparkleIcon,
   SearchIcon,
-  EyeIcon,
+  LocationIcon,
 } from "../components/SvgIcons";
 
 const ROLE_CONFIG = {
@@ -32,7 +32,7 @@ export default function MemberHoldingsDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copiedId, setCopiedId] = useState(false);
-  const [activeTab, setActiveTab] = useState("all"); // 'all' | 'coins' | 'jewellery'
+  const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [metalFilter, setMetalFilter] = useState("all");
 
@@ -82,7 +82,6 @@ export default function MemberHoldingsDetail() {
     label: member.role || "Member",
   };
 
-  // Filtered Coins
   const filteredCoins = useMemo(() => {
     return (coins.items || []).filter((item) => {
       if (metalFilter === "gold" && !item.metal_type?.includes("gold")) return false;
@@ -97,7 +96,6 @@ export default function MemberHoldingsDetail() {
     });
   }, [coins.items, metalFilter, search]);
 
-  // Filtered Jewellery
   const filteredJewellery = useMemo(() => {
     return (jewellery.items || []).filter((item) => {
       if (metalFilter === "gold" && item.metal?.toLowerCase() !== "gold") return false;
@@ -113,13 +111,50 @@ export default function MemberHoldingsDetail() {
     });
   }, [jewellery.items, metalFilter, search]);
 
+  // SKELETON LOADING STATE (Shimmer UI)
   if (loading) {
     return (
       <div className="mhd-page">
         <div className="mhd-container">
-          <div className="mhd-loading-box">
-            <div className="mhd-spinner" />
-            <p>Loading member asset holdings & live today's valuation...</p>
+          <div className="mhd-sk-box mhd-sk-back-btn" />
+
+          {/* Skeleton Hero Banner */}
+          <div className="mhd-sk-hero">
+            <div className="mhd-sk-hero-left">
+              <div className="mhd-sk-box mhd-sk-avatar" />
+              <div className="mhd-sk-hero-lines">
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <div className="mhd-sk-box" style={{ width: "90px", height: "24px" }} />
+                  <div className="mhd-sk-box" style={{ width: "130px", height: "24px" }} />
+                </div>
+                <div className="mhd-sk-box" style={{ width: "260px", height: "30px", margin: "10px 0" }} />
+                <div style={{ display: "flex", gap: "16px" }}>
+                  <div className="mhd-sk-box" style={{ width: "140px", height: "18px" }} />
+                  <div className="mhd-sk-box" style={{ width: "180px", height: "18px" }} />
+                </div>
+              </div>
+            </div>
+            <div className="mhd-sk-box mhd-sk-rates" />
+          </div>
+
+          {/* Skeleton 3 Metrics */}
+          <div className="mhd-sk-metrics">
+            <div className="mhd-sk-box mhd-sk-metric-card" />
+            <div className="mhd-sk-box mhd-sk-metric-card" />
+            <div className="mhd-sk-box mhd-sk-metric-card" />
+          </div>
+
+          {/* Skeleton Controls */}
+          <div className="mhd-sk-controls">
+            <div className="mhd-sk-box" style={{ width: "360px", height: "42px" }} />
+            <div className="mhd-sk-box" style={{ width: "240px", height: "42px" }} />
+          </div>
+
+          {/* Skeleton Grid */}
+          <div className="mhd-sk-grid">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div className="mhd-sk-box mhd-sk-grid-card" key={i} />
+            ))}
           </div>
         </div>
         <style>{styles}</style>
@@ -203,19 +238,19 @@ export default function MemberHoldingsDetail() {
               <div className="mhd-hero-contacts">
                 {member.phone && (
                   <div className="mhd-contact-item">
-                    <PhoneIcon size={13} color="#073B3F" />
+                    <PhoneIcon size={13} color="#0A4D52" />
                     <span>{member.phone}</span>
                   </div>
                 )}
                 {member.email && (
                   <div className="mhd-contact-item">
-                    <MailIcon size={13} color="#073B3F" />
+                    <MailIcon size={13} color="#0A4D52" />
                     <span>{member.email}</span>
                   </div>
                 )}
                 {(member.city || member.district) && (
                   <div className="mhd-contact-item">
-                    <span style={{ fontSize: "12px", color: "#5C706E" }}>📍</span>
+                    <LocationIcon size={13} color="#B45309" />
                     <span>{[member.city, member.district, member.state].filter(Boolean).join(", ")}</span>
                   </div>
                 )}
@@ -226,8 +261,8 @@ export default function MemberHoldingsDetail() {
           {/* Live Rates Ticker Box on Right */}
           <div className="mhd-rates-box">
             <div className="mhd-rates-header">
-              <SparkleIcon size={14} color="#D97706" />
-              <span>TODAY'S APPLIED RATES</span>
+              <SparkleIcon size={15} color="#D97706" />
+              <span>TODAY'S APPLIED SPOT RATES</span>
               <span className="mhd-live-pulse" />
             </div>
             <div className="mhd-rates-grid">
@@ -241,7 +276,7 @@ export default function MemberHoldingsDetail() {
               </div>
               <div className="mhd-rate-item">
                 <span className="mhd-rate-lbl">Silver 999</span>
-                <span className="mhd-rate-val">₹{Number(rates.silver_999 || 0).toLocaleString()} /g</span>
+                <span className="mhd-rate-val silver">₹{Number(rates.silver_999 || 0).toLocaleString()} /g</span>
               </div>
             </div>
           </div>
@@ -266,11 +301,11 @@ export default function MemberHoldingsDetail() {
           </div>
 
           {/* Card 2: Coins Asset */}
-          <div className="mhd-metric-card">
+          <div className="mhd-metric-card coins-card">
             <div className="mhd-metric-header">
               <span className="mhd-metric-label">COINS VALUATION</span>
-              <div className="mhd-mini-icon-box">
-                <CoinIcon size={16} color="#D97706" />
+              <div className="mhd-mini-icon-box gold">
+                <CoinIcon size={17} color="#B45309" />
               </div>
             </div>
             <div className="mhd-metric-val coins">
@@ -284,11 +319,11 @@ export default function MemberHoldingsDetail() {
           </div>
 
           {/* Card 3: Jewellery Asset */}
-          <div className="mhd-metric-card">
+          <div className="mhd-metric-card jewels-card">
             <div className="mhd-metric-header">
               <span className="mhd-metric-label">JEWELLERY VALUATION</span>
-              <div className="mhd-mini-icon-box">
-                <JewelryIcon size={16} color="#0C8A7B" />
+              <div className="mhd-mini-icon-box emerald">
+                <JewelryIcon size={17} color="#047857" />
               </div>
             </div>
             <div className="mhd-metric-val jewels">
@@ -353,9 +388,9 @@ export default function MemberHoldingsDetail() {
         {(activeTab === "all" || activeTab === "coins") && (
           <section className="mhd-section">
             <div className="mhd-section-header">
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <div className="mhd-section-icon gold">
-                  <CoinIcon size={18} color="#D97706" />
+                  <CoinIcon size={20} color="#B45309" />
                 </div>
                 <div>
                   <h2 className="mhd-section-title">Coin Holdings & Today's Valuation</h2>
@@ -438,9 +473,9 @@ export default function MemberHoldingsDetail() {
         {(activeTab === "all" || activeTab === "jewellery") && (
           <section className="mhd-section" style={{ marginTop: "32px" }}>
             <div className="mhd-section-header">
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <div className="mhd-section-icon green">
-                  <JewelryIcon size={18} color="#0C8A7B" />
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div className="mhd-section-icon emerald">
+                  <JewelryIcon size={20} color="#047857" />
                 </div>
                 <div>
                   <h2 className="mhd-section-title">Jewellery Holdings & Live Itemized Pricing</h2>
@@ -568,18 +603,112 @@ export default function MemberHoldingsDetail() {
 const styles = `
 .mhd-page {
   min-height: 100vh;
-  background: #F4F8F8;
-  padding: 24px 32px 60px;
+  width: 100%;
+  background: #F8FAF9;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(10, 77, 82, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(212, 175, 55, 0.06) 0px, transparent 50%);
+  padding: 24px 36px 64px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: #111817;
+  box-sizing: border-box;
 }
 
+/* WIDE FLUID CONTAINER - No wasted left/right blank margins */
 .mhd-container {
-  max-width: 1240px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
 }
 
-.mhd-loading-box, .mhd-error-box {
+/* SHIMMER SKELETON ANIMATIONS */
+@keyframes mhdShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.mhd-sk-box {
+  background: linear-gradient(90deg, #E2E8F0 25%, #EDF2F7 50%, #E2E8F0 75%);
+  background-size: 200% 100%;
+  animation: mhdShimmer 1.5s infinite;
+  border-radius: 12px;
+}
+
+.mhd-sk-back-btn {
+  width: 130px;
+  height: 36px;
+  margin-bottom: 20px;
+}
+
+.mhd-sk-hero {
+  background: #FFFFFF;
+  border: 1px solid #E1EBEA;
+  border-radius: 20px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.mhd-sk-hero-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.mhd-sk-avatar {
+  width: 70px;
+  height: 70px;
+  border-radius: 18px;
+  flex-shrink: 0;
+}
+
+.mhd-sk-hero-lines {
+  display: flex;
+  flex-direction: column;
+}
+
+.mhd-sk-rates {
+  width: 290px;
+  height: 110px;
+  border-radius: 16px;
+}
+
+.mhd-sk-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.mhd-sk-metric-card {
+  height: 130px;
+  border-radius: 18px;
+}
+
+.mhd-sk-controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.mhd-sk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.mhd-sk-grid-card {
+  height: 180px;
+  border-radius: 16px;
+}
+
+/* ERROR STATE */
+.mhd-error-box {
   background: #FFFFFF;
   border-radius: 20px;
   padding: 60px 24px;
@@ -589,20 +718,18 @@ const styles = `
   box-shadow: 0 4px 16px rgba(7, 59, 63, 0.04);
 }
 
-.mhd-spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid #E1EBEA;
-  border-top-color: #073B3F;
-  border-radius: 50%;
-  margin: 0 auto 16px;
-  animation: mhdSpin 0.7s linear infinite;
+.mhd-btn-retry {
+  padding: 10px 20px;
+  background: #0A4D52;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 14px;
 }
 
-@keyframes mhdSpin {
-  to { transform: rotate(360deg); }
-}
-
+/* NAV */
 .mhd-header-nav {
   display: flex;
   align-items: center;
@@ -618,45 +745,46 @@ const styles = `
   padding: 8px 16px;
   border-radius: 12px;
   background: #FFFFFF;
-  border: 1px solid #D6E2E1;
-  color: #073B3F;
+  border: 1.5px solid #D6E2E1;
+  color: #0A4D52;
   font-size: 13.5px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 150ms ease;
-  box-shadow: 0 2px 6px rgba(7, 59, 63, 0.04);
+  transition: all 180ms ease;
+  box-shadow: 0 2px 8px rgba(7, 59, 63, 0.04);
 }
 
 .mhd-btn-back:hover {
   background: #F0F6F5;
+  border-color: #0A4D52;
   transform: translateX(-2px);
 }
 
 .mhd-breadcrumb {
   font-size: 13.5px;
-  color: #7A8987;
+  color: #64748B;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .mhd-sep {
-  color: #B4CECC;
+  color: #94A3B8;
 }
 
 .mhd-current {
-  color: #073B3F;
-  font-weight: 700;
+  color: #0A4D52;
+  font-weight: 800;
 }
 
-/* Hero Card */
+/* HERO BANNER */
 .mhd-hero-card {
   background: #FFFFFF;
-  border: 1.5px solid #E1EBEA;
-  border-radius: 20px;
-  padding: 24px 28px;
+  border: 1.5px solid #D6E4E2;
+  border-radius: 22px;
+  padding: 24px 32px;
   margin-bottom: 24px;
-  box-shadow: 0 3px 16px rgba(7, 59, 63, 0.04);
+  box-shadow: 0 4px 22px rgba(7, 59, 63, 0.05);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -667,24 +795,25 @@ const styles = `
 .mhd-hero-left {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 22px;
   flex: 1;
   min-width: 280px;
 }
 
 .mhd-avatar-badge {
-  width: 68px;
-  height: 68px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #073B3F 0%, #0C4E53 100%);
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #0A4D52 0%, #063438 100%);
   color: #FFFFFF;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
-  font-weight: 800;
+  font-size: 30px;
+  font-weight: 900;
   flex-shrink: 0;
-  box-shadow: 0 6px 16px rgba(7, 59, 63, 0.2);
+  border: 2px solid #D4AF37;
+  box-shadow: 0 8px 24px rgba(6, 52, 56, 0.25);
 }
 
 .mhd-hero-top-row {
@@ -696,25 +825,25 @@ const styles = `
 }
 
 .mhd-role-pill {
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 8px;
   font-size: 11.5px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
 }
 
 .mhd-id-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 8px;
-  background: #F1F5F9;
+  background: #F8FAFC;
   border: 1px solid #E2E8F0;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+  color: #334155;
   cursor: pointer;
   transition: all 150ms ease;
 }
@@ -724,9 +853,9 @@ const styles = `
 }
 
 .mhd-hero-name {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
-  color: #073B3F;
+  color: #0A4D52;
   margin: 0 0 8px;
   letter-spacing: -0.01em;
 }
@@ -734,7 +863,7 @@ const styles = `
 .mhd-hero-contacts {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
   flex-wrap: wrap;
 }
 
@@ -743,17 +872,18 @@ const styles = `
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #4A5D5A;
-  font-weight: 500;
+  color: #475569;
+  font-weight: 600;
 }
 
-/* Rates Box */
+/* LIVE RATES CARD */
 .mhd-rates-box {
-  background: #FFFBEB;
-  border: 1.5px solid #FDE68A;
-  border-radius: 16px;
-  padding: 14px 18px;
-  min-width: 260px;
+  background: linear-gradient(135deg, #FFFDF0 0%, #FEF9C3 100%);
+  border: 1.5px solid #F6D860;
+  border-radius: 18px;
+  padding: 16px 20px;
+  min-width: 290px;
+  box-shadow: 0 4px 16px rgba(217, 119, 6, 0.08);
 }
 
 .mhd-rates-header {
@@ -763,13 +893,13 @@ const styles = `
   font-size: 11px;
   font-weight: 800;
   color: #92400E;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   margin-bottom: 10px;
 }
 
 .mhd-live-pulse {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: #16A34A;
   box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.25);
@@ -786,7 +916,7 @@ const styles = `
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .mhd-rate-lbl {
@@ -799,28 +929,47 @@ const styles = `
   font-weight: 800;
 }
 
-/* 3 Metrics Cards */
+.mhd-rate-val.silver {
+  color: #475569;
+}
+
+/* 3 METRIC CARDS */
 .mhd-metrics-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
+  gap: 20px;
   margin-bottom: 24px;
 }
 
 .mhd-metric-card {
   background: #FFFFFF;
-  border: 1.5px solid #E1EBEA;
-  border-radius: 18px;
-  padding: 20px 22px;
-  box-shadow: 0 2px 10px rgba(7, 59, 63, 0.03);
-  transition: all 180ms ease;
+  border: 1.5px solid #E2ECEB;
+  border-radius: 20px;
+  padding: 22px 26px;
+  box-shadow: 0 3px 14px rgba(7, 59, 63, 0.04);
+  transition: all 200ms ease;
+}
+
+.mhd-metric-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(7, 59, 63, 0.08);
 }
 
 .mhd-metric-card.highlight {
-  background: linear-gradient(135deg, #073B3F 0%, #0C4E53 100%);
-  border-color: #073B3F;
+  background: linear-gradient(135deg, #062D30 0%, #0A4347 55%, #0D5459 100%);
+  border-color: #0F5E64;
   color: #FFFFFF;
-  box-shadow: 0 6px 20px rgba(7, 59, 63, 0.2);
+  box-shadow: 0 10px 32px rgba(6, 45, 48, 0.22);
+}
+
+.mhd-metric-card.coins-card {
+  border-color: #FDE68A;
+  background: #FFFFFF;
+}
+
+.mhd-metric-card.jewels-card {
+  border-color: #A7F3D0;
+  background: #FFFFFF;
 }
 
 .mhd-metric-header {
@@ -831,10 +980,10 @@ const styles = `
 }
 
 .mhd-metric-label {
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 800;
   letter-spacing: 0.06em;
-  color: #5C706E;
+  color: #64748B;
   text-transform: uppercase;
 }
 
@@ -847,23 +996,30 @@ const styles = `
   font-weight: 800;
   padding: 2px 8px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.18);
   color: #FFFFFF;
 }
 
 .mhd-mini-icon-box {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: #F0F7F6;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+.mhd-mini-icon-box.gold {
+  background: #FEF3C7;
+}
+
+.mhd-mini-icon-box.emerald {
+  background: #ECFDF5;
+}
+
 .mhd-metric-val {
-  font-size: 26px;
-  font-weight: 800;
+  font-size: 28px;
+  font-weight: 900;
   line-height: 1.1;
   margin-bottom: 8px;
 }
@@ -873,16 +1029,16 @@ const styles = `
 }
 
 .mhd-metric-val.coins {
-  color: #D97706;
+  color: #B45309;
 }
 
 .mhd-metric-val.jewels {
-  color: #0C8A7B;
+  color: #047857;
 }
 
 .mhd-metric-sub {
-  font-size: 12px;
-  color: #5C706E;
+  font-size: 12.5px;
+  color: #64748B;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -896,7 +1052,7 @@ const styles = `
   opacity: 0.6;
 }
 
-/* Control Bar */
+/* CONTROL BAR */
 .mhd-control-bar {
   display: flex;
   justify-content: space-between;
@@ -910,31 +1066,31 @@ const styles = `
   display: flex;
   gap: 6px;
   background: #FFFFFF;
-  border: 1px solid #E1EBEA;
-  border-radius: 12px;
-  padding: 4px;
-  box-shadow: 0 1px 6px rgba(7, 59, 63, 0.02);
+  border: 1.5px solid #E2ECEB;
+  border-radius: 14px;
+  padding: 5px;
+  box-shadow: 0 2px 8px rgba(7, 59, 63, 0.03);
 }
 
 .mhd-tab-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
-  border-radius: 9px;
+  padding: 8px 18px;
+  border-radius: 10px;
   border: none;
   background: transparent;
-  color: #5C706E;
-  font-size: 13px;
+  color: #64748B;
+  font-size: 13.5px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 150ms ease;
+  transition: all 180ms ease;
 }
 
 .mhd-tab-btn.active {
-  background: #073B3F;
+  background: #0A4D52;
   color: #FFFFFF;
-  box-shadow: 0 2px 8px rgba(7, 59, 63, 0.16);
+  box-shadow: 0 4px 12px rgba(10, 77, 82, 0.22);
 }
 
 .mhd-filters {
@@ -949,10 +1105,10 @@ const styles = `
   align-items: center;
   gap: 8px;
   background: #FFFFFF;
-  border: 1px solid #D6E2E1;
-  border-radius: 10px;
-  padding: 7px 12px;
-  min-width: 240px;
+  border: 1.5px solid #D6E2E1;
+  border-radius: 12px;
+  padding: 8px 14px;
+  min-width: 260px;
 }
 
 .mhd-search-box input {
@@ -965,38 +1121,38 @@ const styles = `
 }
 
 .mhd-select {
-  padding: 7px 12px;
+  padding: 8px 14px;
   background: #FFFFFF;
-  border: 1px solid #D6E2E1;
-  border-radius: 10px;
+  border: 1.5px solid #D6E2E1;
+  border-radius: 12px;
   font-size: 13px;
-  color: #073B3F;
+  color: #0A4D52;
   font-weight: 700;
   cursor: pointer;
 }
 
-/* Sections */
+/* SECTION */
 .mhd-section {
   background: #FFFFFF;
-  border: 1.5px solid #E1EBEA;
-  border-radius: 20px;
-  padding: 24px;
-  box-shadow: 0 2px 14px rgba(7, 59, 63, 0.03);
+  border: 1.5px solid #E2ECEB;
+  border-radius: 22px;
+  padding: 26px 28px;
+  box-shadow: 0 4px 18px rgba(7, 59, 63, 0.03);
 }
 
 .mhd-section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 22px;
   flex-wrap: wrap;
   gap: 14px;
 }
 
 .mhd-section-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1006,20 +1162,20 @@ const styles = `
   background: #FEF3C7;
 }
 
-.mhd-section-icon.green {
-  background: #E6F4F2;
+.mhd-section-icon.emerald {
+  background: #ECFDF5;
 }
 
 .mhd-section-title {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 800;
-  color: #073B3F;
+  color: #0A4D52;
   margin: 0 0 3px;
 }
 
 .mhd-section-desc {
   font-size: 12.5px;
-  color: #5C706E;
+  color: #64748B;
   margin: 0;
 }
 
@@ -1031,19 +1187,19 @@ const styles = `
 
 .mhd-purity-pill {
   font-size: 11.5px;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 8px;
+  font-weight: 800;
+  padding: 5px 12px;
+  border-radius: 10px;
 }
 
 .mhd-purity-pill.g22 {
-  background: #FEF3C7;
+  background: #FFFBEB;
   color: #92400E;
   border: 1px solid #FDE68A;
 }
 
 .mhd-purity-pill.slv {
-  background: #F1F5F9;
+  background: #F8FAFC;
   color: #475569;
   border: 1px solid #E2E8F0;
 }
@@ -1057,29 +1213,30 @@ const styles = `
 .mhd-empty-card {
   text-align: center;
   padding: 40px;
-  color: #7A8987;
+  color: #94A3B8;
   font-size: 14px;
 }
 
-/* Coins Grid */
+/* COINS GRID */
 .mhd-coins-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 18px;
 }
 
 .mhd-coin-item-card {
-  background: #F8FAFA;
-  border: 1.5px solid #E1EBEA;
-  border-radius: 14px;
-  padding: 16px;
-  transition: all 150ms ease;
+  background: #FFFFFF;
+  border: 1.5px solid #E2ECEB;
+  border-radius: 16px;
+  padding: 18px;
+  transition: all 180ms ease;
+  box-shadow: 0 2px 8px rgba(7, 59, 63, 0.02);
 }
 
 .mhd-coin-item-card:hover {
-  border-color: #073B3F;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 14px rgba(7, 59, 63, 0.06);
+  border-color: #0A4D52;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(7, 59, 63, 0.09);
 }
 
 .mhd-cic-top {
@@ -1096,40 +1253,40 @@ const styles = `
 }
 
 .mhd-cic-dot {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
 .mhd-cic-name {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 800;
-  color: #073B3F;
+  color: #0A4D52;
   display: block;
 }
 
 .mhd-cic-weight-tag {
-  font-size: 11px;
-  font-weight: 600;
-  color: #7A8987;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #64748B;
 }
 
 .mhd-cic-qty-badge {
   font-size: 12px;
   font-weight: 800;
   background: #E6F4F2;
-  color: #073B3F;
-  padding: 3px 8px;
-  border-radius: 6px;
+  color: #0A4D52;
+  padding: 3px 9px;
+  border-radius: 7px;
 }
 
 .mhd-cic-specs-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  background: #FFFFFF;
-  border: 1px solid #E8EFF0;
+  background: #F8FAFA;
+  border: 1px solid #EAEFEF;
   border-radius: 10px;
   padding: 10px;
   margin-bottom: 12px;
@@ -1137,32 +1294,32 @@ const styles = `
 
 .mhd-cic-sublabel {
   font-size: 10.5px;
-  color: #7A8987;
+  color: #64748B;
   display: block;
   margin-bottom: 2px;
 }
 
 .mhd-cic-subval {
   font-size: 12.5px;
-  font-weight: 700;
-  color: #073B3F;
+  font-weight: 800;
+  color: #0A4D52;
 }
 
 .mhd-cic-subval.weight {
-  color: #D97706;
+  color: #B45309;
 }
 
 .mhd-cic-calc-box {
-  background: #FEF9C3;
-  border: 1px solid #FDE047;
-  border-radius: 10px;
-  padding: 10px 12px;
+  background: linear-gradient(135deg, #FFFDF0 0%, #FEF9C3 100%);
+  border: 1.5px solid #FDE047;
+  border-radius: 12px;
+  padding: 11px 13px;
 }
 
 .mhd-cic-calc-formula {
   font-size: 11px;
   color: #854D0E;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 4px;
 }
 
@@ -1174,51 +1331,53 @@ const styles = `
 
 .mhd-cic-calc-lbl {
   font-size: 11.5px;
-  font-weight: 700;
-  color: #713F12;
-}
-
-.mhd-cic-calc-amount {
-  font-size: 15.5px;
   font-weight: 800;
   color: #713F12;
 }
 
-/* Jewels Grid */
+.mhd-cic-calc-amount {
+  font-size: 16px;
+  font-weight: 900;
+  color: #713F12;
+}
+
+/* JEWELS GRID */
 .mhd-jewels-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 20px;
+  gap: 22px;
 }
 
 .mhd-jewel-card {
-  background: #F8FAFA;
-  border: 1.5px solid #E1EBEA;
-  border-radius: 16px;
-  padding: 18px;
+  background: #FFFFFF;
+  border: 1.5px solid #E2ECEB;
+  border-radius: 18px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  transition: all 150ms ease;
+  transition: all 180ms ease;
+  box-shadow: 0 2px 10px rgba(7, 59, 63, 0.03);
 }
 
 .mhd-jewel-card:hover {
-  border-color: #073B3F;
-  box-shadow: 0 6px 18px rgba(7, 59, 63, 0.08);
+  border-color: #0A4D52;
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(7, 59, 63, 0.1);
 }
 
 .mhd-jc-top {
   display: flex;
-  gap: 14px;
-  margin-bottom: 14px;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
 .mhd-jc-img-box {
-  width: 90px;
-  height: 90px;
-  border-radius: 12px;
-  background: #FFFFFF;
-  border: 1px solid #D6E2E1;
+  width: 95px;
+  height: 95px;
+  border-radius: 14px;
+  background: #F8FAFA;
+  border: 1.5px solid #D6E2E1;
   overflow: hidden;
   position: relative;
   display: flex;
@@ -1238,13 +1397,13 @@ const styles = `
   bottom: 4px;
   left: 4px;
   right: 4px;
-  background: rgba(7, 59, 63, 0.85);
+  background: rgba(10, 77, 82, 0.9);
   color: #FFFFFF;
   font-size: 9.5px;
   font-weight: 800;
   text-align: center;
   padding: 2px;
-  border-radius: 4px;
+  border-radius: 5px;
 }
 
 .mhd-jc-content {
@@ -1262,22 +1421,22 @@ const styles = `
 .mhd-jc-code {
   font-size: 11px;
   font-weight: 800;
-  color: #5C706E;
+  color: #64748B;
 }
 
 .mhd-jc-grade-pill {
   font-size: 10.5px;
   font-weight: 800;
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 6px;
   background: #FEF3C7;
   color: #92400E;
 }
 
 .mhd-jc-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 800;
-  color: #073B3F;
+  color: #0A4D52;
   margin: 0 0 8px;
   white-space: nowrap;
   overflow: hidden;
@@ -1287,30 +1446,30 @@ const styles = `
 .mhd-jc-specs-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 4px 10px;
-  font-size: 11.5px;
-  color: #5C706E;
+  gap: 5px 12px;
+  font-size: 12px;
+  color: #64748B;
 }
 
 .mhd-jc-spec strong {
-  color: #073B3F;
+  color: #0A4D52;
   margin-left: 3px;
 }
 
 /* Jewel Calculation Box */
 .mhd-jc-calc-box {
-  background: #FFFFFF;
-  border: 1px solid #E1EBEA;
-  border-radius: 12px;
-  padding: 12px 14px;
+  background: #F8FAFA;
+  border: 1.5px solid #E2ECEB;
+  border-radius: 14px;
+  padding: 14px 16px;
 }
 
 .mhd-jc-formula-title {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 800;
-  color: #0C8A7B;
+  color: #047857;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   margin-bottom: 8px;
 }
 
@@ -1319,9 +1478,9 @@ const styles = `
   flex-direction: column;
   gap: 4px;
   font-size: 12px;
-  color: #4A5D5A;
+  color: #475569;
   padding-bottom: 10px;
-  border-bottom: 1px dashed #E1EBEA;
+  border-bottom: 1px dashed #D6E2E1;
   margin-bottom: 10px;
 }
 
@@ -1332,7 +1491,7 @@ const styles = `
 
 .mhd-step-row.bold {
   font-weight: 800;
-  color: #073B3F;
+  color: #0A4D52;
   margin-top: 2px;
 }
 
@@ -1345,74 +1504,47 @@ const styles = `
 .mhd-jc-total-lbl {
   font-size: 11px;
   font-weight: 700;
-  color: #5C706E;
+  color: #64748B;
   display: block;
 }
 
 .mhd-jc-total-val {
   font-size: 18px;
-  font-weight: 800;
-  color: #073B3F;
+  font-weight: 900;
+  color: #0A4D52;
 }
 
 .mhd-btn-view-spec {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  border-radius: 8px;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 9px;
   background: #E6F4F2;
-  border: 1px solid #C4E5E1;
-  color: #073B3F;
+  border: 1px solid #BCE3DE;
+  color: #0A4D52;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
-  transition: all 150ms ease;
+  transition: all 180ms ease;
 }
 
 .mhd-btn-view-spec:hover {
-  background: #073B3F;
+  background: #0A4D52;
   color: #FFFFFF;
+  border-color: #0A4D52;
 }
 
-/* Responsive adjustments */
-@media (max-width: 900px) {
+/* Responsive */
+@media (max-width: 960px) {
   .mhd-metrics-grid {
     grid-template-columns: 1fr;
   }
   .mhd-jewels-grid {
     grid-template-columns: 1fr;
   }
-}
-
-@media (max-width: 600px) {
   .mhd-page {
-    padding: 16px 16px 40px;
-  }
-  .mhd-hero-card {
-    padding: 16px;
-  }
-  .mhd-avatar-badge {
-    width: 52px;
-    height: 52px;
-    font-size: 22px;
-  }
-  .mhd-hero-name {
-    font-size: 18px;
-  }
-  .mhd-control-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .mhd-tabs {
-    flex-direction: column;
-  }
-  .mhd-filters {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .mhd-search-box {
-    min-width: 100%;
+    padding: 16px 20px 48px;
   }
 }
 `;

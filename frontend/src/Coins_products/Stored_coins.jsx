@@ -213,13 +213,13 @@ export default function StoredCoins() {
           color: #111817;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
           box-sizing: border-box;
-          padding: 24px 48px 64px;
+          padding: 24px 32px 64px;
         }
 
         .sc-shell {
           width: 100%;
-          max-width: 1440px;
-          margin: 0 auto;
+          max-width: 100%;
+          margin: 0;
         }
 
         .sc-topbar {
@@ -401,15 +401,17 @@ export default function StoredCoins() {
 
         .sc-stat-card {
           background: #FFFFFF;
-          border: 1px solid #E1EBEA;
+          border: 1px solid #E2E8F0;
           border-radius: 18px;
-          padding: 20px 24px;
-          box-shadow: 0 4px 18px rgba(7, 59, 63, 0.03);
-          transition: transform 180ms ease;
+          padding: 22px 26px;
+          box-shadow: 0 4px 20px rgba(7, 59, 63, 0.05);
+          transition: all 200ms ease;
+          position: relative;
         }
 
         .sc-stat-card:hover {
-          transform: translateY(-2px);
+          transform: translateY(-3px);
+          box-shadow: 0 10px 25px rgba(7, 59, 63, 0.09);
         }
 
         .sc-stat-header {

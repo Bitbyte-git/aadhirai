@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import CoinTabs from "./CoinTabs";
+import { JewelleryCardSkeletonGrid } from "./JewellerySkeleton";
 import {
   JewelryIcon,
   PlusIcon,
@@ -348,11 +349,13 @@ export default function AvailableJewellery() {
           background: #F8FBFB;
         }
 
-        .aj-stat-card.active::after {
-          content: "Active Filter ✓";
+        .aj-active-badge {
           position: absolute;
           top: 12px;
           right: 14px;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
           font-size: 10px;
           font-weight: 800;
           padding: 2px 8px;
@@ -777,6 +780,9 @@ export default function AvailableJewellery() {
               onClick={() => setHierarchyPurityFilter("all")}
               title="Click to view all team jewellery holdings"
             >
+              {hierarchyPurityFilter === "all" && (
+                <span className="aj-active-badge"><CheckIcon size={9} color="#FFFFFF" /> Active Filter</span>
+              )}
               <div className="aj-stat-label">Total Jewellery in Team</div>
               <div className="aj-stat-val">{hierarchyAggregates.totalPieces.toLocaleString()} pcs</div>
               <div className="aj-stat-sub">Distributed across all roles • Click to view all</div>
@@ -788,6 +794,9 @@ export default function AvailableJewellery() {
               onClick={() => setHierarchyPurityFilter(hierarchyPurityFilter === "gold_22k" ? "all" : "gold_22k")}
               title="Click to filter only Gold 22K holdings"
             >
+              {hierarchyPurityFilter === "gold_22k" && (
+                <span className="aj-active-badge"><CheckIcon size={9} color="#FFFFFF" /> Active Filter</span>
+              )}
               <div className="aj-stat-label">Gold 22K (916) Holdings</div>
               <div className="aj-stat-val">{hierarchyAggregates.gold22kPieces} pcs</div>
               <div className="aj-stat-sub">{hierarchyAggregates.gold22kGrams} g total net • Click to filter</div>
@@ -799,6 +808,9 @@ export default function AvailableJewellery() {
               onClick={() => setHierarchyPurityFilter(hierarchyPurityFilter === "gold_24k" ? "all" : "gold_24k")}
               title="Click to filter only Gold 24K holdings"
             >
+              {hierarchyPurityFilter === "gold_24k" && (
+                <span className="aj-active-badge"><CheckIcon size={9} color="#FFFFFF" /> Active Filter</span>
+              )}
               <div className="aj-stat-label">Gold 24K (999) Holdings</div>
               <div className="aj-stat-val">{hierarchyAggregates.gold24kPieces} pcs</div>
               <div className="aj-stat-sub">{hierarchyAggregates.gold24kGrams} g total net • Click to filter</div>
@@ -810,6 +822,9 @@ export default function AvailableJewellery() {
               onClick={() => setHierarchyPurityFilter(hierarchyPurityFilter === "silver_999" ? "all" : "silver_999")}
               title="Click to filter only Silver 999 holdings"
             >
+              {hierarchyPurityFilter === "silver_999" && (
+                <span className="aj-active-badge"><CheckIcon size={9} color="#FFFFFF" /> Active Filter</span>
+              )}
               <div className="aj-stat-label">Silver 999 Holdings</div>
               <div className="aj-stat-val">{hierarchyAggregates.silverPieces} pcs</div>
               <div className="aj-stat-sub">{hierarchyAggregates.silverGrams} g total net • Click to filter</div>
@@ -823,6 +838,9 @@ export default function AvailableJewellery() {
               onClick={() => setMetalFilter("all")}
               title="Click to show all vault designs"
             >
+              {metalFilter === "all" && (
+                <span className="aj-active-badge"><CheckIcon size={9} color="#FFFFFF" /> Active Filter</span>
+              )}
               <div className="aj-stat-label">My In-Hand Designs</div>
               <div className="aj-stat-val">{myStock.length} designs</div>
               <div className="aj-stat-sub">
@@ -836,6 +854,9 @@ export default function AvailableJewellery() {
               onClick={() => setMetalFilter(metalFilter === "gold" ? "all" : "gold")}
               title="Click to filter Gold designs"
             >
+              {metalFilter === "gold" && (
+                <span className="aj-active-badge"><CheckIcon size={9} color="#FFFFFF" /> Active Filter</span>
+              )}
               <div className="aj-stat-label">Gold Designs</div>
               <div className="aj-stat-val">
                 {myStock.filter((s) => s.product?.metal?.toLowerCase() === "gold").length}
@@ -849,6 +870,9 @@ export default function AvailableJewellery() {
               onClick={() => setMetalFilter(metalFilter === "silver" ? "all" : "silver")}
               title="Click to filter Silver designs"
             >
+              {metalFilter === "silver" && (
+                <span className="aj-active-badge"><CheckIcon size={9} color="#FFFFFF" /> Active Filter</span>
+              )}
               <div className="aj-stat-label">Silver Designs</div>
               <div className="aj-stat-val">
                 {myStock.filter((s) => s.product?.metal?.toLowerCase() === "silver").length}
@@ -919,9 +943,7 @@ export default function AvailableJewellery() {
         {/* VIEW 1: HIERARCHY TEAM CARDS */}
         {scope === "hierarchy" && isSuperAdmin ? (
           hierarchyLoading ? (
-            <div style={{ textAlign: "center", padding: "60px", color: "#5C706E" }}>
-              Loading team jewellery holdings...
-            </div>
+            <JewelleryCardSkeletonGrid count={8} />
           ) : filteredHierarchy.length === 0 ? (
             <div
               style={{
@@ -1155,9 +1177,7 @@ export default function AvailableJewellery() {
         ) : (
           /* VIEW 2: MY VAULT INVENTORY */
           loading ? (
-            <div style={{ textAlign: "center", padding: "60px", color: "#5C706E" }}>
-              Loading your available jewellery...
-            </div>
+            <JewelleryCardSkeletonGrid count={8} />
           ) : filteredMyStock.length === 0 ? (
             <div
               style={{

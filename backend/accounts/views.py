@@ -6848,12 +6848,16 @@ class RechargeCreateOrderView(APIView):
 
         coins = int(amount * COIN_RATE_PER_RUPEE)
 
-        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
-        razorpay_order = client.order.create({
-            "amount": int(amount * 100),
-            "currency": "INR",
-            "payment_capture": 1,
-        })
+        try:
+            client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+            razorpay_order = client.order.create({
+                "amount": int(amount * 100),
+                "currency": "INR",
+                "payment_capture": 1,
+            })
+        except Exception as e:
+            print(f"[RECHARGE ORDER] Razorpay order creation failed: {e}")
+            return Response({'error': f'Unable to start payment: {str(e)}'}, status=502)
 
         recharge = CoinRecharge.objects.create(
             user=request.user,

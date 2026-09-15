@@ -63,6 +63,7 @@ export default function Register() {
   const [canResend, setCanResend] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
   const [otpNotice, setOtpNotice] = useState("");
+  const [regSuccessModal, setRegSuccessModal] = useState(false);
 
   const otpInputRefs = useRef([]);
 
@@ -282,17 +283,9 @@ export default function Register() {
       setShowOtpModal(false);
       setGlobalMsg({
         type: "success",
-        text: "Account registered successfully! Redirecting you...",
+        text: "Account registered successfully!",
       });
-
-      // Direct purchase or target redirect
-      setTimeout(() => {
-        if (redirectUrl) {
-          navigate(redirectUrl, { replace: true });
-        } else {
-          navigate("/customer", { replace: true });
-        }
-      }, 1000);
+      setRegSuccessModal(true);
     } catch (err) {
       const errorMsg = err.response?.data?.error || "Verification failed. Please check the code and try again.";
       setOtpError(errorMsg);
@@ -705,34 +698,36 @@ export default function Register() {
         }
         .ath-reg-actions {
           display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-top: 28px;
-          flex-wrap: wrap;
+          flex-direction: column;
+          align-items: stretch;
+          margin-top: 32px;
           gap: 16px;
+          width: 100%;
         }
         .ath-btn-submit {
-          min-height: 50px;
-          padding: 0 34px;
-          border-radius: 999px;
-          background: #073B3F;
+          min-height: 54px;
+          width: 100%;
+          padding: 0 24px;
+          border-radius: 14px;
+          background: linear-gradient(115deg, #0a4445, #073438);
           color: #FFFFFF;
           border: 0;
-          font-size: 14px;
+          font-size: 15px;
           font-weight: 800;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.06em;
           text-transform: uppercase;
           cursor: pointer;
           box-shadow: 0 12px 28px rgba(7, 59, 63, 0.22);
           transition: all 0.2s ease;
-          display: inline-flex;
+          display: flex;
           align-items: center;
           justify-content: center;
           gap: 10px;
         }
         .ath-btn-submit:hover:not(:disabled) {
-          background: #094a4f;
-          transform: translateY(-1px);
+          background: linear-gradient(115deg, #0d5354, #094045);
+          transform: translateY(-2px);
+          box-shadow: 0 16px 36px rgba(7, 59, 63, 0.32);
         }
         .ath-btn-submit:disabled {
           opacity: 0.65;
@@ -741,6 +736,8 @@ export default function Register() {
         .ath-signin-prompt {
           font-size: 14px;
           color: #5d6f6c;
+          text-align: center;
+          width: 100%;
         }
         .ath-signin-link {
           color: #073B3F;
@@ -904,33 +901,65 @@ export default function Register() {
           }
           .ath-reg-story {
             position: static;
-            padding: 34px 26px;
+            padding: 28px 22px;
+            border-radius: 20px;
+          }
+          .ath-story-perks {
+            display: none;
           }
         }
 
         @media (max-width: 768px) {
           .ath-reg-shell {
             width: 100%;
-            padding: 18px 12px 60px;
+            padding: 14px 12px 50px;
+          }
+          .ath-reg-story {
+            padding: 20px 18px;
+            gap: 16px;
+            border-radius: 18px;
+          }
+          .ath-story-copy h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+          }
+          .ath-story-copy p {
+            font-size: 13px;
+            margin-bottom: 12px;
+          }
+          .ath-story-trust {
+            padding-top: 14px;
+          }
+          .ath-story-trust b {
+            font-size: 14px;
+          }
+          .ath-reg-hero {
+            margin-bottom: 16px;
+          }
+          .ath-reg-title {
+            font-size: 23px;
           }
           .ath-reg-card {
-            padding: 24px 18px;
-            border-radius: 20px;
+            padding: 20px 16px;
+            border-radius: 18px;
+          }
+          .ath-reg-sec {
+            margin-bottom: 20px;
+            padding-bottom: 18px;
+          }
+          .ath-reg-sec-title {
+            font-size: 13.5px;
           }
           .ath-reg-grid.cols-3,
           .ath-reg-grid.cols-2,
           .ath-reg-grid.cols-4 {
             grid-template-columns: 1fr;
+            gap: 14px;
           }
-          .ath-reg-actions {
-            flex-direction: column;
-            align-items: stretch;
-          }
-          .ath-btn-submit {
-            width: 100%;
-          }
-          .ath-signin-prompt {
-            text-align: center;
+          .ath-field input,
+          .ath-field select {
+            padding: 11px 12px;
+            font-size: 14px;
           }
           .ath-otp-digit {
             width: 38px;
@@ -1426,4 +1455,34 @@ export default function Register() {
                 </button>
               </div>
             </div>
-          </di
+          </div>
+        </div>
+      )}
+
+      {/* Registration Success Modal Popup */}
+      <ActionSuccessModal
+        isOpen={regSuccessModal}
+        onClose={() => {
+          setRegSuccessModal(false);
+          if (redirectUrl) {
+            navigate(redirectUrl, { replace: true });
+          } else {
+            navigate("/customer", { replace: true });
+          }
+        }}
+        type="success"
+        title="Registration Successful!"
+        message={`Welcome to Athirai, ${form.first_name || "User"}! Your user account has been registered and verified successfully.`}
+        details={[
+          { label: "User Name", value: `${form.first_name} ${form.last_name}`.trim() || form.first_name },
+          { label: "Mobile Number", value: form.mobile_number },
+          { label: "Email Address", value: form.email },
+          { label: "Account Status", value: "Active & Verified", highlight: true },
+        ]}
+        buttonText="Continue to Athirai"
+      />
+
+      <CustomerFooter />
+    </main>
+  );
+}

@@ -59,7 +59,7 @@ function MoreFromCollection({ currentProductId, category, metal, gender, occasio
       if (gender && gender !== 'all') params.append('gender', gender)
       if (occasion) params.append('occasion', occasion)
 
-      api.get(`/products/?${params.toString()}`)
+      api.get(`/jewelry-products/?${params.toString()}`)
         .then(res => {
           if (cancelled) return
           const raw = Array.isArray(res.data) ? res.data : (res.data.results || [])

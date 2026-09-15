@@ -7073,22 +7073,48 @@ class OrderReceiptPDFView(APIView):
         elements = []
 
         # ── Price breakdown — reverse-engineered from the real, already-charged unit_price
-        # (the historical truth) using the linked product's making-charge %, via the same
-        # base_metal -> +making% -> +3% GST formula used everywhere else in this app
-        # (see the jewellery valuation views). Weight comes straight from the product record.
-        # There is no discount system anywhere in this app, so it's always Rs. 0 — shown
-        # honestly rather than invented.
+        # (the historical truth) using the linked product's making-charge %, stone value and
+        # its real discount (product.original_price vs product.price, set via the
+        # "Discount (%)" field on Add New Product — see add_new_product.jsx's calcAll:
+        # discount is applied to (base_metal + making_charge) ONLY — stone_value is added
+        # afterwards, un-discounted — then 3% GST is applied on top of everything, and both
+        # price fields already carry that same GST). Weight comes straight from the product record.
         qty = order.quantity or 1
         unit_price = float(order.unit_price or 0)
         making_pct = float(order.product.making_charge or 0) if order.product else 0
         net_weight = float(order.product.net_weight or 0) if order.product else 0
-        gst_divisor = (1 + making_pct / 100.0) * 1.03
-        base_metal_unit = (unit_price / gst_divisor) if gst_divisor else unit_price
-        making_unit = base_metal_unit * (making_pct / 100.0)
-        gst_unit = unit_price - base_metal_unit - making_unit
+        stone_weight = float(order.product.stone_weight or 0) if order.product else 0
+        stone_value = float(order.product.stone_value or 0) if order.product else 0
+        has_stone = stone_weight > 0 or stone_value > 0
+        stone_rate = (stone_value / stone_weight) if stone_weight else 0.0
+
+        price_now = float(order.product.price or 0) if order.product else 0
+        original_now = float(order.product.original_price or 0) if order.product else 0
+
+        # Real discount %, computed on metal+making only — stone is never discounted, so it
+        # has to be stripped out (along with GST) from both current price fields before
+        # comparing them, otherwise a stone-heavy product would understate its true % off.
+        metal_making_now = (original_now / 1.03) - stone_value if original_now else 0.0
+        metal_making_discounted_now = (price_now / 1.03) - stone_value if price_now else 0.0
+        discount_ratio = (
+            (metal_making_now - metal_making_discounted_now) / metal_making_now
+        ) if metal_making_now > 0 and metal_making_now > metal_making_discounted_now else 0.0
+
+        # unit_price is the real, already-discounted + GST-inclusive amount that was charged,
+        # stone included. Strip GST and stone first, undo the discount to recover the
+        # pre-discount metal+making amount, then split that into base metal / making charge.
+        pretax_unit = unit_price / 1.03
+        metal_making_unit = pretax_unit - stone_value
+        pre_discount_metal_making = (metal_making_unit / (1 - discount_ratio)) if discount_ratio < 1 else metal_making_unit
+        discount_unit = pre_discount_metal_making - metal_making_unit
+        base_metal_unit = (pre_discount_metal_making / (1 + making_pct / 100.0)) if making_pct else pre_discount_metal_making
+        making_unit = pre_discount_metal_making - base_metal_unit
+        gst_unit = unit_price - pretax_unit
         base_metal_total = base_metal_unit * qty
         making_total = making_unit * qty
         gst_total = gst_unit * qty
+        discount_total = discount_unit * qty
+        stone_total = stone_value * qty
         total_weight = net_weight * qty
 
         receipt_id = 'BBRCT' + order.order_id[5:] if order.order_id.startswith('BBORD') else f'BBRCT-{order.id}'
@@ -7097,10 +7123,10 @@ class OrderReceiptPDFView(APIView):
         # asset is ever missing) + brand name, full content width ──
         logo_path = settings.BASE_DIR / 'accounts' / 'assets' / 'athirai_logo.png'
         try:
-            logo_mark = RLImage(str(logo_path), width=34, height=34)
+            logo_mark = RLImage(str(logo_path), width=56, height=56)
         except Exception:
-            logo_mark = _gem_icon(20)
-        brand_row = Table([[logo_mark, Paragraph('ATHIRAI', brand_style)]], colWidths=[40, None])
+            logo_mark = _gem_icon(32)
+        brand_row = Table([[logo_mark, Paragraph('ATHIRAI', brand_style)]], colWidths=[64, None])
         brand_row.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('LEFTPADDING', (1, 0), (1, 0), 8),
@@ -7199,41 +7225,52 @@ class OrderReceiptPDFView(APIView):
         elements.append(Spacer(1, 4))
 
         # ── Price Breakdown — Base Metal + Making Charge + GST - Discount = Total.
-        # Discount is always Rs. 0.00 (this app has no discount/coupon system), shown
-        # honestly rather than invented.
+        # Discount is real (see calc above) — derived from the product's own
+        # original_price vs price, not invented.
         breakdown_label_style = ParagraphStyle('BreakdownLabel', parent=styles['Normal'],
                                                  textColor=colors.HexColor('#5C706E'), fontSize=9.5)
         breakdown_val_style = ParagraphStyle('BreakdownVal', parent=styles['Normal'],
                                               textColor=colors.HexColor('#111817'), fontSize=9.5,
                                               fontName='Helvetica-Bold', alignment=TA_RIGHT)
-        breakdown_table = Table([
+        discount_val_style = ParagraphStyle('DiscountVal', parent=breakdown_val_style, textColor=colors.HexColor('#C92035'))
+        discount_label = f'Discount ({discount_ratio * 100:.0f}%)' if discount_ratio > 0 else 'Discount'
+        discount_display = f"− Rs. {discount_total:,.2f}" if discount_total > 0 else "Rs. 0.00"
+        # Narrower block (not full page width) hugging the right edge, same place the
+        # TOTAL amount below sits — avoids a big empty gap between label and value.
+        summary_width = content_width * 0.55
+        breakdown_rows = [
             [Paragraph('Base Metal Value', breakdown_label_style), Paragraph(f"Rs. {base_metal_total:,.2f}", breakdown_val_style)],
             [Paragraph(f"Making Charge ({making_pct:.0f}%)", breakdown_label_style), Paragraph(f"Rs. {making_total:,.2f}", breakdown_val_style)],
-            [Paragraph('GST (3%)', breakdown_label_style), Paragraph(f"Rs. {gst_total:,.2f}", breakdown_val_style)],
-            [Paragraph('Discount', breakdown_label_style), Paragraph('Rs. 0.00', breakdown_val_style)],
-        ], colWidths=[content_width * 0.7, content_width * 0.3])
+        ]
+        # Stone Weight + Rate — only for products that actually carry a stone; plain
+        # gold/silver pieces (no stone_weight/stone_value on the product) skip this row.
+        if has_stone:
+            stone_label = f"Stone Value ({stone_weight:.3f} g @ Rs. {stone_rate:,.2f}/g)" if stone_weight else 'Stone Value'
+            breakdown_rows.append([Paragraph(stone_label, breakdown_label_style), Paragraph(f"Rs. {stone_total:,.2f}", breakdown_val_style)])
+        breakdown_rows.append([Paragraph('GST (3%)', breakdown_label_style), Paragraph(f"Rs. {gst_total:,.2f}", breakdown_val_style)])
+        breakdown_rows.append([Paragraph(discount_label, breakdown_label_style), Paragraph(discount_display, discount_val_style)])
+        breakdown_rows.append([Paragraph('Payment Method', breakdown_label_style), Paragraph(order.get_payment_method_display(), breakdown_val_style)])
+        breakdown_table = Table(breakdown_rows, colWidths=[summary_width * 0.55, summary_width * 0.45])
+        breakdown_table.hAlign = 'RIGHT'
         breakdown_table.setStyle(TableStyle([
             ('LEFTPADDING', (0, 0), (-1, -1), 16), ('RIGHTPADDING', (0, 0), (-1, -1), 16),
             ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
         ]))
         elements.append(breakdown_table)
 
-        # ── Total bar — same full content width, shaded, right-aligned amount ──
+        # ── Total bar — same full content width, shaded, bold, for emphasis ──
         total_table = Table([
-            ['Payment Method', order.get_payment_method_display()],
             ['TOTAL AMOUNT PAID', f"Rs. {order.total_price:,.2f}"],
         ], colWidths=[content_width * 0.6, content_width * 0.4])
         total_table.setStyle(TableStyle([
             ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
             ('LEFTPADDING', (0, 0), (-1, -1), 16), ('RIGHTPADDING', (0, 0), (-1, -1), 16),
-            ('TOPPADDING', (0, 0), (-1, -1), 8), ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            ('FONTSIZE', (0, 0), (-1, 0), 9.5),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#5C706E')),
-            ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#F5F8F8')),
-            ('LINEABOVE', (0, 1), (-1, 1), 0.75, colors.HexColor('#D1DFDE')),
-            ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 1), (-1, 1), 13),
-            ('TEXTCOLOR', (0, 1), (-1, 1), colors.HexColor('#073B3F')),
+            ('TOPPADDING', (0, 0), (-1, -1), 10), ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F5F8F8')),
+            ('LINEABOVE', (0, 0), (-1, 0), 0.75, colors.HexColor('#D1DFDE')),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 13),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#073B3F')),
         ]))
         elements.append(total_table)
         elements.append(Spacer(1, 22))

@@ -360,6 +360,9 @@ export default function Register() {
       <style>{`
         .ath-reg-root {
           min-height: 100vh;
+          width: 100%;
+          overflow-x: hidden;
+          box-sizing: border-box;
           background: #edf1ee;
           background-image: radial-gradient(rgba(7, 59, 63, 0.08) 0.6px, transparent 0.6px);
           background-size: 8px 8px;
@@ -372,12 +375,16 @@ export default function Register() {
           margin: 0 auto;
           padding: 36px 28px 80px;
           box-sizing: border-box;
+          overflow-x: hidden;
         }
         .ath-reg-split-container {
           display: grid;
           grid-template-columns: 400px 1fr;
           gap: 32px;
           align-items: start;
+          width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
         }
 
         /* Left Story Card (Matching LoginPage Luxury Emerald Aesthetic) */
@@ -1027,12 +1034,16 @@ export default function Register() {
         @media (max-width: 992px) {
           .ath-reg-split-container {
             grid-template-columns: 1fr;
-            gap: 20px;
+            gap: 24px;
           }
           .ath-reg-story {
-            position: static;
+            position: relative;
+            top: auto !important;
+            overflow: hidden;
             padding: 24px 20px;
             border-radius: 20px;
+            width: 100%;
+            box-sizing: border-box;
           }
           .ath-story-perks {
             display: none;
@@ -1044,14 +1055,30 @@ export default function Register() {
         }
 
         @media (max-width: 768px) {
+          .ath-reg-story:before {
+            display: none !important;
+          }
           .ath-reg-shell {
             width: 100%;
-            padding: 12px 10px 40px;
+            max-width: 100%;
+            padding: 14px 10px 40px;
+            box-sizing: border-box;
+            overflow-x: hidden;
+          }
+          .ath-reg-split-container {
+            width: 100%;
+            min-width: 0;
+            gap: 20px;
           }
           .ath-reg-story {
-            padding: 16px 14px;
-            gap: 12px;
-            border-radius: 16px;
+            position: relative;
+            top: auto !important;
+            overflow: hidden;
+            padding: 18px 14px;
+            gap: 14px;
+            border-radius: 18px;
+            width: 100%;
+            box-sizing: border-box;
           }
           .ath-brand b {
             font-size: 17px;
@@ -1068,31 +1095,69 @@ export default function Register() {
             display: none;
           }
           .ath-story-trust {
-            padding-top: 10px;
-            gap: 8px;
+            padding-top: 12px;
+            gap: 6px;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            width: 100%;
+            box-sizing: border-box;
+          }
+          .ath-story-trust div {
+            min-width: 0;
+            overflow: hidden;
+            text-align: center;
+          }
+          .ath-story-trust div + div {
+            padding-left: 6px;
+            border-left: 1px solid rgba(255, 255, 255, 0.12);
           }
           .ath-story-trust b {
             font-size: 13px;
           }
           .ath-story-trust span {
-            font-size: 10px;
+            font-size: 9px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
           }
           .ath-story-signin-box {
             display: none;
           }
           .ath-reg-hero {
             margin-bottom: 14px;
+            width: 100%;
+          }
+          .ath-reg-hero-top {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+            width: 100%;
+          }
+          .ath-reg-badge {
+            font-size: 11px;
+            padding: 5px 12px;
+          }
+          .ath-quick-fill-btn {
+            font-size: 11px;
+            padding: 5px 12px;
           }
           .ath-reg-title {
             font-size: 21px;
+            word-break: break-word;
           }
           .ath-reg-subtitle {
             font-size: 12.5px;
             margin-bottom: 12px;
+            line-height: 1.5;
           }
           .ath-reg-card {
             padding: 18px 14px;
             border-radius: 18px;
+            width: 100%;
+            box-sizing: border-box;
+            min-width: 0;
+            overflow: hidden;
           }
           .ath-reg-sec {
             margin-bottom: 18px;
@@ -1106,6 +1171,11 @@ export default function Register() {
           .ath-reg-grid.cols-2 {
             grid-template-columns: 1fr;
             gap: 12px;
+            width: 100%;
+          }
+          .ath-field {
+            width: 100%;
+            min-width: 0;
           }
           .ath-field label {
             font-size: 11px;
@@ -1113,19 +1183,34 @@ export default function Register() {
           }
           .ath-field input,
           .ath-field select {
-            padding: 12px 14px;
+            padding: 12px 12px;
             font-size: 16px; /* Prevents iOS Safari auto-zoom */
             min-height: 48px;
             border-radius: 12px;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
           }
           .ath-btn-submit {
-            min-height: 52px;
-            font-size: 14.5px;
+            min-height: 48px;
+            font-size: 14px;
             border-radius: 14px;
+            width: 100%;
+            box-sizing: border-box;
+          }
+          .ath-modal-box {
+            padding: 24px 16px;
+            width: min(420px, calc(100vw - 24px));
+            box-sizing: border-box;
+          }
+          .ath-otp-inputs {
+            gap: 6px;
+            justify-content: center;
+            width: 100%;
           }
           .ath-otp-digit {
-            width: 38px;
-            height: 48px;
+            width: clamp(34px, 10vw, 42px);
+            height: clamp(42px, 12vw, 50px);
             font-size: 20px;
           }
         }
@@ -1134,15 +1219,25 @@ export default function Register() {
           .ath-reg-shell {
             padding: 8px 6px 36px;
           }
+          .ath-reg-story {
+            padding: 14px 12px;
+          }
           .ath-reg-card {
-            padding: 16px 12px;
+            padding: 15px 10px;
+            border-radius: 16px;
           }
           .ath-reg-title {
             font-size: 19px;
           }
           .ath-btn-submit {
-            min-height: 50px;
-            font-size: 14px;
+            min-height: 48px;
+            font-size: 13.5px;
+          }
+          .ath-story-trust b {
+            font-size: 12px;
+          }
+          .ath-story-trust span {
+            font-size: 8px;
           }
         }
       `}</style>
@@ -1244,7 +1339,7 @@ export default function Register() {
                   ⚡ Quick Demo Fill
                 </button>
               </div>
-              <h1 className="ath-reg-title">Create Your User Account</h1>
+              <h1 className="ath-reg-title">Register User</h1>
               <p className="ath-reg-subtitle">
                 Fill in your details below to activate verified user privileges and enjoy direct purchasing, orders, and exclusive jewellery collections.
               </p>

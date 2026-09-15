@@ -128,6 +128,15 @@ function Icon({ name, size = 20, filled = false }) {
         <path d="M6 17l3-3" />
       </>
     ),
+    receipt: (
+      <>
+        <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z" />
+        <path d="M8 7h8M8 11h8M8 15h4" />
+      </>
+    ),
+    chevronRight: (
+      <path d="m9 18 6-6-6-6" />
+    ),
   };
 
   return <svg {...common}>{paths[name]}</svg>;
@@ -2332,70 +2341,369 @@ export default function CustomerNavbar() {
         .role-drawer-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(17,24,23,0.55);
-          backdrop-filter: blur(4px);
+          background: rgba(7, 24, 26, 0.52);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
           z-index: 10050;
           display: flex;
           justify-content: flex-end;
+          animation: role-drawer-fade 200ms ease both;
+        }
+
+        @keyframes role-drawer-fade {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
 
         .role-drawer {
-          width: 260px;
-          max-width: 80vw;
+          width: 340px;
+          max-width: 88vw;
           height: 100%;
-          background: var(--bb-bg, #FDFDFC);
-          box-shadow: -12px 0 40px rgba(7,59,63,0.22);
-          padding: 20px;
+          background: #ffffff;
+          box-shadow: -16px 0 50px rgba(7, 45, 48, 0.24);
+          display: flex;
+          flex-direction: column;
           box-sizing: border-box;
-          animation: role-drawer-in 220ms ease both;
+          animation: role-drawer-slide 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+          position: relative;
+          overflow: hidden;
         }
 
-        @keyframes role-drawer-in {
+        @keyframes role-drawer-slide {
           from { transform: translateX(100%); }
           to { transform: translateX(0); }
+        }
+
+        .role-drawer-top-accent {
+          height: 3px;
+          width: 100%;
+          background: linear-gradient(90deg, #CCA881, #E5C378 40%, #073B3F);
+          flex-shrink: 0;
         }
 
         .role-drawer-head {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 18px;
-          padding-bottom: 12px;
-          border-bottom: 1px solid var(--bb-soft-aqua, #D1DFDE);
+          padding: 18px 20px 14px;
+          border-bottom: 1px solid #EDF4F3;
+          flex-shrink: 0;
+          background: #FAFDFD;
+        }
+
+        .role-drawer-brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .role-drawer-logo-mark {
+          width: 32px;
+          height: 32px;
+          border-radius: 9px;
+          background: rgba(7, 59, 63, 0.08);
+          border: 1px solid rgba(204, 168, 129, 0.4);
+          display: grid;
+          place-items: center;
           color: #073B3F;
+          font-weight: 900;
+          font-size: 14px;
+          font-family: Georgia, serif;
+        }
+
+        .role-drawer-brand-title {
+          font-family: Georgia, serif;
+          font-size: 15px;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          color: #073B3F;
+          margin: 0;
+          text-transform: uppercase;
+        }
+
+        .role-drawer-brand-sub {
+          display: block;
+          font-size: 9px;
+          letter-spacing: 0.14em;
+          color: #7A8987;
+          text-transform: uppercase;
+          margin-top: 1px;
         }
 
         .role-drawer-close {
-          border: 0;
-          background: transparent;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          border: 1px solid #D1DFDE;
+          background: #F5FAF9;
           color: #073B3F;
+          display: grid;
+          place-items: center;
           cursor: pointer;
+          transition: all 180ms ease;
+        }
+
+        .role-drawer-close:hover {
+          background: #073B3F;
+          color: #ffffff;
+          border-color: #073B3F;
+          transform: rotate(90deg);
+        }
+
+        /* User Card in Drawer */
+        .role-drawer-user-card {
+          padding: 14px 20px;
+          background: linear-gradient(135deg, rgba(7,59,63,0.04) 0%, rgba(204,168,129,0.08) 100%);
+          border-bottom: 1px solid #EDF4F3;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-shrink: 0;
+        }
+
+        .role-drawer-avatar {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #073B3F, #0C4E53);
+          color: #F8F5EE;
+          display: grid;
+          place-items: center;
+          font-weight: 800;
+          font-size: 16px;
+          box-shadow: 0 4px 12px rgba(7, 59, 63, 0.2);
+          border: 1.5px solid #CCA881;
+          flex-shrink: 0;
+        }
+
+        .role-drawer-user-meta {
+          min-width: 0;
+          flex: 1;
+        }
+
+        .role-drawer-user-name {
+          font-weight: 800;
+          font-size: 13.5px;
+          color: #073B3F;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: block;
+        }
+
+        .role-drawer-user-role {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #9F6130;
+          margin-top: 2px;
+        }
+
+        /* Scrollable Navigation List */
+        .role-drawer-nav {
+          flex: 1;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+          padding: 12px 14px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .role-drawer-section-label {
+          font-size: 9.5px;
+          font-weight: 800;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: #8D9F9D;
+          padding: 6px 8px 3px;
         }
 
         .role-drawer-item {
           width: 100%;
           text-align: left;
-          border: 1px solid var(--bb-soft-aqua, #D1DFDE);
+          border: 1px solid rgba(209, 223, 222, 0.5);
           border-radius: 12px;
-          padding: 12px 16px;
-          background: var(--bb-mist-aqua, #F3F3F0);
+          padding: 9px 12px;
+          background: #FFFFFF;
           color: #073B3F;
-          font-weight: 800;
-          font-size: 14px;
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          transition: all 180ms ease;
+          box-sizing: border-box;
+          text-decoration: none;
         }
 
         .role-drawer-item:hover {
-          background: var(--bb-soft-aqua, #D1DFDE);
+          background: #F3F8F8;
+          border-color: #073B3F;
+          transform: translateX(3px);
+          box-shadow: 0 4px 14px rgba(7, 59, 63, 0.08);
         }
 
-        .role-drawer-item + .role-drawer-item {
-          margin-top: 10px;
+        .role-drawer-item-left {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 0;
+          flex: 1;
         }
 
-        .role-drawer-logout {
+        .role-drawer-icon-box {
+          width: 34px;
+          height: 34px;
+          border-radius: 10px;
+          display: grid;
+          place-items: center;
+          flex-shrink: 0;
+          transition: transform 180ms ease;
+        }
+
+        .role-drawer-item:hover .role-drawer-icon-box {
+          transform: scale(1.08);
+        }
+
+        .role-drawer-icon-box.icon-ruby {
+          background: rgba(201, 32, 53, 0.08);
           color: #C92035;
-          border-color: rgba(201,32,53,0.35);
+        }
+        .role-drawer-icon-box.icon-teal {
+          background: rgba(7, 59, 63, 0.08);
+          color: #073B3F;
+        }
+        .role-drawer-icon-box.icon-gold {
+          background: rgba(187, 137, 88, 0.12);
+          color: #9F6130;
+        }
+        .role-drawer-icon-box.icon-emerald {
+          background: rgba(12, 64, 68, 0.08);
+          color: #0C4044;
+        }
+
+        .role-drawer-item-labels {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
+
+        .role-drawer-item-title {
+          font-weight: 800;
+          font-size: 13px;
+          color: #111817;
+          line-height: 1.25;
+        }
+
+        .role-drawer-item-desc {
+          font-size: 10.5px;
+          color: #7A8987;
+          margin-top: 2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .role-drawer-item-badge {
+          padding: 2px 8px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 800;
+          line-height: 1.3;
+          flex-shrink: 0;
+        }
+
+        .role-drawer-item-badge.badge-ruby {
+          background: #C92035;
+          color: #ffffff;
+        }
+        .role-drawer-item-badge.badge-teal {
+          background: #073B3F;
+          color: #ffffff;
+        }
+
+        .role-drawer-chevron {
+          color: #BDCFCE;
+          flex-shrink: 0;
+          transition: transform 180ms ease, color 180ms ease;
+        }
+
+        .role-drawer-item:hover .role-drawer-chevron {
+          color: #073B3F;
+          transform: translateX(2px);
+        }
+
+        /* Drawer Footer */
+        .role-drawer-footer {
+          padding: 12px 16px 16px;
+          border-top: 1px solid #EDF4F3;
+          background: #FAFDFD;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+
+        .role-drawer-logout-btn {
+          width: 100%;
+          border: 1px solid rgba(201, 32, 53, 0.25);
+          background: rgba(201, 32, 53, 0.04);
+          color: #C92035;
+          border-radius: 12px;
+          padding: 10px 14px;
+          font-weight: 800;
+          font-size: 13px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          transition: all 180ms ease;
+        }
+
+        .role-drawer-logout-btn:hover {
+          background: #C92035;
+          color: #ffffff;
+          border-color: #C92035;
+          box-shadow: 0 4px 14px rgba(201, 32, 53, 0.2);
+        }
+
+        .role-drawer-login-btn {
+          width: 100%;
+          border: none;
+          background: linear-gradient(135deg, #073B3F, #0C4E53);
+          color: #ffffff;
+          border-radius: 12px;
+          padding: 11px 16px;
+          font-weight: 800;
+          font-size: 13px;
+          letter-spacing: 0.04em;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          box-shadow: 0 6px 18px rgba(7, 59, 63, 0.22);
+          transition: all 180ms ease;
+        }
+
+        .role-drawer-login-btn:hover {
+          transform: translateY(-1px);
+          background: #0E585E;
+          box-shadow: 0 8px 22px rgba(7, 59, 63, 0.3);
+        }
+
+        .role-drawer-tagline {
+          text-align: center;
+          font-size: 9.5px;
+          color: #8D9F9D;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
         }
         @media (max-width: 1020px) and (min-width: 901px) {
           .summary-pill {
@@ -2516,28 +2824,25 @@ export default function CustomerNavbar() {
           }
 
           .summary-pill {
-            display: inline-flex !important;
-            padding: 5px 9px;
-            height: 32px;
-            gap: 5px;
-            font-size: 11px;
-            border-radius: 999px;
+            display: none !important;
           }
 
-          .summary-pill .summary-text {
-            display: inline !important;
+          .exact-actions {
+            gap: 5px;
+            align-items: center;
+            flex-shrink: 0;
+          }
+
+          .login-pill {
+            height: 34px;
+            padding: 0 10px;
             font-size: 11px;
             font-weight: 800;
           }
 
-          .exact-actions {
-            gap: 6px;
-            align-items: center;
-          }
-
           .exact-icon {
-            width: 28px;
-            height: 28px;
+            width: 30px;
+            height: 30px;
           }
 
           .exact-search {
@@ -2558,23 +2863,26 @@ export default function CustomerNavbar() {
 
           .exact-main .exact-inner {
             row-gap: 6px;
+            padding-left: 8px;
+            padding-right: 8px;
           }
 
           .team-mark {
-            height: 38px;
+            height: 36px;
           }
 
           .team-mark-frame {
-            height: 40px;
+            height: 38px;
+            max-width: 90px;
           }
 
           .summary-pill {
-            padding: 4px 7px;
-            height: 28px;
-            gap: 3px;
+            display: none !important;
           }
 
-          .summary-pill .summary-text {
+          .login-pill {
+            height: 30px;
+            padding: 0 8px;
             font-size: 10px;
           }
 
@@ -3258,8 +3566,16 @@ export default function CustomerNavbar() {
           onClick={() => setRoleDrawerOpen(false)}
         >
           <div className="role-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="role-drawer-top-accent" />
+
             <div className="role-drawer-head">
-              <strong>Menu</strong>
+              <div className="role-drawer-brand">
+                <span className="role-drawer-logo-mark">A</span>
+                <div>
+                  <h4 className="role-drawer-brand-title">ATHIRAI</h4>
+                  <small className="role-drawer-brand-sub">Exclusive Services</small>
+                </div>
+              </div>
               <button
                 className="role-drawer-close"
                 type="button"
@@ -3270,106 +3586,259 @@ export default function CustomerNavbar() {
               </button>
             </div>
 
-            <button
-              className="role-drawer-item"
-              type="button"
-              onClick={() => {
-                setRoleDrawerOpen(false);
-                requireLogin("/wishlist");
-              }}
-            >
-              Wishlist {wishlistCount > 0 ? `(${wishlistCount})` : ""}
-            </button>
+            {/* Profile banner */}
+            <div className="role-drawer-user-card">
+              <div className="role-drawer-avatar">
+                {isLoggedIn ? (
+                  (localStorage.getItem("email") || "C").charAt(0).toUpperCase()
+                ) : (
+                  <Icon name="user" size={20} />
+                )}
+              </div>
+              <div className="role-drawer-user-meta">
+                <strong className="role-drawer-user-name">
+                  {isLoggedIn
+                    ? localStorage.getItem("email")?.split("@")[0] || "Valued Customer"
+                    : "Welcome, Guest"}
+                </strong>
+                <span className="role-drawer-user-role">
+                  {isLoggedIn ? (
+                    <>✦ {role ? role.replace("_", " ") : "Member"}</>
+                  ) : (
+                    "Sign in to access your bag & coins"
+                  )}
+                </span>
+              </div>
+            </div>
 
-            <button
-              className="role-drawer-item"
-              type="button"
-              onClick={() => {
-                setRoleDrawerOpen(false);
-                requireLogin("/cart");
-              }}
-            >
-              Cart {cartCount > 0 ? `(${cartCount})` : ""}
-            </button>
+            <div className="role-drawer-nav">
+              <div className="role-drawer-section-label">Shopping & Account</div>
 
-            <button
-              className="role-drawer-item"
-              type="button"
-              onClick={() => {
-                setRoleDrawerOpen(false);
-                requireLogin("/coin-shop");
-              }}
-            >
-              AUG Coins
-            </button>
-
-            <button
-              className="role-drawer-item"
-              type="button"
-              onClick={() => {
-                setRoleDrawerOpen(false);
-                navigate("/nearby-shop");
-              }}
-            >
-              Nearby Shop
-            </button>
-
-            <button
-              className="role-drawer-item"
-              type="button"
-              onClick={() => {
-                setRoleDrawerOpen(false);
-                requireLogin("/profile");
-              }}
-            >
-              Profile
-            </button>
-
-            <button
-              className="role-drawer-item"
-              type="button"
-              onClick={() => {
-                setRoleDrawerOpen(false);
-                requireLogin("/order-summary");
-              }}
-            >
-              Order Summary
-            </button>
-
-            <button
-              className="role-drawer-item"
-              type="button"
-              onClick={() => {
-                setRoleDrawerOpen(false);
-                requireLogin("/create-customer");
-              }}
-            >
-              Create Customer
-            </button>
-
-            {roleSwitchCfg && (
+              {/* 1. Wishlist */}
               <button
                 className="role-drawer-item"
                 type="button"
                 onClick={() => {
                   setRoleDrawerOpen(false);
-                  navigate(roleSwitchCfg.path);
+                  requireLogin("/wishlist");
                 }}
               >
-                {roleSwitchCfg.label}
+                <div className="role-drawer-item-left">
+                  <span className="role-drawer-icon-box icon-ruby">
+                    <Icon name="heart" size={17} filled={wishlistCount > 0} />
+                  </span>
+                  <div className="role-drawer-item-labels">
+                    <span className="role-drawer-item-title">Wishlist</span>
+                    <span className="role-drawer-item-desc">Saved favorite pieces</span>
+                  </div>
+                </div>
+                {wishlistCount > 0 ? (
+                  <span className="role-drawer-item-badge badge-ruby">{wishlistCount}</span>
+                ) : (
+                  <span className="role-drawer-chevron">
+                    <Icon name="chevronRight" size={16} />
+                  </span>
+                )}
               </button>
-            )}
 
-            <button
-              className={`role-drawer-item ${isLoggedIn ? "role-drawer-logout" : ""}`}
-              type="button"
-              onClick={() => {
-                setRoleDrawerOpen(false);
-                if (isLoggedIn) logout(); else goLogin();
-              }}
-            >
-              {isLoggedIn ? "Logout" : "Login"}
-            </button>
+              {/* 2. Cart */}
+              <button
+                className="role-drawer-item"
+                type="button"
+                onClick={() => {
+                  setRoleDrawerOpen(false);
+                  requireLogin("/cart");
+                }}
+              >
+                <div className="role-drawer-item-left">
+                  <span className="role-drawer-icon-box icon-teal">
+                    <Icon name="cart" size={17} />
+                  </span>
+                  <div className="role-drawer-item-labels">
+                    <span className="role-drawer-item-title">Cart</span>
+                    <span className="role-drawer-item-desc">Review bag & checkout</span>
+                  </div>
+                </div>
+                {cartCount > 0 ? (
+                  <span className="role-drawer-item-badge badge-teal">{cartCount}</span>
+                ) : (
+                  <span className="role-drawer-chevron">
+                    <Icon name="chevronRight" size={16} />
+                  </span>
+                )}
+              </button>
+
+              {/* 3. AUG Coins */}
+              <button
+                className="role-drawer-item"
+                type="button"
+                onClick={() => {
+                  setRoleDrawerOpen(false);
+                  requireLogin("/coin-shop");
+                }}
+              >
+                <div className="role-drawer-item-left">
+                  <span className="role-drawer-icon-box icon-gold">
+                    <Icon name="coin" size={17} />
+                  </span>
+                  <div className="role-drawer-item-labels">
+                    <span className="role-drawer-item-title">AUG Coins</span>
+                    <span className="role-drawer-item-desc">Shop with gold coin rewards</span>
+                  </div>
+                </div>
+                <span className="role-drawer-chevron">
+                  <Icon name="chevronRight" size={16} />
+                </span>
+              </button>
+
+              {/* 4. Nearby Shop */}
+              <button
+                className="role-drawer-item"
+                type="button"
+                onClick={() => {
+                  setRoleDrawerOpen(false);
+                  navigate("/nearby-shop");
+                }}
+              >
+                <div className="role-drawer-item-left">
+                  <span className="role-drawer-icon-box icon-emerald">
+                    <Icon name="shop" size={17} />
+                  </span>
+                  <div className="role-drawer-item-labels">
+                    <span className="role-drawer-item-title">Nearby Shop</span>
+                    <span className="role-drawer-item-desc">Locate showroom & timings</span>
+                  </div>
+                </div>
+                <span className="role-drawer-chevron">
+                  <Icon name="chevronRight" size={16} />
+                </span>
+              </button>
+
+              {/* 5. Profile */}
+              <button
+                className="role-drawer-item"
+                type="button"
+                onClick={() => {
+                  setRoleDrawerOpen(false);
+                  requireLogin("/profile");
+                }}
+              >
+                <div className="role-drawer-item-left">
+                  <span className="role-drawer-icon-box icon-teal">
+                    <Icon name="user" size={17} />
+                  </span>
+                  <div className="role-drawer-item-labels">
+                    <span className="role-drawer-item-title">Profile</span>
+                    <span className="role-drawer-item-desc">Personal details & address</span>
+                  </div>
+                </div>
+                <span className="role-drawer-chevron">
+                  <Icon name="chevronRight" size={16} />
+                </span>
+              </button>
+
+              {/* 6. Order Summary */}
+              <button
+                className="role-drawer-item"
+                type="button"
+                onClick={() => {
+                  setRoleDrawerOpen(false);
+                  requireLogin("/order-summary");
+                }}
+              >
+                <div className="role-drawer-item-left">
+                  <span className="role-drawer-icon-box icon-teal">
+                    <Icon name="receipt" size={17} />
+                  </span>
+                  <div className="role-drawer-item-labels">
+                    <span className="role-drawer-item-title">Order Summary</span>
+                    <span className="role-drawer-item-desc">Track status & invoices</span>
+                  </div>
+                </div>
+                <span className="role-drawer-chevron">
+                  <Icon name="chevronRight" size={16} />
+                </span>
+              </button>
+
+              {/* 7. Create Customer */}
+              <button
+                className="role-drawer-item"
+                type="button"
+                onClick={() => {
+                  setRoleDrawerOpen(false);
+                  requireLogin("/create-customer");
+                }}
+              >
+                <div className="role-drawer-item-left">
+                  <span className="role-drawer-icon-box icon-gold">
+                    <Icon name="userPlus" size={17} />
+                  </span>
+                  <div className="role-drawer-item-labels">
+                    <span className="role-drawer-item-title">Create Customer</span>
+                    <span className="role-drawer-item-desc">Onboard customer account</span>
+                  </div>
+                </div>
+                <span className="role-drawer-chevron">
+                  <Icon name="chevronRight" size={16} />
+                </span>
+              </button>
+
+              {/* Role Switch if applicable */}
+              {roleSwitchCfg && (
+                <button
+                  className="role-drawer-item"
+                  type="button"
+                  onClick={() => {
+                    setRoleDrawerOpen(false);
+                    navigate(roleSwitchCfg.path);
+                  }}
+                >
+                  <div className="role-drawer-item-left">
+                    <span className="role-drawer-icon-box icon-emerald">
+                      <Icon name="role" size={17} />
+                    </span>
+                    <div className="role-drawer-item-labels">
+                      <span className="role-drawer-item-title">{roleSwitchCfg.label}</span>
+                      <span className="role-drawer-item-desc">Switch role dashboard</span>
+                    </div>
+                  </div>
+                  <span className="role-drawer-chevron">
+                    <Icon name="chevronRight" size={16} />
+                  </span>
+                </button>
+              )}
+            </div>
+
+            <div className="role-drawer-footer">
+              {isLoggedIn ? (
+                <button
+                  className="role-drawer-logout-btn"
+                  type="button"
+                  onClick={() => {
+                    setRoleDrawerOpen(false);
+                    logout();
+                  }}
+                >
+                  <Icon name="logout" size={16} />
+                  <span>Logout</span>
+                </button>
+              ) : (
+                <button
+                  className="role-drawer-login-btn"
+                  type="button"
+                  onClick={() => {
+                    setRoleDrawerOpen(false);
+                    goLogin();
+                  }}
+                >
+                  <Icon name="user" size={16} />
+                  <span>Login / Register</span>
+                </button>
+              )}
+              <div className="role-drawer-tagline">
+                ✦ BIS 100% Hallmarked • Secure Shopping ✦
+              </div>
+            </div>
           </div>
         </div>
       )}

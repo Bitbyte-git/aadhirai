@@ -133,6 +133,32 @@ export default function Register() {
     }
   };
 
+  const handleQuickFill = () => {
+    const randNum = Math.floor(1000 + Math.random() * 9000);
+    setForm({
+      initial: "Mrs",
+      first_name: "Aarthi",
+      last_name: "Kumar",
+      gender: "female",
+      mobile_number: `98765${randNum}`,
+      dob: "1998-05-15",
+      married_status: "single",
+      anniversary_date: "",
+      door_no: "12/A",
+      street_name: "Gandhi Road",
+      town_name: "Anna Nagar",
+      city_name: "Chennai",
+      pincode: "600040",
+      district: "Chennai",
+      state: "Tamil Nadu",
+      email: `aarthi_${randNum}@example.com`,
+      password: "Password@2026",
+    });
+    setConfirmPassword("Password@2026");
+    setFormErrors({});
+    setGlobalMsg({ type: "success", text: "Sample details auto-filled! Click REGISTER below to submit." });
+  };
+
   const validateForm = () => {
     const errors = {};
     if (!form.first_name.trim()) errors.first_name = "First name is required";
@@ -161,15 +187,47 @@ export default function Register() {
     }
 
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    return errors;
   };
 
   const handleStartVerification = async (e) => {
     e.preventDefault();
     setGlobalMsg({ type: "", text: "" });
 
-    if (!validateForm()) {
-      setGlobalMsg({ type: "error", text: "Please fill in all required fields accurately." });
+    const errors = validateForm();
+    const errorKeys = Object.keys(errors);
+    if (errorKeys.length > 0) {
+      const errorNames = {
+        first_name: "First Name",
+        last_name: "Last Name",
+        gender: "Gender",
+        mobile_number: "Phone Number",
+        dob: "Date of Birth",
+        door_no: "Door No",
+        street_name: "Street Name",
+        pincode: "Pincode",
+        town_name: "Town",
+        city_name: "City",
+        district: "District",
+        state: "State",
+        email: "Email Address",
+        password: "Password",
+        confirmPassword: "Confirm Password",
+      };
+      const missingList = errorKeys.slice(0, 3).map((k) => errorNames[k] || k).join(", ");
+      const extraCount = errorKeys.length > 3 ? ` (+${errorKeys.length - 3} more)` : "";
+      const errorMsg = `Please fill required fields: ${missingList}${extraCount}.`;
+      setGlobalMsg({ type: "error", text: errorMsg });
+
+      // Smooth scroll to first missing input
+      setTimeout(() => {
+        const firstKey = errorKeys[0];
+        const el = document.getElementById(firstKey) || document.querySelector(`[name="${firstKey}"]`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.focus();
+        }
+      }, 60);
       return;
     }
 
@@ -890,81 +948,201 @@ export default function Register() {
           to { opacity: 1; transform: scale(1); }
         }
 
+        /* Action alert & Quick-fill button styles */
+        .ath-reg-hero-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+          margin-bottom: 12px;
+        }
+        .ath-quick-fill-btn {
+          background: rgba(212, 175, 55, 0.12);
+          border: 1px solid rgba(212, 175, 55, 0.45);
+          color: #8c6d1f;
+          font-size: 12px;
+          font-weight: 700;
+          padding: 6px 14px;
+          border-radius: 20px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .ath-quick-fill-btn:hover {
+          background: rgba(212, 175, 55, 0.22);
+          transform: translateY(-1px);
+        }
+        .ath-reg-action-alert {
+          border-radius: 12px;
+          padding: 12px 16px;
+          font-size: 13.5px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          box-sizing: border-box;
+          animation: athFadeIn 0.2s ease;
+        }
+        .ath-reg-action-alert.error {
+          background: #fff5f5;
+          border: 1px solid #fed7d7;
+          color: #c53030;
+        }
+        .ath-reg-action-alert.success {
+          background: #f0fff4;
+          border: 1px solid #c6f6d5;
+          color: #276749;
+        }
+        .ath-alert-icon {
+          font-size: 16px;
+          flex-shrink: 0;
+        }
+        .ath-alert-text {
+          flex: 1;
+          line-height: 1.4;
+        }
+
         /* Responsive Breakpoints */
-        @media (max-width: 1024px) {
+        @media (max-width: 1200px) {
           .ath-reg-shell {
-            padding: 24px 16px 60px;
+            max-width: 100%;
+            padding: 24px 20px 60px;
           }
           .ath-reg-split-container {
-            grid-template-columns: 1fr;
+            grid-template-columns: 340px 1fr;
             gap: 24px;
           }
           .ath-reg-story {
+            padding: 32px 24px;
+          }
+          .ath-reg-grid.cols-4 {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+
+        @media (max-width: 992px) {
+          .ath-reg-split-container {
+            grid-template-columns: 1fr;
+            gap: 20px;
+          }
+          .ath-reg-story {
             position: static;
-            padding: 28px 22px;
+            padding: 24px 20px;
             border-radius: 20px;
           }
           .ath-story-perks {
             display: none;
+          }
+          .ath-reg-grid.cols-4,
+          .ath-reg-grid.cols-3 {
+            grid-template-columns: repeat(2, 1fr);
           }
         }
 
         @media (max-width: 768px) {
           .ath-reg-shell {
             width: 100%;
-            padding: 14px 12px 50px;
+            padding: 12px 10px 40px;
           }
           .ath-reg-story {
-            padding: 20px 18px;
-            gap: 16px;
-            border-radius: 18px;
+            padding: 16px 14px;
+            gap: 12px;
+            border-radius: 16px;
+          }
+          .ath-brand b {
+            font-size: 17px;
+          }
+          .ath-story-copy label {
+            margin-bottom: 6px;
+            font-size: 10px;
           }
           .ath-story-copy h1 {
-            font-size: 24px;
-            margin-bottom: 8px;
+            font-size: 20px;
+            margin-bottom: 6px;
           }
           .ath-story-copy p {
-            font-size: 13px;
-            margin-bottom: 12px;
+            display: none;
           }
           .ath-story-trust {
-            padding-top: 14px;
+            padding-top: 10px;
+            gap: 8px;
           }
           .ath-story-trust b {
-            font-size: 14px;
+            font-size: 13px;
+          }
+          .ath-story-trust span {
+            font-size: 10px;
+          }
+          .ath-story-signin-box {
+            display: none;
           }
           .ath-reg-hero {
-            margin-bottom: 16px;
+            margin-bottom: 14px;
           }
           .ath-reg-title {
-            font-size: 23px;
+            font-size: 21px;
+          }
+          .ath-reg-subtitle {
+            font-size: 12.5px;
+            margin-bottom: 12px;
           }
           .ath-reg-card {
-            padding: 20px 16px;
+            padding: 18px 14px;
             border-radius: 18px;
           }
           .ath-reg-sec {
-            margin-bottom: 20px;
-            padding-bottom: 18px;
+            margin-bottom: 18px;
+            padding-bottom: 16px;
           }
           .ath-reg-sec-title {
             font-size: 13.5px;
           }
+          .ath-reg-grid.cols-4,
           .ath-reg-grid.cols-3,
-          .ath-reg-grid.cols-2,
-          .ath-reg-grid.cols-4 {
+          .ath-reg-grid.cols-2 {
             grid-template-columns: 1fr;
-            gap: 14px;
+            gap: 12px;
+          }
+          .ath-field label {
+            font-size: 11px;
+            margin-bottom: 5px;
           }
           .ath-field input,
           .ath-field select {
-            padding: 11px 12px;
-            font-size: 14px;
+            padding: 12px 14px;
+            font-size: 16px; /* Prevents iOS Safari auto-zoom */
+            min-height: 48px;
+            border-radius: 12px;
+          }
+          .ath-btn-submit {
+            min-height: 52px;
+            font-size: 14.5px;
+            border-radius: 14px;
           }
           .ath-otp-digit {
             width: 38px;
             height: 48px;
             font-size: 20px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .ath-reg-shell {
+            padding: 8px 6px 36px;
+          }
+          .ath-reg-card {
+            padding: 16px 12px;
+          }
+          .ath-reg-title {
+            font-size: 19px;
+          }
+          .ath-btn-submit {
+            min-height: 50px;
+            font-size: 14px;
           }
         }
       `}</style>
@@ -1050,11 +1228,21 @@ export default function Register() {
           {/* Right Form Column */}
           <section className="ath-reg-form-col">
             <header className="ath-reg-hero">
-              <div className="ath-reg-badge">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                </svg>
-                Athirai User Onboarding
+              <div className="ath-reg-hero-top">
+                <div className="ath-reg-badge">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                  Athirai User Onboarding
+                </div>
+                <button
+                  type="button"
+                  onClick={handleQuickFill}
+                  className="ath-quick-fill-btn"
+                  title="Auto-fill sample valid details for quick testing"
+                >
+                  ⚡ Quick Demo Fill
+                </button>
               </div>
               <h1 className="ath-reg-title">Create Your User Account</h1>
               <p className="ath-reg-subtitle">
@@ -1351,6 +1539,15 @@ export default function Register() {
             </div>
 
             <div className="ath-reg-actions">
+              {globalMsg.text && (
+                <div className={`ath-reg-action-alert ${globalMsg.type}`}>
+                  <span className="ath-alert-icon">
+                    {globalMsg.type === "success" ? "✓" : "⚠️"}
+                  </span>
+                  <span className="ath-alert-text">{globalMsg.text}</span>
+                </div>
+              )}
+
               <button type="submit" className="ath-btn-submit" disabled={sendingOtp}>
                 {sendingOtp ? (
                   <>
@@ -1361,8 +1558,8 @@ export default function Register() {
                   </>
                 ) : (
                   <>
-                    Register
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    REGISTER
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M5 12h14" />
                       <path d="M12 5l7 7-7 7" />
                     </svg>

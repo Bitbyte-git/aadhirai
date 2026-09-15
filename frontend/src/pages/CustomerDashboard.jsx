@@ -484,7 +484,7 @@ export default function CustomerDashboard() {
         await Promise.allSettled([
           hasToken ? api.get("/dashboard/") : Promise.resolve({ data: null }),
           api.get("/metal-rates/"),
-          api.get("/announcements/"),
+          hasToken ? api.get("/announcements/") : Promise.resolve({ data: [] }),
           api.get("/jewelry-products/"),
           hasToken ? api.get("/wishlist/") : Promise.resolve({ data: [] }),
         ]);

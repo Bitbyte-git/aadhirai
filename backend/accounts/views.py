@@ -25,7 +25,7 @@ from io import BytesIO
 from django.http import FileResponse
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.graphics.shapes import Drawing, Polygon, Line, Circle
@@ -7044,7 +7044,7 @@ class OrderReceiptPDFView(APIView):
 
     def get(self, request, order_id):
         try:
-            order = JewelryOrder.objects.select_related('user').get(order_id=order_id)
+            order = JewelryOrder.objects.select_related('user', 'product').get(order_id=order_id)
         except JewelryOrder.DoesNotExist:
             return Response({'error': 'Order not found'}, status=404)
 
@@ -7072,8 +7072,35 @@ class OrderReceiptPDFView(APIView):
         content_width = doc.width  # everything below is sized off this so edges line up exactly
         elements = []
 
-        # ── Header band: vector gem mark + brand name, full content width ──
-        brand_row = Table([[_gem_icon(20), Paragraph('ATHIRAI', brand_style)]], colWidths=[24, None])
+        # ── Price breakdown — reverse-engineered from the real, already-charged unit_price
+        # (the historical truth) using the linked product's making-charge %, via the same
+        # base_metal -> +making% -> +3% GST formula used everywhere else in this app
+        # (see the jewellery valuation views). Weight comes straight from the product record.
+        # There is no discount system anywhere in this app, so it's always Rs. 0 — shown
+        # honestly rather than invented.
+        qty = order.quantity or 1
+        unit_price = float(order.unit_price or 0)
+        making_pct = float(order.product.making_charge or 0) if order.product else 0
+        net_weight = float(order.product.net_weight or 0) if order.product else 0
+        gst_divisor = (1 + making_pct / 100.0) * 1.03
+        base_metal_unit = (unit_price / gst_divisor) if gst_divisor else unit_price
+        making_unit = base_metal_unit * (making_pct / 100.0)
+        gst_unit = unit_price - base_metal_unit - making_unit
+        base_metal_total = base_metal_unit * qty
+        making_total = making_unit * qty
+        gst_total = gst_unit * qty
+        total_weight = net_weight * qty
+
+        receipt_id = 'BBRCT' + order.order_id[5:] if order.order_id.startswith('BBORD') else f'BBRCT-{order.id}'
+
+        # ── Header band: real Athirai logo (falls back to the vector gem mark if the
+        # asset is ever missing) + brand name, full content width ──
+        logo_path = settings.BASE_DIR / 'accounts' / 'assets' / 'athirai_logo.png'
+        try:
+            logo_mark = RLImage(str(logo_path), width=34, height=34)
+        except Exception:
+            logo_mark = _gem_icon(20)
+        brand_row = Table([[logo_mark, Paragraph('ATHIRAI', brand_style)]], colWidths=[40, None])
         brand_row.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('LEFTPADDING', (1, 0), (1, 0), 8),
@@ -7118,6 +7145,7 @@ class OrderReceiptPDFView(APIView):
         order_info_box = Table([[[
             Paragraph('ORDER INFORMATION', box_heading_style),
             Paragraph('ORDER ID', label_style), Paragraph(order.order_id, value_style),
+            Paragraph('RECEIPT ID', label_style), Paragraph(receipt_id, value_style),
             Paragraph('ORDER DATE', label_style),
             Paragraph(order.created_at.strftime('%d %b %Y, %I:%M %p'), value_style),
             Paragraph('STATUS', label_style), status_row,
@@ -7146,12 +7174,13 @@ class OrderReceiptPDFView(APIView):
         # ── Order Details — same full content width as everything above ──
         elements.append(Paragraph('ORDER DETAILS', box_heading_style))
         purity = f"{order.product_metal.upper()} {order.product_grade.upper()}".strip()
+        weight_display = f"{net_weight:.3f} g" if net_weight else '—'
         data = [
-            ['Product', 'Metal / Purity', 'Category', 'Qty', 'Unit Price', 'Amount'],
-            [order.product_name, purity, order.product_category.title(), str(order.quantity),
+            ['Product', 'Metal / Purity', 'Net Wt', 'Category', 'Qty', 'Unit Price', 'Amount'],
+            [order.product_name, purity, weight_display, order.product_category.title(), str(order.quantity),
              f"Rs. {order.unit_price:,.2f}", f"Rs. {order.total_price:,.2f}"],
         ]
-        col_fracs = [0.26, 0.18, 0.15, 0.08, 0.16, 0.17]
+        col_fracs = [0.22, 0.14, 0.10, 0.13, 0.07, 0.16, 0.18]
         table = Table(data, colWidths=[content_width * f for f in col_fracs])
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#073B3F')),
@@ -7159,7 +7188,8 @@ class OrderReceiptPDFView(APIView):
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, -1), 9),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D1DFDE')),
-            ('ALIGN', (3, 0), (-1, -1), 'CENTER'),
+            ('ALIGN', (2, 0), (4, -1), 'CENTER'),
+            ('ALIGN', (5, 0), (6, -1), 'RIGHT'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
@@ -7167,6 +7197,26 @@ class OrderReceiptPDFView(APIView):
         ]))
         elements.append(table)
         elements.append(Spacer(1, 4))
+
+        # ── Price Breakdown — Base Metal + Making Charge + GST - Discount = Total.
+        # Discount is always Rs. 0.00 (this app has no discount/coupon system), shown
+        # honestly rather than invented.
+        breakdown_label_style = ParagraphStyle('BreakdownLabel', parent=styles['Normal'],
+                                                 textColor=colors.HexColor('#5C706E'), fontSize=9.5)
+        breakdown_val_style = ParagraphStyle('BreakdownVal', parent=styles['Normal'],
+                                              textColor=colors.HexColor('#111817'), fontSize=9.5,
+                                              fontName='Helvetica-Bold', alignment=TA_RIGHT)
+        breakdown_table = Table([
+            [Paragraph('Base Metal Value', breakdown_label_style), Paragraph(f"Rs. {base_metal_total:,.2f}", breakdown_val_style)],
+            [Paragraph(f"Making Charge ({making_pct:.0f}%)", breakdown_label_style), Paragraph(f"Rs. {making_total:,.2f}", breakdown_val_style)],
+            [Paragraph('GST (3%)', breakdown_label_style), Paragraph(f"Rs. {gst_total:,.2f}", breakdown_val_style)],
+            [Paragraph('Discount', breakdown_label_style), Paragraph('Rs. 0.00', breakdown_val_style)],
+        ], colWidths=[content_width * 0.7, content_width * 0.3])
+        breakdown_table.setStyle(TableStyle([
+            ('LEFTPADDING', (0, 0), (-1, -1), 16), ('RIGHTPADDING', (0, 0), (-1, -1), 16),
+            ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ]))
+        elements.append(breakdown_table)
 
         # ── Total bar — same full content width, shaded, right-aligned amount ──
         total_table = Table([
@@ -7186,7 +7236,32 @@ class OrderReceiptPDFView(APIView):
             ('TEXTCOLOR', (0, 1), (-1, 1), colors.HexColor('#073B3F')),
         ]))
         elements.append(total_table)
-        elements.append(Spacer(1, 30))
+        elements.append(Spacer(1, 22))
+
+        # ── Trust badges — gold vector check-badge + label, three pills in a row ──
+        badge_text_style = ParagraphStyle('BadgeText', parent=styles['Normal'], fontSize=8.5,
+                                           fontName='Helvetica-Bold', textColor=colors.HexColor('#8A623D'))
+        badge_labels = ['BIS Hallmarked', '100% Certified Jewellery', '100% Trust']
+        badge_cells = []
+        for label in badge_labels:
+            pill = Table([[_check_icon(11, colors.HexColor('#BB8958')), Paragraph(label, badge_text_style)]],
+                         colWidths=[15, None])
+            pill.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+            pill.hAlign = 'CENTER'
+            badge_cells.append(pill)
+        badges_row = Table([badge_cells], colWidths=[content_width / 3.0] * 3)
+        badges_row.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('TOPPADDING', (0, 0), (-1, -1), 10), ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+            ('LINEABOVE', (0, 0), (-1, 0), 0.5, colors.HexColor('#E1EBEA')),
+        ]))
+        elements.append(badges_row)
+        elements.append(Spacer(1, 10))
 
         elements.append(Paragraph(
             'Thank you for shopping with Athirai. This is a computer-generated receipt.', footer_style,

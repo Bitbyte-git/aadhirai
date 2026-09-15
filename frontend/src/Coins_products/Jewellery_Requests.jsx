@@ -245,8 +245,9 @@ export default function JewelleryRequests() {
         }
 
         .jr-container {
-          max-width: 1240px;
-          margin: 0 auto;
+          width: 100%;
+          max-width: 100%;
+          margin: 0;
         }
 
         .jr-header {

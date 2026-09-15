@@ -227,8 +227,9 @@ export default function AvailableJewellery() {
         }
 
         .aj-container {
-          max-width: 1280px;
-          margin: 0 auto;
+          width: 100%;
+          max-width: 100%;
+          margin: 0;
         }
 
         .aj-header {

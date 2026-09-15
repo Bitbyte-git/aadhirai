@@ -239,14 +239,18 @@ export default function Register() {
       };
       const res = await api.post("/register-send-otp/", payload);
 
-      // Email verification is hidden from the user — the OTP modal below
-      // (handleVerifyAndRegister, digit inputs, resend flow, etc.) is kept
-      // intact but unused; auto-verify with the OTP the backend returns so
-      // registration completes right after this form, no code-entry screen.
-      await handleVerifyAndRegister(res.data?.otp);
+      if (res.data?.otp) {
+        await handleVerifyAndRegister(res.data.otp);
+      } else {
+        throw new Error("Could not generate verification code.");
+      }
     } catch (err) {
-      const errText = err.response?.data?.error || "Failed to send verification code. Please check your email.";
+      const errText = err.response?.data?.error || err.message || "Failed to send verification code. Please check your email.";
       setGlobalMsg({ type: "error", text: errText });
+      setTimeout(() => {
+        const alertEl = document.querySelector(".ath-reg-action-alert");
+        if (alertEl) alertEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 60);
     } finally {
       setSendingOtp(false);
     }
@@ -345,11 +349,15 @@ export default function Register() {
       });
       setRegSuccessModal(true);
     } catch (err) {
-      const errorMsg = err.response?.data?.error || "Verification failed. Please check the code and try again.";
+      const errorMsg = err.response?.data?.error || err.message || "Verification failed. Please check your details and try again.";
       setOtpError(errorMsg);
       // The OTP modal that normally shows this is hidden, so also surface it
       // in the main form message area.
       setGlobalMsg({ type: "error", text: errorMsg });
+      setTimeout(() => {
+        const alertEl = document.querySelector(".ath-reg-action-alert");
+        if (alertEl) alertEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 60);
     } finally {
       setOtpSubmitting(false);
     }
@@ -797,6 +805,15 @@ export default function Register() {
         .ath-btn-submit:disabled {
           opacity: 0.65;
           cursor: not-allowed;
+        }
+        @keyframes athSpin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .ath-spin {
+          animation: athSpin 0.75s linear infinite !important;
+          display: inline-block;
+          flex-shrink: 0;
         }
         .ath-signin-prompt {
           font-size: 14px;
@@ -1330,14 +1347,6 @@ export default function Register() {
                   </svg>
                   Athirai User Onboarding
                 </div>
-                <button
-                  type="button"
-                  onClick={handleQuickFill}
-                  className="ath-quick-fill-btn"
-                  title="Auto-fill sample valid details for quick testing"
-                >
-                  ⚡ Quick Demo Fill
-                </button>
               </div>
               <h1 className="ath-reg-title">Register User</h1>
               <p className="ath-reg-subtitle">
@@ -1643,17 +1652,29 @@ export default function Register() {
                 </div>
               )}
 
-              <button type="submit" className="ath-btn-submit" disabled={sendingOtp}>
-                {sendingOtp ? (
+              <button
+                type="submit"
+                className="ath-btn-submit"
+                disabled={sendingOtp || otpSubmitting}
+              >
+                {(sendingOtp || otpSubmitting) ? (
                   <>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="ath-spin">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      className="ath-spin"
+                    >
                       <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
                     </svg>
-                    Creating Account...
+                    <span>Creating Account...</span>
                   </>
                 ) : (
                   <>
-                    REGISTER
+                    <span>REGISTER</span>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M5 12h14" />
                       <path d="M12 5l7 7-7 7" />

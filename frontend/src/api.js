@@ -5,6 +5,7 @@ const BASE_URL = BASE_URL_RAW.replace(/\/+$/, '')
 
 const api = axios.create({
   baseURL: BASE_URL,
+  timeout: 25000,
 })
 
 api.interceptors.request.use((config) => {

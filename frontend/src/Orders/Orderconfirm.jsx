@@ -481,6 +481,7 @@ export default function OrderConfirm() {
     name: '', email: '', phone: '', pincode: '', city: '', state: '', address: '', locality: '',
   })
   const [addressErrors, setAddressErrors] = useState({})
+  const [pincodeLookup, setPincodeLookup] = useState({ loading: false, error: '' })
   const [payTab, setPayTab] = useState('card')
   const [cardForm, setCardForm] = useState({ number: '', expiry: '', cvv: '' })
   const [upiId, setUpiId] = useState('')
@@ -512,6 +513,30 @@ export default function OrderConfirm() {
     }
     loadProfile()
   }, [])
+
+  useEffect(() => {
+    const pin = addressForm.pincode
+    if (!/^\d{6}$/.test(pin)) { setPincodeLookup({ loading: false, error: '' }); return }
+    let cancelled = false
+    setPincodeLookup({ loading: true, error: '' })
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`)
+        const data = await res.json()
+        if (cancelled) return
+        const po = data?.[0]?.PostOffice?.[0]
+        if (data?.[0]?.Status === 'Success' && po) {
+          setAddressForm(f => ({ ...f, city: po.District || f.city, state: po.State || f.state }))
+          setPincodeLookup({ loading: false, error: '' })
+        } else {
+          setPincodeLookup({ loading: false, error: 'Pincode not found — enter city/state manually' })
+        }
+      } catch {
+        if (!cancelled) setPincodeLookup({ loading: false, error: '' })
+      }
+    }, 400)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [addressForm.pincode])
 
   useEffect(() => { if (!product) navigate(-1) }, [product, navigate])
   if (!product) return null
@@ -863,12 +888,19 @@ export default function OrderConfirm() {
                   <div>
                     <label style={lbl}>Pincode *</label>
                     <input style={inp(addressErrors.pincode)} placeholder="6-digit pincode" maxLength={6}
-                      value={addressForm.pincode} onChange={e => setAddressForm(f => ({ ...f, pincode: e.target.value }))} />
-                    {addressErrors.pincode && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.pincode}</div>}
+                      value={addressForm.pincode}
+                      onChange={e => setAddressForm(f => ({ ...f, pincode: e.target.value.replace(/\D/g, '') }))} />
+                    {addressErrors.pincode
+                      ? <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.pincode}</div>
+                      : pincodeLookup.loading
+                        ? <div style={{ color: MUTED, fontSize: 11, marginTop: 3 }}>Fetching city & state...</div>
+                        : pincodeLookup.error
+                          ? <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{pincodeLookup.error}</div>
+                          : null}
                   </div>
                   <div>
                     <label style={lbl}>City *</label>
-                    <input style={inp(addressErrors.city)} placeholder="City"
+                    <input style={inp(addressErrors.city)} placeholder="Auto-fills from pincode"
                       value={addressForm.city} onChange={e => setAddressForm(f => ({ ...f, city: e.target.value }))} />
                     {addressErrors.city && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.city}</div>}
                   </div>
@@ -877,7 +909,7 @@ export default function OrderConfirm() {
                 <div className="address-detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                   <div>
                     <label style={lbl}>State *</label>
-                    <input style={inp(addressErrors.state)} placeholder="State"
+                    <input style={inp(addressErrors.state)} placeholder="Auto-fills from pincode"
                       value={addressForm.state} onChange={e => setAddressForm(f => ({ ...f, state: e.target.value }))} />
                     {addressErrors.state && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.state}</div>}
                   </div>

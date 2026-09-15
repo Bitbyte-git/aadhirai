@@ -48,7 +48,7 @@ const styles = `
   .op-pay-btn{width:100%;min-height:54px;border:none;border-radius:999px;background:linear-gradient(135deg,${RED},#0C4044);color:#fff;font-weight:900;font-size:13px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:.2s ease}
   .op-pay-btn:disabled{background:#BDCFCE;cursor:not-allowed}
   .op-pay-btn:not(:disabled):hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(7,59,63,.22)}
-  .op-buy-coin-btn{width:100%;min-height:54px;border:none;border-radius:999px;background:linear-gradient(135deg,${GOLD},#9F6130);color:#fff;font-weight:900;font-size:13px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-top:12px;transition:.2s ease}
+  .op-buy-coin-btn{width:100%;min-height:54px;border:none;border-radius:999px;background:linear-gradient(135deg,${GOLD},#9F6130);color:#fff;font-weight:900;font-size:13px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-top:12px;transition:.2s ease;display:flex;align-items:center;justify-content:center;gap:8px}
   .op-buy-coin-btn:disabled{background:#BDCFCE;cursor:not-allowed}
   .op-shortfall-input{width:100%;padding:14px 16px;border:1px solid #D1DFDE;border-radius:8px;font-size:15px;font-weight:700;color:${DARK};box-sizing:border-box;margin-bottom:14px}
   .op-banner{margin-bottom:18px;padding:13px 16px;border-radius:8px;font-size:13px;font-weight:700}

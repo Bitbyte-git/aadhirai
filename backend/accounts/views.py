@@ -7126,11 +7126,17 @@ class OrderReceiptPDFView(APIView):
             logo_mark = RLImage(str(logo_path), width=56, height=56)
         except Exception:
             logo_mark = _gem_icon(32)
-        brand_row = Table([[logo_mark, Paragraph('ATHIRAI', brand_style)]], colWidths=[64, None])
+        # Logo sits in a left column matched by an equal-width invisible column on the
+        # right, so the ATHIRAI text's own column is truly centered on the page — a plain
+        # 2-column [logo, text] row looks off-center because the logo's width drags the
+        # whole block (and the text inside it) to the right of center.
+        logo_col_w = 64
+        brand_row = Table([[logo_mark, Paragraph('ATHIRAI', brand_style), '']],
+                           colWidths=[logo_col_w, content_width - 2 * logo_col_w, logo_col_w])
         brand_row.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('LEFTPADDING', (1, 0), (1, 0), 8),
-            ('LEFTPADDING', (0, 0), (0, 0), 0),
+            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
             ('RIGHTPADDING', (0, 0), (-1, -1), 0),
             ('TOPPADDING', (0, 0), (-1, -1), 0),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
@@ -7237,24 +7243,34 @@ class OrderReceiptPDFView(APIView):
         discount_display = f"− Rs. {discount_total:,.2f}" if discount_total > 0 else "Rs. 0.00"
         # Narrower block (not full page width) hugging the right edge, same place the
         # TOTAL amount below sits — avoids a big empty gap between label and value.
-        summary_width = content_width * 0.55
+        stone_sub_style = ParagraphStyle('StoneSub', parent=breakdown_label_style, fontSize=7.5, textColor=colors.HexColor('#9AA8A6'))
+        summary_width = content_width * 0.62
         breakdown_rows = [
             [Paragraph('Base Metal Value', breakdown_label_style), Paragraph(f"Rs. {base_metal_total:,.2f}", breakdown_val_style)],
             [Paragraph(f"Making Charge ({making_pct:.0f}%)", breakdown_label_style), Paragraph(f"Rs. {making_total:,.2f}", breakdown_val_style)],
         ]
         # Stone Weight + Rate — only for products that actually carry a stone; plain
         # gold/silver pieces (no stone_weight/stone_value on the product) skip this row.
+        # Deliberate two-line label (main line + small caption) instead of letting the
+        # weight/rate detail wrap mid-word — keeps every row's rhythm clean and even.
         if has_stone:
-            stone_label = f"Stone Value ({stone_weight:.3f} g @ Rs. {stone_rate:,.2f}/g)" if stone_weight else 'Stone Value'
-            breakdown_rows.append([Paragraph(stone_label, breakdown_label_style), Paragraph(f"Rs. {stone_total:,.2f}", breakdown_val_style)])
+            if stone_weight:
+                stone_label_cell = [
+                    Paragraph('Stone Value', breakdown_label_style),
+                    Paragraph(f"{stone_weight:.3f} g @ Rs. {stone_rate:,.2f}/g", stone_sub_style),
+                ]
+            else:
+                stone_label_cell = Paragraph('Stone Value', breakdown_label_style)
+            breakdown_rows.append([stone_label_cell, Paragraph(f"Rs. {stone_total:,.2f}", breakdown_val_style)])
         breakdown_rows.append([Paragraph('GST (3%)', breakdown_label_style), Paragraph(f"Rs. {gst_total:,.2f}", breakdown_val_style)])
         breakdown_rows.append([Paragraph(discount_label, breakdown_label_style), Paragraph(discount_display, discount_val_style)])
         breakdown_rows.append([Paragraph('Payment Method', breakdown_label_style), Paragraph(order.get_payment_method_display(), breakdown_val_style)])
-        breakdown_table = Table(breakdown_rows, colWidths=[summary_width * 0.55, summary_width * 0.45])
+        breakdown_table = Table(breakdown_rows, colWidths=[summary_width * 0.6, summary_width * 0.4])
         breakdown_table.hAlign = 'RIGHT'
         breakdown_table.setStyle(TableStyle([
             ('LEFTPADDING', (0, 0), (-1, -1), 16), ('RIGHTPADDING', (0, 0), (-1, -1), 16),
             ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]))
         elements.append(breakdown_table)
 

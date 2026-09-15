@@ -832,9 +832,9 @@ export default function SuperStockist() {
 
           {/* Card 2: Today Active */}
           <div
-            className={`mu-stat-card is-clickable ${activeTab === 'active' ? 'is-active-tab' : ''}`}
-            onClick={() => setActiveTab('active')}
-            title="Click to view super stockists active/logged in today"
+            className="mu-stat-card is-clickable"
+            onClick={() => navigate('/login-active', { state: { roleFilter: 'Admin', viewMode: 'active', scopeLabel: 'Super Stockists' } })}
+            title="Open Active Users page filtered to Super Stockists"
           >
             <div>
               <span className="mu-stat-title" style={{ color: '#059669' }}>Today Active</span>
@@ -854,9 +854,9 @@ export default function SuperStockist() {
 
           {/* Card 3: Today Inactive */}
           <div
-            className={`mu-stat-card is-clickable ${activeTab === 'inactive' ? 'is-active-tab' : ''}`}
-            onClick={() => setActiveTab('inactive')}
-            title="Click to view super stockists inactive today"
+            className="mu-stat-card is-clickable"
+            onClick={() => navigate('/login-inactive', { state: { roleFilter: 'Admin', scopeLabel: 'Super Stockists' } })}
+            title="Open Inactive Users page filtered to Super Stockists"
           >
             <div>
               <span className="mu-stat-title" style={{ color: '#D97706' }}>Today Inactive</span>
@@ -874,8 +874,9 @@ export default function SuperStockist() {
 
           {/* Card 4: Today Order */}
           <div
-            className="mu-stat-card"
-            title="Overall count of orders received today across super stockists network"
+            className="mu-stat-card is-clickable"
+            onClick={() => navigate('/hierarchy-sales-count?role=admin&period=today')}
+            title="Open today's order breakdown per Super Stockist"
           >
             <div>
               <span className="mu-stat-title" style={{ color: '#0284C7' }}>Today Order</span>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import CustomerFooter from '../collection/CustomerFooter'
 
@@ -166,6 +166,16 @@ export default function OrderSummary() {
   const [downloadingId, setDownloadingId] = useState(null)
   const [trackingByOrder, setTrackingByOrder] = useState({})
   const [trackingLoading, setTrackingLoading] = useState({})
+  // Tracks whether the component is truly mounted right now. A plain local
+  // variable inside the effect breaks under React 18 StrictMode (dev only):
+  // it double-invokes the effect on mount — run, cleanup, run again — so a
+  // per-invocation flag gets marked "cleaned up" for the FIRST call before
+  // its slow response (Render free-tier cold start, 20s+) even arrives,
+  // causing a genuinely successful response to be discarded. A ref survives
+  // that cleanup/re-run cycle intact, so it only reads false during the
+  // instant between the two invocations — never once the second (real) one
+  // has started — letting either call's success land correctly.
+  const mountedRef = useRef(true)
 
   // Real shipment checkpoints (stage + location + date) — fetched lazily the
   // first time an order card is opened, not for every order up front.
@@ -195,20 +205,36 @@ export default function OrderSummary() {
   }
 
   useEffect(() => {
+    // React 18 StrictMode (dev only) double-invokes this effect on mount, so
+    // /orders/ fires twice — harmless on its own since both ask for the exact
+    // same thing. The real trap: Render's free-tier backend cold-starts and
+    // can take 20-25s+ to answer, so one of the two calls often hits axios's
+    // 25s timeout and shows as "(canceled)" in devtools — while the OTHER one
+    // still comes back with real data a little later. A response must always
+    // be applied when it succeeds, no matter which of the two calls it came
+    // from; only a failure must never blank out orders a sibling call already
+    // loaded successfully. mountedRef (not a local var) survives the
+    // cleanup-then-rerun so it's only ever false for the instant between the
+    // two invocations, never once the real one is running.
+    mountedRef.current = true
     const fetchOrders = async () => {
       try {
         const { default: api } = await import('../api')
         const res = await api.get('/orders/')
+        if (!mountedRef.current) return
         const list = Array.isArray(res.data) ? res.data : []
         setOrders(list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)))
-      } catch {
-        setOrders([])
-      } finally {
         setLoading(false)
+      } catch {
+        // A failed/timed-out request must never blank out orders that a
+        // sibling request already successfully loaded — just stop showing
+        // the loading state if nothing else is still in flight.
+        if (mountedRef.current) setLoading(false)
       }
     }
 
     fetchOrders()
+    return () => { mountedRef.current = false }
   }, [])
 
   const stats = useMemo(() => {

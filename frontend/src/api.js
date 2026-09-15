@@ -3,9 +3,11 @@ import axios from 'axios'
 const BASE_URL_RAW = import.meta.env.VITE_BASE_URL || 'https://bitbyte-backend-f66f.onrender.com/api/'
 const BASE_URL = BASE_URL_RAW.replace(/\/+$/, '')
 
+// No timeout — Render's free-tier backend cold-starts after being idle and
+// can take well over 25s to answer the first request; a timeout here was
+// aborting genuinely-in-flight requests before the server even woke up.
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 25000,
 })
 
 api.interceptors.request.use((config) => {

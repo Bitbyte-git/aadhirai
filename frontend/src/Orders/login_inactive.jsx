@@ -27,13 +27,16 @@ export default function LoginInactive() {
   const location = useLocation();
   const scopeIds = location.state?.ids || null;
   const scopeLabel = location.state?.scopeLabel || null;
+  // Other pages (e.g. Super Stockist directory's "Today Inactive" stat card)
+  // can deep-link straight into a role-filtered view here.
+  const initialRoleFilter = location.state?.roleFilter || "all";
 
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [periodFilter, setPeriodFilter] = useState("today");
-  const [roleFilter, setRoleFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState(initialRoleFilter);
   const [searchTerm, setSearchTerm] = useState("");
   const [offset, setOffset] = useState(0);
   const [limit, setLimit] = useState(50);

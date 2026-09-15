@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import api from '../api'
 import { SkeletonText } from '../components/Skeleton'
+import { SearchIcon } from '../components/SvgIcons'
 
 const API_BASE = 'https://bitbyte-backend-f66f.onrender.com'
 
@@ -182,6 +183,25 @@ export default function SuperAdminHierarchySalesCount() {
   const role = searchParams.get('role')
   const id = searchParams.get('id')
   const period = searchParams.get('period')
+
+  // ── Aggregate mode: role given but no specific person id (e.g. any Manage
+  // Users directory's "Today Order" card) — the rest of this page is a
+  // single-root drill-down tree that needs one exact node, so this renders
+  // a flat "everyone at this tier's order count" list instead, each row
+  // still linking into the normal per-node drill-down via its own id. ──
+  const isAggregateMode = !!ROLE_CFG[role] && !id
+  const [aggRows, setAggRows] = useState([])
+  const [aggLoading, setAggLoading] = useState(true)
+  const [aggSearch, setAggSearch] = useState('')
+
+  useEffect(() => {
+    if (!isAggregateMode) return
+    setAggLoading(true)
+    api.get('/hierarchy/tier-directory/', { params: { role, limit: 500 } })
+      .then(res => setAggRows(res.data.results || []))
+      .catch(() => setAggRows([]))
+      .finally(() => setAggLoading(false))
+  }, [isAggregateMode, role])
 
   const [root, setRoot] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -368,6 +388,132 @@ export default function SuperAdminHierarchySalesCount() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (isAggregateMode) {
+    const cfg = ROLE_CFG[role]
+    const idKey = cfg.idKey
+    const rows = aggRows
+      .filter(a => {
+        const q = aggSearch.trim().toLowerCase()
+        if (!q) return true
+        return (a[idKey] || '').toLowerCase().includes(q) ||
+          `${a.first_name || ''} ${a.last_name || ''}`.toLowerCase().includes(q) ||
+          (a.city_name || '').toLowerCase().includes(q)
+      })
+      .sort((a, b) => (b.today_order_count || 0) - (a.today_order_count || 0))
+    const totalToday = aggRows.reduce((s, a) => s + (a.today_order_count || 0), 0)
+    const roleColorRgb = hexToRgb(cfg.color)
+
+    return (
+      <div style={{
+        minHeight: '100vh', color: text, fontFamily: '"Manrope","Inter",system-ui,sans-serif',
+        background: `radial-gradient(circle at 8% 8%, rgba(${roleColorRgb},0.12), transparent 32%), radial-gradient(circle at 92% 12%, rgba(12,64,68,0.08), transparent 32%), radial-gradient(circle at 50% 100%, rgba(12,64,68,0.05), transparent 40%), linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)`,
+      }}>
+        <div className="shier-content" style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20, background: 'rgba(253,253,252,0.94)', border: '1px solid rgba(189,207,206,0.72)', borderRadius: 16, padding: '18px 24px', boxShadow: '0 18px 46px rgba(7,59,63,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <button onClick={() => navigate(-1)} style={{ width: 40, height: 40, borderRadius: 12, border: '1px solid rgba(189,207,206,0.72)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.15s' }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'translateX(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateX(0)'}>
+                <IconBack color="#0C4044" />
+              </button>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: `linear-gradient(135deg, ${cfg.color}, rgba(${roleColorRgb},0.7))`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 8px 18px rgba(${roleColorRgb},0.32)` }}>
+                <cfg.Icon color="#fff" size={20} />
+              </div>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: '#073B3F' }}>Today's Orders — {cfg.label.charAt(0) + cfg.label.slice(1).toLowerCase()}s</div>
+                <div style={{ fontSize: 11.5, color: subtext, marginTop: 2 }}>Every {cfg.singular.toLowerCase()}'s order count for today — click a row to drill into their full report</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: `rgba(${roleColorRgb},0.08)`, border: `1px solid rgba(${roleColorRgb},0.24)`, borderRadius: 14, padding: '12px 22px' }}>
+              <IconBox color={cfg.color} size={22} />
+              <div>
+                <div style={{ fontSize: 9.5, fontWeight: 800, color: subtext, letterSpacing: 1, textTransform: 'uppercase' }}>Total Today</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: '#073B3F' }}>{totalToday}</div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ position: 'relative', marginBottom: 18 }}>
+            <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: subtext, display: 'flex' }}>
+              <SearchIcon color={subtext} size={15} />
+            </span>
+            <input
+              value={aggSearch}
+              onChange={e => setAggSearch(e.target.value)}
+              placeholder={`Search by ${cfg.singular} ID, name, city...`}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '13px 16px 13px 42px', borderRadius: 12, border: '1px solid rgba(189,207,206,0.72)', fontSize: 13.5, background: '#fff', boxShadow: '0 2px 10px rgba(7,59,63,0.02)' }}
+            />
+          </div>
+
+          <div style={{ background: 'rgba(253,253,252,0.97)', border: '1px solid rgba(189,207,206,0.72)', borderRadius: 18, overflow: 'hidden', boxShadow: '0 20px 50px rgba(7,59,63,0.06)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '48px 1.4fr 1fr 110px 130px', gap: 0, padding: '13px 24px', background: 'rgba(231,237,236,0.5)', borderBottom: '1px solid rgba(189,207,206,0.72)' }}>
+              {['#', 'Name & ID', 'City & Phone', 'Status', 'Today Orders'].map(h => (
+                <div key={h} style={{ fontSize: 10, fontWeight: 800, color: subtext, letterSpacing: 1, textTransform: 'uppercase' }}>{h}</div>
+              ))}
+            </div>
+            {aggLoading ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} style={{ padding: '16px 24px', borderBottom: '1px solid rgba(189,207,206,0.4)' }}>
+                  <SkeletonText width="60%" height="14px" />
+                </div>
+              ))
+            ) : rows.length === 0 ? (
+              <div style={{ padding: '56px 20px', textAlign: 'center', color: subtext }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}><IconEmpty color={subtext} /></div>
+                <span style={{ fontSize: 13 }}>No {cfg.singular.toLowerCase()}s found.</span>
+              </div>
+            ) : (
+              rows.map((a, idx) => {
+                const initials = `${(a.first_name || cfg.singular)[0] || ''}${(a.last_name || '')[0] || ''}`.toUpperCase()
+                const hasOrders = (a.today_order_count || 0) > 0
+                return (
+                  <div key={a.id}
+                    onClick={() => navigate(`/hierarchy-sales-count?role=${role}&id=${a.id}&period=today`)}
+                    style={{ display: 'grid', gridTemplateColumns: '48px 1.4fr 1fr 110px 130px', gap: 0, padding: '14px 24px', borderBottom: '1px solid rgba(189,207,206,0.4)', cursor: 'pointer', alignItems: 'center', transition: 'background 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(189,207,206,0.14)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <div style={{ fontSize: 12.5, fontWeight: 800, color: idx < 3 && hasOrders ? cfg.color : subtext }}>
+                      {idx < 3 && hasOrders ? ['🥇', '🥈', '🥉'][idx] : idx + 1}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                      <div style={{ width: 38, height: 38, borderRadius: 10, background: `linear-gradient(135deg, ${cfg.color}, rgba(${roleColorRgb},0.75))`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, flexShrink: 0 }}>
+                        {initials}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 700, color: text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.first_name} {a.last_name}</div>
+                        <div style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 700, color: cfg.color, marginTop: 1 }}>{a[idKey]}</div>
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12.5, color: text, fontWeight: 600 }}>{a.city_name || '—'}</div>
+                      <div style={{ fontSize: 11, color: subtext, marginTop: 1 }}>{a.mobile_number || '—'}</div>
+                    </div>
+                    <div>
+                      {a.is_active_today ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0', padding: '3px 10px', borderRadius: 999, fontSize: 10.5, fontWeight: 700 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} /> Active
+                        </span>
+                      ) : (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB', padding: '3px 10px', borderRadius: 999, fontSize: 10.5, fontWeight: 700 }}>
+                          Inactive
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 15, fontWeight: 800, color: hasOrders ? '#16764F' : subtext, background: hasOrders ? 'rgba(22,118,79,0.08)' : 'rgba(122,137,135,0.08)', padding: '4px 12px', borderRadius: 10 }}>
+                        {a.today_order_count || 0}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })
+            )}
           </div>
         </div>
       </div>

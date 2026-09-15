@@ -12,6 +12,7 @@ HierarchySubtreeOrdersView, HierarchyAdminsView, HierarchyChildrenView, SalesRep
  HierarchyPersonSearchView, SalesSummaryView, SalesTrendView, HierarchyNodeOrdersView, HierarchyNodeInfoView, HierarchyPathToNodeView, 
  JewelryStockView, JewelryRequestView, JewelryRequestApproveView, JewelryRequestRejectView,
  MemberHoldingsDetailView, JewelryStockDetailView, OrderReceiptPDFView, AdminOrdersListView, OrderTrackingView,
+ HierarchyTierDirectoryView,
 )
 
 urlpatterns = [
@@ -37,6 +38,7 @@ urlpatterns = [
     path('hierarchy/full/', FullHierarchyView.as_view()),  # ✅ correct
     path('hierarchy/subtree-orders/', HierarchySubtreeOrdersView.as_view()),  # ← NEW
     path('hierarchy/admins/', HierarchyAdminsView.as_view()),
+    path('hierarchy/tier-directory/', HierarchyTierDirectoryView.as_view()),
     path('hierarchy/children/', HierarchyChildrenView.as_view()),
     path('hierarchy/node-orders/', HierarchyNodeOrdersView.as_view()),
     path('hierarchy/node-info/', HierarchyNodeInfoView.as_view()),

@@ -78,6 +78,12 @@ export default function AdminOrdersPage() {
   const [trackingLoading, setTrackingLoading] = useState(false)
   const [addingTracking, setAddingTracking] = useState(false)
   const [trackingForm, setTrackingForm] = useState({ stage: 'in_transit', location: '', note: '' })
+  const [toast, setToast] = useState(null)
+
+  const showToast = (text, kind = 'success') => {
+    setToast({ text, kind })
+    setTimeout(() => setToast(null), 2800)
+  }
 
   const fetchIdRef = useRef(0)
   const abortRef = useRef(null)
@@ -154,7 +160,7 @@ export default function AdminOrdersPage() {
         }
         return next
       })
-    } catch { alert('Status update failed') }
+    } catch { showToast('Status update failed', 'error') }
     setStatusUpdating(null)
     // status change auto-logs a tracking checkpoint server-side — refresh the list
     const orderIdStr = orders.find(o => o.id === orderId)?.order_id
@@ -173,14 +179,15 @@ export default function AdminOrdersPage() {
   }
 
   const addTrackingUpdate = async (orderIdStr) => {
-    if (!trackingForm.location.trim()) { alert('Enter a location for this update'); return }
+    if (!trackingForm.location.trim()) { showToast('Enter a location for this update', 'error'); return }
     setAddingTracking(true)
     try {
       await api.post(`/orders/${orderIdStr}/tracking/`, trackingForm)
       setTrackingForm({ stage: 'in_transit', location: '', note: '' })
       fetchTracking(orderIdStr)
+      showToast('Tracking update added successfully!')
     } catch {
-      alert('Could not add tracking update')
+      showToast('Could not add tracking update', 'error')
     }
     setAddingTracking(false)
   }
@@ -211,24 +218,6 @@ export default function AdminOrdersPage() {
         .orders-period{transition:all .18s ease;}
         .orders-period:hover{transform:translateY(-1px);}
       `}</style>
-
-      {/* Navbar */}
-      <div style={{ background: 'rgba(253,253,252,0.94)', borderBottom: `1px solid ${border}`, padding: '16px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backdropFilter: 'blur(16px)', position: 'sticky', top: 0, zIndex: 50 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <button className="orders-action" onClick={() => navigate('/super-admin')} style={{ background: 'rgba(231,237,236,0.72)', border: `1px solid ${border}`, color: accent, borderRadius: 8, padding: '6px 16px', cursor: 'pointer', fontSize: 13 }}>
-            ← Dashboard
-          </button>
-          <div>
-            <div style={{ color: accent, fontWeight: 800, fontSize: 16, letterSpacing: '0.05em' }}>
-              JEWELRY ORDERS
-            </div>
-            <div style={{ color: subtext, fontSize: 11, marginTop: 2 }}>All customer orders — manage & track</div>
-          </div>
-        </div>
-        <button className="orders-action" onClick={() => fetchOrders(0, orders.length || FIRST_PAGE_SIZE, false)} style={{ background: 'linear-gradient(135deg,#0C4044,#073B3F)', border: '1px solid rgba(12,64,68,0.28)', color: '#FDFDFC', borderRadius: 8, padding: '8px 18px', cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <RefreshIcon size={14} color="#FDFDFC" /> Refresh
-        </button>
-      </div>
 
       <div style={{ padding: '32px 36px', maxWidth: 1400, margin: '0 auto' }}>
 
@@ -534,6 +523,21 @@ export default function AdminOrdersPage() {
           </div>
         )}
       </div>
+
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 28, right: 28, zIndex: 999,
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '13px 20px', borderRadius: 12,
+          background: toast.kind === 'error' ? '#C92035' : 'linear-gradient(135deg,#0C4044,#073B3F)',
+          color: '#FDFDFC', fontSize: 13, fontWeight: 700,
+          boxShadow: '0 14px 34px rgba(7,59,63,0.28)',
+          animation: 'fadeIn 0.25s ease both',
+        }}>
+          <CheckIcon size={15} color="#FDFDFC" />
+          <span>{toast.text}</span>
+        </div>
+      )}
     </div>
   )
 }

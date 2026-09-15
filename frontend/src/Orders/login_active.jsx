@@ -37,12 +37,16 @@ export default function LoginActive() {
   const location = useLocation();
   const scopeIds = location.state?.ids || null;
   const scopeLabel = location.state?.scopeLabel || null;
+  // Other pages (e.g. Super Stockist directory's "Today Active"/"Today Inactive"
+  // stat cards) can deep-link straight into a role + active/inactive view here.
+  const initialRoleFilter = location.state?.roleFilter || "all";
+  const initialViewMode = location.state?.viewMode || "active";
 
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState(initialRoleFilter);
   const [periodFilter, setPeriodFilter] = useState("today");
   const [orderFilter, setOrderFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -51,9 +55,10 @@ export default function LoginActive() {
   const [totalCount, setTotalCount] = useState(0);
   const [copiedId, setCopiedId] = useState(null);
   const [toast, setToast] = useState("");
-  // "active" = only today/period-active users, "all" = active+inactive combined
-  const [viewMode, setViewMode] = useState("active");
-  const [selectedCard, setSelectedCard] = useState("active");
+  // "active" = only today/period-active users, "inactive" = only inactive users,
+  // "all" = active+inactive combined
+  const [viewMode, setViewMode] = useState(initialViewMode);
+  const [selectedCard, setSelectedCard] = useState(initialViewMode === "inactive" ? "" : initialViewMode);
   // Stable counters for the stat cards — independent of viewMode so they don't
   // shift around just because the table switches between active/all.
   const [statActiveCount, setStatActiveCount] = useState(0);
@@ -109,6 +114,29 @@ export default function LoginActive() {
           setStatTotalUsers(activeTotal + inactiveTotal);
           setOffset(list.length);
           setLimit(bigLimit);
+          if (scopeIds) list = list.filter((u) => scopeIds.includes(u.id));
+          setData(list.sort((a, b) => a.level - b.level));
+        } else if (viewMode === "inactive") {
+          const initialLimit = isAdminOnly ? 5000 : 100;
+
+          const res = await api.get("/today-login-status/", {
+            params: {
+              role: roleFilter,
+              period: periodFilter,
+              list_type: "inactive",
+              offset: 0,
+              limit: initialLimit,
+            },
+          });
+          if (!isCurrent()) return;
+          let list = [...(res.data.inactive || [])];
+          setTotalCount(res.data.total_count || 0);
+          // active_count here is the OTHER bucket (active users), kept for the
+          // "Total Users" stat card's consistency; the inactive count IS totalCount.
+          setStatActiveCount(res.data.active_count ?? res.data.other_count ?? 0);
+          setStatTotalUsers((res.data.total_count || 0) + (res.data.active_count ?? res.data.other_count ?? 0));
+          setOffset(initialLimit);
+          setLimit(100);
           if (scopeIds) list = list.filter((u) => scopeIds.includes(u.id));
           setData(list.sort((a, b) => a.level - b.level));
         } else {
@@ -183,17 +211,18 @@ export default function LoginActive() {
   // correct measure of "more to fetch" — data.length can be lower than that if some
   // raw rows get dropped (e.g. missing profile) while still being counted in total_count.
   // "all" view already fetches everyone in one shot, so there's never more to load there.
-  const hasMore = viewMode === "active" && !isAdminOnly && offset < totalCount;
+  const hasMore = (viewMode === "active" || viewMode === "inactive") && !isAdminOnly && offset < totalCount;
 
   const loadMore = async () => {
     const myFetchId = fetchIdRef.current;
+    const listType = viewMode === "inactive" ? "inactive" : "active";
     setLoadingMore(true);
     try {
       const res = await api.get("/today-login-status/", {
-        params: { role: roleFilter, period: periodFilter, list_type: "active", offset, limit },
+        params: { role: roleFilter, period: periodFilter, list_type: listType, offset, limit },
       });
       if (fetchIdRef.current !== myFetchId) return;
-      const newList = res.data.active || [];
+      const newList = res.data[listType] || [];
       setData((prev) => [...prev, ...newList].sort((a, b) => a.level - b.level));
       setOffset((prev) => prev + limit);
     } catch {
@@ -683,7 +712,7 @@ export default function LoginActive() {
           <div className="psl-header-card">
             <div className="psl-header-info">
               <h1>
-                <span>{viewMode === "all" ? "All Users" : "Active Users"}</span>
+                <span>{viewMode === "all" ? "All Users" : viewMode === "inactive" ? "Inactive Users" : "Active Users"}</span>
                 <span className="psl-live-badge">
                   <span className="psl-live-dot" /> {viewMode === "all" ? "Active + Inactive" : periodLabel}
                 </span>
@@ -844,7 +873,7 @@ export default function LoginActive() {
           {/* Luxury Table Card */}
           <div className="psl-table-card">
             <div className="psl-table-header">
-              <span className="psl-table-title">{viewMode === "all" ? "All User Records" : "Active User Records"}</span>
+              <span className="psl-table-title">{viewMode === "all" ? "All User Records" : viewMode === "inactive" ? "Inactive User Records" : "Active User Records"}</span>
               <span style={{ fontSize: "12px", color: "#5C706E", fontWeight: 700 }}>
                 Showing {filtered.length} of {totalCount} users
               </span>
@@ -878,7 +907,7 @@ export default function LoginActive() {
                   ) : filtered.length === 0 ? (
                     <tr>
                       <td colSpan={8} style={{ textAlign: "center", padding: "48px 20px", color: "#7A8987" }}>
-                        No active users found matching your filters.
+                        No {viewMode === "inactive" ? "inactive" : viewMode === "all" ? "" : "active"} users found matching your filters.
                       </td>
                     </tr>
                   ) : (

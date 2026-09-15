@@ -20,6 +20,7 @@ export default function Retailer() {
   const [copyingUrl, setCopyingUrl] = useState(null)
   const [selectedDetail, setSelectedDetail] = useState(null)
   const [toast, setToast] = useState('')
+  const [stats, setStats] = useState({ today_active: 0, today_inactive: 0, today_orders: 0 })
 
   const showToast = (msg) => {
     setToast(msg)
@@ -61,14 +62,19 @@ export default function Retailer() {
     if (append) setLoadingMore(true)
     else setLoading(true)
     try {
-      const res = await api.get('/promotors/list/', {
+      const res = await api.get('/hierarchy/tier-directory/', {
         signal,
-        params: { offset: currentOffset, limit: PAGE_SIZE, search: searchTerm },
+        params: { role: 'promotor', offset: currentOffset, limit: PAGE_SIZE, search: searchTerm },
       })
       const newRows = res.data.results || []
       setRows(prev => (append ? [...prev, ...newRows] : newRows))
       setHasMore(!!res.data.has_more)
       setTotalCount(res.data.total_count || 0)
+      setStats({
+        today_active: res.data.today_active_count || 0,
+        today_inactive: res.data.today_inactive_count || 0,
+        today_orders: res.data.today_orders_count || 0,
+      })
       setLoading(false)
       setLoadingMore(false)
     } catch (e) {
@@ -779,45 +785,60 @@ export default function Retailer() {
             </div>
           </div>
 
-          <div className="mu-stat-card">
+          <div
+            className="mu-stat-card"
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigate('/login-active', { state: { roleFilter: 'Promotor', viewMode: 'active', scopeLabel: 'Retailers' } })}
+            title="Open Active Users page filtered to Retailers"
+          >
             <div>
-              <span className="mu-stat-title">Loaded on Page</span>
-              <span className="mu-stat-number">{rows.length}</span>
+              <span className="mu-stat-title" style={{ color: '#059669' }}>Today Active</span>
+              <span className="mu-stat-number" style={{ color: '#059669' }}>{stats.today_active}</span>
             </div>
-            <div className="mu-stat-icon">
+            <div className="mu-stat-icon" style={{ background: '#ECFDF5', color: '#059669' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
-                <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="8.5" cy="7" r="4" />
+                <polyline points="17 11 19 13 23 9" />
               </svg>
             </div>
           </div>
 
-          <div className="mu-stat-card">
+          <div
+            className="mu-stat-card"
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigate('/login-inactive', { state: { roleFilter: 'Promotor', scopeLabel: 'Retailers' } })}
+            title="Open Inactive Users page filtered to Retailers"
+          >
             <div>
-              <span className="mu-stat-title">Search Filter</span>
-              <span className="mu-stat-number" style={{ fontSize: '18px' }}>
-                {search ? `"${search}"` : 'All Retailers'}
-              </span>
+              <span className="mu-stat-title" style={{ color: '#D97706' }}>Today Inactive</span>
+              <span className="mu-stat-number" style={{ color: '#D97706' }}>{stats.today_inactive}</span>
             </div>
-            <div className="mu-stat-icon">
+            <div className="mu-stat-icon" style={{ background: '#FFFBEB', color: '#D97706' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <line x1="18" y1="8" x2="23" y2="13" />
+                <line x1="23" y1="8" x2="18" y2="13" />
               </svg>
             </div>
           </div>
 
-          <div className="mu-stat-card">
+          <div
+            className="mu-stat-card"
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigate('/hierarchy-sales-count?role=promotor&period=today')}
+            title="Open today's order breakdown per Retailer"
+          >
             <div>
-              <span className="mu-stat-title">Network Tier</span>
-              <span className="mu-stat-number" style={{ fontSize: '18px', color: '#059669' }}>
-                Promotor
-              </span>
+              <span className="mu-stat-title" style={{ color: '#0284C7' }}>Today Order</span>
+              <span className="mu-stat-number" style={{ color: '#0284C7' }}>{stats.today_orders}</span>
             </div>
-            <div className="mu-stat-icon">
+            <div className="mu-stat-icon" style={{ background: '#F0F9FF', color: '#0284C7' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
               </svg>
             </div>
           </div>

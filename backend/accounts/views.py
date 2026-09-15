@@ -3544,6 +3544,91 @@ class HierarchyAdminsView(APIView):
         })
 
 
+class HierarchyTierDirectoryView(APIView):
+    """Same shape as HierarchyAdminsView (Total / Today Active / Today
+    Inactive / Today Orders + a searchable, paginated list) but generalized
+    to any tier via ?role= — powers the Distributor / Wholesale Dealer /
+    Retailer / Customer directory pages' stat cards and search, without
+    needing a separate hardcoded view per role."""
+    permission_classes = [IsAuthenticated]
+
+    PROFILE_MAP = {
+        'admin': (AdminProfile, 'admin_id'),
+        'dealer': (DealerProfile, 'dealer_id'),
+        'sub_dealer': (SubDealerProfile, 'sub_dealer_id'),
+        'promotor': (PromotorProfile, 'promotor_id'),
+        'customer': (CustomerProfile, 'customer_id'),
+    }
+
+    def get(self, request):
+        if request.user.role != 'super_admin':
+            return Response({'error': 'Permission denied'}, status=403)
+
+        role = request.query_params.get('role')
+        cfg = self.PROFILE_MAP.get(role)
+        if not cfg:
+            return Response({'error': 'invalid role'}, status=400)
+        model, id_field = cfg
+
+        today = timezone.localtime(timezone.now()).date()
+        all_profiles = list(model.objects.select_related('user').all())
+        total_all_count = len(all_profiles)
+
+        active_user_ids = set(
+            User.objects.filter(role=role, last_login__date=today).values_list('id', flat=True)
+        ) | set(
+            DailyLoginLog.objects.filter(user__role=role, login_date=today).values_list('user_id', flat=True)
+        )
+        today_active_count = sum(1 for p in all_profiles if p.user_id in active_user_ids)
+        today_inactive_count = max(0, total_all_count - today_active_count)
+
+        search = request.query_params.get('search', '').strip().lower()
+        if search:
+            profiles = [p for p in all_profiles if (
+                search in (getattr(p, id_field, '') or '').lower() or
+                search in f"{p.first_name} {p.last_name or ''}".lower() or
+                search in (p.mobile_number or '') or
+                search in (p.user.email if p.user else '').lower()
+            )]
+        else:
+            profiles = all_profiles
+
+        rollup_counts = _today_rollup_counts()
+        today_orders_count = sum(
+            rollup_counts.get((role, p.user_id if role == 'customer' else p.id), 0)
+            for p in all_profiles
+        )
+
+        results = []
+        for p in profiles:
+            key = p.user_id if role == 'customer' else p.id
+            results.append({
+                'id': p.id, 'user_id': p.user_id,
+                id_field: getattr(p, id_field, None),
+                'first_name': p.first_name, 'last_name': p.last_name,
+                'email': p.user.email if p.user else '',
+                'mobile_number': p.mobile_number, 'city_name': getattr(p, 'city_name', None),
+                'today_order_count': rollup_counts.get((role, key), 0),
+                'is_active_today': p.user_id in active_user_ids,
+                'last_login': p.user.last_login.isoformat() if (p.user and p.user.last_login) else None,
+            })
+
+        total_filtered = len(results)
+        offset = int(request.query_params.get('offset', 0))
+        limit = int(request.query_params.get('limit', 300))
+        page = results[offset:offset + limit]
+
+        return Response({
+            'results': page,
+            'total_count': total_all_count,
+            'today_active_count': today_active_count,
+            'today_inactive_count': today_inactive_count,
+            'today_orders_count': today_orders_count,
+            'filtered_count': total_filtered,
+            'has_more': offset + limit < total_filtered,
+        })
+
+
 # ── NEW: Generic — ஒரு node-oda DIRECT children mattum. role+id vachi call pண்ணுவாங்க ──
 class HierarchyChildrenView(APIView):
     permission_classes = [IsAuthenticated]

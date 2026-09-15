@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from rest_framework.decorators import api_view, permission_classes
-from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink, EmailOTP, Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem
+from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink, EmailOTP, Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent
 from django.db.models import Prefetch, Count, Q, Sum, Max
 from django.core.cache import cache   # ── NEW: for month_rollup/status caching ──
 from django.db.models.functions import TruncHour, TruncDate, TruncWeek, TruncMonth
@@ -2653,9 +2653,20 @@ class JewelryOrderView(APIView):
         except JewelryOrder.DoesNotExist:
             return Response({'error': 'Not found'}, status=404)
         status_val = request.data.get('status')
-        if status_val:
+        if status_val and status_val != order.status:
             order.status = status_val
             order.save()
+            # ── Auto-log a tracking checkpoint on every status change, so the
+            # customer's tracking timeline always has at least this milestone
+            # even if the admin doesn't separately add a detailed update. ──
+            valid_stages = dict(OrderTrackingEvent.STAGE_CHOICES)
+            if status_val in valid_stages:
+                OrderTrackingEvent.objects.create(
+                    order=order, stage=status_val,
+                    location=request.data.get('location', '') or order.city,
+                    note=request.data.get('note', ''),
+                    created_by=request.user,
+                )
         return Response(JewelryOrderSerializer(order, context={'request': request}).data)
 
 
@@ -2742,6 +2753,51 @@ class AdminOrdersListView(APIView):
                 'revenue': float(total_revenue),
             },
         })
+
+
+class OrderTrackingView(APIView):
+    """Amazon/Flipkart-style shipment timeline for one order — GET returns
+    every checkpoint (stage + location + note, oldest first) for the order
+    owner or Super Admin; POST lets Super Admin add a detailed checkpoint
+    (location + note) separately from the plain status dropdown, for cases
+    like 'In Transit' hub-to-hub updates that aren't a status change."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, order_id):
+        try:
+            order = JewelryOrder.objects.get(order_id=order_id)
+        except JewelryOrder.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=404)
+
+        if order.user_id != request.user.id and request.user.role != 'super_admin':
+            return Response({'error': 'Permission denied'}, status=403)
+
+        events = order.tracking_events.all()
+        return Response({
+            'order_id': order.order_id,
+            'current_status': order.status,
+            'events': OrderTrackingEventSerializer(events, many=True).data,
+        })
+
+    def post(self, request, order_id):
+        if request.user.role != 'super_admin':
+            return Response({'error': 'Permission denied'}, status=403)
+        try:
+            order = JewelryOrder.objects.get(order_id=order_id)
+        except JewelryOrder.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=404)
+
+        stage = request.data.get('stage')
+        if stage not in dict(OrderTrackingEvent.STAGE_CHOICES):
+            return Response({'error': 'Invalid stage'}, status=400)
+
+        event = OrderTrackingEvent.objects.create(
+            order=order, stage=stage,
+            location=request.data.get('location', '').strip(),
+            note=request.data.get('note', '').strip(),
+            created_by=request.user,
+        )
+        return Response(OrderTrackingEventSerializer(event).data, status=201)
 
 # ── COMMISSION DISTRIBUTION ENGINE ──
 # Order oda buyer-ஐ irundhu மேலே ஏறி, created_by chain walk pண்ணி commission distribute pண்ணும்.

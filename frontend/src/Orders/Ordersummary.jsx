@@ -46,6 +46,8 @@ function Icon({ name, size = 18 }) {
     shield: <path d="M12 3 20 6v5c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10V6l8-3Z" />,
     chevron: <path d="m6 9 6 6 6-6" />,
     arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
+    pin: <><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></>,
+    check: <path d="M20 6 9 17l-5-5" />,
   }
 
   return <svg {...common}>{paths[name]}</svg>
@@ -68,15 +70,19 @@ function formatDate(value) {
   return new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
+function formatDateTime(value) {
+  if (!value) return ''
+  return new Date(value).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+}
+
 function titleCase(value) {
   return String(value || '')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, letter => letter.toUpperCase())
 }
 
-function OrderTimeline({ status }) {
+function OrderTimeline({ status, events, loading }) {
   const meta = STATUS_META[status] || STATUS_META.pending
-  const steps = ['Placed', 'Confirmed', 'Processing', 'Shipped', 'Delivered']
 
   if (status === 'cancelled') {
     return (
@@ -86,6 +92,55 @@ function OrderTimeline({ status }) {
     )
   }
 
+  if (loading) {
+    return (
+      <div className="os-track-vlist">
+        {[1, 2, 3].map(i => (
+          <div className="os-track-item" key={i}>
+            <div className="os-track-dot-col"><span className="os-track-dot bb-skel" /><span className="os-track-line" /></div>
+            <div className="os-track-body">
+              <div className="bb-skel" style={{ width: '40%', height: 13, marginBottom: 8 }} />
+              <div className="bb-skel" style={{ width: '60%', height: 11 }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // Real shipment checkpoints — stage + location + exact date/time, most
+  // recent at the bottom (oldest first), Amazon/Flipkart tracking-page style.
+  if (events && events.length > 0) {
+    return (
+      <div className="os-track-vlist">
+        {events.map((ev, i) => {
+          const isLast = i === events.length - 1
+          return (
+            <div className="os-track-item" key={ev.id}>
+              <div className="os-track-dot-col">
+                <span className={`os-track-dot ${isLast ? 'current' : 'done'}`}>
+                  <Icon name="check" size={11} />
+                </span>
+                {i < events.length - 1 && <span className="os-track-line" />}
+              </div>
+              <div className="os-track-body">
+                <div className="os-track-stage">{ev.stage_label}</div>
+                {ev.location && (
+                  <div className="os-track-loc"><Icon name="pin" size={12} /> {ev.location}</div>
+                )}
+                <div className="os-track-date">{formatDateTime(ev.created_at)}</div>
+                {ev.note && <div className="os-track-note">{ev.note}</div>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  // Fallback for orders placed before shipment tracking existed — the plain
+  // 5-step stage indicator, no location/date detail available.
+  const steps = ['Placed', 'Confirmed', 'Processing', 'Shipped', 'Delivered']
   return (
     <div className="os-timeline">
       {steps.map((step, index) => {
@@ -109,6 +164,23 @@ export default function OrderSummary() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [query, setQuery] = useState('')
   const [downloadingId, setDownloadingId] = useState(null)
+  const [trackingByOrder, setTrackingByOrder] = useState({})
+  const [trackingLoading, setTrackingLoading] = useState({})
+
+  // Real shipment checkpoints (stage + location + date) — fetched lazily the
+  // first time an order card is opened, not for every order up front.
+  const fetchTracking = async (orderIdStr) => {
+    if (trackingByOrder[orderIdStr] || trackingLoading[orderIdStr]) return
+    setTrackingLoading(prev => ({ ...prev, [orderIdStr]: true }))
+    try {
+      const { default: api } = await import('../api')
+      const res = await api.get(`/orders/${orderIdStr}/tracking/`)
+      setTrackingByOrder(prev => ({ ...prev, [orderIdStr]: res.data?.events || [] }))
+    } catch {
+      setTrackingByOrder(prev => ({ ...prev, [orderIdStr]: [] }))
+    }
+    setTrackingLoading(prev => ({ ...prev, [orderIdStr]: false }))
+  }
 
   const handleDownloadReceipt = async (event, orderId) => {
     event.stopPropagation()
@@ -770,6 +842,91 @@ export default function OrderSummary() {
           font-weight: 700;
         }
 
+        .os-track-vlist {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .os-track-item {
+          display: grid;
+          grid-template-columns: 26px 1fr;
+          gap: 14px;
+        }
+
+        .os-track-dot-col {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .os-track-dot {
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          display: grid;
+          place-items: center;
+          flex-shrink: 0;
+          background: #D1DFDE;
+          color: #7A8987;
+        }
+
+        .os-track-dot.done {
+          background: #073B3F;
+          color: #FDFDFC;
+        }
+
+        .os-track-dot.current {
+          background: #16764F;
+          color: #FDFDFC;
+          box-shadow: 0 0 0 4px rgba(22,118,79,0.16);
+        }
+
+        .os-track-line {
+          width: 2px;
+          flex: 1;
+          min-height: 26px;
+          background: rgba(12,64,68,0.18);
+          margin: 2px 0;
+        }
+
+        .os-track-body {
+          padding-bottom: 22px;
+        }
+
+        .os-track-item:last-child .os-track-body {
+          padding-bottom: 2px;
+        }
+
+        .os-track-stage {
+          color: #073B3F;
+          font-weight: 800;
+          font-size: 14px;
+          margin-bottom: 4px;
+        }
+
+        .os-track-loc {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          color: #5f6c69;
+          font-size: 12.5px;
+          font-weight: 600;
+          margin-bottom: 3px;
+        }
+
+        .os-track-date {
+          color: #7A8987;
+          font-size: 11.5px;
+          font-weight: 600;
+        }
+
+        .os-track-note {
+          margin-top: 4px;
+          color: #5f6c69;
+          font-size: 12px;
+          font-style: italic;
+        }
+
         .os-empty,
         .os-loading {
           min-height: 330px;
@@ -1090,7 +1247,11 @@ export default function OrderSummary() {
                     key={order.id}
                     className={`os-order-card ${isOpen ? 'open' : ''}`}
                     style={{ animationDelay: `${index * 0.045}s` }}
-                    onClick={() => setSelectedOrderId(isOpen ? null : order.id)}
+                    onClick={() => {
+                      const opening = !isOpen
+                      setSelectedOrderId(opening ? order.id : null)
+                      if (opening) fetchTracking(order.order_id || order.id)
+                    }}
                   >
                     <div className="os-order-main">
                       <div className="os-product-media">
@@ -1140,7 +1301,11 @@ export default function OrderSummary() {
 
                     {isOpen && (
                       <div className="os-expanded" onClick={event => event.stopPropagation()}>
-                        <OrderTimeline status={order.status} />
+                        <OrderTimeline
+                          status={order.status}
+                          events={trackingByOrder[order.order_id || order.id]}
+                          loading={trackingLoading[order.order_id || order.id]}
+                        />
 
                         <div className="os-expanded-grid">
                           <div className="os-detail-card">

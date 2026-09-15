@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder,JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, Wallet, CoinRecharge, AutoPayMandate , StockNotifyRequest, JewelryStock, JewelryRequest, JewelryRequestItem
+from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder,JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, Wallet, CoinRecharge, AutoPayMandate , StockNotifyRequest, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -651,6 +651,15 @@ class JewelryOrderSerializer(serializers.ModelSerializer):
         except Exception:
             pass
         return None
+
+
+class OrderTrackingEventSerializer(serializers.ModelSerializer):
+    stage_label = serializers.CharField(source='get_stage_display', read_only=True)
+
+    class Meta:
+        model = OrderTrackingEvent
+        fields = ['id', 'order', 'stage', 'stage_label', 'location', 'note', 'created_at']
+        read_only_fields = ['id', 'created_at']
 
 
 class CoinRequestItemSerializer(serializers.ModelSerializer):

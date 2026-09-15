@@ -1,8 +1,9 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import {
-  OrdersIcon, RefreshIcon, InboxIcon, JewelryIcon, PackageIcon, BullionIcon,
+  RefreshIcon, InboxIcon, JewelryIcon, PackageIcon, BullionIcon,
   SettingsIcon, PhoneIcon, LocationIcon, CalendarIcon, DownloadIcon, CheckIcon,
   SearchIcon,
 } from '../components/SvgIcons'
@@ -73,8 +74,13 @@ export default function AdminOrdersPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [hasMore, setHasMore] = useState(false)
   const [stats, setStats] = useState({ total: 0, pending: 0, confirmed: 0, processing: 0, shipped: 0, delivered: 0, cancelled: 0, revenue: 0 })
+  const [trackingEvents, setTrackingEvents] = useState([])
+  const [trackingLoading, setTrackingLoading] = useState(false)
+  const [addingTracking, setAddingTracking] = useState(false)
+  const [trackingForm, setTrackingForm] = useState({ stage: 'in_transit', location: '', note: '' })
 
   const fetchIdRef = useRef(0)
+  const abortRef = useRef(null)
 
   const dark = false
   const bg = '#FDFDFC', text = '#111817', subtext = '#7A8987'
@@ -89,13 +95,22 @@ export default function AdminOrdersPage() {
 
   const fetchOrders = useCallback(async (offset, limit, append) => {
     if (period === 'custom' && (!customStart || !customEnd)) return
+
+    // Cancel whatever request is still in flight — a slower earlier request
+    // resolving/erroring AFTER a newer one must never touch state again,
+    // otherwise a stale or aborted response can wipe out data a later,
+    // already-successful response just rendered (this caused "No orders
+    // found" to flash even though the stat cards still showed real totals).
+    if (abortRef.current) abortRef.current.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
     const myId = ++fetchIdRef.current
     if (append) setLoadingMore(true); else setLoading(true)
 
     try {
       const params = { period, status: filterStatus, search, offset, limit }
       if (period === 'custom') { params.start_date = customStart; params.end_date = customEnd }
-      const res = await api.get('/admin-orders/', { params })
+      const res = await api.get('/admin-orders/', { params, signal: controller.signal })
       if (myId !== fetchIdRef.current) return
 
       const data = res.data || {}
@@ -103,9 +118,12 @@ export default function AdminOrdersPage() {
       setTotalCount(data.total_count || 0)
       setHasMore(!!data.has_more)
       if (data.stats) setStats(data.stats)
-    } catch {
+    } catch (err) {
       if (myId !== fetchIdRef.current) return
-      if (!append) { setOrders([]); setTotalCount(0); setHasMore(false) }
+      // Aborted (superseded by a newer fetch) — just leave whatever's on
+      // screen alone, don't blank it out. A genuine network error also
+      // keeps the last good data rather than flashing "No orders found".
+      if (err?.code === 'ERR_CANCELED') return
     } finally {
       if (myId !== fetchIdRef.current) return
       setLoading(false)
@@ -138,6 +156,33 @@ export default function AdminOrdersPage() {
       })
     } catch { alert('Status update failed') }
     setStatusUpdating(null)
+    // status change auto-logs a tracking checkpoint server-side — refresh the list
+    const orderIdStr = orders.find(o => o.id === orderId)?.order_id
+    if (orderIdStr) fetchTracking(orderIdStr)
+  }
+
+  const fetchTracking = async (orderIdStr) => {
+    setTrackingLoading(true)
+    try {
+      const res = await api.get(`/orders/${orderIdStr}/tracking/`)
+      setTrackingEvents(res.data?.events || [])
+    } catch {
+      setTrackingEvents([])
+    }
+    setTrackingLoading(false)
+  }
+
+  const addTrackingUpdate = async (orderIdStr) => {
+    if (!trackingForm.location.trim()) { alert('Enter a location for this update'); return }
+    setAddingTracking(true)
+    try {
+      await api.post(`/orders/${orderIdStr}/tracking/`, trackingForm)
+      setTrackingForm({ stage: 'in_transit', location: '', note: '' })
+      fetchTracking(orderIdStr)
+    } catch {
+      alert('Could not add tracking update')
+    }
+    setAddingTracking(false)
   }
 
   const getImageUrl = url => {
@@ -174,8 +219,8 @@ export default function AdminOrdersPage() {
             ← Dashboard
           </button>
           <div>
-            <div style={{ color: accent, fontWeight: 800, fontSize: 16, letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <OrdersIcon size={17} color={accent} /> JEWELRY ORDERS
+            <div style={{ color: accent, fontWeight: 800, fontSize: 16, letterSpacing: '0.05em' }}>
+              JEWELRY ORDERS
             </div>
             <div style={{ color: subtext, fontSize: 11, marginTop: 2 }}>All customer orders — manage & track</div>
           </div>
@@ -218,7 +263,11 @@ export default function AdminOrdersPage() {
           ].map(s => (
             <div className="orders-stat" key={s.label} style={{ background: cardBg, border: cardBorder, borderRadius: 14, padding: '16px 18px', animation: 'fadeIn 0.4s ease both' }}>
               <div style={{ fontSize: 9, color: subtext, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 8 }}>{s.label}</div>
-              <div style={{ fontSize: s.isText ? 16 : 26, fontWeight: 800, color: s.color, fontFamily: 'monospace' }}>{s.value}</div>
+              {loading ? (
+                <div style={{ width: '55%', height: s.isText ? 16 : 26, borderRadius: 6, background: 'linear-gradient(90deg,#EAEFEF 25%,#F6F8F8 50%,#EAEFEF 75%)', backgroundSize: '200% 100%', animation: 'aopShimmer 1.5s infinite ease-in-out' }} />
+              ) : (
+                <div style={{ fontSize: s.isText ? 16 : 26, fontWeight: 800, color: s.color, fontFamily: 'monospace' }}>{s.value}</div>
+              )}
             </div>
           ))}
         </div>
@@ -277,7 +326,11 @@ export default function AdminOrdersPage() {
                 <div key={order.id} style={{ borderBottom: `1px solid ${border}`, animation: `fadeIn 0.25s ${Math.min(i % 50, 15) * 0.02}s ease both`, opacity: 0 }}>
                   {/* Main row */}
                   <div className="ord-row"
-                    onClick={() => setSelectedOrder(isExpanded ? null : order)}
+                    onClick={() => {
+                      const opening = !isExpanded
+                      setSelectedOrder(opening ? order : null)
+                      if (opening) fetchTracking(order.order_id)
+                    }}
                     style={{ display: 'grid', gridTemplateColumns: '200px 1fr 120px 120px 140px 160px 40px', gap: 0, padding: '14px 20px', alignItems: 'center', background: isExpanded ? 'rgba(189,207,206,0.18)' : 'transparent', borderLeft: isExpanded ? `2px solid ${accent}` : '2px solid transparent' }}>
 
                     <div>
@@ -317,7 +370,8 @@ export default function AdminOrdersPage() {
 
                   {/* Expanded */}
                   {isExpanded && (
-                    <div style={{ padding: '24px', background: 'rgba(231,237,236,0.34)', borderTop: `1px solid ${border}`, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24, animation: 'fadeIn 0.25s ease both' }}>
+                    <div style={{ background: 'rgba(231,237,236,0.34)', borderTop: `1px solid ${border}`, animation: 'fadeIn 0.25s ease both' }}>
+                    <div style={{ padding: '24px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24 }}>
 
                       {/* Delivery */}
                       <div>
@@ -383,6 +437,58 @@ export default function AdminOrdersPage() {
                         </div>
                       </div>
 
+                    </div>
+
+                    {/* Shipment Tracking — Amazon/Flipkart-style checkpoint history + admin can add a new one */}
+                    <div style={{ padding: '0 24px 24px' }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, color: accent, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <PackageIcon size={13} color={accent} /> Shipment Tracking
+                      </div>
+                      <div style={{ background: 'rgba(253,253,252,0.86)', border: `1px solid ${border}`, borderRadius: 10, padding: '16px' }}>
+                        {trackingLoading ? (
+                          <div style={{ fontSize: 12, color: subtext }}>Loading tracking history...</div>
+                        ) : trackingEvents.length === 0 ? (
+                          <div style={{ fontSize: 12, color: subtext, marginBottom: 14 }}>No tracking checkpoints yet.</div>
+                        ) : (
+                          <div style={{ marginBottom: 16 }}>
+                            {trackingEvents.map((ev, idx) => (
+                              <div key={ev.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: idx < trackingEvents.length - 1 ? 10 : 0 }}>
+                                <CheckIcon size={13} color={idx === trackingEvents.length - 1 ? '#16764F' : accent} style={{ marginTop: 2, flexShrink: 0 }} />
+                                <div>
+                                  <div style={{ fontSize: 12.5, fontWeight: 700, color: text }}>{ev.stage_label}</div>
+                                  {ev.location && (
+                                    <div style={{ fontSize: 11.5, color: subtext, display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                                      <LocationIcon size={11} color={subtext} /> {ev.location}
+                                    </div>
+                                  )}
+                                  <div style={{ fontSize: 10.5, color: subtext, marginTop: 2 }}>{new Date(ev.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                                  {ev.note && <div style={{ fontSize: 11, color: subtext, fontStyle: 'italic', marginTop: 2 }}>{ev.note}</div>}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div style={{ borderTop: `1px dashed ${border}`, paddingTop: 14, display: 'grid', gridTemplateColumns: '160px 1fr 1fr auto', gap: 10, alignItems: 'center' }}>
+                          <select value={trackingForm.stage} onChange={e => setTrackingForm(f => ({ ...f, stage: e.target.value }))}
+                            style={{ padding: '9px 10px', borderRadius: 8, border: `1px solid ${border}`, fontSize: 12, color: text, background: '#fff' }}>
+                            {['confirmed', 'processing', 'packed', 'shipped', 'in_transit', 'out_for_delivery', 'delivered', 'cancelled'].map(s => (
+                              <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+                            ))}
+                          </select>
+                          <input value={trackingForm.location} onChange={e => setTrackingForm(f => ({ ...f, location: e.target.value }))}
+                            placeholder="Location / hub (e.g. Chennai Hub)"
+                            style={{ padding: '9px 12px', borderRadius: 8, border: `1px solid ${border}`, fontSize: 12, color: text }} />
+                          <input value={trackingForm.note} onChange={e => setTrackingForm(f => ({ ...f, note: e.target.value }))}
+                            placeholder="Note (optional)"
+                            style={{ padding: '9px 12px', borderRadius: 8, border: `1px solid ${border}`, fontSize: 12, color: text }} />
+                          <button onClick={() => addTrackingUpdate(order.order_id)} disabled={addingTracking}
+                            style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#0C4044,#073B3F)', color: '#FDFDFC', fontSize: 12, fontWeight: 700, cursor: addingTracking ? 'not-allowed' : 'pointer', opacity: addingTracking ? 0.7 : 1, whiteSpace: 'nowrap' }}>
+                            {addingTracking ? 'Adding...' : 'Add Update'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                     </div>
                   )}
                 </div>

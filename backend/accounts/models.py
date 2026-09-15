@@ -903,6 +903,34 @@ class JewelryOrder(models.Model):
         return f"{self.order_id} - {self.product_name}"
 
 
+# ── ORDER TRACKING — Amazon/Flipkart style shipment timeline. Each row is one
+# checkpoint (stage + city/hub + optional note); an order can have many, in order
+# of created_at, so the customer sees exactly where the package has been. ──
+class OrderTrackingEvent(models.Model):
+    STAGE_CHOICES = [
+        ('confirmed', 'Order Confirmed'),
+        ('processing', 'Processing'),
+        ('packed', 'Packed'),
+        ('shipped', 'Shipped'),
+        ('in_transit', 'In Transit'),
+        ('out_for_delivery', 'Out for Delivery'),
+        ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    order = models.ForeignKey(JewelryOrder, on_delete=models.CASCADE, related_name='tracking_events')
+    stage = models.CharField(max_length=20, choices=STAGE_CHOICES)
+    location = models.CharField(max_length=150, blank=True)
+    note = models.CharField(max_length=250, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.order.order_id} - {self.get_stage_display()} @ {self.location}"
+
 
 # ── COIN REQUEST SYSTEM (Promotor <-> SubDealer coin flow) ──
 class CoinRequest(models.Model):

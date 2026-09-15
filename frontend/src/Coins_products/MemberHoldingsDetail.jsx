@@ -15,6 +15,13 @@ import {
   LocationIcon,
 } from "../components/SvgIcons";
 
+// Anything under 1g reads clearer as milligrams (e.g. 0.2g -> 200 mg) than as a decimal gram.
+const formatWeight = (grams) => {
+  const g = Number(grams) || 0;
+  if (g > 0 && g < 1) return `${Math.round(g * 1000)} mg`;
+  return `${g} g`;
+};
+
 const ROLE_CONFIG = {
   super_admin: { bg: "#FEF3C7", color: "#92400E", border: "#FDE68A", label: "Super Admin" },
   admin: { bg: "#F3E8FF", color: "#6B21A8", border: "#E9D5FF", label: "Admin" },
@@ -437,11 +444,11 @@ export default function MemberHoldingsDetail() {
                       <div className="mhd-cic-specs-row">
                         <div>
                           <span className="mhd-cic-sublabel">Unit Weight</span>
-                          <span className="mhd-cic-subval">{item.unit_weight_grams} g</span>
+                          <span className="mhd-cic-subval">{item.weight_label || formatWeight(item.unit_weight_grams)}</span>
                         </div>
                         <div>
                           <span className="mhd-cic-sublabel">Total Weight</span>
-                          <span className="mhd-cic-subval weight">{item.total_weight_grams} g</span>
+                          <span className="mhd-cic-subval weight">{formatWeight(item.total_weight_grams)}</span>
                         </div>
                         <div>
                           <span className="mhd-cic-sublabel">Today's Rate</span>
@@ -452,7 +459,11 @@ export default function MemberHoldingsDetail() {
                       {/* Formula & Live Calculated Valuation */}
                       <div className="mhd-cic-calc-box">
                         <div className="mhd-cic-calc-formula">
-                          <span>Formula: {item.total_weight_grams}g × ₹{Number(item.rate_per_gram || 0).toLocaleString()}</span>
+                          <span>
+                            {Number(item.total_weight_grams) < 1
+                              ? `Formula: ${item.total_weight_grams}g (${formatWeight(item.total_weight_grams)}) × ₹${Number(item.rate_per_gram || 0).toLocaleString()}`
+                              : `Formula: ${formatWeight(item.total_weight_grams)} × ₹${Number(item.rate_per_gram || 0).toLocaleString()}`}
+                          </span>
                         </div>
                         <div className="mhd-cic-calc-result">
                           <span className="mhd-cic-calc-lbl">Today's Value</span>
@@ -528,11 +539,11 @@ export default function MemberHoldingsDetail() {
                           <div className="mhd-jc-specs-grid">
                             <div className="mhd-jc-spec">
                               <span>Gross Wt:</span>
-                              <strong>{Number(item.gross_weight || 0).toFixed(2)}g</strong>
+                              <strong>{formatWeight(item.gross_weight)}</strong>
                             </div>
                             <div className="mhd-jc-spec">
                               <span>Net Wt:</span>
-                              <strong>{Number(item.net_weight || 0).toFixed(2)}g</strong>
+                              <strong>{formatWeight(item.net_weight)}</strong>
                             </div>
                             <div className="mhd-jc-spec">
                               <span>Making:</span>
@@ -551,7 +562,7 @@ export default function MemberHoldingsDetail() {
                         <div className="mhd-jc-formula-title">Live Valuation Breakdown (Today's Spot Rate):</div>
                         <div className="mhd-jc-calc-steps">
                           <div className="mhd-step-row">
-                            <span>Base Metal ({item.net_weight}g × ₹{Number(item.rate_per_gram || 0).toLocaleString()}):</span>
+                            <span>Base Metal ({formatWeight(item.net_weight)} × ₹{Number(item.rate_per_gram || 0).toLocaleString()}/g):</span>
                             <span>₹{Number(item.base_metal_cost || 0).toLocaleString()}</span>
                           </div>
                           <div className="mhd-step-row">
@@ -1310,17 +1321,17 @@ const styles = `
 }
 
 .mhd-cic-calc-box {
-  background: linear-gradient(135deg, #FFFDF0 0%, #FEF9C3 100%);
-  border: 1.5px solid #FDE047;
+  background: linear-gradient(135deg, #073B3F 0%, #0C4044 100%);
+  border: none;
   border-radius: 12px;
-  padding: 11px 13px;
+  padding: 12px 14px;
 }
 
 .mhd-cic-calc-formula {
-  font-size: 11px;
-  color: #854D0E;
-  font-weight: 700;
-  margin-bottom: 4px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.62);
+  font-weight: 600;
+  margin-bottom: 6px;
 }
 
 .mhd-cic-calc-result {
@@ -1330,15 +1341,16 @@ const styles = `
 }
 
 .mhd-cic-calc-lbl {
-  font-size: 11.5px;
-  font-weight: 800;
-  color: #713F12;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.8);
+  letter-spacing: 0.02em;
 }
 
 .mhd-cic-calc-amount {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 900;
-  color: #713F12;
+  color: #E4C48F;
 }
 
 /* JEWELS GRID */

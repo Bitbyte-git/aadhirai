@@ -21,6 +21,13 @@ import {
   ShieldIcon,
 } from "../components/SvgIcons";
 
+// Anything under 1g reads clearer as milligrams (e.g. 0.2g -> 200 mg) than as a decimal gram.
+const formatWeight = (grams) => {
+  const g = Number(grams) || 0;
+  if (g > 0 && g < 1) return `${Math.round(g * 1000)} mg`;
+  return `${g.toFixed(2)} g`;
+};
+
 const METAL_THEMES = {
   gold_22k: {
     label: "Gold 22K",
@@ -1233,7 +1240,7 @@ export default function StoredCoins() {
                   {hierarchyLoading ? <SkeletonText width="60px" height="30px" /> : hierarchyTotalCoins.toLocaleString()}
                 </div>
                 <div className="sc-stat-sub">
-                  {hierarchyStock.length} members · {hierarchyTotalGrams.toFixed(2)} g total
+                  {hierarchyStock.length} members · {formatWeight(hierarchyTotalGrams)} total
                 </div>
               </div>
 
@@ -1247,7 +1254,7 @@ export default function StoredCoins() {
                 <div className="sc-stat-value">
                   {hierarchyLoading ? <SkeletonText width="60px" height="30px" /> : hierarchyGold22kPieces.toLocaleString()}
                 </div>
-                <div className="sc-stat-sub">{hierarchyGold22kGrams.toFixed(2)} g gross weight</div>
+                <div className="sc-stat-sub">{formatWeight(hierarchyGold22kGrams)} gross weight</div>
               </div>
 
               <div className="sc-stat-card" style={{ borderLeft: "4px solid #B45309" }}>
@@ -1260,7 +1267,7 @@ export default function StoredCoins() {
                 <div className="sc-stat-value">
                   {hierarchyLoading ? <SkeletonText width="60px" height="30px" /> : hierarchyGold24kPieces.toLocaleString()}
                 </div>
-                <div className="sc-stat-sub">{hierarchyGold24kGrams.toFixed(2)} g pure bullion</div>
+                <div className="sc-stat-sub">{formatWeight(hierarchyGold24kGrams)} pure bullion</div>
               </div>
 
               <div className="sc-stat-card" style={{ borderLeft: "4px solid #64748B" }}>
@@ -1273,7 +1280,7 @@ export default function StoredCoins() {
                 <div className="sc-stat-value">
                   {hierarchyLoading ? <SkeletonText width="60px" height="30px" /> : hierarchySilverPieces.toLocaleString()}
                 </div>
-                <div className="sc-stat-sub">{hierarchySilverGrams.toFixed(2)} g fine silver</div>
+                <div className="sc-stat-sub">{formatWeight(hierarchySilverGrams)} fine silver</div>
               </div>
             </div>
 
@@ -1457,8 +1464,10 @@ export default function StoredCoins() {
                             <div className="sc-stat-metric">
                               <span className="sc-metric-label">TOTAL WEIGHT</span>
                               <span className="sc-metric-val weight">
-                                {member.total_grams > 0 ? member.total_grams.toFixed(2) : "0.00"}
-                                <span className="sc-metric-unit">gm</span>
+                                {member.total_grams > 0 && member.total_grams < 1
+                                  ? Math.round(member.total_grams * 1000)
+                                  : (member.total_grams || 0).toFixed(2)}
+                                <span className="sc-metric-unit">{member.total_grams > 0 && member.total_grams < 1 ? "mg" : "gm"}</span>
                               </span>
                             </div>
                           </div>
@@ -1468,17 +1477,17 @@ export default function StoredCoins() {
                             <div className="sc-metal-pill g22" title="Gold 22K (916)">
                               <span className="sc-metal-pill-name">Gold 22K</span>
                               <span className="sc-metal-pill-qty">{gold22kPieces} pcs</span>
-                              <span className="sc-metal-pill-wt">{gold22kGrams > 0 ? `${gold22kGrams.toFixed(2)} g` : "0 g"}</span>
+                              <span className="sc-metal-pill-wt">{gold22kGrams > 0 ? formatWeight(gold22kGrams) : "0 g"}</span>
                             </div>
                             <div className="sc-metal-pill g24" title="Gold 24K (999)">
                               <span className="sc-metal-pill-name">Gold 24K</span>
                               <span className="sc-metal-pill-qty">{gold24kPieces} pcs</span>
-                              <span className="sc-metal-pill-wt">{gold24kGrams > 0 ? `${gold24kGrams.toFixed(2)} g` : "0 g"}</span>
+                              <span className="sc-metal-pill-wt">{gold24kGrams > 0 ? formatWeight(gold24kGrams) : "0 g"}</span>
                             </div>
                             <div className="sc-metal-pill slv" title="Silver 999">
                               <span className="sc-metal-pill-name">Silver 999</span>
                               <span className="sc-metal-pill-qty">{silverPieces} pcs</span>
-                              <span className="sc-metal-pill-wt">{silverGrams > 0 ? `${silverGrams.toFixed(2)} g` : "0 g"}</span>
+                              <span className="sc-metal-pill-wt">{silverGrams > 0 ? formatWeight(silverGrams) : "0 g"}</span>
                             </div>
                           </div>
                         </div>
@@ -1510,7 +1519,7 @@ export default function StoredCoins() {
                               <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
                                 {item.weight_grams && (
                                   <span className="sc-holding-item-wt">
-                                    {(Number(item.weight_grams) * Number(item.qty)).toFixed(2)} g
+                                    {formatWeight(Number(item.weight_grams) * Number(item.qty))}
                                   </span>
                                 )}
                                 <span className="sc-holding-qty">

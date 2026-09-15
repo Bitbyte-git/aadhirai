@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import api from "../api";
+import logo from "../assets/logo.png";
 import CustomerFooter from "../collection/CustomerFooter";
+import ActionSuccessModal from "../Coins_products/ActionSuccessModal";
 
 const GENDER_OPTIONS = [
   { value: "male", label: "Male" },
@@ -268,6 +270,9 @@ export default function Register() {
         if (refreshToken) localStorage.setItem("refresh", refreshToken);
         if (role) localStorage.setItem("role", role);
         if (email) localStorage.setItem("email", email);
+        // A cached checkout address from whoever used this browser tab last must
+        // never leak into this new account's order.
+        sessionStorage.removeItem("bb_saved_address");
 
         // Notify global auth events if any
         window.dispatchEvent(new Event("storage"));
@@ -304,20 +309,220 @@ export default function Register() {
       <style>{`
         .ath-reg-root {
           min-height: 100vh;
-          background: #FDFDFC;
+          background: #edf1ee;
+          background-image: radial-gradient(rgba(7, 59, 63, 0.08) 0.6px, transparent 0.6px);
+          background-size: 8px 8px;
           color: #111817;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
         }
         .ath-reg-shell {
-          width: calc(100% - 40px);
-          max-width: 920px;
+          width: 100%;
+          max-width: 1380px;
           margin: 0 auto;
-          padding: 40px 0 80px;
+          padding: 36px 28px 80px;
           box-sizing: border-box;
         }
+        .ath-reg-split-container {
+          display: grid;
+          grid-template-columns: 400px 1fr;
+          gap: 32px;
+          align-items: start;
+        }
+
+        /* Left Story Card (Matching LoginPage Luxury Emerald Aesthetic) */
+        .ath-reg-story {
+          position: sticky;
+          top: 28px;
+          background: linear-gradient(145deg, #0b4545, #07383b 52%, #062d31);
+          border-radius: 28px;
+          padding: 42px 34px;
+          color: #f9f6ef;
+          overflow: hidden;
+          box-shadow: 0 28px 80px rgba(7, 59, 63, 0.22);
+          display: flex;
+          flex-direction: column;
+          gap: 28px;
+        }
+        .ath-reg-story:before {
+          content: "";
+          position: absolute;
+          width: 380px;
+          height: 380px;
+          right: -190px;
+          top: 60px;
+          border: 1px solid rgba(218, 194, 155, 0.22);
+          border-radius: 50%;
+          box-shadow: 0 0 0 50px rgba(218, 194, 155, 0.04), 0 0 0 100px rgba(218, 194, 155, 0.02);
+          pointer-events: none;
+        }
+        .ath-brand {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          position: relative;
+          z-index: 1;
+        }
+        .ath-brand-icon {
+          width: 44px;
+          height: 44px;
+          display: grid;
+          place-items: center;
+          border: 1px solid rgba(233, 211, 178, 0.35);
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.08);
+        }
+        .ath-brand-icon img {
+          width: 28px;
+        }
+        .ath-brand b {
+          display: block;
+          font-family: Georgia, serif;
+          font-size: 20px;
+          letter-spacing: 0.12em;
+          color: #fff;
+        }
+        .ath-brand small {
+          display: block;
+          margin-top: 3px;
+          color: rgba(255, 255, 255, 0.65);
+          font-size: 9px;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+        }
+        .ath-story-copy {
+          position: relative;
+          z-index: 1;
+        }
+        .ath-story-copy label {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 14px;
+          color: #d8b689;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+        }
+        .ath-story-copy label i {
+          width: 22px;
+          height: 1px;
+          background: #d8b689;
+        }
+        .ath-story-copy h1 {
+          margin: 0 0 14px;
+          font-family: Georgia, serif;
+          font-size: 32px;
+          line-height: 1.18;
+          letter-spacing: -0.02em;
+          color: #fff;
+        }
+        .ath-story-copy h1 em {
+          color: #d8b689;
+          font-style: italic;
+        }
+        .ath-story-copy p {
+          margin: 0 0 22px;
+          color: rgba(255, 255, 255, 0.72);
+          font-size: 13.5px;
+          line-height: 1.7;
+        }
+        .ath-story-perks {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          margin-top: 10px;
+          border-top: 1px solid rgba(255, 255, 255, 0.12);
+          padding-top: 18px;
+        }
+        .ath-perk-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+        }
+        .ath-perk-bullet {
+          color: #d8b689;
+          font-size: 14px;
+          margin-top: 1px;
+          flex-shrink: 0;
+        }
+        .ath-perk-item strong {
+          display: block;
+          font-size: 12.5px;
+          font-weight: 700;
+          color: #fff;
+        }
+        .ath-perk-item span {
+          display: block;
+          font-size: 11.5px;
+          color: rgba(255, 255, 255, 0.6);
+          line-height: 1.5;
+          margin-top: 2px;
+        }
+        .ath-story-trust {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          border-top: 1px solid rgba(255, 255, 255, 0.12);
+          padding-top: 18px;
+          position: relative;
+          z-index: 1;
+        }
+        .ath-story-trust div + div {
+          padding-left: 12px;
+          border-left: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .ath-story-trust b {
+          display: block;
+          color: #e6c59a;
+          font-size: 16px;
+          font-weight: 800;
+        }
+        .ath-story-trust span {
+          display: block;
+          margin-top: 3px;
+          color: rgba(255, 255, 255, 0.55);
+          font-size: 8.5px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+        .ath-story-signin-box {
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(216, 182, 137, 0.22);
+          border-radius: 14px;
+          padding: 14px 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          position: relative;
+          z-index: 1;
+        }
+        .ath-story-signin-box span {
+          font-size: 11.5px;
+          color: rgba(255, 255, 255, 0.65);
+        }
+        .ath-story-signin-btn {
+          background: transparent;
+          border: 0;
+          color: #e6c59a;
+          font-size: 13px;
+          font-weight: 800;
+          cursor: pointer;
+          padding: 0;
+          text-align: left;
+          transition: color 150ms ease;
+        }
+        .ath-story-signin-btn:hover {
+          color: #fff;
+          text-decoration: underline;
+        }
+
+        .ath-reg-form-col {
+          min-width: 0;
+        }
+
         .ath-reg-hero {
-          text-align: center;
-          margin-bottom: 32px;
+          text-align: left;
+          margin-bottom: 24px;
         }
         .ath-reg-badge {
           display: inline-flex;
@@ -336,24 +541,23 @@ export default function Register() {
         }
         .ath-reg-title {
           font-family: Georgia, "Times New Roman", serif;
-          font-size: clamp(2rem, 3.8vw, 2.6rem);
+          font-size: clamp(2rem, 3.2vw, 2.5rem);
           color: #073B3F;
           font-weight: 700;
-          margin: 0 0 10px;
+          margin: 0 0 8px;
           letter-spacing: -0.02em;
         }
         .ath-reg-subtitle {
           color: #5d6f6c;
-          font-size: 15px;
+          font-size: 14.5px;
           line-height: 1.6;
-          max-width: 580px;
-          margin: 0 auto;
+          margin: 0;
         }
         .ath-reg-card {
           background: #ffffff;
           border: 1px solid #D6E4E3;
           border-radius: 24px;
-          padding: 36px 40px;
+          padding: 34px 38px;
           box-shadow: 0 16px 48px rgba(7, 59, 63, 0.07);
         }
         .ath-reg-alert {
@@ -690,13 +894,27 @@ export default function Register() {
         }
 
         /* Responsive Breakpoints */
+        @media (max-width: 1024px) {
+          .ath-reg-shell {
+            padding: 24px 16px 60px;
+          }
+          .ath-reg-split-container {
+            grid-template-columns: 1fr;
+            gap: 24px;
+          }
+          .ath-reg-story {
+            position: static;
+            padding: 34px 26px;
+          }
+        }
+
         @media (max-width: 768px) {
           .ath-reg-shell {
-            width: calc(100% - 24px);
-            padding: 24px 0 60px;
+            width: 100%;
+            padding: 18px 12px 60px;
           }
           .ath-reg-card {
-            padding: 24px 20px;
+            padding: 24px 18px;
             border-radius: 20px;
           }
           .ath-reg-grid.cols-3,
@@ -723,18 +941,97 @@ export default function Register() {
       `}</style>
 
       <div className="ath-reg-shell">
-        <header className="ath-reg-hero">
-          <div className="ath-reg-badge">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-            </svg>
-            Athirai Customer Onboarding
-          </div>
-          <h1 className="ath-reg-title">Create Your Customer Account</h1>
-          <p className="ath-reg-subtitle">
-            Fill in your details below to activate verified customer privileges and enjoy direct purchasing, orders, and exclusive jewellery collections.
-          </p>
-        </header>
+        <div className="ath-reg-split-container">
+          {/* Left Brand Showcase Column */}
+          <aside className="ath-reg-story">
+            <div className="ath-brand">
+              <span className="ath-brand-icon">
+                <img src={logo} alt="Athirai" />
+              </span>
+              <div>
+                <b>ATHIRAI</b>
+                <small>Fine jewellery, elevated</small>
+              </div>
+            </div>
+
+            <div className="ath-story-copy">
+              <label>
+                <i /> EXCLUSIVE USER PRIVILEGE
+              </label>
+              <h1>
+                Uncompromising luxury,<br />
+                <em>exclusively yours.</em>
+              </h1>
+              <p>
+                Create your verified user profile to unlock real-time rate lock booking, BIS 100% hallmarked collections, and priority white-glove delivery.
+              </p>
+
+              <div className="ath-story-perks">
+                <div className="ath-perk-item">
+                  <div className="ath-perk-bullet">✦</div>
+                  <div>
+                    <strong>Live Spot Rate Lock</strong>
+                    <span>Book 22K/24K gold & silver at transparent live market rates.</span>
+                  </div>
+                </div>
+                <div className="ath-perk-item">
+                  <div className="ath-perk-bullet">✦</div>
+                  <div>
+                    <strong>BIS Hallmarked Purity</strong>
+                    <span>100% certified authentic fine jewellery with hallmark warranty.</span>
+                  </div>
+                </div>
+                <div className="ath-perk-item">
+                  <div className="ath-perk-bullet">✦</div>
+                  <div>
+                    <strong>Insured Transit & Easy Returns</strong>
+                    <span>Safe transit directly to your door with verified OTP security.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="ath-story-trust">
+              <div>
+                <b>100%</b>
+                <span>BIS Hallmarked</span>
+              </div>
+              <div>
+                <b>24/7</b>
+                <span>Rate Tracking</span>
+              </div>
+              <div>
+                <b>Verified</b>
+                <span>OTP Security</span>
+              </div>
+            </div>
+
+            <div className="ath-story-signin-box">
+              <span>Already registered?</span>
+              <button
+                type="button"
+                onClick={() => navigate("/login")}
+                className="ath-story-signin-btn"
+              >
+                Sign in to your account →
+              </button>
+            </div>
+          </aside>
+
+          {/* Right Form Column */}
+          <section className="ath-reg-form-col">
+            <header className="ath-reg-hero">
+              <div className="ath-reg-badge">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+                Athirai User Onboarding
+              </div>
+              <h1 className="ath-reg-title">Create Your User Account</h1>
+              <p className="ath-reg-subtitle">
+                Fill in your details below to activate verified user privileges and enjoy direct purchasing, orders, and exclusive jewellery collections.
+              </p>
+            </header>
 
         {globalMsg.text && (
           <div className={`ath-reg-alert ${globalMsg.type}`}>
@@ -1053,7 +1350,9 @@ export default function Register() {
             </div>
           </form>
         </div>
-      </div>
+      </section>
+    </div>
+  </div>
 
       {/* OTP Verification Modal */}
       {showOtpModal && (
@@ -1127,11 +1426,4 @@ export default function Register() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      <CustomerFooter />
-    </main>
-  );
-}
+          </di

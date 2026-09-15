@@ -984,7 +984,7 @@ export default function CustomerNavbar() {
   const [activeMega, setActiveMega] = useState(null);
   const megaRefs = useRef({});
   const recognitionRef = useRef(null);
-
+  const [loginDropOpen, setLoginDropOpen] = useState(false);
   const goLogin = () => navigate("/login");
 
   const requireLogin = (route) => {
@@ -1547,6 +1547,92 @@ export default function CustomerNavbar() {
           transform: translateY(-2px);
           background: #0E4B46;
           box-shadow: 0 10px 24px rgba(7,59,63,0.18);
+        }
+
+        .exact-login-popover-wrap {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+        }
+
+        .exact-login-popover {
+          position: absolute;
+          top: calc(100% + 10px);
+          right: 0;
+          min-width: 190px;
+          background: #FFFFFF;
+          border: 1px solid #D6E4E3;
+          border-radius: 12px;
+          box-shadow: 0 16px 40px rgba(7, 59, 63, 0.20);
+          z-index: 10040;
+          padding: 14px 16px;
+          animation: popoverFadeIn 180ms ease;
+        }
+
+        @keyframes popoverFadeIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .login-popover-arrow {
+          position: absolute;
+          top: -6px;
+          right: 28px;
+          width: 12px;
+          height: 12px;
+          background: #FFFFFF;
+          border-left: 1px solid #D6E4E3;
+          border-top: 1px solid #D6E4E3;
+          transform: rotate(45deg);
+        }
+
+        .login-popover-content {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          position: relative;
+          z-index: 1;
+        }
+
+        .login-popover-btn {
+          width: 100%;
+          padding: 10px 14px;
+          background: #073B3F;
+          color: #FFFFFF;
+          border: none;
+          border-radius: 8px;
+          font-weight: 800;
+          font-size: 13.5px;
+          cursor: pointer;
+          transition: all 150ms ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 14px rgba(7, 59, 63, 0.22);
+        }
+
+        .login-popover-btn:hover {
+          background: #0C4E53;
+          transform: translateY(-1px);
+        }
+
+        .login-popover-footer {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          font-size: 12px;
+          color: #5C706E;
+        }
+
+        .login-popover-link {
+          background: none;
+          border: none;
+          color: #073B3F;
+          font-weight: 800;
+          cursor: pointer;
+          padding: 0;
+          text-decoration: underline;
         }
 
         .exact-actions {
@@ -2784,9 +2870,53 @@ export default function CustomerNavbar() {
                 )}
               </button>
               {!isLoggedIn && (
-                <button className="login-pill" type="button" onClick={goLogin}>
-                  Login
-                </button>
+                <div
+                  className="exact-login-popover-wrap"
+                  onMouseEnter={() => setLoginDropOpen(true)}
+                  onMouseLeave={() => setLoginDropOpen(false)}
+                >
+                  <button
+                    className="login-pill"
+                    type="button"
+                    onClick={goLogin}
+                    aria-expanded={loginDropOpen}
+                    title="Click to Login"
+                  >
+                    <span>Login</span>
+                    <span style={{ fontSize: "11px", marginLeft: "4px", transform: loginDropOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms ease", display: "inline-block" }}>▾</span>
+                  </button>
+
+                  {loginDropOpen && (
+                    <div className="exact-login-popover">
+                      <div className="login-popover-arrow" />
+                      <div className="login-popover-content">
+                        <button
+                          type="button"
+                          className="login-popover-btn"
+                          onClick={() => {
+                            setLoginDropOpen(false);
+                            navigate("/login");
+                          }}
+                        >
+                          Login
+                        </button>
+                        <div className="login-popover-footer">
+                          <span>New user?</span>
+                          <button
+                            type="button"
+                            className="login-popover-link"
+                            onClick={() => {
+                              setLoginDropOpen(false);
+                              navigate("/register");
+                            }}
+                          >
+                            Sign Up
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
 
               <button

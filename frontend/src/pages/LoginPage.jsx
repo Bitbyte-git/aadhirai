@@ -20,7 +20,9 @@ export default function LoginPage() {
   const handleLogin=async e=>{
     e.preventDefault(); setLoading(true); setError(''); setAuthFailed(false); ['token','refresh','role','email'].forEach(k=>localStorage.removeItem(k))
     const attempt=()=>api.post('/login/',{email,password})
-    const save=d=>{ Object.entries({token:d.access,refresh:d.refresh,role:d.role,email:d.email}).forEach(([k,v])=>localStorage.setItem(k,v)); const paths={super_admin:'/super-admin',admin:'/admin',dealer:'/dealer',sub_dealer:'/sub-dealer',promotor:'/promotor',shop:'/shop-dashboard'}; navigate(paths[d.role]||'/customer',{replace:true}) }
+    // sessionStorage.removeItem here matters: a cached checkout address from whoever
+    // used this browser tab last must never leak into a different account's new order.
+    const save=d=>{ Object.entries({token:d.access,refresh:d.refresh,role:d.role,email:d.email}).forEach(([k,v])=>localStorage.setItem(k,v)); sessionStorage.removeItem('bb_saved_address'); const paths={super_admin:'/super-admin',admin:'/admin',dealer:'/dealer',sub_dealer:'/sub-dealer',promotor:'/promotor',shop:'/shop-dashboard'}; navigate(paths[d.role]||'/customer',{replace:true}) }
     // Wrong email/password is shown as a popup (ActionSuccessModal, type="danger"); the
     // "server is starting, retrying..." messages stay as the small inline note below.
     const fail=msg=>{setError(msg);setAuthFailed(true);setLoading(false)}
@@ -35,6 +37,16 @@ export default function LoginPage() {
       <form onSubmit={handleLogin}><label className="field"><span>Email, phone or ID</span><div className="input-wrap"><svg viewBox="0 0 24 24"><path d="M4 20v-2a4 4 0 014-4h8a4 4 0 014 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"/></svg><input value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="username" placeholder="Enter your email, phone or ID"/></div></label>
       <label className="field"><span>Password</span><div className="input-wrap"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg><input type={showPassword?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} required autoComplete="current-password" placeholder="Enter your password"/><button type="button" className="eye" onClick={()=>setShowPassword(v=>!v)} aria-label={showPassword?'Hide password':'Show password'}><Eye off={showPassword}/></button></div></label>
       <button className="submit" disabled={loading}><span>{loading?'Signing in…':'Enter your workspace'}</span>{loading?<i className="spinner"/>:<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>}</button></form>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '20px', fontSize: '13px', color: '#667875' }}>
+        <span>New to Athirai?</span>
+        <button
+          type="button"
+          onClick={() => navigate('/register')}
+          style={{ background: 'none', border: 'none', color: '#073B3F', fontWeight: 800, cursor: 'pointer', padding: 0, textDecoration: 'underline', fontSize: '13.5px' }}
+        >
+          Register / Create Account
+        </button>
+      </div>
       <footer><span><i/> Encrypted &amp; secure</span><span>© {new Date().getFullYear()} Athirai</span></footer></div></section>
   </section></main>
 }

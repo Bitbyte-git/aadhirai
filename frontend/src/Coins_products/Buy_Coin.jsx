@@ -17,6 +17,13 @@ import {
   WarningIcon,
 } from "../components/SvgIcons";
 
+// Anything under 1g reads clearer as milligrams (e.g. 0.2g -> 200 mg) than as a decimal gram.
+const formatWeight = (grams) => {
+  const g = Number(grams) || 0;
+  if (g > 0 && g < 1) return `${Math.round(g * 1000)} mg`;
+  return `${g.toFixed(2)} g`;
+};
+
 const METALS = [
   {
     key: "gold_22k",
@@ -839,7 +846,7 @@ export default function BuyCoin() {
                           {mInfo.label} — {item.weight_label}
                         </div>
                         <div style={{ fontSize: "11.5px", color: "#7A8987" }}>
-                          Qty: <b>{item.qty} pcs</b> ({((item.weight_grams || 0) * item.qty).toFixed(2)} g)
+                          Qty: <b>{item.qty} pcs</b> ({formatWeight((item.weight_grams || 0) * item.qty)})
                         </div>
                       </div>
                       <button

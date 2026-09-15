@@ -4917,7 +4917,10 @@ class CoinStockView(APIView):
                     weight_label=w_label,
                     defaults={'weight_grams': w_grams, 'qty': qty}
                 )
-                if not created and stk.qty == 0:
+                # <= 0, not == 0 — once distributions to the team exceed the initial
+                # seed, this balance goes negative and a strict "== 0" check never
+                # re-triggers the top-up, so "My Vault Stock" gets stuck showing 0.
+                if not created and stk.qty <= 0:
                     stk.qty = qty
                     stk.save(update_fields=['qty'])
 

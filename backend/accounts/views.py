@@ -875,6 +875,9 @@ def send_sendgrid_otp_email(to_email, otp_code, recipient_name="Customer"):
     except Exception:
         pass
 
+    brevo_smtp_login = os.environ.get("BREVO_SMTP_LOGIN")
+    brevo_smtp_key = os.environ.get("BREVO_SMTP_KEY")
+    brevo_from_email = os.environ.get("BREVO_FROM_EMAIL", "senthil.bitbyte@gmail.com")
     resend_api_key = os.environ.get("RESEND_API_KEY")
     api_key = os.environ.get("SENDGRID_API_KEY")
     from_email = os.environ.get("SENDGRID_FROM_EMAIL", "senthil.bitbyte@gmail.com")
@@ -972,6 +975,25 @@ https://athirai.com
 </body>
 </html>
 """
+
+    if brevo_smtp_login and brevo_smtp_key:
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        try:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = f"{from_name} <{brevo_from_email}>"
+            msg['To'] = to_email
+            msg.attach(MIMEText(text_content, 'plain'))
+            msg.attach(MIMEText(html_content, 'html'))
+            with smtplib.SMTP('smtp-relay.brevo.com', 587, timeout=12) as server:
+                server.starttls()
+                server.login(brevo_smtp_login, brevo_smtp_key)
+                server.sendmail(brevo_from_email, [to_email], msg.as_string())
+            return True, "Sent via Brevo SMTP"
+        except Exception as e:
+            return False, f"Brevo SMTP error: {str(e)}"
 
     if resend_api_key:
         resend_from = os.environ.get("RESEND_FROM_EMAIL", f"{from_name} <onboarding@resend.dev>")
@@ -1078,20 +1100,18 @@ class RegisterSendOTPView(APIView):
             purpose='register'
         )
 
-        # Dispatch via SendGrid
+        # Dispatch via SendGrid — best-effort only. Email verification is currently
+        # hidden from the user (see Register.jsx), so the OTP is always returned
+        # here regardless of delivery success, and a delivery failure no longer
+        # blocks registration. The underlying send + EmailOTP record/verify flow
+        # is left fully intact for whenever email delivery is reliable again.
         success, msg = send_sendgrid_otp_email(email, otp_code, first_name)
         print(f"[AUTH OTP] Email: {email} | OTP: {otp_code} | SendGrid: {success} ({msg})")
 
         response_data = {
-            'message': f'Verification OTP sent to {email}. Valid for 10 minutes.'
+            'message': f'Verification OTP sent to {email}. Valid for 10 minutes.',
+            'otp': otp_code,
         }
-        if not success:
-            if getattr(settings, 'DEBUG', False):
-                response_data['debug_otp'] = otp_code
-                response_data['warning'] = f"SendGrid: {msg}"
-            else:
-                return Response({'error': f'Unable to send verification email: {msg}'}, status=502)
-
         return Response(response_data, status=200)
 
 

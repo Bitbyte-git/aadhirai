@@ -75,7 +75,7 @@ export default function StoredCoins() {
   const currentRole = localStorage.getItem("role") || "";
   const isSuperAdmin = currentRole === "super_admin";
 
-  const [scope, setScope] = useState("vault"); // "vault" | "hierarchy"
+  const [scope, setScope] = useState(isSuperAdmin ? "hierarchy" : "vault"); // default to hierarchy for super_admin
   const [hierarchyStock, setHierarchyStock] = useState([]);
   const [hierarchyLoading, setHierarchyLoading] = useState(false);
   const [roleFilter, setRoleFilter] = useState("all");

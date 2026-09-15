@@ -69,4 +69,18 @@ api.interceptors.response.use(
   }
 )
 
+// Downloads the Athirai-branded PDF receipt for an order (auth header handled
+// by the interceptor above) — used by the "Download Receipt" buttons.
+export const downloadOrderReceipt = async (orderId) => {
+  const res = await api.get(`/orders/${orderId}/receipt/`, { responseType: 'blob' })
+  const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `athirai-receipt-${orderId}.pdf`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
 export default api

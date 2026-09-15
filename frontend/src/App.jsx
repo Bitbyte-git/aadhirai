@@ -70,6 +70,8 @@ const CoinRequests = lazy(() => import('./Coins_products/Coin_Requests'))
 const TransactionHistory = lazy(() => import('./Coins_products/Transaction_History'))
 const AddJewellery = lazy(() => import('./Coins_products/Add_Jewellery'))
 const AvailableJewellery = lazy(() => import('./Coins_products/Available_Jewellery'))
+const MemberHoldingsDetail = lazy(() => import('./Coins_products/MemberHoldingsDetail'))
+const JewelryStockDetail = lazy(() => import('./Coins_products/JewelryStockDetail'))
 const JewelleryRequests = lazy(() => import('./Coins_products/Jewellery_Requests'))
 const JewelleryTransactions = lazy(() => import('./Coins_products/Jewellery_Transactions'))
 const RetailerPromotions = lazy(() => import('./Promotions/Retailer_Promotions'))
@@ -372,11 +374,13 @@ export default function App() {
           <Route path="/coins-reward" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><CoinsReward /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/stored-coins" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><StoredCoins /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/available-coins" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><StoredCoins /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/member-holdings/:userId" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><MemberHoldingsDetail /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/coin-requests-page" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><CoinRequests /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/coin-transactions" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><TransactionHistory /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/add-jewellery" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><AddJewellery /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/buy-jewellery" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><AddJewellery /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/available-jewellery" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><AvailableJewellery /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/jewellery-stock-detail/:productId" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><JewelryStockDetail /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/jewellery-requests" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><JewelleryRequests /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/jewellery-transactions" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><JewelleryTransactions /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/promotions/sales-order-list" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><PromotionSalesOrderList /></WithSuperAdminNavbar></ProtectedRoute>} />

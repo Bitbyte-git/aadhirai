@@ -12,6 +12,7 @@ import {
   HistoryIcon,
   SearchIcon,
   ArrowLeftIcon,
+  ArrowRightIcon,
   UsersIcon,
   PhoneIcon,
   MailIcon,
@@ -659,12 +660,38 @@ export default function StoredCoins() {
           justify-content: space-between;
           transition: all 200ms ease;
           position: relative;
+          cursor: pointer;
         }
 
         .sc-member-card:hover {
-          transform: translateY(-3px);
+          transform: translateY(-4px);
           border-color: #073B3F;
-          box-shadow: 0 10px 28px rgba(7, 59, 63, 0.09);
+          box-shadow: 0 12px 32px rgba(7, 59, 63, 0.12);
+        }
+
+        .sc-card-action-btn {
+          width: 100%;
+          margin-top: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 10px 14px;
+          border-radius: 10px;
+          background: #E6F4F2;
+          border: 1px solid #C4E5E1;
+          color: #073B3F;
+          font-size: 12.5px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 150ms ease;
+        }
+
+        .sc-card-action-btn:hover {
+          background: #073B3F;
+          color: #FFFFFF;
+          border-color: #073B3F;
+          box-shadow: 0 4px 12px rgba(7, 59, 63, 0.2);
         }
 
         .sc-card-top-bar {
@@ -1352,7 +1379,12 @@ export default function StoredCoins() {
                     .reduce((s, i) => s + ((Number(i.weight_grams) || 0) * (Number(i.qty) || 0)), 0) || 0;
 
                   return (
-                    <article className="sc-member-card" key={member.user_id}>
+                    <article
+                      className="sc-member-card"
+                      key={member.user_id}
+                      onClick={() => navigate(`/member-holdings/${member.user_id}`)}
+                      title={`Click to view complete asset holdings & today's valuation for ${member.name}`}
+                    >
                       <div>
                         {/* Top Bar: Role badge on left, ID badge on right */}
                         <div className="sc-card-top-bar">
@@ -1371,7 +1403,10 @@ export default function StoredCoins() {
                             <span
                               className="sc-card-id-badge"
                               title="Click to copy ID"
-                              onClick={() => handleCopy(member.id_str, member.user_id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopy(member.id_str, member.user_id);
+                              }}
                             >
                               <span>{member.id_str}</span>
                               {copiedId === member.user_id ? (
@@ -1484,6 +1519,18 @@ export default function StoredCoins() {
                           ))}
                         </div>
                       </div>
+
+                      <button
+                        type="button"
+                        className="sc-card-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/member-holdings/${member.user_id}`);
+                        }}
+                      >
+                        <span>View All Holdings & Valuation</span>
+                        <ArrowRightIcon size={12} />
+                      </button>
                     </article>
                   );
                 })}

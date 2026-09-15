@@ -19,13 +19,15 @@ import hmac
 import hashlib
 import random
 import string
+import threading
 from django.conf import settings
 from io import BytesIO
 from django.http import FileResponse
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 # pyrefly: ignore [missing-import]
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -1100,19 +1102,20 @@ class RegisterSendOTPView(APIView):
             purpose='register'
         )
 
-        # Dispatch via SendGrid — best-effort only. Email verification is currently
-        # hidden from the user (see Register.jsx), so the OTP is always returned
-        # here regardless of delivery success, and a delivery failure no longer
-        # blocks registration. The underlying send + EmailOTP record/verify flow
-        # is left fully intact for whenever email delivery is reliable again.
-        success, msg = send_sendgrid_otp_email(email, otp_code, first_name)
-        print(f"[AUTH OTP] Email: {email} | OTP: {otp_code} | SendGrid: {success} ({msg})")
+        # Dispatch in the background — some hosts silently stall/block outbound
+        # SMTP/API calls to email providers, and this view used to wait on that
+        # call before responding, which made the "Sending..." button hang for
+        # the user. The OTP record already exists above; the request now
+        # returns immediately regardless of how long the actual send takes.
+        def _dispatch():
+            success, msg = send_sendgrid_otp_email(email, otp_code, first_name)
+            print(f"[AUTH OTP] Email: {email} | OTP: {otp_code} | SendGrid: {success} ({msg})")
 
-        response_data = {
-            'message': f'Verification OTP sent to {email}. Valid for 10 minutes.',
-            'otp': otp_code,
-        }
-        return Response(response_data, status=200)
+        threading.Thread(target=_dispatch, daemon=True).start()
+
+        return Response({
+            'message': f'Verification OTP sent to {email}. Valid for 10 minutes.'
+        }, status=200)
 
 
 class RegisterVerifyOTPView(APIView):
@@ -2199,6 +2202,14 @@ class JewelryProductDetailView(APIView):
         if self.request.method == 'GET':
             return [AllowAny()]
         return [IsAuthenticated()]
+
+    def get(self, request, pk):
+        try:
+            product = JewelryProduct.objects.prefetch_related('images').get(id=pk)
+        except JewelryProduct.DoesNotExist:
+            return Response({'error': 'Not found'}, status=404)
+        serializer = JewelryProductSerializer(product, context={'request': request})
+        return Response(serializer.data)
 
     def patch(self, request, pk):
         if request.user.role != 'super_admin':
@@ -5006,6 +5017,418 @@ class JewelryStockView(APIView):
         return Response(serializer.data)
 
 
+class MemberHoldingsDetailView(APIView):
+    """
+    Detailed holdings of any member (Coins + Jewellery) with live valuations
+    based on Today's Metal Rates.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'Member not found'}, status=404)
+
+        # Profile & identifier lookup
+        role_field = {
+            'promotor': 'promotor_profile',
+            'sub_dealer': 'sub_dealer_profile',
+            'dealer': 'dealer_profile',
+            'admin': 'admin_profile',
+            'shop': 'shop_profile',
+        }.get(target_user.role)
+
+        prof = None
+        if role_field:
+            try:
+                prof = getattr(target_user, role_field, None)
+            except Exception:
+                prof = None
+
+        id_field = {
+            'promotor': 'promotor_id',
+            'sub_dealer': 'sub_dealer_id',
+            'dealer': 'dealer_id',
+            'admin': 'admin_id',
+        }.get(target_user.role)
+        id_str = getattr(prof, id_field, '') if (prof and id_field) else ''
+
+        if prof:
+            if target_user.role == 'shop':
+                name = getattr(prof, 'shop_name', '') or getattr(prof, 'owner_name', '') or target_user.email
+            else:
+                fn = getattr(prof, 'first_name', '')
+                ln = getattr(prof, 'last_name', '') or ''
+                name = f"{fn} {ln}".strip() or target_user.email
+            phone = getattr(prof, 'mobile_number', '') or getattr(prof, 'admin_contact_no', '')
+            city = getattr(prof, 'city_name', '')
+            district = getattr(prof, 'district', '')
+            state = getattr(prof, 'state', '')
+        else:
+            name = 'Super Admin' if target_user.role == 'super_admin' else (target_user.email.split('@')[0] if target_user.email else 'User')
+            phone = ''
+            city = ''
+            district = ''
+            state = ''
+
+        # Live Metal Rate
+        latest_rate = MetalRate.objects.first()
+        r_22k = float(latest_rate.gold_22k) if latest_rate and latest_rate.gold_22k else 0.0
+        r_24k = float(latest_rate.gold_24k) if latest_rate and latest_rate.gold_24k else 0.0
+        r_silver = float(latest_rate.silver_999) if latest_rate and latest_rate.silver_999 else 0.0
+
+        today_rates = {
+            'date': str(latest_rate.date) if latest_rate else '',
+            'gold_22k': r_22k,
+            'gold_24k': r_24k,
+            'silver_999': r_silver,
+        }
+
+        # ── COIN HOLDINGS ──
+        coin_stocks = CoinStock.objects.filter(user=target_user, qty__gt=0).order_by('metal_type', 'weight_grams')
+        coin_items = []
+        coin_total_pieces = 0
+        coin_total_grams = 0.0
+        coin_total_value = 0.0
+
+        gold_22k_pcs = 0
+        gold_22k_wt = 0.0
+        gold_22k_val = 0.0
+
+        gold_24k_pcs = 0
+        gold_24k_wt = 0.0
+        gold_24k_val = 0.0
+
+        silver_pcs = 0
+        silver_wt = 0.0
+        silver_val = 0.0
+
+        for c in coin_stocks:
+            w_unit = float(c.weight_grams or 0)
+            total_g = round(w_unit * c.qty, 4)
+
+            # Match rate
+            if c.metal_type == 'gold_24k':
+                rate_per_g = r_24k
+                metal_label = 'Gold 24K (999)'
+            elif c.metal_type == 'silver_999':
+                rate_per_g = r_silver
+                metal_label = 'Silver 999'
+            else:
+                rate_per_g = r_22k
+                metal_label = 'Gold 22K (916)'
+
+            unit_val = round(w_unit * rate_per_g, 2)
+            total_val = round(total_g * rate_per_g, 2)
+
+            coin_items.append({
+                'id': c.id,
+                'metal_type': c.metal_type,
+                'metal_label': metal_label,
+                'weight_label': c.weight_label,
+                'unit_weight_grams': w_unit,
+                'qty': c.qty,
+                'total_weight_grams': total_g,
+                'rate_per_gram': rate_per_g,
+                'unit_valuation': unit_val,
+                'total_valuation': total_val,
+            })
+
+            coin_total_pieces += c.qty
+            coin_total_grams += total_g
+            coin_total_value += total_val
+
+            if c.metal_type == 'gold_24k':
+                gold_24k_pcs += c.qty
+                gold_24k_wt += total_g
+                gold_24k_val += total_val
+            elif c.metal_type == 'silver_999':
+                silver_pcs += c.qty
+                silver_wt += total_g
+                silver_val += total_val
+            else:
+                gold_22k_pcs += c.qty
+                gold_22k_wt += total_g
+                gold_22k_val += total_val
+
+        # ── JEWELLERY HOLDINGS ──
+        if target_user.role == 'super_admin':
+            for p in JewelryProduct.objects.filter(is_internal_asset=True, stock_quantity__gt=0):
+                stk, created = JewelryStock.objects.get_or_create(user=target_user, product=p, defaults={'qty': p.stock_quantity})
+                if not created and stk.qty == 0 and p.stock_quantity > 0:
+                    stk.qty = p.stock_quantity
+                    stk.save(update_fields=['qty'])
+
+        jewel_stocks = JewelryStock.objects.filter(user=target_user, qty__gt=0).select_related('product').prefetch_related('product__images').order_by('product__name')
+        jewel_items = []
+        jewel_total_pieces = 0
+        jewel_total_gross = 0.0
+        jewel_total_net = 0.0
+        jewel_total_value = 0.0
+
+        for j in jewel_stocks:
+            p = j.product
+            gross = float(p.cross_weight or 0)
+            net = float(p.net_weight or p.cross_weight or 0)
+            stone_wt = float(p.stone_weight or 0)
+            making_pct = float(p.making_charge or 0)
+
+            metal_l = (p.metal or '').lower()
+            grade_l = (p.grade or '').lower()
+
+            if metal_l == 'gold' and '24' in grade_l:
+                rate_per_g = r_24k
+                grade_name = '24K (999)'
+            elif metal_l == 'silver':
+                rate_per_g = r_silver
+                grade_name = 'Silver 999'
+            else:
+                rate_per_g = r_22k
+                grade_name = '22K (916)'
+
+            base_metal = round(net * rate_per_g, 2)
+            making_val = round(base_metal * (making_pct / 100.0), 2)
+            subtotal = round(base_metal + making_val, 2)
+            gst = round(subtotal * 0.03, 2)
+            unit_price = round(subtotal + gst, 2)
+            item_tot_val = round(unit_price * j.qty, 2)
+
+            images = []
+            for img in p.images.all():
+                url = img.image.url if img.image else ''
+                if url and not url.startswith('http'):
+                    url = request.build_absolute_uri(url)
+                if url:
+                    images.append(url)
+
+            jewel_items.append({
+                'id': j.id,
+                'product_id': p.id,
+                'product_code': p.product_code,
+                'name': p.name,
+                'category': p.category,
+                'metal': p.metal,
+                'grade': p.grade or grade_name,
+                'gross_weight': gross,
+                'net_weight': net,
+                'stone_weight': stone_wt,
+                'making_charge_pct': making_pct,
+                'qty': j.qty,
+                'rate_per_gram': rate_per_g,
+                'base_metal_cost': base_metal,
+                'making_charge_cost': making_val,
+                'subtotal_before_tax': subtotal,
+                'gst_3pct': gst,
+                'unit_price': unit_price,
+                'total_valuation': item_tot_val,
+                'images': images,
+            })
+
+            jewel_total_pieces += j.qty
+            jewel_total_gross += round(gross * j.qty, 3)
+            jewel_total_net += round(net * j.qty, 3)
+            jewel_total_value += item_tot_val
+
+        return Response({
+            'member': {
+                'user_id': target_user.id,
+                'id_str': id_str,
+                'name': name,
+                'email': target_user.email,
+                'phone': phone,
+                'role': target_user.role,
+                'city': city,
+                'district': district,
+                'state': state,
+                'joined_date': target_user.created_at.strftime('%Y-%m-%d') if hasattr(target_user, 'created_at') and target_user.created_at else '',
+            },
+            'today_rates': today_rates,
+            'coins': {
+                'items': coin_items,
+                'summary': {
+                    'total_pieces': coin_total_pieces,
+                    'total_grams': round(coin_total_grams, 3),
+                    'total_valuation': round(coin_total_value, 2),
+                    'gold_22k': {'pieces': gold_22k_pcs, 'grams': round(gold_22k_wt, 3), 'valuation': round(gold_22k_val, 2)},
+                    'gold_24k': {'pieces': gold_24k_pcs, 'grams': round(gold_24k_wt, 3), 'valuation': round(gold_24k_val, 2)},
+                    'silver': {'pieces': silver_pcs, 'grams': round(silver_wt, 3), 'valuation': round(silver_val, 2)},
+                }
+            },
+            'jewellery': {
+                'items': jewel_items,
+                'summary': {
+                    'total_designs': len(jewel_items),
+                    'total_pieces': jewel_total_pieces,
+                    'total_gross_grams': round(jewel_total_gross, 3),
+                    'total_net_grams': round(jewel_total_net, 3),
+                    'total_valuation': round(jewel_total_value, 2),
+                }
+            },
+            'portfolio_summary': {
+                'total_asset_valuation': round(coin_total_value + jewel_total_value, 2),
+                'total_all_pieces': coin_total_pieces + jewel_total_pieces,
+                'coins_valuation': round(coin_total_value, 2),
+                'jewellery_valuation': round(jewel_total_value, 2),
+                'total_weight_grams': round(coin_total_grams + jewel_total_net, 3),
+            }
+        })
+
+
+class JewelryStockDetailView(APIView):
+    """
+    Complete detail of a single jewellery product including live rate valuation formula
+    and breakdown of holders across Super Admin vault and team members.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, product_id):
+        try:
+            p = JewelryProduct.objects.prefetch_related('images').get(id=product_id)
+        except JewelryProduct.DoesNotExist:
+            return Response({'error': 'Jewellery product not found'}, status=404)
+
+        # Live Metal Rate
+        latest_rate = MetalRate.objects.first()
+        r_22k = float(latest_rate.gold_22k) if latest_rate and latest_rate.gold_22k else 0.0
+        r_24k = float(latest_rate.gold_24k) if latest_rate and latest_rate.gold_24k else 0.0
+        r_silver = float(latest_rate.silver_999) if latest_rate and latest_rate.silver_999 else 0.0
+
+        metal_l = (p.metal or '').lower()
+        grade_l = (p.grade or '').lower()
+
+        if metal_l == 'gold' and '24' in grade_l:
+            rate_per_g = r_24k
+            karat_name = '24K (999)'
+        elif metal_l == 'silver':
+            rate_per_g = r_silver
+            karat_name = 'Silver 999'
+        else:
+            rate_per_g = r_22k
+            karat_name = '22K (916)'
+
+        gross = float(p.cross_weight or 0)
+        net = float(p.net_weight or p.cross_weight or 0)
+        stone_wt = float(p.stone_weight or 0)
+        making_pct = float(p.making_charge or 0)
+        wastage_pct = float(p.wastage_charge or 0)
+
+        # Precise valuation breakdown
+        base_metal = round(net * rate_per_g, 2)
+        making_cost = round(base_metal * (making_pct / 100.0), 2)
+        wastage_cost = round(base_metal * (wastage_pct / 100.0), 2) if wastage_pct > 0 else 0.0
+        subtotal = round(base_metal + making_cost + wastage_cost, 2)
+        gst = round(subtotal * 0.03, 2)
+        live_unit_price = round(subtotal + gst, 2)
+
+        # Stock holders
+        stocks = JewelryStock.objects.filter(product=p, qty__gt=0).select_related('user')
+        holders = []
+        total_holding_pcs = 0
+        vault_pcs = 0
+
+        for s in stocks:
+            u = s.user
+            total_holding_pcs += s.qty
+            if u.role == 'super_admin':
+                vault_pcs += s.qty
+
+            role_field = {
+                'promotor': 'promotor_profile',
+                'sub_dealer': 'sub_dealer_profile',
+                'dealer': 'dealer_profile',
+                'admin': 'admin_profile',
+            }.get(u.role)
+            prof = getattr(u, role_field, None) if role_field else None
+            id_field = {
+                'promotor': 'promotor_id',
+                'sub_dealer': 'sub_dealer_id',
+                'dealer': 'dealer_id',
+                'admin': 'admin_id',
+            }.get(u.role)
+            id_str = getattr(prof, id_field, '') if (prof and id_field) else ''
+            holder_name = f"{getattr(prof, 'first_name', '')} {getattr(prof, 'last_name', '')}".strip() if prof else ('Super Admin' if u.role == 'super_admin' else u.email)
+            holder_phone = getattr(prof, 'mobile_number', '') if prof else ''
+
+            holders.append({
+                'user_id': u.id,
+                'name': holder_name or u.email,
+                'role': u.role,
+                'id_str': id_str,
+                'phone': holder_phone,
+                'qty': s.qty,
+                'holding_valuation': round(live_unit_price * s.qty, 2),
+            })
+
+        if vault_pcs == 0 and p.is_internal_asset and p.stock_quantity:
+            vault_pcs = p.stock_quantity
+            if not any(h['role'] == 'super_admin' for h in holders):
+                holders.insert(0, {
+                    'user_id': None,
+                    'name': 'Super Admin Vault',
+                    'role': 'super_admin',
+                    'id_str': 'VAULT-001',
+                    'phone': '',
+                    'qty': p.stock_quantity,
+                    'holding_valuation': round(live_unit_price * p.stock_quantity, 2),
+                })
+                total_holding_pcs += p.stock_quantity
+
+        images = []
+        for img in p.images.all():
+            url = img.image.url if img.image else ''
+            if url and not url.startswith('http'):
+                url = request.build_absolute_uri(url)
+            if url:
+                images.append(url)
+
+        return Response({
+            'product': {
+                'id': p.id,
+                'product_code': p.product_code,
+                'name': p.name,
+                'description': p.description,
+                'category': p.category,
+                'metal': p.metal,
+                'grade': p.grade or karat_name,
+                'karat_label': karat_name,
+                'gross_weight': gross,
+                'net_weight': net,
+                'stone_weight': stone_wt,
+                'making_charge_pct': making_pct,
+                'wastage_charge_pct': wastage_pct,
+                'stock_quantity': p.stock_quantity,
+                'is_active': p.is_active,
+                'is_internal_asset': p.is_internal_asset,
+                'images': images,
+            },
+            'today_rate': {
+                'date': str(latest_rate.date) if latest_rate else '',
+                'rate_per_gram': rate_per_g,
+                'gold_22k': r_22k,
+                'gold_24k': r_24k,
+                'silver_999': r_silver,
+            },
+            'valuation_breakdown': {
+                'rate_applied': rate_per_g,
+                'net_weight_grams': net,
+                'base_metal_cost': base_metal,
+                'making_charge_pct': making_pct,
+                'making_charge_cost': making_cost,
+                'wastage_charge_pct': wastage_pct,
+                'wastage_charge_cost': wastage_cost,
+                'pre_tax_subtotal': subtotal,
+                'gst_3pct': gst,
+                'live_unit_price': live_unit_price,
+                'vault_stock_qty': vault_pcs,
+                'total_vault_valuation': round(live_unit_price * vault_pcs, 2),
+                'total_company_stock_qty': total_holding_pcs,
+                'total_company_valuation': round(live_unit_price * total_holding_pcs, 2),
+            },
+            'stock_holders': holders,
+        })
+
+
 class JewelryRequestView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -6538,6 +6961,97 @@ class RechargeStatementView(APIView):
         buffer.seek(0)
 
         filename = f"recharge-statement-{period}-{timezone.now().strftime('%Y%m%d')}.pdf"
+        return FileResponse(buffer, as_attachment=True, filename=filename, content_type='application/pdf')
+
+
+class OrderReceiptPDFView(APIView):
+    """Athirai-branded PDF receipt for a single order — used by the 'Download Receipt'
+    button on the order-confirmed screen and the order-history list."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, order_id):
+        try:
+            order = JewelryOrder.objects.select_related('user').get(order_id=order_id)
+        except JewelryOrder.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=404)
+
+        if order.user_id != request.user.id and request.user.role != 'super_admin':
+            return Response({'error': 'Permission denied'}, status=403)
+
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=30, bottomMargin=30, leftMargin=36, rightMargin=36)
+        styles = getSampleStyleSheet()
+        brand_style = ParagraphStyle('Brand', parent=styles['Title'], textColor=colors.HexColor('#BB8958'),
+                                      fontSize=26, leading=30, alignment=TA_CENTER, spaceAfter=2)
+        tagline_style = ParagraphStyle('Tagline', parent=styles['Normal'], textColor=colors.HexColor('#7A8987'),
+                                        fontSize=10, alignment=TA_CENTER, spaceAfter=18)
+        heading_style = ParagraphStyle('Heading', parent=styles['Heading2'], textColor=colors.HexColor('#073B3F'),
+                                        fontSize=13, spaceBefore=10, spaceAfter=8)
+        right_style = ParagraphStyle('Right', parent=styles['Normal'], alignment=TA_RIGHT)
+        elements = []
+
+        header_table = Table([[
+            Paragraph('ATHIRAI', brand_style),
+        ]], colWidths=['100%'])
+        header_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#073B3F')),
+            ('TOPPADDING', (0, 0), (-1, -1), 16),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(header_table)
+        elements.append(Paragraph('Fine Jewellery — Order Receipt', ParagraphStyle(
+            'TaglineOnBrand', parent=tagline_style, textColor=colors.HexColor('#E0F2F1'),
+            backColor=colors.HexColor('#073B3F'), spaceAfter=18,
+        )))
+        elements.append(Spacer(1, 10))
+
+        elements.append(Paragraph(f"<b>Order ID:</b> {order.order_id}", styles['Normal']))
+        elements.append(Paragraph(f"<b>Order Date:</b> {order.created_at.strftime('%d %b %Y, %I:%M %p')}", styles['Normal']))
+        elements.append(Paragraph(f"<b>Status:</b> {order.get_status_display()}", styles['Normal']))
+        elements.append(Spacer(1, 14))
+
+        elements.append(Paragraph('Delivered To', heading_style))
+        elements.append(Paragraph(order.customer_name, styles['Normal']))
+        elements.append(Paragraph(order.customer_phone, styles['Normal']))
+        address = f"{order.address_line1}, {order.address_line2}" if order.address_line2 else order.address_line1
+        elements.append(Paragraph(f"{address}, {order.city}, {order.state} - {order.pincode}", styles['Normal']))
+        elements.append(Spacer(1, 14))
+
+        elements.append(Paragraph('Order Details', heading_style))
+        purity = f"{order.product_metal.upper()} {order.product_grade.upper()}".strip()
+        data = [
+            ['Product', 'Metal / Purity', 'Category', 'Qty', 'Unit Price', 'Amount'],
+            [order.product_name, purity, order.product_category.title(), str(order.quantity),
+             f"Rs. {order.unit_price:,.2f}", f"Rs. {order.total_price:,.2f}"],
+        ]
+        table = Table(data, colWidths=[130, 90, 75, 35, 75, 85])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#073B3F')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D1DFDE')),
+            ('ALIGN', (3, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 7),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+        ]))
+        elements.append(table)
+        elements.append(Spacer(1, 10))
+
+        elements.append(Paragraph(f"<b>Total Amount Paid: Rs. {order.total_price:,.2f}</b>", right_style))
+        elements.append(Paragraph(f"Payment Method: {order.get_payment_method_display()}", right_style))
+        elements.append(Spacer(1, 24))
+
+        elements.append(Paragraph(
+            'Thank you for shopping with Athirai. This is a computer-generated receipt.',
+            ParagraphStyle('Footer', parent=styles['Normal'], textColor=colors.HexColor('#7A8987'),
+                            fontSize=9, alignment=TA_CENTER),
+        ))
+
+        doc.build(elements)
+        buffer.seek(0)
+
+        filename = f"athirai-receipt-{order.order_id}.pdf"
         return FileResponse(buffer, as_attachment=True, filename=filename, content_type='application/pdf')
 
 

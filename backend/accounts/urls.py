@@ -11,6 +11,7 @@ HierarchySubtreeOrdersView, HierarchyAdminsView, HierarchyChildrenView, SalesRep
  ReferrerInfoView, PublicCustomerRegisterView, RegisterSendOTPView, RegisterVerifyOTPView, GenerateReferralLinkView, RechargeCreateOrderView, RechargeVerifyPaymentView, WalletView, RechargeHistoryView, RechargeStatementView, PayWithCoinsView, PaymentsSummaryView, UserLookupView, SendCoinsView, AdminUserHistoryView, AdminSentHistoryView, AutoPayCreateView, AutoPayConfirmView, AutoPayStatusView, AutoPayToggleView, autopay_webhook,AutoPayMandateListView, AffordableProductsView,
  HierarchyPersonSearchView, SalesSummaryView, SalesTrendView, HierarchyNodeOrdersView, HierarchyNodeInfoView, HierarchyPathToNodeView, 
  JewelryStockView, JewelryRequestView, JewelryRequestApproveView, JewelryRequestRejectView,
+ MemberHoldingsDetailView, JewelryStockDetailView, OrderReceiptPDFView,
 )
 
 urlpatterns = [
@@ -61,6 +62,7 @@ urlpatterns = [
     path('wishlist/', WishlistView.as_view()),
     path('orders/', JewelryOrderView.as_view()),
     path('orders/<int:pk>/', JewelryOrderView.as_view()),
+    path('orders/<str:order_id>/receipt/', OrderReceiptPDFView.as_view()),
     path('create-razorpay-order/', create_razorpay_order),
     path('verify-payment/', verify_payment),
     path('sales-report/', SalesReportView.as_view()),
@@ -74,6 +76,8 @@ urlpatterns = [
     path('coin-stock/for-user/', CoinStockForUserView.as_view()),
     path('coin-stock/add/', SuperAdminAddCoinsView.as_view()),
     path('jewelry-stock/', JewelryStockView.as_view()),
+    path('member-holdings/<int:user_id>/', MemberHoldingsDetailView.as_view()),
+    path('jewellery-stock-detail/<int:product_id>/', JewelryStockDetailView.as_view()),
     path('jewelry-requests/', JewelryRequestView.as_view()),
     path('jewelry-requests/<int:pk>/approve/', JewelryRequestApproveView.as_view()),
     path('jewelry-requests/<int:pk>/reject/', JewelryRequestRejectView.as_view()),

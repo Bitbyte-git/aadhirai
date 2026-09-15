@@ -108,6 +108,19 @@ export default function OrderSummary() {
   const [selectedOrderId, setSelectedOrderId] = useState(null)
   const [statusFilter, setStatusFilter] = useState('all')
   const [query, setQuery] = useState('')
+  const [downloadingId, setDownloadingId] = useState(null)
+
+  const handleDownloadReceipt = async (event, orderId) => {
+    event.stopPropagation()
+    setDownloadingId(orderId)
+    try {
+      const { downloadOrderReceipt } = await import('../api')
+      await downloadOrderReceipt(orderId)
+    } catch {
+      // silent — button just returns to its normal state
+    }
+    setDownloadingId(null)
+  }
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -599,6 +612,29 @@ export default function OrderSummary() {
           font-family: Consolas, monospace;
         }
 
+        .os-receipt-btn {
+          border: 1px solid rgba(187,137,88,0.5);
+          border-radius: 999px;
+          background: rgba(187,137,88,0.12);
+          color: #9F6130;
+          font-size: 11px;
+          font-weight: 800;
+          padding: 6px 14px;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: background 0.2s ease, transform 0.2s ease;
+        }
+
+        .os-receipt-btn:hover:not(:disabled) {
+          background: rgba(187,137,88,0.22);
+          transform: translateY(-1px);
+        }
+
+        .os-receipt-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
         .os-expanded {
           border-top: 1px solid rgba(12,64,68,0.10);
           background:
@@ -926,6 +962,11 @@ export default function OrderSummary() {
         }
 
         @media (max-width: 480px) {
+          .os-order-strip > div {
+            flex-wrap: wrap;
+            gap: 8px !important;
+          }
+
           .os-order-main {
             grid-template-columns: 68px minmax(0, 1fr);
             gap: 10px;
@@ -1084,7 +1125,17 @@ export default function OrderSummary() {
 
                     <div className="os-order-strip">
                       <span>Order ID: <strong>{order.order_id || order.id}</strong></span>
-                      <span>Category: <strong>{titleCase(order.product_category || 'Jewellery')}</strong></span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <span>Category: <strong>{titleCase(order.product_category || 'Jewellery')}</strong></span>
+                        <button
+                          type="button"
+                          className="os-receipt-btn"
+                          disabled={downloadingId === (order.order_id || order.id)}
+                          onClick={event => handleDownloadReceipt(event, order.order_id || order.id)}
+                        >
+                          {downloadingId === (order.order_id || order.id) ? 'Preparing...' : 'Download Receipt'}
+                        </button>
+                      </div>
                     </div>
 
                     {isOpen && (

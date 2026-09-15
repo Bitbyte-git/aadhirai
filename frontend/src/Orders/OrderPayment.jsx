@@ -79,8 +79,20 @@ export default function OrderPayment() {
   const [toppingUp, setToppingUp] = useState(false)
   const [banner, setBanner] = useState(null)
   const [orderId, setOrderId] = useState(null)
+  const [downloadingReceipt, setDownloadingReceipt] = useState(false)
 
   useEffect(() => { if (!product || !savedAddress) navigate(-1) }, [product, savedAddress, navigate])
+
+  const handleDownloadReceipt = async () => {
+    setDownloadingReceipt(true)
+    try {
+      const { downloadOrderReceipt } = await import('../api')
+      await downloadOrderReceipt(orderId)
+    } catch {
+      setBanner({ type: 'error', text: 'Could not download receipt. Please try again.' })
+    }
+    setDownloadingReceipt(false)
+  }
 
   const fetchWallet = async () => {
     try {
@@ -215,9 +227,15 @@ export default function OrderPayment() {
             <p style={{ color: MUTED, fontSize: 14, marginBottom: 6 }}>Order ID</p>
             <p style={{ fontWeight: 900, fontSize: 18, color: RED, marginBottom: 24 }}>{orderId}</p>
             <p style={{ color: MUTED, fontSize: 13, marginBottom: 24 }}>Paid using AUG Coin — {coinsNeeded.toLocaleString('en-IN')} coins deducted.</p>
-            <button className="op-pay-btn" style={{ maxWidth: 260, margin: '0 auto' }} onClick={() => navigate('/customer')}>
-              Continue Shopping
-            </button>
+            {banner && <div className={`op-banner ${banner.type}`} style={{ maxWidth: 320, margin: '0 auto 16px' }}>{banner.text}</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 260, margin: '0 auto' }}>
+              <button className="op-pay-btn" style={{ background: 'linear-gradient(135deg,#BB8958,#9F6130)' }} disabled={downloadingReceipt} onClick={handleDownloadReceipt}>
+                {downloadingReceipt ? 'Preparing...' : 'Download Receipt'}
+              </button>
+              <button className="op-pay-btn" onClick={() => navigate('/customer')}>
+                Continue Shopping
+              </button>
+            </div>
           </div>
         </main>
         <CustomerFooter />

@@ -454,12 +454,75 @@ export default function AvailableJewellery() {
           box-shadow: 0 4px 18px rgba(7, 59, 63, 0.04);
           display: flex;
           flex-direction: column;
-          transition: transform 180ms ease;
+          transition: all 200ms ease;
+          cursor: pointer;
         }
 
         .aj-user-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 8px 26px rgba(7, 59, 63, 0.08);
+          transform: translateY(-4px);
+          border-color: #073B3F;
+          box-shadow: 0 12px 30px rgba(7, 59, 63, 0.12);
+        }
+
+        .aj-user-action-btn {
+          width: 100%;
+          margin-top: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 10px 14px;
+          border-radius: 10px;
+          background: #E6F4F2;
+          border: 1px solid #C4E5E1;
+          color: #073B3F;
+          font-size: 12.5px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 150ms ease;
+        }
+
+        .aj-user-action-btn:hover {
+          background: #073B3F;
+          color: #FFFFFF;
+          border-color: #073B3F;
+          box-shadow: 0 4px 12px rgba(7, 59, 63, 0.2);
+        }
+
+        .aj-card-view-spec-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 5px 10px;
+          border-radius: 8px;
+          background: #E6F4F2;
+          color: #073B3F;
+          font-size: 11.5px;
+          font-weight: 700;
+          transition: all 150ms ease;
+        }
+
+        .aj-vault-card:hover .aj-card-view-spec-chip {
+          background: #073B3F;
+          color: #FFFFFF;
+        }
+
+        .aj-vault-card {
+          background: #FFFFFF;
+          border: 1px solid #E1EBEA;
+          border-radius: 18px;
+          overflow: hidden;
+          box-shadow: 0 4px 16px rgba(7, 59, 63, 0.04);
+          display: flex;
+          flex-direction: column;
+          transition: all 200ms ease;
+          cursor: pointer;
+        }
+
+        .aj-vault-card:hover {
+          transform: translateY(-4px);
+          border-color: #073B3F;
+          box-shadow: 0 12px 30px rgba(7, 59, 63, 0.12);
         }
 
         .aj-user-top {
@@ -596,16 +659,6 @@ export default function AvailableJewellery() {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
           gap: 20px;
-        }
-
-        .aj-vault-card {
-          background: #FFFFFF;
-          border: 1px solid #E1EBEA;
-          border-radius: 18px;
-          overflow: hidden;
-          box-shadow: 0 4px 16px rgba(7, 59, 63, 0.04);
-          display: flex;
-          flex-direction: column;
         }
 
         .aj-vault-img-box {
@@ -898,13 +951,21 @@ export default function AvailableJewellery() {
                   label: user.role,
                 };
                 return (
-                  <div key={user.user_id} className="aj-user-card">
+                  <div
+                    key={user.user_id}
+                    className="aj-user-card"
+                    onClick={() => navigate(`/member-holdings/${user.user_id}`)}
+                    title={`Click to view complete asset holdings & today's valuation for ${user.name}`}
+                  >
                     <div className="aj-user-top">
                       <div>
                         {user.id_str && (
                           <div
                             className="aj-user-id-chip"
-                            onClick={() => handleCopy(user.id_str, user.user_id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopy(user.id_str, user.user_id);
+                            }}
                           >
                             <span>{user.id_str}</span>
                             <CopyIcon size={12} color="#073B3F" />
@@ -979,15 +1040,16 @@ export default function AvailableJewellery() {
                             key={idx}
                             className="aj-mini-item"
                             style={{ cursor: "pointer", transition: "all 150ms ease" }}
-                            onClick={() =>
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setPreviewItem({
                                 ...item,
                                 holder_name: user.name,
                                 holder_role: user.role,
                                 holder_id: user.id_str,
                                 holder_phone: user.phone,
-                              })
-                            }
+                              });
+                            }}
                             title="Click to view full photo and product details"
                           >
                             <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
@@ -1073,6 +1135,18 @@ export default function AvailableJewellery() {
                         );
                       })}
                     </div>
+
+                    <button
+                      type="button"
+                      className="aj-user-action-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/member-holdings/${user.user_id}`);
+                      }}
+                    >
+                      <span>View All Holdings & Valuation</span>
+                      <ArrowRightIcon size={12} />
+                    </button>
                   </div>
                 );
               })}
@@ -1119,7 +1193,12 @@ export default function AvailableJewellery() {
                 const isGold = p.metal?.toLowerCase() === "gold";
 
                 return (
-                  <div key={s.id || p.id} className="aj-vault-card">
+                  <div
+                    key={s.id || p.id}
+                    className="aj-vault-card"
+                    onClick={() => navigate(`/jewellery-stock-detail/${s.product?.id || p.id}`)}
+                    title={`Click to view full specs & live today's rate valuation for ${p.name}`}
+                  >
                     <div className="aj-vault-img-box">
                       {imgUrl ? (
                         <img src={imgUrl} alt={p.name} />
@@ -1191,6 +1270,11 @@ export default function AvailableJewellery() {
                           </div>
                           <div style={{ fontSize: "11px", color: "#7A8987" }}>with 3% tax</div>
                         </div>
+
+                        <span className="aj-card-view-spec-chip">
+                          <span>Details</span>
+                          <ArrowRightIcon size={12} />
+                        </span>
                       </div>
 
                     </div>

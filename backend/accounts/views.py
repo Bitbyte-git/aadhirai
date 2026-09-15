@@ -1163,9 +1163,9 @@ class CreateCustomerView(APIView):
 
 class GeneralCustomerListView(APIView):
     """
-    Returns list of customers registered directly/online with full profile,
-    contact info, address, registered timestamp, and order stats.
-    Accessible to Super Admin.
+    Returns list of DIRECT customers registered online without referral (created_by is null).
+    These are the General Customers from the storefront landing page /register.
+    Accessible to Super Admin and Admin.
     """
     permission_classes = [IsAuthenticated]
 
@@ -1174,14 +1174,9 @@ class GeneralCustomerListView(APIView):
             return Response({'error': 'Permission denied'}, status=403)
 
         search = request.query_params.get('search', '').strip()
-        filter_type = request.query_params.get('type', 'all').strip()
 
-        qs = CustomerProfile.objects.select_related('user', 'created_by', 'assigned_promotor').order_by('-created_at')
-
-        if filter_type == 'direct':
-            qs = qs.filter(created_by__isnull=True)
-        elif filter_type == 'referred':
-            qs = qs.filter(created_by__isnull=False)
+        # Strictly filter direct customers (no referrer)
+        qs = CustomerProfile.objects.filter(created_by__isnull=True).select_related('user').order_by('-created_at')
 
         if search:
             qs = qs.filter(
@@ -1200,15 +1195,22 @@ class GeneralCustomerListView(APIView):
         limit = int(request.query_params.get('limit', 200))
         total_count = qs.count()
 
-        direct_count = CustomerProfile.objects.filter(created_by__isnull=True).count()
-        all_count = CustomerProfile.objects.count()
+        # Direct customers stats
+        direct_order_stats = JewelryOrder.objects.filter(
+            user__customer_profile__created_by__isnull=True
+        ).aggregate(
+            total_orders=Count('id'),
+            total_spent=Sum('total_price')
+        )
+        active_count = CustomerProfile.objects.filter(created_by__isnull=True, user__is_active=True).count()
+        all_customers_count = CustomerProfile.objects.count()
+        referred_count = CustomerProfile.objects.filter(created_by__isnull=False).count()
 
         page = qs[offset:offset + limit]
 
         user_ids = [cp.user_id for cp in page if cp.user_id]
         orders_map = {}
         if user_ids:
-            from django.db.models import Count, Sum
             order_stats = JewelryOrder.objects.filter(user_id__in=user_ids).values('user_id').annotate(
                 order_count=Count('id'),
                 total_spent=Sum('total_price')
@@ -1250,18 +1252,152 @@ class GeneralCustomerListView(APIView):
                 'full_address': valid_addr,
                 'created_at': cp.created_at,
                 'is_active': u.is_active if u else True,
-                'is_direct': cp.created_by_id is None,
+                'is_direct': True,
                 'order_count': stats['order_count'],
                 'total_spent': stats['total_spent'],
-                'referrer_name': f"{cp.created_by.email}" if cp.created_by else "Direct Online",
-                'promotor_id': cp.assigned_promotor.promotor_id if cp.assigned_promotor else None,
+                'referrer_name': "Direct Online",
+                'promotor_id': None,
             })
 
         return Response({
             'results': results,
             'total_count': total_count,
+            'active_count': active_count,
+            'total_orders': direct_order_stats['total_orders'] or 0,
+            'total_spent': float(direct_order_stats['total_spent'] or 0),
+            'all_customers_count': all_customers_count,
+            'referred_count': referred_count,
+            'has_more': offset + limit < total_count,
+        })
+
+
+class ReferralCustomerListView(APIView):
+    """
+    Returns list of REFERRED customers who registered via Referral URLs / agent invites (created_by is not null).
+    Displays referrer details (name, role, ID, email) and promotor details.
+    Accessible to Super Admin and Admin.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role not in ['super_admin', 'admin']:
+            return Response({'error': 'Permission denied'}, status=403)
+
+        search = request.query_params.get('search', '').strip()
+        referrer_role = request.query_params.get('role', '').strip().lower()
+
+        # Strictly filter referred customers
+        qs = CustomerProfile.objects.filter(created_by__isnull=False).select_related(
+            'user', 'created_by', 'assigned_promotor'
+        ).order_by('-created_at')
+
+        if referrer_role and referrer_role != 'all':
+            qs = qs.filter(created_by__role=referrer_role)
+
+        if search:
+            qs = qs.filter(
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(customer_id__icontains=search) |
+                Q(mobile_number__icontains=search) |
+                Q(user__email__icontains=search) |
+                Q(city_name__icontains=search) |
+                Q(district__icontains=search) |
+                Q(state__icontains=search) |
+                Q(pincode__icontains=search) |
+                Q(created_by__email__icontains=search) |
+                Q(assigned_promotor__promotor_id__icontains=search) |
+                Q(assigned_promotor__first_name__icontains=search)
+            )
+
+        offset = int(request.query_params.get('offset', 0))
+        limit = int(request.query_params.get('limit', 200))
+        total_count = qs.count()
+
+        # Stats across all referred customers
+        referred_order_stats = JewelryOrder.objects.filter(
+            user__customer_profile__created_by__isnull=False
+        ).aggregate(
+            total_orders=Count('id'),
+            total_spent=Sum('total_price')
+        )
+        active_count = CustomerProfile.objects.filter(created_by__isnull=False, user__is_active=True).count()
+        direct_count = CustomerProfile.objects.filter(created_by__isnull=True).count()
+
+        page = qs[offset:offset + limit]
+
+        user_ids = [cp.user_id for cp in page if cp.user_id]
+        orders_map = {}
+        if user_ids:
+            order_stats = JewelryOrder.objects.filter(user_id__in=user_ids).values('user_id').annotate(
+                order_count=Count('id'),
+                total_spent=Sum('total_price')
+            )
+            for o in order_stats:
+                orders_map[o['user_id']] = {
+                    'order_count': o['order_count'],
+                    'total_spent': float(o['total_spent'] or 0)
+                }
+
+        results = []
+        for cp in page:
+            u = cp.user
+            stats = orders_map.get(cp.user_id, {'order_count': 0, 'total_spent': 0})
+            address_parts = [cp.door_no, cp.street_name, cp.town_name, cp.city_name, cp.district, cp.state]
+            valid_addr = ", ".join([p for p in address_parts if p])
+            if cp.pincode:
+                valid_addr = f"{valid_addr} - {cp.pincode}" if valid_addr else cp.pincode
+
+            ref_info = get_user_display_info(cp.created_by) if cp.created_by else {}
+            ref_name = ref_info.get('name') or (cp.created_by.email if cp.created_by else 'Unknown')
+            ref_id = ref_info.get('user_id_str') or ''
+            ref_role = cp.created_by.role if cp.created_by else ''
+            ref_phone = ref_info.get('phone') or ''
+
+            promotor_id = cp.assigned_promotor.promotor_id if cp.assigned_promotor else None
+            promotor_name = f"{cp.assigned_promotor.first_name} {cp.assigned_promotor.last_name or ''}".strip() if cp.assigned_promotor else None
+
+            results.append({
+                'id': cp.id,
+                'user_id': cp.user_id,
+                'customer_id': cp.customer_id,
+                'name': f"{cp.first_name} {cp.last_name or ''}".strip(),
+                'first_name': cp.first_name,
+                'last_name': cp.last_name,
+                'email': u.email if u else '',
+                'mobile_number': cp.mobile_number,
+                'gender': cp.gender,
+                'dob': cp.dob,
+                'married_status': cp.married_status,
+                'door_no': cp.door_no,
+                'street_name': cp.street_name,
+                'town_name': cp.town_name,
+                'city_name': cp.city_name,
+                'district': cp.district,
+                'state': cp.state,
+                'pincode': cp.pincode,
+                'full_address': valid_addr,
+                'created_at': cp.created_at,
+                'is_active': u.is_active if u else True,
+                'is_direct': False,
+                'order_count': stats['order_count'],
+                'total_spent': stats['total_spent'],
+                'referrer_id': ref_id,
+                'referrer_name': ref_name,
+                'referrer_email': cp.created_by.email if cp.created_by else '',
+                'referrer_role': ref_role,
+                'referrer_phone': ref_phone,
+                'promotor_id': promotor_id,
+                'promotor_name': promotor_name,
+            })
+
+        return Response({
+            'results': results,
+            'total_count': total_count,
+            'active_count': active_count,
+            'total_orders': referred_order_stats['total_orders'] or 0,
+            'total_spent': float(referred_order_stats['total_spent'] or 0),
             'direct_count': direct_count,
-            'all_count': all_count,
             'has_more': offset + limit < total_count,
         })
 

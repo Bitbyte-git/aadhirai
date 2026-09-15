@@ -3,7 +3,7 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     LoginView, CreateAdminView, CreateShopView, MyShopProfileView, CreateDealerView,
-    CreateSubDealerView, CreatePromotorView, CreateCustomerView, GeneralCustomerListView,
+    CreateSubDealerView, CreatePromotorView, CreateCustomerView, GeneralCustomerListView, ReferralCustomerListView,
     DashboardView, AdminListForAdminView, DealerListForDealerView,
     SubDealerListForView, PromotorListForView,  FullHierarchyView, AnnouncementView, AnnouncementReplyView, DashboardQuickStatsView,ProfileUpdateRequestView, ProfileUpdateApproveView,MetalRateView,MetalOrderView, MetalOrderSummaryView, JewelryProductView, JewelryProductDetailView, SoldOutProductsView,StockNotifyRequestView, JewelryProductImageDeleteView, HomeBannerView, HomeBannerDetailView, CartView, CartItemQtyView, WishlistView, JewelryOrderView, create_razorpay_order, verify_payment, ping,
 HierarchySubtreeOrdersView, HierarchyAdminsView, HierarchyChildrenView, SalesReportView, OrderTimeSeriesView, TodayLoginStatusView,OrderTimeSeriesView, CoinRequestView, CoinRequestApproveView, CoinRequestRejectView, CoinRequestApproveAllView, CoinStockView, SuperAdminAddCoinsView, CoinStockForUserView, MyHierarchyView, TodayRewardsView, MyBasicInfoView,
@@ -29,6 +29,7 @@ urlpatterns = [
     path('promotors/list/', PromotorListForView.as_view()),      # NEW
     path('customers/', CreateCustomerView.as_view()),  
     path('general-customers/', GeneralCustomerListView.as_view(), name='general-customers'),
+    path('referral-customers/', ReferralCustomerListView.as_view(), name='referral-customers'),
     path('my-info/', MyBasicInfoView.as_view()),          # NEW
     path('hierarchy/full/', FullHierarchyView.as_view()),  # ✅ correct
     path('hierarchy/subtree-orders/', HierarchySubtreeOrdersView.as_view()),  # ← NEW

@@ -383,6 +383,7 @@ export default function SuperAdminNavbar({
     ['Customers', () => navigate('/superadmin/manage-users/customer')],
     ['Create Admin', () => navigate('/create-admin')],
     ['General Customer', () => navigate('/general-customers')],
+    ['Referral Customer', () => navigate('/referral-customers')],
     ['Create Customer', () => navigate('/create-customer')],
   ]
  const celebrations = [

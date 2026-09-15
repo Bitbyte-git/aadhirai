@@ -8,10 +8,10 @@ export default function GeneralCustomer() {
   const [loading, setLoading] = useState(true)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  const [filterType, setFilterType] = useState('all') // 'all', 'direct', 'referred'
   const [totalCount, setTotalCount] = useState(0)
-  const [directCount, setDirectCount] = useState(0)
-  const [allCount, setAllCount] = useState(0)
+  const [activeCount, setActiveCount] = useState(0)
+  const [totalOrders, setTotalOrders] = useState(0)
+  const [totalSpent, setTotalSpent] = useState(0)
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [toast, setToast] = useState('')
   const [copiedId, setCopiedId] = useState(null)
@@ -37,12 +37,13 @@ export default function GeneralCustomer() {
     setLoading(true)
     try {
       const res = await api.get('/general-customers/', {
-        params: { search, type: filterType, limit: 300 },
+        params: { search, limit: 300 },
       })
       setRows(res.data.results || [])
       setTotalCount(res.data.total_count || 0)
-      setDirectCount(res.data.direct_count || 0)
-      setAllCount(res.data.all_count || 0)
+      setActiveCount(res.data.active_count || 0)
+      setTotalOrders(res.data.total_orders || 0)
+      setTotalSpent(res.data.total_spent || 0)
     } catch (err) {
       console.error('Error fetching general customers:', err)
       showToast('Failed to load customers. Please check server.')
@@ -58,18 +59,7 @@ export default function GeneralCustomer() {
 
   useEffect(() => {
     fetchGeneralCustomers()
-  }, [search, filterType])
-
-  const stats = useMemo(() => {
-    const totalOrders = rows.reduce((sum, r) => sum + (r.order_count || 0), 0)
-    const totalSpent = rows.reduce((sum, r) => sum + (r.total_spent || 0), 0)
-    return {
-      total: allCount || rows.length,
-      direct: directCount,
-      totalOrders,
-      totalSpent,
-    }
-  }, [rows, allCount, directCount])
+  }, [search])
 
   return (
     <main className="gc-page-root">
@@ -113,6 +103,24 @@ export default function GeneralCustomer() {
           gap: 12px;
           align-items: center;
           flex-wrap: wrap;
+        }
+        .gc-btn-referral {
+          padding: 10px 18px;
+          border-radius: 10px;
+          background: #FFFFFF;
+          color: #8C5824;
+          border: 1.5px solid #BB8958;
+          font-weight: 700;
+          font-size: 13px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.2s;
+        }
+        .gc-btn-referral:hover {
+          background: #BB8958;
+          color: #FFFFFF;
         }
         .gc-btn-refresh {
           padding: 10px 18px;
@@ -539,10 +547,23 @@ export default function GeneralCustomer() {
         {/* Header */}
         <header className="gc-header">
           <div className="gc-header-left">
-            <h1>General Customers</h1>
-            <p>Directly registered customers and verified buyer accounts across the BitByte storefront.</p>
+            <h1>General Customers (Direct)</h1>
+            <p>Directly registered customers who joined through the storefront without any referral link.</p>
           </div>
           <div className="gc-header-actions">
+            <button
+              className="gc-btn-referral"
+              type="button"
+              onClick={() => navigate('/referral-customers')}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              Referral Users
+            </button>
             <button className="gc-btn-refresh" type="button" onClick={fetchGeneralCustomers}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M23 4v6h-6" />
@@ -566,28 +587,26 @@ export default function GeneralCustomer() {
           <div className="gc-stat-card">
             <div className="gc-stat-icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-            </div>
-            <div className="gc-stat-info">
-              <span>Total Customers</span>
-              <strong>{stats.total}</strong>
-            </div>
-          </div>
-
-          <div className="gc-stat-card">
-            <div className="gc-stat-icon" style={{ background: 'rgba(212, 175, 55, 0.12)', color: '#9B781E' }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="10" />
                 <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
               </svg>
             </div>
             <div className="gc-stat-info">
-              <span>Direct Online</span>
-              <strong>{stats.direct}</strong>
+              <span>Direct Customers</span>
+              <strong>{totalCount}</strong>
+            </div>
+          </div>
+
+          <div className="gc-stat-card">
+            <div className="gc-stat-icon" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#059669' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+            </div>
+            <div className="gc-stat-info">
+              <span>Active Accounts</span>
+              <strong>{activeCount}</strong>
             </div>
           </div>
 
@@ -600,8 +619,8 @@ export default function GeneralCustomer() {
               </svg>
             </div>
             <div className="gc-stat-info">
-              <span>Total Orders</span>
-              <strong>{stats.totalOrders}</strong>
+              <span>Direct Orders</span>
+              <strong>{totalOrders}</strong>
             </div>
           </div>
 
@@ -612,8 +631,8 @@ export default function GeneralCustomer() {
               </svg>
             </div>
             <div className="gc-stat-info">
-              <span>Total Spending</span>
-              <strong>₹{Number(stats.totalSpent || 0).toLocaleString('en-IN')}</strong>
+              <span>Direct Spending</span>
+              <strong>₹{Number(totalSpent || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</strong>
             </div>
           </div>
         </section>
@@ -633,28 +652,22 @@ export default function GeneralCustomer() {
             />
           </div>
 
-          <div className="gc-filters">
-            <button
-              type="button"
-              className={`gc-filter-btn ${filterType === 'all' ? 'active' : ''}`}
-              onClick={() => setFilterType('all')}
-            >
-              All Customers
-            </button>
-            <button
-              type="button"
-              className={`gc-filter-btn ${filterType === 'direct' ? 'active' : ''}`}
-              onClick={() => setFilterType('direct')}
-            >
-              Direct Online
-            </button>
-            <button
-              type="button"
-              className={`gc-filter-btn ${filterType === 'referred' ? 'active' : ''}`}
-              onClick={() => setFilterType('referred')}
-            >
-              Referred
-            </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '999px',
+              background: 'rgba(12, 64, 68, 0.08)',
+              color: '#073B3F',
+              fontSize: '12px',
+              fontWeight: 700,
+              border: '1px solid rgba(12, 64, 68, 0.18)'
+            }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0C4044' }} />
+              Direct Storefront Users
+            </span>
           </div>
         </section>
 

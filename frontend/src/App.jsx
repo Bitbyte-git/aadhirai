@@ -31,6 +31,7 @@ const AddShop = lazy(() => import('./Superadmin/AddShop'))
 const Profile = lazy(() => import('./collection/profile'))
 const CreateCustomer = lazy(() => import('./collection/create_customer'))
 const GeneralCustomer = lazy(() => import('./Superadmin/Manage_Users/GeneralCustomer'))
+const ReferralCustomer = lazy(() => import('./Superadmin/Manage_Users/ReferralCustomer'))
 const CreateAdmin = lazy(() => import('./collection/CreateAdmin'))
 const CoinsCollection = lazy(() => import('./collection/coins_collection'))
 const AllCollection = lazy(() => import('./collection/all_collection'))
@@ -245,6 +246,7 @@ export default function App() {
           <Route path="/profile" element={<WithCustomerNavbar><Profile /></WithCustomerNavbar>} />
           <Route path="/create-customer" element={<ProtectedRoute role={["customer", "promotor", "sub_dealer", "dealer", "admin", "super_admin"]}><WithAnyNavbar><CreateCustomer /></WithAnyNavbar></ProtectedRoute>} />
           <Route path="/general-customers" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><GeneralCustomer /></WithSuperAdminNavbar></ProtectedRoute>} />
+          <Route path="/referral-customers" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><ReferralCustomer /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/create-admin" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><CreateAdmin /></WithSuperAdminNavbar></ProtectedRoute>} />
 
           {/* hide for daimond and platinim  */}

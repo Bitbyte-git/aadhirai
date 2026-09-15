@@ -38,7 +38,7 @@ export default function ReferralCustomer() {
     setLoading(true)
     try {
       const res = await api.get('/referral-customers/', {
-        params: { search, role: roleFilter, limit: 300 },
+        params: { search, role: roleFilter, limit: 80 },
       })
       setRows(res.data.results || [])
       setTotalCount(res.data.total_count || 0)

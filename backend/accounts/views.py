@@ -336,6 +336,104 @@ class MyShopProfileView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
 
+
+def _build_shop_node(shop, children_by_creator):
+    """Recursively assembles one shop's subtree from an already-fetched
+    children_by_creator map — same one-query-then-recurse-in-Python shape
+    used for the customer referral chain in FullHierarchyView."""
+    children = children_by_creator.get(shop.user_id, [])
+    child_nodes = [_build_shop_node(child, children_by_creator) for child in children]
+    descendant_count = len(child_nodes) + sum(c['descendant_count'] for c in child_nodes)
+    return {
+        'shop_id': shop.shop_id,
+        'shop_name': shop.shop_name,
+        'owner_name': shop.owner_name,
+        'shop_type': shop.shop_type,
+        'mobile_number': shop.mobile_number,
+        'city': shop.city,
+        'created_at': shop.created_at,
+        'descendant_count': descendant_count,
+        'children': child_nodes,
+    }
+
+
+class ShopHierarchyView(APIView):
+    """Returns the subtree of shops created (directly or indirectly) by the
+    logged-in shop — who's below them, recursively, via ShopProfile.created_by."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'shop':
+            return Response({'error': 'Permission denied'}, status=403)
+        try:
+            root = request.user.shop_profile
+        except ShopProfile.DoesNotExist:
+            return Response({'error': 'Shop profile not found'}, status=404)
+
+        all_shops = list(ShopProfile.objects.all().select_related('user'))
+        children_by_creator = {}
+        for shop in all_shops:
+            children_by_creator.setdefault(shop.created_by_id, []).append(shop)
+
+        tree = _build_shop_node(root, children_by_creator)
+        return Response(tree)
+
+
+class ShopDashboardStatsView(APIView):
+    """Quick stats for the Shop Dashboard: network size + Physical/Virtual
+    split (recursive over the whole subtree) and a monthly growth trend for
+    shops this shop directly created — no order data available per-shop yet,
+    so charts are built from what ShopProfile already tracks."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'shop':
+            return Response({'error': 'Permission denied'}, status=403)
+        try:
+            root = request.user.shop_profile
+        except ShopProfile.DoesNotExist:
+            return Response({'error': 'Shop profile not found'}, status=404)
+
+        all_shops = list(ShopProfile.objects.all().select_related('user'))
+        children_by_creator = {}
+        for shop in all_shops:
+            children_by_creator.setdefault(shop.created_by_id, []).append(shop)
+
+        # Walk the subtree once to collect every descendant (not just direct children)
+        descendants = []
+        stack = list(children_by_creator.get(root.user_id, []))
+        while stack:
+            node = stack.pop()
+            descendants.append(node)
+            stack.extend(children_by_creator.get(node.user_id, []))
+
+        physical_count = sum(1 for s in descendants if s.shop_type == 'live')
+        virtual_count = sum(1 for s in descendants if s.shop_type == 'virtual')
+
+        # Monthly growth: shops this shop directly created, last 6 months
+        today = timezone.now().date()
+        six_months_ago = (today.replace(day=1) - timedelta(days=150)).replace(day=1)
+        monthly_counts = (
+            ShopProfile.objects.filter(created_by=request.user, created_at__date__gte=six_months_ago)
+            .annotate(month=TruncMonth('created_at'))
+            .values('month')
+            .annotate(count=Count('id'))
+            .order_by('month')
+        )
+        monthly_growth = [
+            {'month': m['month'].strftime('%b %Y'), 'count': m['count']}
+            for m in monthly_counts
+        ]
+
+        return Response({
+            'direct_children_count': len(children_by_creator.get(root.user_id, [])),
+            'total_descendants_count': len(descendants),
+            'physical_count': physical_count,
+            'virtual_count': virtual_count,
+            'monthly_growth': monthly_growth,
+        })
+
+
 class CreateDealerView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1339,6 +1437,16 @@ class ReferralCustomerListView(APIView):
                     'total_spent': float(o['total_spent'] or 0)
                 }
 
+        # Batch load creator display info
+        creator_user_ids = list(set([cp.created_by_id for cp in page if cp.created_by_id]))
+        creator_map = {}
+        if creator_user_ids:
+            creators = User.objects.filter(id__in=creator_user_ids).select_related(
+                'admin_profile', 'dealer_profile', 'sub_dealer_profile', 'promotor_profile', 'customer_profile'
+            )
+            for cu in creators:
+                creator_map[cu.id] = get_user_display_info(cu)
+
         results = []
         for cp in page:
             u = cp.user
@@ -1348,7 +1456,7 @@ class ReferralCustomerListView(APIView):
             if cp.pincode:
                 valid_addr = f"{valid_addr} - {cp.pincode}" if valid_addr else cp.pincode
 
-            ref_info = get_user_display_info(cp.created_by) if cp.created_by else {}
+            ref_info = creator_map.get(cp.created_by_id, {})
             ref_name = ref_info.get('name') or (cp.created_by.email if cp.created_by else 'Unknown')
             ref_id = ref_info.get('user_id_str') or ''
             ref_role = cp.created_by.role if cp.created_by else ''

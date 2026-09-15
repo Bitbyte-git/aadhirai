@@ -38,7 +38,9 @@ export default function AddShop() {
   const border = 'rgba(189,207,206,0.78)'
   const inpBg = '#FDFDFC'
   const inpBorder = '#BDCFCE'
-  const isLoggedInSuperAdmin = localStorage.getItem('role') === 'super_admin'
+  const loggedInRole = localStorage.getItem('role')
+  const isLoggedInSuperAdmin = loggedInRole === 'super_admin'
+  const isLoggedInShop = loggedInRole === 'shop'
 
   const [form, setForm] = useState({
     shop_name: '', owner_name: '', mobile_number: '', whatsapp_number: '',
@@ -98,9 +100,11 @@ export default function AddShop() {
       await api.post('/shops/', form)
       setMsg('Shop created successfully!')
       setTimeout(() => {
-        // Logged-in Super Admin goes back to dashboard; a shop owner who
-        // opened this via the shared Copy URL link goes to Login instead.
-        navigate(isLoggedInSuperAdmin ? '/super-admin' : '/login')
+        // Logged-in Super Admin goes back to dashboard; a logged-in shop creating
+        // a sub-shop goes back to its own dashboard; anyone else (self-registration
+        // via the shared Copy URL link) goes to Login.
+        const dest = isLoggedInSuperAdmin ? '/super-admin' : isLoggedInShop ? '/shop-dashboard' : '/login'
+        navigate(dest)
       }, 1400)
     } catch (err) {
       setMsg('Error: ' + JSON.stringify(err.response?.data))
@@ -162,16 +166,16 @@ export default function AddShop() {
             <img src={logo} alt="Luxiva" style={{ width: 44, height: 44, objectFit: 'contain' }} />
             <div>
               <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800, color: text }}>
-                {isLoggedInSuperAdmin ? 'Add New Shop' : 'Shop Registration'}
+                {isLoggedInSuperAdmin ? 'Add New Shop' : isLoggedInShop ? 'Create Sub-Shop' : 'Shop Registration'}
               </h2>
               <div style={{ fontSize: '12px', color: subtext, marginTop: '2px' }}>
-                {isLoggedInSuperAdmin ? 'Create a shop/branch record' : 'Register your shop with BitByte'}
+                {isLoggedInSuperAdmin ? 'Create a shop/branch record' : isLoggedInShop ? 'Add a new shop under your network' : 'Register your shop with BitByte'}
               </div>
             </div>
           </div>
           <div className="as-header-actions" style={{ display: 'flex', gap: '10px' }}>
             {isLoggedInSuperAdmin && <CopyShopUrlButton />}
-            {isLoggedInSuperAdmin && (
+            {(isLoggedInSuperAdmin || isLoggedInShop) && (
               <button onClick={() => navigate(-1)} style={{ padding: '10px 20px', background: '#FFFFFF', border: `1px solid ${border}`, borderRadius: '10px', color: subtext, fontSize: '13px', cursor: 'pointer' }}>Back</button>
             )}
           </div>

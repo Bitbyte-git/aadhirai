@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import api from '../api'
 import InternalRoleNavbar from '../collection/InternalRoleNavbar'
 
@@ -42,6 +43,8 @@ export default function ShopDashboard() {
   const [announcements, setAnnouncements] = useState([])
   const [showAnnouncements, setShowAnnouncements] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [stats, setStats] = useState(null)
+  const [statsLoading, setStatsLoading] = useState(true)
 
   const text = '#111817'
   const subtext = '#7A8987'
@@ -75,7 +78,18 @@ export default function ShopDashboard() {
     } catch { /* ignore */ }
   }
 
-  useEffect(() => { fetchShopInfo(); fetchAnnouncements() }, [])
+  const fetchStats = async () => {
+    setStatsLoading(true)
+    try {
+      const res = await api.get('/shop-dashboard-stats/')
+      setStats(res.data)
+    } catch (err) {
+      console.error('Shop stats fetch error:', err)
+    }
+    setStatsLoading(false)
+  }
+
+  useEffect(() => { fetchShopInfo(); fetchAnnouncements(); fetchStats() }, [])
 
   const openEdit = () => {
     const next = {}
@@ -106,12 +120,19 @@ export default function ShopDashboard() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)', color: text, fontFamily: '"Inter",system-ui,sans-serif' }}>
+      <style>{`
+        @media (max-width: 760px) {
+          .shop-charts-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
       <InternalRoleNavbar
         roleTitle="SHOP"
         homePath="/shop-dashboard"
         managementItems={[
           { label: 'Dashboard', path: '/shop-dashboard' },
           { label: 'My Profile', action: () => { setShowProfile(true); fetchShopInfo() } },
+          { label: 'Create Shop', path: '/add-shop' },
+          { label: 'My Network', path: '/shop-hierarchy-grid' },
         ]}
         celebrationItems={[]}
         announcementItems={[
@@ -121,6 +142,8 @@ export default function ShopDashboard() {
         reportItems={[]}
         actionItems={[
           { label: 'Profile', icon: 'user', action: () => { setShowProfile(true); fetchShopInfo() } },
+          { label: 'Create Shop', icon: 'rate', action: () => navigate('/add-shop') },
+          { label: 'My Network', icon: 'user', action: () => navigate('/shop-hierarchy-grid') },
           { label: 'Announcements', icon: 'bell', action: () => { setShowAnnouncements(true); localStorage.setItem('shopAnnouncementSeen', Date.now().toString()); setUnreadCount(0) }, badge: unreadCount },
           { label: 'Logout', icon: 'logout', variant: 'danger', action: handleLogout },
         ]}
@@ -132,6 +155,95 @@ export default function ShopDashboard() {
           <h2 style={{ fontSize: 'clamp(30px,4vw,50px)', lineHeight: 0.95, fontFamily: 'Georgia, serif', color: '#0C4044', fontWeight: 500, margin: 0 }}>
             {loading ? 'Loading...' : shop?.shop_name || 'Shop Dashboard'}
           </h2>
+        </div>
+
+        <div style={cardStyle}>
+          <p style={secHead}>Network Overview</p>
+          {statsLoading ? (
+            <div style={{ textAlign: 'center', color: subtext, padding: '40px 0' }}>Loading...</div>
+          ) : (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '16px', marginBottom: '28px' }}>
+                {[
+                  ['Direct Sub-Shops', stats?.direct_children_count ?? 0, '#0C4044'],
+                  ['Total Network Size', stats?.total_descendants_count ?? 0, '#BB8958'],
+                  ['Physical Shops', stats?.physical_count ?? 0, '#0C4044'],
+                  ['Virtual Shops', stats?.virtual_count ?? 0, '#8A623D'],
+                ].map(([label, value, color]) => (
+                  <div key={label} style={{ padding: '18px', border: `1px solid ${border}`, borderRadius: '14px', background: 'rgba(189,207,206,0.06)' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 800, color: subtext, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>{label}</div>
+                    <div style={{ fontSize: '28px', fontWeight: 800, color, fontFamily: 'monospace' }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="shop-charts-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(240px,1fr) minmax(280px,2fr)', gap: '20px' }}>
+                <div style={{ border: `1px solid ${border}`, borderRadius: '16px', padding: '18px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#0C4044', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Physical vs Virtual</div>
+                  {(stats?.physical_count || 0) + (stats?.virtual_count || 0) === 0 ? (
+                    <div style={{ textAlign: 'center', color: subtext, fontSize: '13px', padding: '50px 0' }}>No sub-shops yet</div>
+                  ) : (
+                    <>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <PieChart>
+                          <Pie
+                            data={[
+                              { name: 'Physical', value: stats?.physical_count || 0 },
+                              { name: 'Virtual', value: stats?.virtual_count || 0 },
+                            ]}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={80}
+                            paddingAngle={2}
+                          >
+                            <Cell fill="#0C4044" />
+                            <Cell fill="#CCA881" />
+                          </Pie>
+                          <Tooltip contentStyle={{ background: '#FDFDFC', border: '1px solid #BDCFCE', borderRadius: 8, fontSize: 12, color: '#111817' }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#0C4044' }} />
+                          <span style={{ fontSize: '11px', color: subtext }}>Physical {stats?.physical_count || 0}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#CCA881' }} />
+                          <span style={{ fontSize: '11px', color: subtext }}>Virtual {stats?.virtual_count || 0}</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div style={{ border: `1px solid ${border}`, borderRadius: '16px', padding: '18px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#0C4044', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sub-Shops Created (6 Months)</div>
+                  {!stats?.monthly_growth?.length ? (
+                    <div style={{ textAlign: 'center', color: subtext, fontSize: '13px', padding: '70px 0' }}>No sub-shops created yet</div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <AreaChart data={stats.monthly_growth} margin={{ top: 10, right: 14, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="shopGrowthGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#0C4044" stopOpacity={0.32} />
+                            <stop offset="100%" stopColor="#0C4044" stopOpacity={0.02} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 8" stroke="rgba(189,207,206,0.5)" vertical={false} />
+                        <XAxis dataKey="month" stroke={subtext} fontSize={11} tickLine={false} axisLine={{ stroke: border }} />
+                        <YAxis stroke={subtext} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                        <Tooltip contentStyle={{ background: '#FDFDFC', border: '1px solid #BDCFCE', borderRadius: 8, fontSize: 12, color: '#111817' }} />
+                        <Area type="monotone" dataKey="count" stroke="#0C4044" strokeWidth={2.5} fill="url(#shopGrowthGrad)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div style={cardStyle}>

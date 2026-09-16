@@ -409,31 +409,47 @@ export default function SuperAdminHierarchySalesCount() {
     const totalToday = aggRows.reduce((s, a) => s + (a.today_order_count || 0), 0)
     const roleColorRgb = hexToRgb(cfg.color)
 
+    const today = new Date()
+    const todayLabel = today.toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+
     return (
       <div style={{
         minHeight: '100vh', color: text, fontFamily: '"Manrope","Inter",system-ui,sans-serif',
         background: `radial-gradient(circle at 8% 8%, rgba(${roleColorRgb},0.12), transparent 32%), radial-gradient(circle at 92% 12%, rgba(12,64,68,0.08), transparent 32%), radial-gradient(circle at 50% 100%, rgba(12,64,68,0.05), transparent 40%), linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)`,
       }}>
-        <div className="shier-content" style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20, background: 'rgba(253,253,252,0.94)', border: '1px solid rgba(189,207,206,0.72)', borderRadius: 16, padding: '18px 24px', boxShadow: '0 18px 46px rgba(7,59,63,0.06)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <button onClick={() => navigate(-1)} style={{ width: 40, height: 40, borderRadius: 12, border: '1px solid rgba(189,207,206,0.72)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.15s' }}
+        {/* This early-return path never renders the shared <style> block below
+            (that only exists in the drill-down tree's return), so .shier-content's
+            class-based padding never applied here — every spacing value on this
+            branch has to be inline, otherwise the header sits flush against the
+            fixed navbar above with zero gap. */}
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: 'clamp(28px, 3.4vw, 44px) clamp(20px, 4vw, 40px) 60px', boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, fontSize: 12.5, color: subtext, fontWeight: 600 }}>
+            <span>Manage Users</span>
+            <span style={{ color: 'rgba(122,137,135,0.5)' }}>›</span>
+            <span>{cfg.label.charAt(0) + cfg.label.slice(1).toLowerCase()}s</span>
+            <span style={{ color: 'rgba(122,137,135,0.5)' }}>›</span>
+            <span style={{ color: '#073B3F', fontWeight: 800 }}>Today's Orders</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 22, background: 'rgba(253,253,252,0.94)', border: '1px solid rgba(189,207,206,0.72)', borderRadius: 18, padding: '20px 26px', boxShadow: '0 18px 46px rgba(7,59,63,0.07)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <button onClick={() => navigate(-1)} style={{ width: 42, height: 42, borderRadius: 12, border: '1px solid rgba(189,207,206,0.72)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.15s', flexShrink: 0 }}
                 onMouseEnter={e => e.currentTarget.style.transform = 'translateX(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateX(0)'}>
                 <IconBack color="#0C4044" />
               </button>
-              <div style={{ width: 42, height: 42, borderRadius: 12, background: `linear-gradient(135deg, ${cfg.color}, rgba(${roleColorRgb},0.7))`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 8px 18px rgba(${roleColorRgb},0.32)` }}>
-                <cfg.Icon color="#fff" size={20} />
+              <div style={{ width: 46, height: 46, borderRadius: 13, background: `linear-gradient(135deg, ${cfg.color}, rgba(${roleColorRgb},0.7))`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 8px 18px rgba(${roleColorRgb},0.32)` }}>
+                <cfg.Icon color="#fff" size={22} />
               </div>
               <div>
-                <div style={{ fontSize: 17, fontWeight: 800, color: '#073B3F' }}>Today's Orders — {cfg.label.charAt(0) + cfg.label.slice(1).toLowerCase()}s</div>
-                <div style={{ fontSize: 11.5, color: subtext, marginTop: 2 }}>Every {cfg.singular.toLowerCase()}'s order count for today — click a row to drill into their full report</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#073B3F' }}>Today's Orders — {cfg.label.charAt(0) + cfg.label.slice(1).toLowerCase()}s</div>
+                <div style={{ fontSize: 11.5, color: subtext, marginTop: 3 }}>{todayLabel} · Every {cfg.singular.toLowerCase()}'s order count — click a row to drill into their full report</div>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: `rgba(${roleColorRgb},0.08)`, border: `1px solid rgba(${roleColorRgb},0.24)`, borderRadius: 14, padding: '12px 22px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: `rgba(${roleColorRgb},0.08)`, border: `1px solid rgba(${roleColorRgb},0.24)`, borderRadius: 14, padding: '13px 24px' }}>
               <IconBox color={cfg.color} size={22} />
               <div>
                 <div style={{ fontSize: 9.5, fontWeight: 800, color: subtext, letterSpacing: 1, textTransform: 'uppercase' }}>Total Today</div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: '#073B3F' }}>{totalToday}</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: '#073B3F' }}>{totalToday}</div>
               </div>
             </div>
           </div>

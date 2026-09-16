@@ -256,7 +256,10 @@ export default function SuperAdminNavbar({
     { keywords: ['wholesale dealer'], path: '/promotions/wholesale-dealer' },
     { keywords: ['distributor'], path: '/promotions/distributor' },
     { keywords: ['super stockist'], path: '/promotions/super-stockist' },
-    { keywords: ['revenue', 'payments'], path: '/superadmin-payments' },
+    { keywords: ['all sales', 'revenue', 'payments'], path: '/superadmin-payments' },
+    { keywords: ['super admin commission'], path: '/superadmin-commission' },
+    { keywords: ['my commission'], path: '/my-commission' },
+    { keywords: ['commissions', 'leaderboard commission'], path: '/commissions' },
     { keywords: ['add aug coin', 'send coin'], path: '/superadmin-send-coins' },
     { keywords: ['autopay'], path: '/superadmin-autopay-list' },
     { keywords: ['today birthday', 'birthday'], path: '/super-admin?open=birthday' },
@@ -418,7 +421,10 @@ export default function SuperAdminNavbar({
     ['Super Stockist', () => navigate('/promotions/super-stockist')],
   ]
   const payment = [
-    ['Revenue & Payments', () => navigate('/superadmin-payments')],
+    ['All Sales', () => navigate('/superadmin-payments')],
+    ['Super Admin Commission', () => navigate('/superadmin-commission')],
+    ['My Commission', () => navigate('/my-commission')],
+    ['Commissions', () => navigate('/commissions')],
     ['Add AUG Coins', () => navigate('/superadmin-send-coins')],
     ['Autopay List', () => navigate('/superadmin-autopay-list')],
   ]

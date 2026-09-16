@@ -52,6 +52,9 @@ const OrderSummary = lazy(() => import('./Orders/Ordersummary'))
 const Recharge = lazy(() => import('./collection/Recharge'))
 const OrderPayment = lazy(() => import('./Orders/OrderPayment'))
 const SuperAdminPayments = lazy(() => import('./payments/SuperAdminPayments'))
+const SuperAdminCommission = lazy(() => import('./payments/SuperAdminCommission'))
+const MyCommission = lazy(() => import('./payments/MyCommission'))
+const Commissions = lazy(() => import('./payments/Commissions'))
 const SuperAdminSendCoins = lazy(() => import('./payments/SuperAdminSendCoins'))
 const SuperStockist = lazy(() => import('./Superadmin/Manage_Users/Super_Stockist'))
 const Distributor = lazy(() => import('./Superadmin/Manage_Users/Distributor'))
@@ -354,6 +357,9 @@ export default function App() {
           <Route path="/recharge" element={<ProtectedRoute role={["customer", "promotor", "sub_dealer", "dealer", "admin"]}><WithCustomerNavbar><Recharge /></WithCustomerNavbar></ProtectedRoute>} />
           <Route path="/order-payment" element={<WithCustomerNavbar><OrderPayment /></WithCustomerNavbar>} />
           <Route path="/superadmin-payments" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><SuperAdminPayments /></WithSuperAdminNavbar></ProtectedRoute>} />
+          <Route path="/superadmin-commission" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><SuperAdminCommission /></WithSuperAdminNavbar></ProtectedRoute>} />
+          <Route path="/my-commission" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><MyCommission /></WithSuperAdminNavbar></ProtectedRoute>} />
+          <Route path="/commissions" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><Commissions /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/superadmin-send-coins" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><SuperAdminSendCoins /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/superadmin-autopay-list" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><SuperAdminAutopayList /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/admin-orders" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><AdminOrdersPage /></WithSuperAdminNavbar></ProtectedRoute>} />

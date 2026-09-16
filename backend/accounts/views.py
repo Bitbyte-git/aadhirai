@@ -7777,6 +7777,9 @@ def _apply_period_filter(qs, period, start_date, end_date, date_field='created_a
 
     if period == 'today':
         qs = qs.filter(**{f: today})
+    elif period == 'week':
+        start_of_week = today - timedelta(days=today.weekday())
+        qs = qs.filter(**{f'{f}__gte': start_of_week, f'{f}__lte': today})
     elif period == 'month':
         month_start = today.replace(day=1)
         qs = qs.filter(**{f'{f}__gte': month_start, f'{f}__lte': today})
@@ -7949,6 +7952,104 @@ class PaymentsSummaryView(APIView):
                 } for r in page_txns
             ],
         })
+
+
+class TierCommissionView(APIView):
+    """Super Admin ku mattum — 'Commissions' leaderboard page ku. Buyer oda
+    upline chain la level>=1 (real, specific recipient irukura) commission
+    rows-ah recipient's role vachi filter pண்ணி, andha tier full la yaru
+    evlo commission earn pண்ணாங்கनு leaderboard ah kaаттும். commission_level
+    is chain-relative (fixed role number ilai) — so role-ah filter panna
+    recipient user oda .role thaan check pண்ணроம், level number ah illa."""
+    permission_classes = [IsAuthenticated]
+
+    PROFILE_MAP = {
+        'admin': (AdminProfile, 'admin_id', 'Super Stockist'),
+        'dealer': (DealerProfile, 'dealer_id', 'Distributor'),
+        'sub_dealer': (SubDealerProfile, 'sub_dealer_id', 'Wholesale Dealer'),
+        'promotor': (PromotorProfile, 'promotor_id', 'Retailer'),
+        'customer': (CustomerProfile, 'customer_id', 'Customer'),
+    }
+
+    def get(self, request):
+        if request.user.role != 'super_admin':
+            return Response({'error': 'Not authorized'}, status=403)
+
+        role = request.query_params.get('role', 'admin')
+        cfg = self.PROFILE_MAP.get(role)
+        if not cfg:
+            return Response({'error': 'invalid role'}, status=400)
+        model, id_field, role_label = cfg
+
+        period = request.query_params.get('period', 'today')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        page = max(int(request.query_params.get('page', 1)), 1)
+        page_size = 15
+
+        base_qs = CoinRecharge.objects.filter(
+            status='success', source='commission', commission_level__gte=1, user__role=role
+        )
+        period_qs = _apply_period_filter(base_qs, period, start_date, end_date)
+
+        total_commission = period_qs.aggregate(total=Sum('amount_paid'))['total'] or 0
+        total_coins = period_qs.aggregate(total=Sum('coins_credited'))['total'] or 0
+        total_transactions = period_qs.count()
+        total_earners = period_qs.values('user_id').distinct().count()
+
+        six_months_ago = timezone.now().date() - timedelta(days=180)
+        trend_qs = (
+            base_qs.filter(created_at__date__gte=six_months_ago)
+            .annotate(month=TruncMonth('created_at'))
+            .values('month')
+            .annotate(revenue=Sum('amount_paid'))
+            .order_by('month')
+        )
+        monthly_trend = [
+            {'month': t['month'].strftime('%b %Y'), 'revenue': float(t['revenue'])}
+            for t in trend_qs
+        ]
+
+        leaderboard_rows = list(
+            period_qs.values('user_id')
+            .annotate(total_commission=Sum('amount_paid'), coins=Sum('coins_credited'), txn_count=Count('id'))
+            .order_by('-total_commission')
+        )
+        profiles = {p.user_id: p for p in model.objects.filter(user_id__in=[r['user_id'] for r in leaderboard_rows])}
+
+        leaderboard = []
+        for r in leaderboard_rows:
+            p = profiles.get(r['user_id'])
+            leaderboard.append({
+                'user_id': r['user_id'],
+                id_field: getattr(p, id_field, None) if p else None,
+                'first_name': p.first_name if p else '',
+                'last_name': p.last_name if p else '',
+                'city_name': getattr(p, 'city_name', None) if p else None,
+                'mobile_number': p.mobile_number if p else None,
+                'total_commission': float(r['total_commission'] or 0),
+                'coins': r['coins'] or 0,
+                'txn_count': r['txn_count'],
+            })
+
+        total_leaders = len(leaderboard)
+        start = (page - 1) * page_size
+        page_leaderboard = leaderboard[start:start + page_size]
+
+        return Response({
+            'role': role,
+            'role_label': role_label,
+            'period': period,
+            'total_commission': float(total_commission),
+            'total_coins': total_coins,
+            'total_transactions': total_transactions,
+            'total_earners': total_earners,
+            'monthly_trend': monthly_trend,
+            'leaderboard': page_leaderboard,
+            'page': page,
+            'has_more': start + page_size < total_leaders,
+        })
+
 
 def _find_user_by_public_id(public_id):
     """Customer/Promotor/SubDealer/Dealer/Admin ID (BBCUS20260001 mாதிri) vачி User + Profile

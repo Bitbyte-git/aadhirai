@@ -8,6 +8,7 @@ export default function SuperAdminCommission() {
       title="Super Admin Commission"
       note="Leftover unallocated commission balance from the payout pool, retained by Super Admin on every successful recharge."
       revenueLabel="Commission Balance"
+      coinsLabel="AUG Coins Credited"
     />
   )
 }

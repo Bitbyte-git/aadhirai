@@ -29,7 +29,23 @@ const styles = `
   .cms-main{width:min(1300px,calc(100% - 48px));margin:0 auto;padding:36px 0 90px;box-sizing:border-box}
   .cms-kicker{margin:0 0 6px;color:${ACCENT};font-size:12px;font-weight:900;letter-spacing:2.4px;text-transform:uppercase}
   .cms-title{margin:0 0 8px;color:${PRIMARY};font-family:"Playfair Display",serif;font-size:clamp(24px,4vw,36px)}
-  .cms-note{color:${MUTED};font-size:12.5px;margin:0 0 22px;max-width:760px;line-height:1.6}
+  .cms-note{color:${MUTED};font-size:12.5px;margin:0 0 4px;max-width:760px;line-height:1.6}
+  .cms-headrow{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+  .cms-download-btn{display:flex;align-items:center;gap:8px;height:40px;padding:0 20px;border-radius:20px;border:1.5px solid ${PRIMARY};background:#fff;color:${PRIMARY};font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+  .cms-download-btn:hover{background:${PRIMARY};color:#fff}
+  .cms-download-btn:disabled{opacity:.55;cursor:not-allowed}
+  .cms-lb-row{cursor:pointer}
+  .cms-lb-row:hover{background:rgba(189,207,206,.14)}
+  .cms-history{background:rgba(7,59,63,.03);border-top:1px dashed rgba(189,207,206,.72);border-bottom:1px solid rgba(189,207,206,.4);padding:14px 16px 16px 46px}
+  .cms-history-title{font-size:11px;font-weight:800;color:${MUTED};text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px}
+  .cms-history-row{display:flex;align-items:center;gap:14px;padding:9px 0;border-bottom:1px solid rgba(189,207,206,.35)}
+  .cms-history-row:last-child{border-bottom:none}
+  .cms-history-order{font-family:monospace;font-weight:800;font-size:12px;color:${DARK}}
+  .cms-history-buyer{font-size:11px;color:${MUTED};margin-top:2px}
+  .cms-history-level{font-size:9.5px;font-weight:800;color:${ACCENT};background:rgba(62,124,130,.12);padding:2px 8px;border-radius:10px;margin-left:auto;white-space:nowrap}
+  .cms-history-amount{font-size:13px;font-weight:900;color:${PRIMARY};width:110px;text-align:right;flex-shrink:0}
+  .cms-history-date{font-size:10.5px;color:${MUTED};width:130px;text-align:right;flex-shrink:0}
+  .cms-history-loadmore{margin-top:10px;padding:8px 16px;border-radius:16px;border:1.5px solid #D1DFDE;background:#fff;color:${PRIMARY};font-weight:800;font-size:11.5px;cursor:pointer}
   .cms-role-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px}
   .cms-role-tab{padding:11px 20px;border-radius:12px;border:1.5px solid #D1DFDE;background:#fff;color:${DARK};font-weight:800;font-size:12.5px;cursor:pointer;transition:.15s ease;white-space:nowrap}
   .cms-role-tab.active{border-color:${PRIMARY};background:linear-gradient(135deg,${PRIMARY},${DEEP});color:#fff;box-shadow:0 10px 24px rgba(7,59,63,.22)}
@@ -80,11 +96,16 @@ const styles = `
   @media(max-width:900px){.cms-cards{grid-template-columns:1fr 1fr}}
   @media(max-width:768px){
     .cms-main{width:100%!important;padding:20px 14px 60px!important}
+    .cms-headrow{flex-direction:column!important;align-items:stretch!important}
+    .cms-download-btn{width:100%!important;justify-content:center!important}
     .cms-role-row,.cms-filter-row{overflow-x:auto!important;-webkit-overflow-scrolling:touch!important;flex-wrap:nowrap!important;padding-bottom:8px!important}
     .cms-panel{padding:18px 14px!important;border-radius:14px!important}
     .cms-cards{grid-template-columns:1fr!important}
     .cms-lb-head,.cms-lb-row{grid-template-columns:32px 1.4fr 90px!important}
     .cms-lb-head span:nth-child(3),.cms-lb-row .cms-lb-city-col{display:none!important}
+    .cms-history{padding:12px 12px 14px 24px!important}
+    .cms-history-row{flex-wrap:wrap!important}
+    .cms-history-date{width:auto!important;text-align:left!important}
   }
 `
 
@@ -100,6 +121,11 @@ export default function Commissions() {
   const [activeFilter, setActiveFilter] = useState('today')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
+
+  const [expandedUserId, setExpandedUserId] = useState(null)
+  const [historyByUser, setHistoryByUser] = useState({})
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [downloading, setDownloading] = useState(false)
 
   const fetchIdRef = useRef(0)
 
@@ -139,11 +165,15 @@ export default function Commissions() {
     if (key === role) return
     setRole(key)
     setLoading(true)
+    setExpandedUserId(null)
+    setHistoryByUser({})
     fetchData(key, 1, activeFilter, customFrom, customTo)
   }
 
   const handleFilterClick = key => {
     setActiveFilter(key)
+    setExpandedUserId(null)
+    setHistoryByUser({})
     if (key !== 'custom') {
       setLoading(true)
       fetchData(role, 1, key, '', '')
@@ -156,6 +186,8 @@ export default function Commissions() {
   const applyCustomRange = () => {
     if (!customFrom || !customTo) return
     setLoading(true)
+    setExpandedUserId(null)
+    setHistoryByUser({})
     fetchData(role, 1, 'custom', customFrom, customTo)
   }
 
@@ -169,7 +201,59 @@ export default function Commissions() {
     fetchData(role, 1, activeFilter, customFrom, customTo)
   }
 
+  const fetchHistory = async (userId, p = 1) => {
+    setHistoryLoading(true)
+    try {
+      const { default: api } = await import('../api')
+      let url = `/superadmin/tier-commission/?role=${role}&user_id=${userId}&page=${p}&period=${activeFilter}`
+      if (activeFilter === 'custom' && customFrom && customTo) url += `&start_date=${customFrom}&end_date=${customTo}`
+      const res = await api.get(url)
+      setHistoryByUser(prev => ({
+        ...prev,
+        [userId]: {
+          transactions: p === 1 ? res.data.transactions : [...(prev[userId]?.transactions || []), ...res.data.transactions],
+          hasMore: res.data.has_more,
+          page: p,
+        },
+      }))
+    } catch {
+      setHistoryByUser(prev => ({ ...prev, [userId]: { transactions: [], hasMore: false, page: 1, error: true } }))
+    }
+    setHistoryLoading(false)
+  }
+
+  const toggleHistory = userId => {
+    if (expandedUserId === userId) {
+      setExpandedUserId(null)
+      return
+    }
+    setExpandedUserId(userId)
+    if (!historyByUser[userId]) fetchHistory(userId, 1)
+  }
+
+  const downloadReport = async () => {
+    setDownloading(true)
+    try {
+      const { default: api } = await import('../api')
+      let url = `/superadmin/tier-commission/?role=${role}&period=${activeFilter}&format=csv`
+      if (activeFilter === 'custom' && customFrom && customTo) url += `&start_date=${customFrom}&end_date=${customTo}`
+      const res = await api.get(url, { responseType: 'blob' })
+      const blob = new Blob([res.data], { type: 'text/csv' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `${role}-commission-leaderboard.csv`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(link.href)
+    } catch {
+      // silent — user can retry the click
+    }
+    setDownloading(false)
+  }
+
   const inr = n => `Rs. ${Math.round(n || 0).toLocaleString('en-IN')}`
+  const fmtDate = d => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   const activeTab = ROLE_TABS.find(t => t.key === role)
   const trend = summary?.monthly_trend || []
   const maxRevenue = Math.max(...trend.map(t => t.revenue), 1)
@@ -178,9 +262,17 @@ export default function Commissions() {
     <div className="cms-page">
       <style>{styles}</style>
       <main className="cms-main">
-        <p className="cms-kicker">Super Admin</p>
-        <h1 className="cms-title">Commissions</h1>
-        <p className="cms-note">Every tier's commission earnings, broken down by who actually earned it — pick a tier below to see its full leaderboard.</p>
+        <div className="cms-headrow">
+          <div>
+            <p className="cms-kicker">Super Admin</p>
+            <h1 className="cms-title">Commissions</h1>
+            <p className="cms-note">Every tier's commission earnings, broken down by who actually earned it — pick a tier below, then click a row to see that person's own commission history.</p>
+          </div>
+          <button className="cms-download-btn" onClick={downloadReport} disabled={downloading || loading}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+            {downloading ? 'Preparing...' : 'Download Report'}
+          </button>
+        </div>
 
         <div className="cms-role-row">
           {ROLE_TABS.map(t => (
@@ -321,22 +413,57 @@ export default function Commissions() {
                   </div>
                   {rows.map((r, i) => {
                     const initials = `${(r.first_name || activeTab.label)[0] || ''}${(r.last_name || '')[0] || ''}`.toUpperCase()
+                    const isOpen = expandedUserId === r.user_id
+                    const hist = historyByUser[r.user_id]
                     return (
-                      <div key={`${r.user_id}-${i}`} className="cms-lb-row">
-                        <div className={`cms-lb-rank ${i < 3 ? 'top' : ''}`}>{i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</div>
-                        <div className="cms-lb-name">
-                          <div className="cms-lb-avatar">{initials}</div>
-                          <div className="cms-lb-namecol">
-                            <div className="cms-lb-fullname">{r.first_name} {r.last_name}</div>
-                            <div className="cms-lb-id">{r[activeTab.idKey]}</div>
+                      <div key={`${r.user_id}-${i}`}>
+                        <div className="cms-lb-row" onClick={() => toggleHistory(r.user_id)}>
+                          <div className={`cms-lb-rank ${i < 3 ? 'top' : ''}`}>{i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</div>
+                          <div className="cms-lb-name">
+                            <div className="cms-lb-avatar">{initials}</div>
+                            <div className="cms-lb-namecol">
+                              <div className="cms-lb-fullname">{r.first_name} {r.last_name}</div>
+                              <div className="cms-lb-id">{r[activeTab.idKey]}</div>
+                            </div>
                           </div>
+                          <div className="cms-lb-city-col">
+                            <div className="cms-lb-city">{r.city_name || '—'}</div>
+                            <div className="cms-lb-phone">{r.mobile_number || '—'}</div>
+                          </div>
+                          <div className="cms-lb-txns">{r.txn_count}</div>
+                          <div><span className="cms-lb-amount">{inr(r.total_commission)}</span></div>
                         </div>
-                        <div className="cms-lb-city-col">
-                          <div className="cms-lb-city">{r.city_name || '—'}</div>
-                          <div className="cms-lb-phone">{r.mobile_number || '—'}</div>
-                        </div>
-                        <div className="cms-lb-txns">{r.txn_count}</div>
-                        <div><span className="cms-lb-amount">{inr(r.total_commission)}</span></div>
+                        {isOpen && (
+                          <div className="cms-history">
+                            <div className="cms-history-title">{r.first_name}'s Commission History</div>
+                            {historyLoading && !hist ? (
+                              <SkeletonText width="220px" height="12px" />
+                            ) : hist?.error ? (
+                              <div className="cms-empty">Could not load history — click the row to retry.</div>
+                            ) : !hist || hist.transactions.length === 0 ? (
+                              <div className="cms-empty">No individual commission entries found.</div>
+                            ) : (
+                              <>
+                                {hist.transactions.map((t, ti) => (
+                                  <div className="cms-history-row" key={ti}>
+                                    <div>
+                                      <div className="cms-history-order">{t.order_id}</div>
+                                      <div className="cms-history-buyer">from {t.buyer}</div>
+                                    </div>
+                                    <span className="cms-history-level">Level {t.level}</span>
+                                    <div className="cms-history-amount">{inr(t.amount)}</div>
+                                    <div className="cms-history-date">{fmtDate(t.created_at)}</div>
+                                  </div>
+                                ))}
+                                {hist.hasMore && (
+                                  <button className="cms-history-loadmore" onClick={() => fetchHistory(r.user_id, hist.page + 1)} disabled={historyLoading}>
+                                    {historyLoading ? 'Loading...' : 'Load More'}
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )
                   })}

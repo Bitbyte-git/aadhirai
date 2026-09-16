@@ -17,11 +17,13 @@ import {
   WarningIcon,
 } from "../components/SvgIcons";
 
-// Anything under 1g reads clearer as milligrams (e.g. 0.2g -> 200 mg) than as a decimal gram.
+// Anything under 1g reads in milligrams (e.g. 0.05g -> 50 mg, 0.5g -> 500 mg), 1g and above in grams (e.g. 1.5 g, 2.5 g).
 const formatWeight = (grams) => {
   const g = Number(grams) || 0;
-  if (g > 0 && g < 1) return `${Math.round(g * 1000)} mg`;
-  return `${g.toFixed(2)} g`;
+  if (g <= 0) return "0 mg";
+  if (g < 1) return `${Math.round(g * 1000)} mg`;
+  const rounded = Math.round(g * 100) / 100;
+  return `${rounded} g`;
 };
 
 const METALS = [
@@ -29,18 +31,18 @@ const METALS = [
     key: "gold_22k",
     label: "Gold 22K",
     purity: "916 Hallmarked",
-    tone: "#D97706",
-    bg: "#FEF3C7",
-    border: "#FDE68A",
+    tone: "#073B3F",
+    bg: "#EFF6F6",
+    border: "#C2DADB",
     IconComponent: CoinIcon,
   },
   {
     key: "gold_24k",
     label: "Gold 24K",
     purity: "999 Fine Gold",
-    tone: "#B45309",
-    bg: "#FDF6B2",
-    border: "#FCE96A",
+    tone: "#0A5C63",
+    bg: "#E6F2F2",
+    border: "#B2D3D4",
     IconComponent: SparkleIcon,
   },
   {
@@ -54,16 +56,27 @@ const METALS = [
   },
 ];
 
-const WEIGHTS = [
+const GOLD_WEIGHTS = [
   { label: "50 mg", grams: 0.05 },
   { label: "100 mg", grams: 0.1 },
-  { label: "150 mg", grams: 0.15 },
   { label: "200 mg", grams: 0.2 },
+  { label: "250 mg", grams: 0.25 },
   { label: "500 mg", grams: 0.5 },
   { label: "1 gm", grams: 1 },
   { label: "2 gm", grams: 2 },
   { label: "4 gm", grams: 4 },
   { label: "8 gm", grams: 8 },
+];
+
+const SILVER_WEIGHTS = [
+  { label: "500 mg", grams: 0.5 },
+  { label: "1 gm", grams: 1 },
+  { label: "2 gm", grams: 2 },
+  { label: "5 gm", grams: 5 },
+  { label: "10 gm", grams: 10 },
+  { label: "20 gm", grams: 20 },
+  { label: "50 gm", grams: 50 },
+  { label: "100 gm", grams: 100 },
 ];
 
 const ROLE_TARGET = {
@@ -85,9 +98,42 @@ export default function BuyCoin() {
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState("success");
 
+  const availableWeights = metalType === "silver_999" ? SILVER_WEIGHTS : GOLD_WEIGHTS;
   const selectedMetal = METALS.find((m) => m.key === metalType) || METALS[0];
-  const selectedWeight = WEIGHTS.find((w) => w.label === weightLabel) || WEIGHTS[1];
-  const totalQty = cart.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+  const selectedWeight = availableWeights.find((w) => w.label === weightLabel) || availableWeights[0];
+
+  const handleSelectMetal = (mKey) => {
+    setMetalType(mKey);
+    const nextWeights = mKey === "silver_999" ? SILVER_WEIGHTS : GOLD_WEIGHTS;
+    if (!nextWeights.some((w) => w.label === weightLabel)) {
+      setWeightLabel(nextWeights[0].label);
+    }
+  };
+
+  // Specific to the currently selected metal (Gold 22K, Gold 24K, Silver 999)
+  // Changes immediately when user clicks between metals
+  const currentMetalCart = useMemo(
+    () => cart.filter((item) => item.metal_type === metalType),
+    [cart, metalType]
+  );
+  const metalQty = useMemo(
+    () => currentMetalCart.reduce((sum, item) => sum + Number(item.qty || 0), 0),
+    [currentMetalCart]
+  );
+  const metalWeight = useMemo(
+    () =>
+      currentMetalCart.reduce(
+        (sum, item) => sum + Number(item.weight_grams || 0) * Number(item.qty || 0),
+        0
+      ),
+    [currentMetalCart]
+  );
+
+  // Entire cart aggregates (Overall)
+  const totalQty = useMemo(
+    () => cart.reduce((sum, item) => sum + Number(item.qty || 0), 0),
+    [cart]
+  );
   const totalWeight = useMemo(
     () =>
       cart.reduce(
@@ -95,6 +141,30 @@ export default function BuyCoin() {
         0
       ),
     [cart]
+  );
+
+  // 22K Gold Breakdown
+  const cart22k = useMemo(() => cart.filter((i) => i.metal_type === "gold_22k"), [cart]);
+  const qty22k = useMemo(() => cart22k.reduce((s, i) => s + Number(i.qty || 0), 0), [cart22k]);
+  const weight22k = useMemo(
+    () => cart22k.reduce((s, i) => s + Number(i.weight_grams || 0) * Number(i.qty || 0), 0),
+    [cart22k]
+  );
+
+  // 24K Gold Breakdown
+  const cart24k = useMemo(() => cart.filter((i) => i.metal_type === "gold_24k"), [cart]);
+  const qty24k = useMemo(() => cart24k.reduce((s, i) => s + Number(i.qty || 0), 0), [cart24k]);
+  const weight24k = useMemo(
+    () => cart24k.reduce((s, i) => s + Number(i.weight_grams || 0) * Number(i.qty || 0), 0),
+    [cart24k]
+  );
+
+  // Silver 999 Breakdown
+  const cartSilver = useMemo(() => cart.filter((i) => i.metal_type === "silver_999"), [cart]);
+  const qtySilver = useMemo(() => cartSilver.reduce((s, i) => s + Number(i.qty || 0), 0), [cartSilver]);
+  const weightSilver = useMemo(
+    () => cartSilver.reduce((s, i) => s + Number(i.weight_grams || 0) * Number(i.qty || 0), 0),
+    [cartSilver]
   );
 
   const addItem = () => {
@@ -112,7 +182,7 @@ export default function BuyCoin() {
         ...prev,
         {
           metal_type: metalType,
-          weight_label: weightLabel,
+          weight_label: selectedWeight.label,
           weight_grams: selectedWeight.grams,
           qty: count,
         },
@@ -292,10 +362,17 @@ export default function BuyCoin() {
           border-color: #073B3F;
         }
 
-        .bc-stats-grid {
+        .bc-overall-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 18px;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px;
+          margin-bottom: 14px;
+        }
+
+        .bc-breakdown-grid {
+          display: grid;
+          grid-template-columns: repeat(6, 1fr);
+          gap: 12px;
           margin-bottom: 24px;
         }
 
@@ -303,13 +380,55 @@ export default function BuyCoin() {
           background: #FFFFFF;
           border: 1px solid #E1EBEA;
           border-radius: 18px;
-          padding: 20px 24px;
+          padding: 18px 22px;
           box-shadow: 0 4px 18px rgba(7, 59, 63, 0.03);
           transition: transform 180ms ease;
         }
 
         .bc-stat-card:hover {
           transform: translateY(-2px);
+        }
+
+        .bc-mini-card {
+          background: #FFFFFF;
+          border: 1px solid #E1EBEA;
+          border-radius: 14px;
+          padding: 14px 16px;
+          box-shadow: 0 2px 10px rgba(7, 59, 63, 0.02);
+          transition: transform 180ms ease;
+        }
+
+        .bc-mini-card:hover {
+          transform: translateY(-2px);
+        }
+
+        .bc-mini-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 6px;
+        }
+
+        .bc-mini-label {
+          font-size: 10.5px;
+          font-weight: 700;
+          color: #5C706E;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .bc-mini-value {
+          font-size: 20px;
+          font-weight: 800;
+          color: #073B3F;
+          line-height: 1.1;
+          margin-bottom: 3px;
+        }
+
+        .bc-mini-sub {
+          font-size: 11px;
+          color: #7A8987;
+          font-weight: 500;
         }
 
         .bc-stat-header {
@@ -642,13 +761,14 @@ export default function BuyCoin() {
         }
 
         @media (max-width: 1024px) {
-          .bc-stats-grid { grid-template-columns: repeat(2, 1fr); }
+          .bc-breakdown-grid { grid-template-columns: repeat(3, 1fr); }
           .bc-grid { grid-template-columns: 1fr; }
           .bc-root { padding: 16px 16px 40px; }
         }
 
         @media (max-width: 600px) {
-          .bc-stats-grid { grid-template-columns: 1fr; }
+          .bc-overall-grid { grid-template-columns: 1fr; }
+          .bc-breakdown-grid { grid-template-columns: repeat(2, 1fr); }
           .bc-metal-grid { grid-template-columns: 1fr; }
           .bc-header-card { flex-direction: column; align-items: flex-start; }
           .bc-header-actions { width: 100%; }
@@ -656,13 +776,6 @@ export default function BuyCoin() {
       `}</style>
 
       <div className="bc-shell">
-        {/* Topbar */}
-        <div className="bc-topbar">
-          <button className="bc-back-btn" onClick={() => navigate(-1)}>
-            <ArrowLeftIcon size={14} color="#073B3F" /> Back
-          </button>
-        </div>
-
         {/* 4 Tabs Matching User's Image */}
         <CoinTabs activeTab="Add Coins" />
 
@@ -681,69 +794,68 @@ export default function BuyCoin() {
                 : `Submit coin requests to ${ROLE_TARGET[role] || "upstream authority"}.`}
             </p>
           </div>
-          <div className="bc-header-actions">
-            <button className="bc-btn-secondary" onClick={() => navigate("/available-coins")}>
-              <CoinIcon size={15} color="#073B3F" /> Available Coins
-            </button>
-            <button className="bc-btn-secondary" onClick={() => navigate("/coin-requests-page")}>
-              <InboxIcon size={15} color="#073B3F" /> Requests Coins
-            </button>
-            <button className="bc-btn-secondary" onClick={() => navigate("/coin-transactions")}>
-              <HistoryIcon size={15} color="#073B3F" /> Transactions
-            </button>
-          </div>
         </div>
 
-        {/* 4 Stat Cards */}
-        <div className="bc-stats-grid">
-          <div className="bc-stat-card" style={{ borderLeft: "4px solid #073B3F" }}>
-            <div className="bc-stat-header">
-              <span className="bc-stat-label">Cart Pieces</span>
-              <div className="bc-stat-icon" style={{ background: "#EFF6F6", color: "#073B3F" }}>
-                <CartIcon size={18} color="#073B3F" />
-              </div>
+        {/* Metal-wise Breakdown Cards (22K, 24K, Silver Pieces & Weight) */}
+        <div className="bc-breakdown-grid">
+          {/* 22K Pieces */}
+          <div className="bc-mini-card" style={{ borderLeft: "3px solid #073B3F" }}>
+            <div className="bc-mini-header">
+              <span className="bc-mini-label">22K Pieces</span>
+              <CoinIcon size={14} color="#073B3F" />
             </div>
-            <div className="bc-stat-value">{totalQty}</div>
-            <div className="bc-stat-sub">{cart.length} item lines</div>
+            <div className="bc-mini-value">{qty22k}</div>
+            <div className="bc-mini-sub">Gold 22K (916)</div>
           </div>
 
-          <div className="bc-stat-card" style={{ borderLeft: "4px solid #D97706" }}>
-            <div className="bc-stat-header">
-              <span className="bc-stat-label">Net Weight</span>
-              <div className="bc-stat-icon" style={{ background: "#FEF3C7", color: "#B45309" }}>
-                <BullionIcon size={18} color="#B45309" />
-              </div>
+          {/* 22K Net Weight */}
+          <div className="bc-mini-card" style={{ borderLeft: "3px solid #073B3F" }}>
+            <div className="bc-mini-header">
+              <span className="bc-mini-label">22K Net Weight</span>
+              <BullionIcon size={14} color="#073B3F" />
             </div>
-            <div className="bc-stat-value">{totalWeight.toFixed(2)} g</div>
-            <div className="bc-stat-sub">Gross metal grams</div>
+            <div className="bc-mini-value">{formatWeight(weight22k)}</div>
+            <div className="bc-mini-sub">Gold 22K weight</div>
           </div>
 
-          <div className="bc-stat-card" style={{ borderLeft: "4px solid #B45309" }}>
-            <div className="bc-stat-header">
-              <span className="bc-stat-label">Metal Purity</span>
-              <div className="bc-stat-icon" style={{ background: selectedMetal.bg, color: selectedMetal.tone }}>
-                <selectedMetal.IconComponent size={18} color={selectedMetal.tone} />
-              </div>
+          {/* 24K Pieces */}
+          <div className="bc-mini-card" style={{ borderLeft: "3px solid #0A5C63" }}>
+            <div className="bc-mini-header">
+              <span className="bc-mini-label">24K Pieces</span>
+              <SparkleIcon size={14} color="#0A5C63" />
             </div>
-            <div className="bc-stat-value" style={{ fontSize: "20px", marginTop: "4px" }}>
-              {selectedMetal.label}
-            </div>
-            <div className="bc-stat-sub">{selectedWeight.label} ready</div>
+            <div className="bc-mini-value">{qty24k}</div>
+            <div className="bc-mini-sub">Gold 24K (999)</div>
           </div>
 
-          <div className="bc-stat-card" style={{ borderLeft: "4px solid #64748B" }}>
-            <div className="bc-stat-header">
-              <span className="bc-stat-label">Destination</span>
-              <div className="bc-stat-icon" style={{ background: "#F1F5F9", color: "#475569" }}>
-                <CoinIcon size={18} color="#475569" />
-              </div>
+          {/* 24K Net Weight */}
+          <div className="bc-mini-card" style={{ borderLeft: "3px solid #0A5C63" }}>
+            <div className="bc-mini-header">
+              <span className="bc-mini-label">24K Net Weight</span>
+              <BullionIcon size={14} color="#0A5C63" />
             </div>
-            <div className="bc-stat-value" style={{ fontSize: "20px", marginTop: "4px" }}>
-              {role === "super_admin" ? "Vault" : (ROLE_TARGET[role] || "Upstream")}
+            <div className="bc-mini-value">{formatWeight(weight24k)}</div>
+            <div className="bc-mini-sub">Gold 24K weight</div>
+          </div>
+
+          {/* Silver Pieces */}
+          <div className="bc-mini-card" style={{ borderLeft: "3px solid #64748B" }}>
+            <div className="bc-mini-header">
+              <span className="bc-mini-label">Silver Pieces</span>
+              <CoinIcon size={14} color="#64748B" />
             </div>
-            <div className="bc-stat-sub">
-              {role === "super_admin" ? "Direct stock" : "Requires approval"}
+            <div className="bc-mini-value">{qtySilver}</div>
+            <div className="bc-mini-sub">Silver 999</div>
+          </div>
+
+          {/* Silver Net Weight */}
+          <div className="bc-mini-card" style={{ borderLeft: "3px solid #64748B" }}>
+            <div className="bc-mini-header">
+              <span className="bc-mini-label">Silver Net Weight</span>
+              <BullionIcon size={14} color="#64748B" />
             </div>
+            <div className="bc-mini-value">{formatWeight(weightSilver)}</div>
+            <div className="bc-mini-sub">Silver 999 weight</div>
           </div>
         </div>
 
@@ -763,7 +875,7 @@ export default function BuyCoin() {
                       "--metal-tone": m.tone,
                       "--metal-bg": m.bg,
                     }}
-                    onClick={() => setMetalType(m.key)}
+                    onClick={() => handleSelectMetal(m.key)}
                   >
                     <div className="bc-metal-name">
                       <IconC size={16} color={m.tone} />
@@ -777,11 +889,11 @@ export default function BuyCoin() {
 
             <div className="bc-section-title">2. Denomination Weight</div>
             <div className="bc-weight-grid">
-              {WEIGHTS.map((w) => (
+              {availableWeights.map((w) => (
                 <button
                   key={w.label}
                   type="button"
-                  className={`bc-weight-btn ${weightLabel === w.label ? "active" : ""}`}
+                  className={`bc-weight-btn ${selectedWeight.label === w.label ? "active" : ""}`}
                   onClick={() => setWeightLabel(w.label)}
                 >
                   {w.label}
@@ -873,7 +985,7 @@ export default function BuyCoin() {
               </div>
               <div className="bc-summary-line">
                 <span>Total Weight</span>
-                <b style={{ color: "#073B3F" }}>{totalWeight.toFixed(2)} g</b>
+                <b style={{ color: "#073B3F" }}>{formatWeight(totalWeight)}</b>
               </div>
             </div>
 

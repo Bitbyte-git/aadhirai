@@ -22,7 +22,8 @@ import string
 import threading
 from django.conf import settings
 from io import BytesIO
-from django.http import FileResponse
+from django.http import FileResponse, HttpResponse
+import csv
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
@@ -4403,52 +4404,141 @@ def _today_order_counts():
 
 
 
-def _today_rollup_counts():
-    """Returns dict: key = (role, profile_id) -> today's order count (rolled up).
-    role-kal: 'customer' (key=user_id), 'promotor', 'sub_dealer', 'dealer', 'admin' (key=profile.id).
-    ── FIX: Python-la ovvoru order-um loop pannama, DB GROUP BY vachi 5 fast queries panrom.
-    Order count evlo perusa irundhalum (1000s), idhu 5 queries mattum — user count-a sar-alla. ──"""
-    today = timezone.localtime(timezone.now()).date()
-    base = JewelryOrder.objects.filter(created_at__date=today)
+def _get_period_rollup_counts(period='today'):
+    """Returns dict: key = (role, profile_id or user_id) -> order count rolled up from the entire subtree.
+    Hierarchy:
+      Admin (Super Stockist)
+        └── Dealer (Distributor)
+              └── Sub Dealer (Wholesale Dealer)
+                    └── Promotor (Retailer)
+                          └── Customer (and nested child customers)
+    role keys:
+      'customer': user_id
+      'promotor': profile.id
+      'sub_dealer': profile.id
+      'dealer': profile.id
+      'admin': profile.id
+    """
+    now = timezone.localtime(timezone.now())
+    today = now.date()
+    qs = JewelryOrder.objects.all()
+
+    if period == 'today':
+        qs = qs.filter(created_at__date=today)
+    elif period == '3days':
+        qs = qs.filter(created_at__date__gte=today - timedelta(days=3))
+    elif period == 'week':
+        qs = qs.filter(created_at__date__gte=today - timedelta(days=7))
+    elif period == 'month':
+        qs = qs.filter(created_at__date__gte=today - timedelta(days=30))
+    elif period == '6months':
+        qs = qs.filter(created_at__date__gte=today - timedelta(days=180))
+    elif period == 'year':
+        qs = qs.filter(created_at__date__gte=today - timedelta(days=365))
+
+    order_counts_by_user = dict(
+        qs.values('user_id').annotate(c=Count('id')).values_list('user_id', 'c')
+    )
+
+    customers = list(CustomerProfile.objects.all().values('id', 'user_id', 'created_by_id', 'assigned_promotor_id'))
+    promotors = list(PromotorProfile.objects.all().values('id', 'user_id', 'assigned_sub_dealer_id'))
+    sub_dealers = list(SubDealerProfile.objects.all().values('id', 'user_id', 'assigned_dealer_id'))
+    dealers = list(DealerProfile.objects.all().values('id', 'user_id', 'assigned_admin_id'))
+    admins = list(AdminProfile.objects.all().values('id', 'user_id'))
+
+    subcustomers_by_creator = {}
+    for c in customers:
+        if c['created_by_id']:
+            subcustomers_by_creator.setdefault(c['created_by_id'], []).append(c)
+
+    customers_by_promotor = {}
+    for c in customers:
+        if c['assigned_promotor_id']:
+            customers_by_promotor.setdefault(c['assigned_promotor_id'], []).append(c)
+
+    promotors_by_sd = {}
+    for p in promotors:
+        if p['assigned_sub_dealer_id']:
+            promotors_by_sd.setdefault(p['assigned_sub_dealer_id'], []).append(p)
+
+    sds_by_dealer = {}
+    for sd in sub_dealers:
+        if sd['assigned_dealer_id']:
+            sds_by_dealer.setdefault(sd['assigned_dealer_id'], []).append(sd)
+
+    dealers_by_admin = {}
+    for d in dealers:
+        if d['assigned_admin_id']:
+            dealers_by_admin.setdefault(d['assigned_admin_id'], []).append(d)
+
+    # 1. Customers (including recursive child customers)
+    customer_user_ids_map = {}
+
+    def get_customer_user_ids(c, visited=None):
+        if visited is None:
+            visited = set()
+        cid = c['id']
+        if cid in customer_user_ids_map:
+            return customer_user_ids_map[cid]
+        if cid in visited:
+            return set()
+        visited.add(cid)
+
+        uids = {c['user_id']}
+        for child in subcustomers_by_creator.get(c['user_id'], []):
+            uids.update(get_customer_user_ids(child, visited))
+        customer_user_ids_map[cid] = uids
+        return uids
+
+    for c in customers:
+        get_customer_user_ids(c)
 
     counts = {}
 
-    customer_rows = (
-        base.filter(user__customer_profile__isnull=False)
-        .values('user_id').annotate(c=Count('id'))
-    )
-    for r in customer_rows:
-        counts[('customer', r['user_id'])] = r['c']
+    # Set customer rollup counts (key: user_id)
+    for c in customers:
+        uids = customer_user_ids_map.get(c['id'], {c['user_id']})
+        counts[('customer', c['user_id'])] = sum(order_counts_by_user.get(uid, 0) for uid in uids)
 
-    promotor_rows = (
-        base.filter(user__customer_profile__assigned_promotor__isnull=False)
-        .values('user__customer_profile__assigned_promotor_id').annotate(c=Count('id'))
-    )
-    for r in promotor_rows:
-        counts[('promotor', r['user__customer_profile__assigned_promotor_id'])] = r['c']
+    # 2. Promotors (Retailers)
+    promotor_user_ids_map = {}
+    for p in promotors:
+        p_uids = {p['user_id']}
+        for c in customers_by_promotor.get(p['id'], []):
+            p_uids.update(customer_user_ids_map.get(c['id'], {c['user_id']}))
+        promotor_user_ids_map[p['id']] = p_uids
+        counts[('promotor', p['id'])] = sum(order_counts_by_user.get(uid, 0) for uid in p_uids)
 
-    sub_dealer_rows = (
-        base.filter(user__customer_profile__assigned_promotor__assigned_sub_dealer__isnull=False)
-        .values('user__customer_profile__assigned_promotor__assigned_sub_dealer_id').annotate(c=Count('id'))
-    )
-    for r in sub_dealer_rows:
-        counts[('sub_dealer', r['user__customer_profile__assigned_promotor__assigned_sub_dealer_id'])] = r['c']
+    # 3. Sub Dealers (Wholesale Dealers)
+    sd_user_ids_map = {}
+    for sd in sub_dealers:
+        sd_uids = {sd['user_id']}
+        for p in promotors_by_sd.get(sd['id'], []):
+            sd_uids.update(promotor_user_ids_map.get(p['id'], {p['user_id']}))
+        sd_user_ids_map[sd['id']] = sd_uids
+        counts[('sub_dealer', sd['id'])] = sum(order_counts_by_user.get(uid, 0) for uid in sd_uids)
 
-    dealer_rows = (
-        base.filter(user__customer_profile__assigned_promotor__assigned_sub_dealer__assigned_dealer__isnull=False)
-        .values('user__customer_profile__assigned_promotor__assigned_sub_dealer__assigned_dealer_id').annotate(c=Count('id'))
-    )
-    for r in dealer_rows:
-        counts[('dealer', r['user__customer_profile__assigned_promotor__assigned_sub_dealer__assigned_dealer_id'])] = r['c']
+    # 4. Dealers (Distributors)
+    dealer_user_ids_map = {}
+    for d in dealers:
+        d_uids = {d['user_id']}
+        for sd in sds_by_dealer.get(d['id'], []):
+            d_uids.update(sd_user_ids_map.get(sd['id'], {sd['user_id']}))
+        dealer_user_ids_map[d['id']] = d_uids
+        counts[('dealer', d['id'])] = sum(order_counts_by_user.get(uid, 0) for uid in d_uids)
 
-    admin_rows = (
-        base.filter(user__customer_profile__assigned_promotor__assigned_sub_dealer__assigned_dealer__assigned_admin__isnull=False)
-        .values('user__customer_profile__assigned_promotor__assigned_sub_dealer__assigned_dealer__assigned_admin_id').annotate(c=Count('id'))
-    )
-    for r in admin_rows:
-        counts[('admin', r['user__customer_profile__assigned_promotor__assigned_sub_dealer__assigned_dealer__assigned_admin_id'])] = r['c']
+    # 5. Admins (Super Stockists)
+    for a in admins:
+        a_uids = {a['user_id']}
+        for d in dealers_by_admin.get(a['id'], []):
+            a_uids.update(dealer_user_ids_map.get(d['id'], {d['user_id']}))
+        counts[('admin', a['id'])] = sum(order_counts_by_user.get(uid, 0) for uid in a_uids)
 
     return counts
+
+
+def _today_rollup_counts():
+    return _get_period_rollup_counts('today')
 
 
 def _month_rollup_counts():
@@ -4551,7 +4641,7 @@ class TodayLoginStatusView(APIView):
                 scope_user_ids = set()
 
         today = timezone.now().date()
-        rollup_counts = _today_rollup_counts()
+        rollup_counts = _get_period_rollup_counts(period)
 
         # ── NEW: role -> level Case/When, DB level la order pண்ணறatuku ──
         # pyrefly: ignore [missing-import]
@@ -4577,7 +4667,7 @@ class TodayLoginStatusView(APIView):
         if scope_user_ids is not None:
             base_qs = base_qs.filter(id__in=scope_user_ids)
 
-        # ── NEW: active/inactive DB level-ல split — Python-la ella row-um build panna vendam ──
+        # ── NEW: active/inactive/never DB level-ல split ──
         if period == 'today':
             active_q = Q(last_login__date=today)
         else:
@@ -4585,29 +4675,32 @@ class TodayLoginStatusView(APIView):
             active_q = Q(last_login__date__gte=today - timedelta(days=days_needed))
 
         active_qs = base_qs.filter(active_q)
-        inactive_qs = base_qs.exclude(active_q)
+        # ── Inactive = logged in before, but NOT in this period ──
+        inactive_qs = base_qs.exclude(active_q).filter(last_login__isnull=False)
+        # ── Never logged in = never logged in at all ──
+        never_qs = base_qs.filter(last_login__isnull=True)
 
-        # ── NEW: eppadi 'inactive' page ku 'inactive' mattum fetch pண்ணும், 'active' page ku 'active' mattum,
-        # 'all' na active+inactive rendum sேrthu fetch pண்ணும் ──
         list_type = request.query_params.get('list_type', 'inactive')
         offset = int(request.query_params.get('offset', 0))
-        limit = int(request.query_params.get('limit', 20))
+        limit = int(request.query_params.get('limit', 50))
 
         active_total = active_qs.count()
         inactive_total = inactive_qs.count()
+        never_total = never_qs.count()
+        grand_total = base_qs.count()
 
         if list_type == 'all':
             target_qs = base_qs
-            total_count = active_total + inactive_total
-            other_count = 0
+            total_count = grand_total
         elif list_type == 'active':
             target_qs = active_qs
             total_count = active_total
-            other_count = inactive_total
-        else:
+        elif list_type == 'never':
+            target_qs = never_qs
+            total_count = never_total
+        else:  # 'inactive'
             target_qs = inactive_qs
             total_count = inactive_total
-            other_count = active_total
 
         # ── NEW: DB level la LIMIT/OFFSET — idhu than real pagination ──
         page_users = target_qs[offset:offset + limit]
@@ -4624,7 +4717,7 @@ class TodayLoginStatusView(APIView):
 
             last_login_date = u.last_login.date() if u.last_login else None
             reference_date = last_login_date or (u.created_at.date() if u.created_at else today)
-            days_inactive = (today - reference_date).days
+            days_inactive = (today - reference_date).days if last_login_date else None
             is_active = bool(last_login_date and last_login_date >= (today - timedelta(days=self.PERIOD_DAYS.get(period, 0)))) if period != 'today' else bool(last_login_date and last_login_date == today)
 
             lookup_key = u.id if role_key == 'customer' else profile.id
@@ -4645,13 +4738,15 @@ class TodayLoginStatusView(APIView):
             'period': period,
             'list_type': list_type,
             'total_count': total_count,
-            'other_count': other_count,
-            # ── NEW: stable counters that don't shift when list_type changes — stat cards use these ──
+            'other_count': active_total,
+            # ── Stable counters that don't shift when list_type changes — stat cards use these ──
             'active_count': active_total,
-            'grand_total_count': active_total + inactive_total,
+            'inactive_count': inactive_total,
+            'never_login_count': never_total,
+            'grand_total_count': grand_total,
             'results': entries,
             'active': entries if list_type == 'active' else [],
-            'inactive': entries if list_type == 'inactive' else [],
+            'inactive': entries if list_type in ('inactive', 'never', 'all') else [],
         })
 
 class DashboardQuickStatsView(APIView):
@@ -7810,6 +7905,7 @@ class PaymentsSummaryView(APIView):
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         view = request.query_params.get('view', 'super_admin_commission')   # ── NEW: all_sales | super_admin_commission | my_commission
+        export_csv = request.query_params.get('format') == 'csv'
 
         if view == 'all_sales':
             # ── Full order value, commission edhுவும் illama ──
@@ -7818,6 +7914,15 @@ class PaymentsSummaryView(APIView):
 
             total_revenue = period_qs.aggregate(total=Sum('total_price'))['total'] or 0
             total_transactions = period_qs.count()
+
+            # ── AUG Coins ku pay pண்ணின orders — PayWithCoinsView 'wallet' nu save pண்ணும், total_price rupee value, coins = rupee * COIN_RATE_PER_RUPEE ──
+            wallet_paid_total = period_qs.filter(payment_method='wallet').aggregate(total=Sum('total_price'))['total'] or 0
+            total_coins_sold = int(Decimal(str(wallet_paid_total)) * COIN_RATE_PER_RUPEE)
+
+            payment_breakdown = [
+                {'method': r['payment_method'], 'count': r['count'], 'total': float(r['total'] or 0)}
+                for r in period_qs.values('payment_method').annotate(count=Count('id'), total=Sum('total_price')).order_by('-total')
+            ]
 
             six_months_ago = timezone.now().date() - timedelta(days=180)
             trend_qs = (
@@ -7833,6 +7938,16 @@ class PaymentsSummaryView(APIView):
             ]
 
             txn_qs = period_qs.select_related('user').order_by('-created_at')
+
+            if export_csv:
+                response = HttpResponse(content_type='text/csv')
+                response['Content-Disposition'] = 'attachment; filename="all-sales-report.csv"'
+                writer = csv.writer(response)
+                writer.writerow(['Order ID', 'Buyer', 'Amount (Rs.)', 'Payment Method', 'Date'])
+                for o in txn_qs:
+                    writer.writerow([o.order_id, get_user_profile_id(o.user) or o.user.email, float(o.total_price), o.payment_method, o.created_at.strftime('%d-%b-%Y %H:%M')])
+                return response
+
             start = (page - 1) * page_size
             page_txns = txn_qs[start:start + page_size]
 
@@ -7840,9 +7955,10 @@ class PaymentsSummaryView(APIView):
                 'view': view,
                 'period': period,
                 'total_revenue': float(total_revenue),
-                'total_coins_sold': None,
+                'total_coins_sold': total_coins_sold,
                 'total_transactions': total_transactions,
                 'monthly_trend': monthly_trend,
+                'payment_breakdown': payment_breakdown,
                 'page': page,
                 'has_more': start + page_size < total_transactions,
                 'transactions': [
@@ -7850,6 +7966,83 @@ class PaymentsSummaryView(APIView):
                         'transaction_id': o.order_id,
                         'buyer': get_user_profile_id(o.user) or o.user.email,
                         'amount': float(o.total_price),
+                        'coins': None,
+                        'payment_method': o.payment_method,
+                        'created_at': o.created_at,
+                    } for o in page_txns
+                ],
+            })
+
+        elif view == 'athirai_revenue':
+            # ── Athirai's real net revenue — every order's value MINUS the 27%
+            # commission pool (COMMISSION_POOL_PERCENT) that gets distributed up
+            # the hierarchy chain + Super Admin. Company retains the other 73%. ──
+            company_share_pct = Decimal('100') - COMMISSION_POOL_PERCENT
+            base_qs = JewelryOrder.objects.all()
+            period_qs = _apply_period_filter(base_qs, period, start_date, end_date)
+
+            total_order_value = period_qs.aggregate(total=Sum('total_price'))['total'] or 0
+            total_revenue = (Decimal(str(total_order_value)) * company_share_pct / Decimal('100')).quantize(Decimal('0.01'))
+            total_transactions = period_qs.count()
+
+            wallet_paid_total = period_qs.filter(payment_method='wallet').aggregate(total=Sum('total_price'))['total'] or 0
+            total_coins_sold = int(Decimal(str(wallet_paid_total)) * COIN_RATE_PER_RUPEE)
+
+            payment_breakdown = [
+                {
+                    'method': r['payment_method'], 'count': r['count'],
+                    'total': float((Decimal(str(r['total'] or 0)) * company_share_pct / Decimal('100')).quantize(Decimal('0.01'))),
+                }
+                for r in period_qs.values('payment_method').annotate(count=Count('id'), total=Sum('total_price')).order_by('-total')
+            ]
+
+            six_months_ago = timezone.now().date() - timedelta(days=180)
+            trend_qs = (
+                base_qs.filter(created_at__date__gte=six_months_ago)
+                .annotate(month=TruncMonth('created_at'))
+                .values('month')
+                .annotate(order_total=Sum('total_price'))
+                .order_by('month')
+            )
+            monthly_trend = [
+                {
+                    'month': t['month'].strftime('%b %Y'),
+                    'revenue': float((Decimal(str(t['order_total'])) * company_share_pct / Decimal('100')).quantize(Decimal('0.01'))),
+                } for t in trend_qs
+            ]
+
+            txn_qs = period_qs.select_related('user').order_by('-created_at')
+
+            if export_csv:
+                response = HttpResponse(content_type='text/csv')
+                response['Content-Disposition'] = 'attachment; filename="athirai-revenue-report.csv"'
+                writer = csv.writer(response)
+                writer.writerow(['Order ID', 'Buyer', 'Order Total (Rs.)', 'Athirai Revenue 73% (Rs.)', 'Payment Method', 'Date'])
+                for o in txn_qs:
+                    share = (Decimal(str(o.total_price)) * company_share_pct / Decimal('100')).quantize(Decimal('0.01'))
+                    writer.writerow([o.order_id, get_user_profile_id(o.user) or o.user.email, float(o.total_price), float(share), o.payment_method, o.created_at.strftime('%d-%b-%Y %H:%M')])
+                return response
+
+            start = (page - 1) * page_size
+            page_txns = txn_qs[start:start + page_size]
+
+            return Response({
+                'view': view,
+                'period': period,
+                'total_revenue': float(total_revenue),
+                'total_order_value': float(total_order_value),
+                'total_coins_sold': total_coins_sold,
+                'total_transactions': total_transactions,
+                'monthly_trend': monthly_trend,
+                'payment_breakdown': payment_breakdown,
+                'page': page,
+                'has_more': start + page_size < total_transactions,
+                'transactions': [
+                    {
+                        'transaction_id': o.order_id,
+                        'buyer': get_user_profile_id(o.user) or o.user.email,
+                        'amount': float((Decimal(str(o.total_price)) * company_share_pct / Decimal('100')).quantize(Decimal('0.01'))),
+                        'order_total': float(o.total_price),
                         'coins': None,
                         'payment_method': o.payment_method,
                         'created_at': o.created_at,
@@ -7882,6 +8075,23 @@ class PaymentsSummaryView(APIView):
 
             txn_qs = period_qs.select_related('related_order__user').order_by('-created_at')
             total_transactions = txn_qs.count()
+
+            if export_csv:
+                response = HttpResponse(content_type='text/csv')
+                fname = 'super-admin-commission-report.csv' if view == 'super_admin_commission' else 'my-commission-report.csv'
+                response['Content-Disposition'] = f'attachment; filename="{fname}"'
+                writer = csv.writer(response)
+                writer.writerow(['Order ID', 'Buyer', 'Amount (Rs.)', 'Coins Credited', '% of Order', 'Payment Method', 'Date'])
+                for r in txn_qs:
+                    pct = round(float(r.amount_paid) / float(r.related_order.total_price) * 100, 2) if r.related_order and r.related_order.total_price else ''
+                    writer.writerow([
+                        r.related_order.order_id if r.related_order else (r.transaction_id or '—'),
+                        get_user_profile_id(r.related_order.user) if r.related_order else '—',
+                        float(r.amount_paid), r.coins_credited, pct, r.payment_method,
+                        r.created_at.strftime('%d-%b-%Y %H:%M'),
+                    ])
+                return response
+
             start = (page - 1) * page_size
             page_txns = txn_qs[start:start + page_size]
 
@@ -7986,10 +8196,40 @@ class TierCommissionView(APIView):
         end_date = request.query_params.get('end_date')
         page = max(int(request.query_params.get('page', 1)), 1)
         page_size = 15
+        export_csv = request.query_params.get('format') == 'csv'
+        user_id = request.query_params.get('user_id')
 
         base_qs = CoinRecharge.objects.filter(
             status='success', source='commission', commission_level__gte=1, user__role=role
         )
+
+        # ── Drill-down: oru specific earner-oda individual commission history mattum ──
+        if user_id:
+            person_qs = _apply_period_filter(base_qs.filter(user_id=user_id), period, start_date, end_date)
+            person_qs = person_qs.select_related('related_order__user').order_by('-created_at')
+            total_person_txns = person_qs.count()
+            start = (page - 1) * page_size
+            page_txns = person_qs[start:start + page_size]
+            p = model.objects.filter(user_id=user_id).first()
+            return Response({
+                'role': role,
+                'user_id': int(user_id),
+                'name': f"{p.first_name} {p.last_name or ''}".strip() if p else '',
+                'id_value': getattr(p, id_field, None) if p else None,
+                'page': page,
+                'has_more': start + page_size < total_person_txns,
+                'transactions': [
+                    {
+                        'order_id': r.related_order.order_id if r.related_order else (r.transaction_id or '—'),
+                        'buyer': get_user_profile_id(r.related_order.user) if r.related_order else '—',
+                        'level': r.commission_level,
+                        'amount': float(r.amount_paid),
+                        'coins': r.coins_credited,
+                        'created_at': r.created_at,
+                    } for r in page_txns
+                ],
+            })
+
         period_qs = _apply_period_filter(base_qs, period, start_date, end_date)
 
         total_commission = period_qs.aggregate(total=Sum('amount_paid'))['total'] or 0
@@ -8031,6 +8271,15 @@ class TierCommissionView(APIView):
                 'coins': r['coins'] or 0,
                 'txn_count': r['txn_count'],
             })
+
+        if export_csv:
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="{role}-commission-leaderboard.csv"'
+            writer = csv.writer(response)
+            writer.writerow([f'{role_label} ID', 'First Name', 'Last Name', 'City', 'Mobile', 'Transactions', 'Total Commission (Rs.)', 'Coins Credited'])
+            for r in leaderboard:
+                writer.writerow([r[id_field], r['first_name'], r['last_name'], r['city_name'] or '', r['mobile_number'] or '', r['txn_count'], r['total_commission'], r['coins']])
+            return response
 
         total_leaders = len(leaderboard)
         start = (page - 1) * page_size

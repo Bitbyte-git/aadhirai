@@ -8,6 +8,7 @@ export default function SuperAdminPayments() {
       title="All Sales"
       note="Full order value across the entire platform — no commission or any deduction, straight order totals."
       revenueLabel="Total Order Value"
+      showBreakdown
     />
   )
 }

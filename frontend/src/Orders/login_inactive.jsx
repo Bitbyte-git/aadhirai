@@ -14,6 +14,31 @@ import {
   ClockIcon,
 } from "../components/SvgIcons";
 
+const ROLE_DISPLAY = {
+  Admin: "Super Stockist",
+  Dealer: "Distributor",
+  "Sub Dealer": "Wholesale Dealer",
+  Promotor: "Retailer",
+  Customer: "Customer",
+};
+
+const ROLE_CARD_TITLE = {
+  all: "All Users",
+  Admin: "All Super Stockist",
+  Dealer: "All Distributor",
+  "Sub Dealer": "All Wholesale Dealer",
+  Promotor: "All Retailer",
+  Customer: "All Customer",
+};
+
+const INACTIVE_PERIOD_LABEL = {
+  today: "Today Inactive",
+  "3days": "3 Days Inactive",
+  week: "1 Week Inactive",
+  month: "1 Month Inactive",
+  year: "1 Year Inactive",
+};
+
 const PERIOD_OPTIONS = [
   { value: "today", label: "Today" },
   { value: "3days", label: "3 Days" },
@@ -44,6 +69,12 @@ export default function LoginInactive() {
   const [copiedId, setCopiedId] = useState(null);
   const [toast, setToast] = useState("");
 
+  const [viewMode, setViewMode] = useState("inactive");
+  const [selectedCard, setSelectedCard] = useState("inactive");
+  const [statGrandTotal, setStatGrandTotal] = useState(0);
+  const [statInactiveCount, setStatInactiveCount] = useState(0);
+  const [statNeverCount, setStatNeverCount] = useState(0);
+
   const showToast = (text) => {
     setToast(text);
     setTimeout(() => setToast(""), 2800);
@@ -69,12 +100,16 @@ export default function LoginInactive() {
           params: {
             period: periodFilter,
             role: roleFilter,
+            list_type: viewMode,
             offset: 0,
             limit: initialLimit,
           },
         });
-        let list = [...(res.data.inactive || [])];
+        let list = [...(res.data.inactive || res.data.results || [])];
         setTotalCount(res.data.total_count || 0);
+        setStatGrandTotal(res.data.grand_total_count ?? (res.data.total_count || 0));
+        setStatInactiveCount(res.data.inactive_count ?? 0);
+        setStatNeverCount(res.data.never_login_count ?? 0);
         setOffset(initialLimit);
         setLimit(50);
         if (scopeIds) list = list.filter((u) => scopeIds.includes(u.id));
@@ -86,10 +121,10 @@ export default function LoginInactive() {
       setLoading(false);
     };
     fetchData();
-  }, [periodFilter, roleFilter]);
+  }, [periodFilter, roleFilter, viewMode]);
 
   const formatTime = (iso) => {
-    if (!iso) return "Never";
+    if (!iso) return "Never Login";
     const d = new Date(iso);
     return d.toLocaleString("en-IN", {
       day: "2-digit",
@@ -107,6 +142,21 @@ export default function LoginInactive() {
   };
 
   const periodLabel = PERIOD_OPTIONS.find((p) => p.value === periodFilter)?.label || "Today";
+  const roleCardTitle = ROLE_CARD_TITLE[roleFilter] || "All Users";
+  const inactiveCardTitle = INACTIVE_PERIOD_LABEL[periodFilter] || "Today Inactive";
+
+  const handleTotalUsersCardClick = () => {
+    setViewMode("all");
+    setSelectedCard("total");
+  };
+  const handleInactiveCardClick = () => {
+    setViewMode("inactive");
+    setSelectedCard("inactive");
+  };
+  const handleNeverCardClick = () => {
+    setViewMode("never");
+    setSelectedCard("never");
+  };
 
   // Client search filtering
   const filtered = useMemo(() => {
@@ -128,9 +178,9 @@ export default function LoginInactive() {
     setLoadingMore(true);
     try {
       const res = await api.get("/today-login-status/", {
-        params: { period: periodFilter, role: roleFilter, offset, limit: 50 },
+        params: { period: periodFilter, role: roleFilter, list_type: viewMode, offset, limit: 50 },
       });
-      const newList = res.data.inactive || [];
+      const newList = res.data.inactive || res.data.results || [];
       setData((prev) => [...prev, ...newList].sort((a, b) => a.level - b.level));
       setOffset((prev) => prev + 50);
       setLimit(50);
@@ -171,7 +221,7 @@ export default function LoginInactive() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast("CSV exported");
+    showToast("Report downloaded");
   };
 
   return (
@@ -320,7 +370,7 @@ export default function LoginInactive() {
           }
           .pil-stats-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 18px;
             margin-bottom: 24px;
           }
@@ -331,10 +381,17 @@ export default function LoginInactive() {
             padding: 20px 24px;
             box-shadow: 0 4px 18px rgba(7, 59, 63, 0.03);
             position: relative;
-            transition: transform 180ms ease;
+            transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+            cursor: pointer;
+            user-select: none;
           }
           .pil-stat-card:hover {
             transform: translateY(-2px);
+            box-shadow: 0 8px 22px rgba(7, 59, 63, 0.08);
+          }
+          .pil-stat-card.pil-stat-selected {
+            border-color: #073B3F;
+            box-shadow: 0 0 0 2px rgba(7, 59, 63, 0.14), 0 8px 22px rgba(7, 59, 63, 0.08);
           }
           .pil-stat-header {
             display: flex;
@@ -378,13 +435,14 @@ export default function LoginInactive() {
             margin-bottom: 24px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 16px;
+            justify-content: flex-start;
+            gap: 14px;
             flex-wrap: wrap;
           }
           .pil-search-wrap {
-            flex: 1;
-            min-width: 260px;
+            min-width: 240px;
+            width: 320px;
+            max-width: 360px;
             position: relative;
           }
           .pil-search-input {
@@ -593,7 +651,7 @@ export default function LoginInactive() {
                 onClick={exportCSV}
                 disabled={filtered.length === 0}
               >
-                <DownloadIcon size={15} color="#FFFFFF" /> Export CSV
+                <DownloadIcon size={15} color="#FFFFFF" /> Download Report
               </button>
             </div>
           </div>
@@ -605,62 +663,7 @@ export default function LoginInactive() {
             </div>
           )}
 
-          {/* 4 Stat Cards */}
-          <div className="pil-stats-grid">
-            <div className="pil-stat-card" style={{ borderLeft: "4px solid #DC2626" }}>
-              <div className="pil-stat-header">
-                <span className="pil-stat-label">Total Inactive</span>
-                <div className="pil-stat-icon" style={{ background: "#FEF2F2", color: "#DC2626" }}>
-                  <UsersIcon size={18} color="#DC2626" />
-                </div>
-              </div>
-              <div className="pil-stat-val">
-                {loading ? <SkeletonText width="60px" height="30px" /> : inactiveCount}
-              </div>
-              <div className="pil-stat-sub">Across {periodLabel}</div>
-            </div>
-
-            <div className="pil-stat-card" style={{ borderLeft: "4px solid #CCA881" }}>
-              <div className="pil-stat-header">
-                <span className="pil-stat-label">Never Logged In</span>
-                <div className="pil-stat-icon" style={{ background: "#FBF6F0", color: "#9F6130" }}>
-                  <UserIcon size={18} color="#9F6130" />
-                </div>
-              </div>
-              <div className="pil-stat-val">
-                {loading ? <SkeletonText width="60px" height="30px" /> : neverLoggedIn}
-              </div>
-              <div className="pil-stat-sub">Zero logins recorded</div>
-            </div>
-
-            <div className="pil-stat-card" style={{ borderLeft: "4px solid #073B3F" }}>
-              <div className="pil-stat-header">
-                <span className="pil-stat-label">Inactive Admins</span>
-                <div className="pil-stat-icon" style={{ background: "#EFF6F6", color: "#073B3F" }}>
-                  <UsersIcon size={18} color="#073B3F" />
-                </div>
-              </div>
-              <div className="pil-stat-val">
-                {loading ? <SkeletonText width="60px" height="30px" /> : adminInactive}
-              </div>
-              <div className="pil-stat-sub">Admin accounts idle</div>
-            </div>
-
-            <div className="pil-stat-card" style={{ borderLeft: "4px solid #6366F1" }}>
-              <div className="pil-stat-header">
-                <span className="pil-stat-label">Showing Records</span>
-                <div className="pil-stat-icon" style={{ background: "#EEF2FF", color: "#4F46E5" }}>
-                  <ClockIcon size={18} color="#4F46E5" />
-                </div>
-              </div>
-              <div className="pil-stat-val">
-                {loading ? <SkeletonText width="60px" height="30px" /> : shownCount}
-              </div>
-              <div className="pil-stat-sub">{filtered.length} of {totalCount} matching</div>
-            </div>
-          </div>
-
-          {/* Search & Filter Bar */}
+          {/* Search & Filter Bar — moved above the 4 stat cards */}
           <div className="pil-controls-card">
             <div className="pil-search-wrap">
               <span className="pil-search-icon">
@@ -676,6 +679,19 @@ export default function LoginInactive() {
             </div>
 
             <div className="pil-filter-pills">
+              <select
+                className="pil-select"
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+              >
+                <option value="all">All Roles</option>
+                <option value="Admin">Super Stockist</option>
+                <option value="Dealer">Distributor</option>
+                <option value="Sub Dealer">Wholesale Dealer</option>
+                <option value="Promotor">Retailer</option>
+                <option value="Customer">Customer</option>
+              </select>
+
               {PERIOD_OPTIONS.map((p) => (
                 <button
                   key={p.value}
@@ -686,19 +702,65 @@ export default function LoginInactive() {
                   {p.label}
                 </button>
               ))}
+            </div>
+          </div>
 
-              <select
-                className="pil-select"
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
-              >
-                <option value="all">All Roles</option>
-                <option value="Admin">Admin</option>
-                <option value="Dealer">Distributor (Dealer)</option>
-                <option value="Sub Dealer">Wholesale Dealer</option>
-                <option value="Promotor">Retailer</option>
-                <option value="Customer">Customer</option>
-              </select>
+          {/* 3 Stat Cards */}
+          <div className="pil-stats-grid">
+            <div
+              className={`pil-stat-card${selectedCard === "total" ? " pil-stat-selected" : ""}`}
+              style={{ borderLeft: "4px solid #9F6130" }}
+              onClick={handleTotalUsersCardClick}
+              title="Show all registered users"
+            >
+              <div className="pil-stat-header">
+                <span className="pil-stat-label">{roleCardTitle}</span>
+                <div className="pil-stat-icon" style={{ background: "#FBF6F0", color: "#9F6130" }}>
+                  <UsersIcon size={18} color="#9F6130" />
+                </div>
+              </div>
+              <div className="pil-stat-val">
+                {loading ? <SkeletonText width="60px" height="30px" /> : statGrandTotal}
+              </div>
+              <div className="pil-stat-sub">
+                All registered {roleFilter === "all" ? "users" : (ROLE_DISPLAY[roleFilter] || "users").toLowerCase()}
+              </div>
+            </div>
+
+            <div
+              className={`pil-stat-card${selectedCard === "inactive" ? " pil-stat-selected" : ""}`}
+              style={{ borderLeft: "4px solid #DC2626" }}
+              onClick={handleInactiveCardClick}
+              title="Show inactive users (logged in before, but not in this period)"
+            >
+              <div className="pil-stat-header">
+                <span className="pil-stat-label">{inactiveCardTitle}</span>
+                <div className="pil-stat-icon" style={{ background: "#FEF2F2", color: "#DC2626" }}>
+                  <UsersIcon size={18} color="#DC2626" />
+                </div>
+              </div>
+              <div className="pil-stat-val">
+                {loading ? <SkeletonText width="60px" height="30px" /> : statInactiveCount}
+              </div>
+              <div className="pil-stat-sub">Inactive in {periodLabel}</div>
+            </div>
+
+            <div
+              className={`pil-stat-card${selectedCard === "never" ? " pil-stat-selected" : ""}`}
+              style={{ borderLeft: "4px solid #CCA881" }}
+              onClick={handleNeverCardClick}
+              title="Show never logged in users"
+            >
+              <div className="pil-stat-header">
+                <span className="pil-stat-label">Never Logged In</span>
+                <div className="pil-stat-icon" style={{ background: "#FBF6F0", color: "#9F6130" }}>
+                  <UserIcon size={18} color="#9F6130" />
+                </div>
+              </div>
+              <div className="pil-stat-val">
+                {loading ? <SkeletonText width="60px" height="30px" /> : statNeverCount}
+              </div>
+              <div className="pil-stat-sub">Zero logins recorded</div>
             </div>
           </div>
 
@@ -748,7 +810,7 @@ export default function LoginInactive() {
                         <td style={{ color: "#7A8987", fontWeight: 700 }}>{i + 1}</td>
                         <td style={{ fontWeight: 700, color: "#5C706E" }}>Level {u.level}</td>
                         <td>
-                          <span className="pil-role-pill">{u.level_role || "User"}</span>
+                          <span className="pil-role-pill">{ROLE_DISPLAY[u.level_role] || u.level_role || "User"}</span>
                         </td>
                         <td>
                           <span
@@ -769,8 +831,14 @@ export default function LoginInactive() {
                         <td>
                           <span className="pil-days-pill">{formatDays(u.days_inactive)}</span>
                         </td>
-                        <td style={{ color: "#5C706E", fontSize: "12.5px" }}>
-                          {formatTime(u.last_login)}
+                        <td>
+                          {u.last_login ? (
+                            <span>{formatTime(u.last_login)}</span>
+                          ) : (
+                            <span style={{ color: "#7A8987", fontSize: "12px", fontWeight: 600 }}>
+                              Never Login
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))

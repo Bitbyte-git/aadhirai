@@ -23,13 +23,30 @@ const ROLE_SLUG = {
   Customer: "customer",
 };
 
+const ROLE_DISPLAY = {
+  Admin: "Super Stockist",
+  Dealer: "Distributor",
+  "Sub Dealer": "Wholesale Dealer",
+  Promotor: "Retailer",
+  Customer: "Customer",
+};
+
+const ROLE_CARD_TITLE = {
+  all: "All Users",
+  Admin: "All Super Stockist",
+  Dealer: "All Distributor",
+  "Sub Dealer": "All Wholesale Dealer",
+  Promotor: "All Retailer",
+  Customer: "All Customer",
+};
+
 const PERIOD_OPTIONS = [
-  { value: "today", label: "Today Login" },
-  { value: "3days", label: "3 Days Login" },
-  { value: "week", label: "1 Week Login" },
-  { value: "month", label: "1 Month Login" },
-  { value: "6months", label: "6 Month Login" },
-  { value: "year", label: "1 Year Login" },
+  { value: "today", label: "Today Login", activeLabel: "Today Active", orderLabel: "Today Order" },
+  { value: "3days", label: "3 Days Login", activeLabel: "3 Days Active", orderLabel: "3 Days Order" },
+  { value: "week", label: "1 Week Login", activeLabel: "1 Week Active", orderLabel: "1 Week Order" },
+  { value: "month", label: "1 Month Login", activeLabel: "1 Month Active", orderLabel: "1 Month Order" },
+  { value: "6months", label: "6 Month Login", activeLabel: "6 Month Active", orderLabel: "6 Month Order" },
+  { value: "year", label: "1 Year Login", activeLabel: "1 Year Active", orderLabel: "1 Year Order" },
 ];
 
 export default function LoginActive() {
@@ -171,7 +188,7 @@ export default function LoginActive() {
   }, [roleFilter, periodFilter, viewMode]);
 
   const formatTime = (iso) => {
-    if (!iso) return "—";
+    if (!iso) return "Never Login";
     const d = new Date(iso);
     return d.toLocaleString("en-IN", {
       day: "2-digit",
@@ -242,8 +259,11 @@ export default function LoginActive() {
   const activeCount = statActiveCount;
   const totalUsersCount = statTotalUsers;
   const usersWithOrders = data.filter((u) => (u.order_count || 0) > 0).length;
-  const totalOrdersSum = data.reduce((sum, u) => sum + (Number(u.order_count) || 0), 0);
-  const periodLabel = PERIOD_OPTIONS.find((p) => p.value === periodFilter)?.label || "Today Login";
+  const currentPeriod = PERIOD_OPTIONS.find((p) => p.value === periodFilter) || PERIOD_OPTIONS[0];
+  const periodLabel = currentPeriod.label;
+  const roleCardTitle = ROLE_CARD_TITLE[roleFilter] || "All Users";
+  const activeCardTitle = currentPeriod.activeLabel;
+  const orderCardTitle = currentPeriod.orderLabel;
 
   const handleTotalUsersCardClick = () => {
     setViewMode("all");
@@ -259,11 +279,6 @@ export default function LoginActive() {
     setOrderFilter("any");
     setSelectedCard("orders");
   };
-  const handleTotalOrdersCardClick = () => {
-    setPeriodFilter("today");
-    setOrderFilter("any");
-    setSelectedCard("todayOrders");
-  };
 
   const exportCSV = () => {
     if (!filtered.length) return;
@@ -271,7 +286,7 @@ export default function LoginActive() {
     const csvData = filtered.map((u, i) => [
       i + 1,
       `"${u.level || ""}"`,
-      `"${u.level_role || ""}"`,
+      `"${ROLE_DISPLAY[u.level_role] || u.level_role || ""}"`,
       `"${u.id || ""}"`,
       `"${(u.name || "").replace(/"/g, '""')}"`,
       `"${u.phone || ""}"`,
@@ -286,11 +301,11 @@ export default function LoginActive() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `active_users_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `users_report_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast("CSV exported");
+    showToast("Report downloaded");
   };
 
   return (
@@ -452,7 +467,7 @@ export default function LoginActive() {
           }
           .psl-stats-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 18px;
             margin-bottom: 24px;
           }
@@ -520,13 +535,14 @@ export default function LoginActive() {
             margin-bottom: 24px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 16px;
+            justify-content: flex-start;
+            gap: 14px;
             flex-wrap: wrap;
           }
           .psl-search-wrap {
-            flex: 1;
-            min-width: 260px;
+            min-width: 240px;
+            width: 320px;
+            max-width: 360px;
             position: relative;
           }
           .psl-search-input {
@@ -729,7 +745,7 @@ export default function LoginActive() {
                 onClick={exportCSV}
                 disabled={filtered.length === 0}
               >
-                <DownloadIcon size={15} color="#FFFFFF" /> Export CSV
+                <DownloadIcon size={15} color="#FFFFFF" /> Download Report
               </button>
             </div>
           </div>
@@ -763,10 +779,10 @@ export default function LoginActive() {
                 onChange={(e) => { setRoleFilter(e.target.value); setSelectedCard(""); }}
               >
                 <option value="all">All Roles</option>
-                <option value="Admin">Admin</option>
-                <option value="Dealer">Distributor (Dealer)</option>
-                <option value="Sub Dealer">Wholesale Dealer (Sub Dealer)</option>
-                <option value="Promotor">Retailer (Promotor)</option>
+                <option value="Admin">Super Stockist</option>
+                <option value="Dealer">Distributor</option>
+                <option value="Sub Dealer">Wholesale Dealer</option>
+                <option value="Promotor">Retailer</option>
                 <option value="Customer">Customer</option>
               </select>
 
@@ -786,7 +802,6 @@ export default function LoginActive() {
                 onChange={(e) => { setOrderFilter(e.target.value); setSelectedCard(""); }}
               >
                 <option value="all">All Orders</option>
-                <option value="any">Has Orders</option>
                 <option value="0">0 Orders</option>
                 <option value="1-10">1 – 10 Orders</option>
                 <option value="11-20">11 – 20 Orders</option>
@@ -804,7 +819,7 @@ export default function LoginActive() {
               title="Show all users (active + inactive)"
             >
               <div className="psl-stat-header">
-                <span className="psl-stat-label">Total Users</span>
+                <span className="psl-stat-label">{roleCardTitle}</span>
                 <div className="psl-stat-icon" style={{ background: "#FBF6F0", color: "#9F6130" }}>
                   <UsersIcon size={18} color="#9F6130" />
                 </div>
@@ -812,7 +827,7 @@ export default function LoginActive() {
               <div className="psl-stat-val">
                 {loading ? <SkeletonText width="60px" height="30px" /> : totalUsersCount}
               </div>
-              <div className="psl-stat-sub">All registered users</div>
+              <div className="psl-stat-sub">All registered {roleFilter === "all" ? "users" : (ROLE_DISPLAY[roleFilter] || "users").toLowerCase()}</div>
             </div>
 
             <div
@@ -822,7 +837,7 @@ export default function LoginActive() {
               title="Show only active users"
             >
               <div className="psl-stat-header">
-                <span className="psl-stat-label">Active</span>
+                <span className="psl-stat-label">{activeCardTitle}</span>
                 <div className="psl-stat-icon" style={{ background: "#EFF6F6", color: "#073B3F" }}>
                   <UsersIcon size={18} color="#073B3F" />
                 </div>
@@ -840,33 +855,15 @@ export default function LoginActive() {
               title="Show only users with orders"
             >
               <div className="psl-stat-header">
-                <span className="psl-stat-label">Users With Orders</span>
+                <span className="psl-stat-label">{orderCardTitle}</span>
                 <div className="psl-stat-icon" style={{ background: "#FBF6F0", color: "#9F6130" }}>
-                  <UserIcon size={18} color="#9F6130" />
+                  <OrdersIcon size={18} color="#9F6130" />
                 </div>
               </div>
               <div className="psl-stat-val">
                 {loading ? <SkeletonText width="60px" height="30px" /> : usersWithOrders}
               </div>
-              <div className="psl-stat-sub">Active shoppers</div>
-            </div>
-
-            <div
-              className={`psl-stat-card${selectedCard === "todayOrders" ? " psl-stat-selected" : ""}`}
-              style={{ borderLeft: "4px solid #166534" }}
-              onClick={handleTotalOrdersCardClick}
-              title="Show today's users with orders"
-            >
-              <div className="psl-stat-header">
-                <span className="psl-stat-label">Total Orders Today</span>
-                <div className="psl-stat-icon" style={{ background: "#F0FDF4", color: "#166534" }}>
-                  <OrdersIcon size={18} color="#166534" />
-                </div>
-              </div>
-              <div className="psl-stat-val">
-                {loading ? <SkeletonText width="60px" height="30px" /> : totalOrdersSum}
-              </div>
-              <div className="psl-stat-sub">Orders registered</div>
+              <div className="psl-stat-sub">Users with orders</div>
             </div>
           </div>
 
@@ -916,7 +913,7 @@ export default function LoginActive() {
                         <td style={{ color: "#7A8987", fontWeight: 700 }}>{i + 1}</td>
                         <td style={{ fontWeight: 700, color: "#5C706E" }}>Level {u.level}</td>
                         <td>
-                          <span className="psl-role-pill">{u.level_role || "User"}</span>
+                          <span className="psl-role-pill">{ROLE_DISPLAY[u.level_role] || u.level_role || "User"}</span>
                         </td>
                         <td>
                           <span
@@ -944,10 +941,16 @@ export default function LoginActive() {
                           </button>
                         </td>
                         <td>
-                          <span className="psl-time-tag">
-                            <span className="psl-live-dot" style={{ width: "6px", height: "6px" }} />
-                            {formatTime(u.last_login)}
-                          </span>
+                          {u.last_login ? (
+                            <span className="psl-time-tag">
+                              <span className="psl-live-dot" style={{ width: "6px", height: "6px" }} />
+                              {formatTime(u.last_login)}
+                            </span>
+                          ) : (
+                            <span style={{ color: "#7A8987", fontSize: "12px", fontWeight: 600 }}>
+                              Never Login
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))

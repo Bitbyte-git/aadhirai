@@ -13,7 +13,17 @@ const styles = `
   .pgb-main{width:min(1300px,calc(100% - 48px));margin:0 auto;padding:36px 0 90px;box-sizing:border-box}
   .pgb-kicker{margin:0 0 6px;color:${ACCENT};font-size:12px;font-weight:900;letter-spacing:2.4px;text-transform:uppercase}
   .pgb-title{margin:0 0 8px;color:${PRIMARY};font-family:"Playfair Display",serif;font-size:clamp(24px,4vw,36px)}
-  .pgb-note{color:${MUTED};font-size:12.5px;margin:0 0 22px;max-width:760px;line-height:1.6}
+  .pgb-note{color:${MUTED};font-size:12.5px;margin:0 0 4px;max-width:760px;line-height:1.6}
+  .pgb-headrow{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+  .pgb-download-btn{display:flex;align-items:center;gap:8px;height:40px;padding:0 20px;border-radius:20px;border:1.5px solid ${PRIMARY};background:#fff;color:${PRIMARY};font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+  .pgb-download-btn:hover{background:${PRIMARY};color:#fff}
+  .pgb-download-btn:disabled{opacity:.55;cursor:not-allowed}
+  .pgb-breakdown{display:flex;flex-direction:column;gap:10px}
+  .pgb-breakdown-row{display:flex;align-items:center;gap:12px}
+  .pgb-breakdown-label{width:110px;flex-shrink:0;font-size:12px;font-weight:700;color:${DARK};text-transform:capitalize}
+  .pgb-breakdown-track{flex:1;height:10px;border-radius:6px;background:rgba(189,207,206,.35);overflow:hidden}
+  .pgb-breakdown-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,${ACCENT},${PRIMARY})}
+  .pgb-breakdown-value{width:150px;flex-shrink:0;text-align:right;font-size:12px;font-weight:800;color:${PRIMARY}}
   .pgb-filter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:24px}
   .pgb-filter-tab{padding:9px 18px;border-radius:20px;border:1.5px solid #D1DFDE;background:#fff;color:${DARK};font-weight:800;font-size:12px;cursor:pointer;transition:.15s ease;white-space:nowrap;flex-shrink:0}
   .pgb-filter-tab.active{border-color:${PRIMARY};background:${PRIMARY};color:#fff}
@@ -60,8 +70,12 @@ const styles = `
   @media(max-width:900px){.pgb-cards{grid-template-columns:1fr}}
   @media(max-width:768px){
     .pgb-main{width:100%!important;padding:20px 14px 60px!important}
+    .pgb-headrow{flex-direction:column!important;align-items:stretch!important}
+    .pgb-download-btn{width:100%!important;justify-content:center!important}
     .pgb-filter-row{overflow-x:auto!important;-webkit-overflow-scrolling:touch!important;flex-wrap:nowrap!important;padding-bottom:8px!important;margin-bottom:18px!important}
     .pgb-panel{padding:18px 14px!important;border-radius:14px!important}
+    .pgb-breakdown-label{width:80px!important}
+    .pgb-breakdown-value{width:110px!important}
   }
   @media(max-width:540px){
     .pgb-txn-row{flex-wrap:wrap!important;gap:8px!important}
@@ -78,7 +92,7 @@ const FILTERS = [
   { key: 'custom', label: 'Custom' },
 ]
 
-export default function PaymentsPageBase({ view, kicker, title, note, revenueLabel }) {
+export default function PaymentsPageBase({ view, kicker, title, note, revenueLabel, coinsLabel = 'Coins Sold', showBreakdown = false }) {
   const [summary, setSummary] = useState(null)
   const [txns, setTxns] = useState([])
   const [page, setPage] = useState(1)
@@ -105,6 +119,7 @@ export default function PaymentsPageBase({ view, kicker, title, note, revenueLab
         total_coins_sold: res.data.total_coins_sold,
         total_transactions: res.data.total_transactions,
         monthly_trend: res.data.monthly_trend,
+        payment_breakdown: res.data.payment_breakdown || [],
       })
       setTxns(prev => p === 1 ? res.data.transactions : [...prev, ...res.data.transactions])
       setHasMore(res.data.has_more)
@@ -150,6 +165,28 @@ export default function PaymentsPageBase({ view, kicker, title, note, revenueLab
     fetchData(1, activeFilter, customFrom, customTo)
   }
 
+  const [downloading, setDownloading] = useState(false)
+  const downloadReport = async () => {
+    setDownloading(true)
+    try {
+      const { default: api } = await import('../api')
+      let url = `/superadmin/payments/?period=${activeFilter}&view=${view}&format=csv`
+      if (activeFilter === 'custom' && customFrom && customTo) url += `&start_date=${customFrom}&end_date=${customTo}`
+      const res = await api.get(url, { responseType: 'blob' })
+      const blob = new Blob([res.data], { type: 'text/csv' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `${title.replace(/\s+/g, '-').toLowerCase()}-report.csv`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(link.href)
+    } catch {
+      // silent — user can just retry the click
+    }
+    setDownloading(false)
+  }
+
   const inr = n => `Rs. ${Math.round(n || 0).toLocaleString('en-IN')}`
   const fmtDate = d => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
   const fmtMethod = m => (m || 'other').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
@@ -161,9 +198,17 @@ export default function PaymentsPageBase({ view, kicker, title, note, revenueLab
     <div className="pgb-page">
       <style>{styles}</style>
       <main className="pgb-main">
-        <p className="pgb-kicker">{kicker}</p>
-        <h1 className="pgb-title">{title}</h1>
-        {note && <p className="pgb-note">{note}</p>}
+        <div className="pgb-headrow">
+          <div>
+            <p className="pgb-kicker">{kicker}</p>
+            <h1 className="pgb-title">{title}</h1>
+            {note && <p className="pgb-note">{note}</p>}
+          </div>
+          <button className="pgb-download-btn" onClick={downloadReport} disabled={downloading || loading}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+            {downloading ? 'Preparing...' : 'Download Report'}
+          </button>
+        </div>
 
         <div className="pgb-filter-row">
           {FILTERS.map(f => (
@@ -260,7 +305,7 @@ export default function PaymentsPageBase({ view, kicker, title, note, revenueLab
                 <div className="pgb-card-value">{inr(summary.total_revenue)}</div>
               </div>
               <div className="pgb-card">
-                <div className="pgb-card-label">Coins Sold</div>
+                <div className="pgb-card-label">{coinsLabel}</div>
                 <div className="pgb-card-value">{(summary.total_coins_sold || 0).toLocaleString('en-IN')}</div>
               </div>
               <div className="pgb-card">
@@ -268,6 +313,26 @@ export default function PaymentsPageBase({ view, kicker, title, note, revenueLab
                 <div className="pgb-card-value">{summary.total_transactions}</div>
               </div>
             </div>
+
+            {showBreakdown && summary.payment_breakdown?.length > 0 && (
+              <section className="pgb-panel">
+                <h3 className="pgb-panel-title">Payment Method Breakdown</h3>
+                <div className="pgb-breakdown">
+                  {(() => {
+                    const maxTotal = Math.max(...summary.payment_breakdown.map(b => b.total), 1)
+                    return summary.payment_breakdown.map(b => (
+                      <div className="pgb-breakdown-row" key={b.method}>
+                        <div className="pgb-breakdown-label">{(b.method || 'other').replace(/_/g, ' ')}</div>
+                        <div className="pgb-breakdown-track">
+                          <div className="pgb-breakdown-fill" style={{ width: `${Math.max((b.total / maxTotal) * 100, 3)}%` }} />
+                        </div>
+                        <div className="pgb-breakdown-value">{inr(b.total)} · {b.count} txns</div>
+                      </div>
+                    ))
+                  })()}
+                </div>
+              </section>
+            )}
 
             <section className="pgb-panel">
               <h3 className="pgb-panel-title">Monthly Trend (last 6 months)</h3>
@@ -301,6 +366,9 @@ export default function PaymentsPageBase({ view, kicker, title, note, revenueLab
                     </div>
                     <div className="pgb-txn-amounts">
                       <div className="pgb-txn-amount">{inr(t.amount)}</div>
+                      {t.order_total != null && (
+                        <div className="pgb-txn-coins">of {inr(t.order_total)} order</div>
+                      )}
                       {t.coins != null && (
                         <div className="pgb-txn-coins">{t.coins.toLocaleString('en-IN')} coins</div>
                       )}

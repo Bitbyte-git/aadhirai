@@ -60,7 +60,40 @@ const getProductsByMetal = (metal) => {
   return []
 }
 
-const HIDDEN_METALS = ['diamond', 'platinum']  
+// ── Coins & Bars (bullion) — category keys that get the Die Charge flow
+// instead of the normal jewellery fields (gender/occasion/stones/etc) ──
+const BULLION_CATEGORIES = ['coins', 'goldbars', 'silvercoins', 'silverbars']
+
+// Pulls the weight in GRAMS out of a preset name like "1 gm Gold Coin",
+// "500 mg Silver Coin", "50g Gold Bar", "1kg Silver Bar". Returns null for
+// non-weight presets (e.g. "Silver Lakshmi Coin").
+function parsePresetWeightGrams(name) {
+  const m = String(name || '').match(/^([\d.]+)\s*(mg|gm|g|kg)\b/i)
+  if (!m) return null
+  const num = parseFloat(m[1])
+  const unit = m[2].toLowerCase()
+  if (unit === 'mg') return num / 1000
+  if (unit === 'kg') return num * 1000
+  return num // gm or g
+}
+
+// Default Die Charge (flat Rs., not a %) per bullion type + weight-in-grams —
+// exact numbers as given; look up with the weight parsed from the preset name.
+const DIE_CHARGE_TABLE = {
+  coins: { 0.1: 200, 0.2: 250, 0.5: 250, 1: 300, 2: 400, 4: 700, 8: 1000, 16: 1500, 40: 3000 },
+  goldbars: { 1: 300, 2: 250, 5: 800, 10: 1300, 20: 2000, 50: 4000, 100: 6000 },
+  silvercoins: { 0.5: 3, 1: 50, 2: 80, 5: 200, 10: 350, 20: 600, 50: 1000, 100: 1800 },
+  silverbars: { 10: 350, 20: 600, 50: 1000, 100: 1800, 250: 3000, 500: 4500, 1000: 6000 },
+}
+function getDefaultDieCharge(category, weightGrams) {
+  if (weightGrams == null) return ''
+  const table = DIE_CHARGE_TABLE[category]
+  if (!table) return ''
+  const val = table[weightGrams]
+  return val == null ? '' : String(val)
+}
+
+const HIDDEN_METALS = ['diamond', 'platinum']
 const TAGS = ['Bestseller', 'Bridal', 'Premium', 'Statement', 'Stackable', 'New', 'Limited']
 const OCCASIONS = ['Wedding', 'Birthday', 'Anniversary', 'Auspicious', 'Office Wear', 'Modern Wear', 'Casual Wear', 'Traditional Wear']
 // const WEDDING_CATEGORIES = ['Wedding Ring', 'Wedding Necklaces', 'Wedding Chain', 'Wedding Bangles', 'Wedding Earring']
@@ -205,7 +238,7 @@ export default function AddNewProduct() {
     category: '', metal: '', grade: '', name: '', nameChoice: '', description: '',
     cross_weight: '', stone_weight: '', making_charge: '', stone_value: '',
     tag: '', subcategory: '', occasion: [], wedding_category: '', gender: 'all', wastage_charge: '',
-    stock_quantity: '', gift_tags: [], gift_subcategory: '', age_group: ''
+    stock_quantity: '', gift_tags: [], gift_subcategory: '', age_group: '', die_charge: ''
   })
   const [productSaving, setProductSaving] = useState(false)
   const [livePrice, setLivePrice] = useState(null)
@@ -277,6 +310,17 @@ export default function AddNewProduct() {
   const inpStyle = { width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '14px', padding: '13px 16px', color: text, fontSize: '14px', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', transition: 'border-color 0.2s, box-shadow 0.2s', boxShadow: 'inset 0 1px 0 rgba(253,253,252,0.9)' }
   const lblStyle = { display: 'block', color: subtext, fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }
 
+  // Coins & Bars (bullion) — a preset weight name (not "Other") means weight
+  // + die charge come from the lookup table, and jewellery-only fields hide
+  const isBullion = BULLION_CATEGORIES.includes(productForm.category)
+  const isNamedPreset = isBullion && productForm.nameChoice && productForm.nameChoice !== 'other'
+  // Some presets (e.g. "Silver Lakshmi Coin") carry no parseable weight — those
+  // still need manual Cross Weight entry, so only treat a preset as "weight known"
+  // when a number was actually found in its name.
+  const presetWeightGrams = isNamedPreset ? parsePresetWeightGrams(productForm.nameChoice) : null
+  const isPresetSelected = isNamedPreset && presetWeightGrams != null
+  const isOtherBullion = (isBullion && productForm.nameChoice === 'other') || (isNamedPreset && presetWeightGrams == null)
+
   useEffect(() => {
     api.get('/metal-rates/').then(res => {
       const d = res.data
@@ -291,12 +335,13 @@ export default function AddNewProduct() {
     }).catch(() => {})
   }, [])
 
-  const calcAll = (crossW, stoneW, metal, grade, makingChargePct, discountPct, stoneVal) => {
+  const calcAll = (crossW, stoneW, metal, grade, makingChargePct, discountPct, stoneVal, dieCharge = 0) => {
     const cw    = parseFloat(crossW) || 0
     const sw    = parseFloat(stoneW) || 0
     const mcPct = parseFloat(makingChargePct) || 0
     const disPct = parseFloat(discountPct) || 0
     const sv    = parseFloat(stoneVal) || 0
+    const dc    = parseFloat(dieCharge) || 0
 
     if (!cw || cw <= 0 || !metal) {
       setNetWeight(null); setBaseMetalAmt(null)
@@ -334,9 +379,9 @@ export default function AddNewProduct() {
     const discAmtVal = rateWithMaking * (disPct / 100)
     const effectiveRate = rateWithMaking - discAmtVal
     const finalBase = nw * effectiveRate
-    const withStone = finalBase + sv
+    const withStone = finalBase + sv + dc
     const total = (withStone * 1.03).toFixed(2)
-    const originalTotal = ((nw * rateWithMaking + sv) * 1.03).toFixed(2)
+    const originalTotal = ((nw * rateWithMaking + sv + dc) * 1.03).toFixed(2)
 
     setNetWeight(nw)
     setBaseMetalAmt((nw * rate).toFixed(2))
@@ -397,7 +442,7 @@ export default function AddNewProduct() {
         category: '', metal: '', grade: '', name: '', nameChoice: '', description: '',
         cross_weight: '', stone_weight: '', making_charge: '', stone_value: '',
         tag: '', subcategory: '', occasion: [], wedding_category: '', gender: 'all', wastage_charge: '',
-        stock_quantity: '', gift_tags: [], gift_subcategory: '', age_group: ''
+        stock_quantity: '', gift_tags: [], gift_subcategory: '', age_group: '', die_charge: ''
       })
       setProductImages([])
       setProductPreviewUrls([])
@@ -459,7 +504,7 @@ export default function AddNewProduct() {
           )}
 
           {/* Row 1 - metal / grade / product / gender / age group */}
-          <div className="anp-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '18px', marginBottom: '16px', paddingTop: '18px' }}>
+          <div className="anp-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${isBullion ? 3 : 5}, 1fr)`, gap: '18px', marginBottom: '16px', paddingTop: '18px' }}>
             <div>
               <label style={lblStyle}>Metal *</label>
               <select
@@ -525,6 +570,7 @@ export default function AddNewProduct() {
               </select>
             </div>
 
+            {!isBullion && (
             <div>
               <label style={lblStyle}>Gender</label>
               <select
@@ -535,7 +581,9 @@ export default function AddNewProduct() {
                 {GENDERS.map(g => <option key={g} value={g} style={{ background: optionBg }}>{GENDER_LABELS[g]}</option>)}
               </select>
             </div>
+            )}
 
+            {!isBullion && (
             <div>
               <label style={lblStyle}>Age Group</label>
               <select value={productForm.age_group} onChange={e => setProductForm(f => ({ ...f, age_group: e.target.value }))} style={{ ...inpStyle, cursor: 'pointer' }}>
@@ -544,10 +592,11 @@ export default function AddNewProduct() {
                 ))}
               </select>
             </div>
+            )}
           </div>
 
           {/* Row 2 - product name / wedding category / gift tags / gift subcategory */}
-          <div className="anp-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '18px', marginBottom: '16px', paddingTop: '18px' }}>
+          <div className="anp-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${isBullion ? 2 : 4}, 1fr)`, gap: '18px', marginBottom: '16px', paddingTop: '18px' }}>
             <div>
               <label style={lblStyle}>Product Name *</label>
               <select
@@ -555,7 +604,17 @@ export default function AddNewProduct() {
                 onChange={e => {
                   const v = e.target.value
                   if (v === 'other') {
-                    setProductForm(f => ({ ...f, nameChoice: 'other', name: '' }))
+                    // "Other" — back to manual Cross Weight entry, no die charge
+                    setProductForm(f => ({ ...f, nameChoice: 'other', name: '', cross_weight: '', die_charge: '' }))
+                    calcAll('', 0, productForm.metal, productForm.grade, productForm.making_charge, productForm.wastage_charge, productForm.stone_value, 0)
+                  } else if (isBullion) {
+                    // Preset coin/bar — weight comes from the name itself, die
+                    // charge pre-fills from the lookup table (blank if not listed)
+                    const weightG = parsePresetWeightGrams(v)
+                    const defaultDie = getDefaultDieCharge(productForm.category, weightG)
+                    const cw = weightG != null ? String(weightG) : ''
+                    setProductForm(f => ({ ...f, nameChoice: v, name: v, cross_weight: cw, stone_weight: '0', stone_value: '0', die_charge: defaultDie }))
+                    calcAll(cw, 0, productForm.metal, productForm.grade, productForm.making_charge, productForm.wastage_charge, 0, defaultDie)
                   } else {
                     setProductForm(f => ({ ...f, nameChoice: v, name: v }))
                   }
@@ -582,6 +641,7 @@ export default function AddNewProduct() {
               )}
             </div>
 
+            {!isBullion && (
             <div>
               <label style={lblStyle}>Wedding Category</label>
               <select
@@ -598,7 +658,9 @@ export default function AddNewProduct() {
                 ))}
               </select>
             </div>
+            )}
 
+            {!isBullion && (
             <div>
               <label style={lblStyle}>Gift Tags</label>
               <select
@@ -616,7 +678,9 @@ export default function AddNewProduct() {
                 ))}
               </select>
             </div>
+            )}
 
+            {!isBullion && (
             <div>
               <label style={lblStyle}>Gift Type</label>
               <select
@@ -633,10 +697,12 @@ export default function AddNewProduct() {
                 ))}
               </select>
             </div>
+            )}
           </div>
 
           {/* Row 3 - occasion / tag */}
           <div className="anp-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px', marginBottom: '16px', paddingTop: '18px' }}>
+            {!isBullion && (
             <div>
               <label style={lblStyle}>Occasion</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -672,6 +738,7 @@ export default function AddNewProduct() {
                 })}
               </div>
             </div>
+            )}
             <div>
               <label style={lblStyle}>Tag</label>
               <select value={productForm.tag} onChange={e => setProductForm(f => ({ ...f, tag: e.target.value }))} style={{ ...inpStyle, cursor: 'pointer' }}>
@@ -688,28 +755,46 @@ export default function AddNewProduct() {
           </div>
 
           {/* Weight Section + Stock */}
-          <div className="anp-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '18px', marginBottom: '16px', paddingTop: '18px' }}>
+          <div className="anp-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${isBullion ? 3 : 4}, 1fr)`, gap: '18px', marginBottom: '16px', paddingTop: '18px' }}>
+            {(!isBullion || isOtherBullion) && (
             <div>
               <label style={lblStyle}>Cross Weight (g) *</label>
               <input type="number" step="0.0001" value={productForm.cross_weight}
                 onChange={e => {
                   const v = e.target.value
                   setProductForm(f => ({ ...f, cross_weight: v }))
-                  calcAll(v, productForm.stone_weight, productForm.metal, productForm.grade, productForm.making_charge, productForm.wastage_charge, productForm.stone_value)
+                  calcAll(v, productForm.stone_weight, productForm.metal, productForm.grade, productForm.making_charge, productForm.wastage_charge, productForm.stone_value, productForm.die_charge)
                 }}
                 placeholder="e.g. 10" style={inpStyle} />
             </div>
+            )}
 
+            {isPresetSelected && (
+            <div>
+              <label style={lblStyle}>Die Charge (₹)</label>
+              <input type="number" step="1" min="0" value={productForm.die_charge}
+                onChange={e => {
+                  const v = e.target.value
+                  setProductForm(f => ({ ...f, die_charge: v }))
+                  calcAll(productForm.cross_weight, 0, productForm.metal, productForm.grade, productForm.making_charge, productForm.wastage_charge, 0, v)
+                }}
+                placeholder="e.g. 300" style={inpStyle} />
+              <div style={{ fontSize: '10px', color: '#7A8987', marginTop: '4px' }}>Default filled for this weight — editable</div>
+            </div>
+            )}
+
+            {!isBullion && (
             <div>
               <label style={lblStyle}>Stone Weight (g)</label>
               <input type="number" step="0.0001" value={productForm.stone_weight}
                 onChange={e => {
                   const v = e.target.value
                   setProductForm(f => ({ ...f, stone_weight: v }))
-                  calcAll(productForm.cross_weight, v, productForm.metal, productForm.grade, productForm.making_charge, productForm.wastage_charge, productForm.stone_value)
+                  calcAll(productForm.cross_weight, v, productForm.metal, productForm.grade, productForm.making_charge, productForm.wastage_charge, productForm.stone_value, productForm.die_charge)
                 }}
                 placeholder="e.g. 2 (0 if none)" style={inpStyle} />
             </div>
+            )}
 
             <div>
               <label style={lblStyle}>Stock Quantity *</label>
@@ -734,7 +819,7 @@ export default function AddNewProduct() {
           </div>
 
           {/* Making Charge + Stone Value + Final Price */}
-          <div className="anp-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '18px', marginBottom: '18px', paddingTop: '18px' }}>
+          <div className="anp-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${isBullion ? 3 : 4}, 1fr)`, gap: '18px', marginBottom: '18px', paddingTop: '18px' }}>
             <div>
               <label style={lblStyle}>Making Charge (%)</label>
               <input type="number" step="0.01" min="0" max="40" value={productForm.making_charge}
@@ -747,7 +832,7 @@ export default function AddNewProduct() {
                   const discountVal = parseFloat(productForm.wastage_charge) || 0
                   const nextDiscount = discountVal > maxDiscount ? String(maxDiscount) : productForm.wastage_charge
                   setProductForm(f => ({ ...f, making_charge: v, wastage_charge: nextDiscount }))
-                  calcAll(productForm.cross_weight, productForm.stone_weight, productForm.metal, productForm.grade, v, nextDiscount, productForm.stone_value)
+                  calcAll(productForm.cross_weight, productForm.stone_weight, productForm.metal, productForm.grade, v, nextDiscount, productForm.stone_value, productForm.die_charge)
                 }}
                 placeholder="e.g. 2" style={inpStyle} />
               <div style={{ fontSize: '10px', color: '#7A8987', marginTop: '4px' }}>Max 40%</div>
@@ -766,7 +851,7 @@ export default function AddNewProduct() {
                   const maxDiscount = parseFloat(productForm.making_charge) || 0
                   if (v !== '' && parseFloat(v) > maxDiscount) v = String(maxDiscount)
                   setProductForm(f => ({ ...f, wastage_charge: v }))
-                  calcAll(productForm.cross_weight, productForm.stone_weight, productForm.metal, productForm.grade, productForm.making_charge, v, productForm.stone_value)
+                  calcAll(productForm.cross_weight, productForm.stone_weight, productForm.metal, productForm.grade, productForm.making_charge, v, productForm.stone_value, productForm.die_charge)
                 }}
                 placeholder="e.g. 4" style={inpStyle} />
               <div style={{ fontSize: '10px', color: '#7A8987', marginTop: '4px' }}>
@@ -779,16 +864,18 @@ export default function AddNewProduct() {
               )}
             </div>
 
+            {!isBullion && (
             <div>
               <label style={lblStyle}>Stone Value (₹)</label>
               <input type="number" step="1" value={productForm.stone_value}
                 onChange={e => {
                   const v = e.target.value
                   setProductForm(f => ({ ...f, stone_value: v }))
-                  calcAll(productForm.cross_weight, productForm.stone_weight, productForm.metal, productForm.grade, productForm.making_charge, productForm.wastage_charge, v)
+                  calcAll(productForm.cross_weight, productForm.stone_weight, productForm.metal, productForm.grade, productForm.making_charge, productForm.wastage_charge, v, productForm.die_charge)
                 }}
                 placeholder="e.g. 2000" style={inpStyle} />
             </div>
+            )}
 
             <div>
               <label style={lblStyle}>Total Price (with 3% tax)</label>

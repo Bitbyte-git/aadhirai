@@ -2308,12 +2308,12 @@ class JewelryProductDetailView(APIView):
         # even after save(), and later comparisons (like stock_status) crash
         INT_FIELDS = {'stock_quantity', 'low_stock_threshold'}
         DECIMAL_FIELDS = {'cross_weight', 'stone_weight', 'net_weight', 'making_charge',
-                          'wastage_charge', 'stone_value', 'tax_percent', 'price', 'original_price'}
+                          'wastage_charge', 'die_charge', 'stone_value', 'tax_percent', 'price', 'original_price'}
         BOOL_FIELDS = {'is_active'}
 
         for field in ['category', 'metal', 'grade', 'name', 'description',
                       'cross_weight', 'stone_weight', 'net_weight',
-                      'making_charge', 'wastage_charge', 'stone_value', 'tax_percent',
+                      'making_charge', 'wastage_charge', 'die_charge', 'stone_value', 'tax_percent',
                       'price', 'original_price', 'tag', 'occasion', 'wedding_category',
                       'gift_tags', 'gift_subcategory',
                       'gender', 'age_group', 'is_active',
@@ -7855,26 +7855,32 @@ class OrderReceiptPDFView(APIView):
         net_weight = float(order.product.net_weight or 0) if order.product else 0
         stone_weight = float(order.product.stone_weight or 0) if order.product else 0
         stone_value = float(order.product.stone_value or 0) if order.product else 0
+        die_charge_val = float(order.product.die_charge or 0) if order.product else 0
+        is_bullion_order = bool(order.product) and order.product.category in ('coins', 'goldbars', 'silvercoins', 'silverbars')
         has_stone = stone_weight > 0 or stone_value > 0
         stone_rate = (stone_value / stone_weight) if stone_weight else 0.0
+        # Die charge behaves exactly like stone_value in this reverse-engineering —
+        # a flat, un-discounted amount added before GST — so it rides along in the
+        # same "flat_addon" slot throughout, and gets its own receipt line below.
+        flat_addon = stone_value + die_charge_val
 
         price_now = float(order.product.price or 0) if order.product else 0
         original_now = float(order.product.original_price or 0) if order.product else 0
 
-        # Real discount %, computed on metal+making only — stone is never discounted, so it
-        # has to be stripped out (along with GST) from both current price fields before
-        # comparing them, otherwise a stone-heavy product would understate its true % off.
-        metal_making_now = (original_now / 1.03) - stone_value if original_now else 0.0
-        metal_making_discounted_now = (price_now / 1.03) - stone_value if price_now else 0.0
+        # Real discount %, computed on metal+making only — stone/die-charge is never
+        # discounted, so it has to be stripped out (along with GST) from both current
+        # price fields before comparing them, otherwise this would understate the true % off.
+        metal_making_now = (original_now / 1.03) - flat_addon if original_now else 0.0
+        metal_making_discounted_now = (price_now / 1.03) - flat_addon if price_now else 0.0
         discount_ratio = (
             (metal_making_now - metal_making_discounted_now) / metal_making_now
         ) if metal_making_now > 0 and metal_making_now > metal_making_discounted_now else 0.0
 
         # unit_price is the real, already-discounted + GST-inclusive amount that was charged,
-        # stone included. Strip GST and stone first, undo the discount to recover the
-        # pre-discount metal+making amount, then split that into base metal / making charge.
+        # stone+die-charge included. Strip GST and the flat addon first, undo the discount to
+        # recover the pre-discount metal+making amount, then split base metal / making charge.
         pretax_unit = unit_price / 1.03
-        metal_making_unit = pretax_unit - stone_value
+        metal_making_unit = pretax_unit - flat_addon
         pre_discount_metal_making = (metal_making_unit / (1 - discount_ratio)) if discount_ratio < 1 else metal_making_unit
         discount_unit = pre_discount_metal_making - metal_making_unit
         base_metal_unit = (pre_discount_metal_making / (1 + making_pct / 100.0)) if making_pct else pre_discount_metal_making
@@ -7885,6 +7891,7 @@ class OrderReceiptPDFView(APIView):
         gst_total = gst_unit * qty
         discount_total = discount_unit * qty
         stone_total = stone_value * qty
+        die_charge_total = die_charge_val * qty
         total_weight = net_weight * qty
 
         receipt_id = 'BBRCT' + order.order_id[5:] if order.order_id.startswith('BBORD') else f'BBRCT-{order.id}'
@@ -8032,6 +8039,9 @@ class OrderReceiptPDFView(APIView):
             else:
                 stone_label_cell = Paragraph('Stone Value', breakdown_label_style)
             breakdown_rows.append([stone_label_cell, Paragraph(f"Rs. {stone_total:,.2f}", breakdown_val_style)])
+        # Die Charge — flat fabrication charge, Coins & Bars only (see calc above)
+        if is_bullion_order and die_charge_total > 0:
+            breakdown_rows.append([Paragraph('Die Charge', breakdown_label_style), Paragraph(f"Rs. {die_charge_total:,.2f}", breakdown_val_style)])
         breakdown_rows.append([Paragraph('GST (3%)', breakdown_label_style), Paragraph(f"Rs. {gst_total:,.2f}", breakdown_val_style)])
         breakdown_rows.append([Paragraph(discount_label, breakdown_label_style), Paragraph(discount_display, discount_val_style)])
         breakdown_rows.append([Paragraph('Payment Method', breakdown_label_style), Paragraph(order.get_payment_method_display(), breakdown_val_style)])

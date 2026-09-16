@@ -510,7 +510,7 @@ class JewelryProductSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'product_code', 'category', 'metal', 'grade', 'name', 'description',
             'cross_weight', 'stone_weight', 'net_weight',
-            'making_charge','wastage_charge', 'stone_value', 'tax_percent',
+            'making_charge','wastage_charge', 'die_charge', 'stone_value', 'tax_percent',
             'price', 'original_price', 'tag', 'occasion', 'wedding_category',
             'gift_tags', 'gift_subcategory', 'gender', 'age_group', 'is_active',
             'stock_quantity', 'low_stock_threshold', 'stock_status',

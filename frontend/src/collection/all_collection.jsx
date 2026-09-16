@@ -339,10 +339,11 @@ const giftingFilterCategories = [
     const making = Number(product.making_charge) || 0
     const discount = Number(product.wastage_charge) || 0
     const stone = Number(product.stone_value) || 0
+    const dieCharge = Number(product.die_charge) || 0
 
     if (!rate || !weight) return Number(product.price) || 0
     const rateWithMaking = rate + (rate * making / 100)
-    return Math.round(((weight * (rateWithMaking - (rateWithMaking * discount / 100))) + stone) * 1.03)
+    return Math.round(((weight * (rateWithMaking - (rateWithMaking * discount / 100))) + stone + dieCharge) * 1.03)
   }
 
 function normalizeProductList(data) {

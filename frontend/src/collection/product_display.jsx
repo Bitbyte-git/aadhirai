@@ -377,6 +377,8 @@ function ProductInfoAndBreakup({ product, metal }) {
   const crossWt = parseFloat(product.cross_weight) || 0
   const stoneWt = parseFloat(product.stone_weight) || 0
   const stoneVal = parseFloat(product.stone_value) || 0
+  const dieCharge = parseFloat(product.die_charge) || 0
+  const isBullionProduct = ['coins', 'goldbars', 'silvercoins', 'silverbars'].includes(product.category)
   const productDesc = product?.desc || product?.description || product?.short_description || 'A carefully finished jewellery piece selected for premium everyday wear, gifting, and celebrations.'
 
   let todayRate = 0
@@ -393,7 +395,9 @@ function ProductInfoAndBreakup({ product, metal }) {
   const infoHighlights = [
     { label: 'Metal & Purity', value: `${metalLabel} ${purityLabel}`, note: 'Purity mapped from product grade' },
     { label: 'Weight', value: displayWeight, note: crossWt > 0 && netWt > 0 ? `${crossWt} g gross weight` : 'Measured product weight' },
-    { label: 'Stone Value', value: stoneVal > 0 ? inr(stoneVal) : 'Included', note: stoneWt > 0 ? `${stoneWt} stone weight` : 'As per product record' },
+    isBullionProduct
+      ? { label: 'Die Charge', value: dieCharge > 0 ? inr(dieCharge) : 'Included', note: 'Flat fabrication charge for this coin/bar' }
+      : { label: 'Stone Value', value: stoneVal > 0 ? inr(stoneVal) : 'Included', note: stoneWt > 0 ? `${stoneWt} stone weight` : 'As per product record' },
     { label: 'Today Rate', value: todayRate ? `${inr(todayRate)} / g` : 'Live rate pending', note: 'Fetched from backend rate logic' },
   ]
 
@@ -704,6 +708,7 @@ export default function ProductDisplay() {
     const makingChargePct = parseFloat(product.making_charge) || 0
     const discountPct = parseFloat(product.wastage_charge) || 0
     const stoneVal = parseFloat(product.stone_value) || 0
+    const dieChargeVal = parseFloat(product.die_charge) || 0
     let todayRate = 0
     if (metal === 'gold') todayRate = product.grade === '24k' ? liveRate.gold_24k : liveRate.gold_22k
     else if (metal === 'silver') todayRate = liveRate.silver_999
@@ -714,7 +719,7 @@ export default function ProductDisplay() {
     const rateWithMaking = todayRate + makingPerGram
     const discountPerGram = rateWithMaking * (discountPct / 100)
     const effectiveRate = rateWithMaking - discountPerGram
-    return Math.round(((netWt * effectiveRate) + stoneVal) * 1.03)
+    return Math.round(((netWt * effectiveRate) + stoneVal + dieChargeVal) * 1.03)
   }
 
   const calcOriginalPriceMain = () => {
@@ -722,6 +727,7 @@ export default function ProductDisplay() {
     const netWt = parseFloat(product.net_weight) || 0
     const makingChargePct = parseFloat(product.making_charge) || 0
     const stoneVal = parseFloat(product.stone_value) || 0
+    const dieChargeVal = parseFloat(product.die_charge) || 0
     let todayRate = 0
     if (metal === 'gold') todayRate = product.grade === '24k' ? liveRate.gold_24k : liveRate.gold_22k
     else if (metal === 'silver') todayRate = liveRate.silver_999
@@ -730,7 +736,7 @@ export default function ProductDisplay() {
     if (!todayRate || !netWt) return Number(product?.original_price) || null
     const makingPerGram = todayRate * (makingChargePct / 100)
     const rateWithMaking = todayRate + makingPerGram
-    return Math.round(((netWt * rateWithMaking) + stoneVal) * 1.03)
+    return Math.round(((netWt * rateWithMaking) + stoneVal + dieChargeVal) * 1.03)
   }
 
   const displayPrice = calcLivePriceMain()

@@ -97,6 +97,7 @@ function getCoinPrice(product, rates) {
   const makingPct = Number(product.making_charge) || 0
   const discountPct = Number(product.wastage_charge) || 0
   const stoneValue = Number(product.stone_value) || 0
+  const dieCharge = Number(product.die_charge) || 0
 
   if (!rate || !netWeight) {
     return {
@@ -110,8 +111,8 @@ function getCoinPrice(product, rates) {
   const making = rate * (makingPct / 100)
   const rateWithMaking = rate + making
   const discount = rateWithMaking * (discountPct / 100)
-  const price = Math.round(((netWeight * (rateWithMaking - discount)) + stoneValue) * 1.03)
-  const original = Math.round(((netWeight * rateWithMaking) + stoneValue) * 1.03)
+  const price = Math.round(((netWeight * (rateWithMaking - discount)) + stoneValue + dieCharge) * 1.03)
+  const original = Math.round(((netWeight * rateWithMaking) + stoneValue + dieCharge) * 1.03)
 
   return { price, original, rate, discountPct }
 }

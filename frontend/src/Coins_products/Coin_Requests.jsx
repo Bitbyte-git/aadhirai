@@ -366,20 +366,24 @@ export default function CoinRequests() {
     if (r.status !== "sent") return false;
     if (isSuperAdmin) {
       return (
+        r.reject_reason === "MASTER_MINT" ||
         r.approved_by_role === "super_admin" ||
-        r.approved_by === currentUserId ||
-        r.approved_by_email === currentUserEmail ||
+        (currentUserId && r.approved_by === currentUserId) ||
+        (currentUserEmail && r.approved_by_email && r.approved_by_email.toLowerCase() === currentUserEmail.toLowerCase()) ||
         (!r.approved_by && (
           r.requested_to_role === "super_admin" ||
-          r.requested_to === currentUserId ||
-          r.requested_to_email === currentUserEmail
+          (currentUserId && r.requested_to === currentUserId) ||
+          (currentUserEmail && r.requested_to_email && r.requested_to_email.toLowerCase() === currentUserEmail.toLowerCase())
         ))
       );
     }
     return (
-      r.approved_by === currentUserId ||
-      r.approved_by_email === currentUserEmail ||
-      (!r.approved_by && (r.requested_to === currentUserId || r.requested_to_email === currentUserEmail))
+      (currentUserId && r.approved_by === currentUserId) ||
+      (currentUserEmail && r.approved_by_email && r.approved_by_email.toLowerCase() === currentUserEmail.toLowerCase()) ||
+      (!r.approved_by && (
+        (currentUserId && r.requested_to === currentUserId) ||
+        (currentUserEmail && r.requested_to_email && r.requested_to_email.toLowerCase() === currentUserEmail.toLowerCase())
+      ))
     );
   };
 
@@ -1540,14 +1544,18 @@ export default function CoinRequests() {
 
                       {/* Assigned Approver / Parent Card */}
                       <div className="cr-approver-box">
-                        <span className="cr-approver-tag">Assigned Approver:</span>
+                        <span className="cr-approver-tag">
+                          {req.status === "sent" ? "Approved by:" : "Assigned Approver:"}
+                        </span>
                         <span className="cr-approver-name">
-                          {req.requested_to_name || "Direct Upstream"}
+                          {req.reject_reason === "MASTER_MINT"
+                            ? "Super Admin (Vault Add)"
+                            : req.approved_by_name || req.requested_to_name || "Direct Upstream"}
                         </span>
                         <span className="cr-approver-role">
-                          {ROLE_DISPLAY[req.requested_to_role] || req.requested_to_role?.replace('_', ' ') || "Leader"}
+                          {ROLE_DISPLAY[req.approved_by_role || req.requested_to_role] || req.approved_by_role?.replace('_', ' ') || req.requested_to_role?.replace('_', ' ') || "Leader"}
                         </span>
-                        {req.requested_to_id_str && (
+                        {(!req.approved_by_name && req.requested_to_id_str) && (
                           <span className="cr-approver-id">
                             [{req.requested_to_id_str}]
                           </span>

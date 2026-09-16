@@ -349,20 +349,24 @@ export default function JewelleryRequests() {
     if (r.status !== "sent") return false;
     if (isSuperAdmin) {
       return (
+        r.reject_reason === "MASTER_MINT" ||
         r.approved_by_role === "super_admin" ||
-        r.approved_by === currentUserId ||
-        r.approved_by_email === currentUserEmail ||
+        (currentUserId && r.approved_by === currentUserId) ||
+        (currentUserEmail && r.approved_by_email && r.approved_by_email.toLowerCase() === currentUserEmail.toLowerCase()) ||
         (!r.approved_by && (
           r.requested_to_role === "super_admin" ||
-          r.requested_to === currentUserId ||
-          r.requested_to_email === currentUserEmail
+          (currentUserId && r.requested_to === currentUserId) ||
+          (currentUserEmail && r.requested_to_email && r.requested_to_email.toLowerCase() === currentUserEmail.toLowerCase())
         ))
       );
     }
     return (
-      r.approved_by === currentUserId ||
-      r.approved_by_email === currentUserEmail ||
-      (!r.approved_by && (r.requested_to === currentUserId || r.requested_to_email === currentUserEmail))
+      (currentUserId && r.approved_by === currentUserId) ||
+      (currentUserEmail && r.approved_by_email && r.approved_by_email.toLowerCase() === currentUserEmail.toLowerCase()) ||
+      (!r.approved_by && (
+        (currentUserId && r.requested_to === currentUserId) ||
+        (currentUserEmail && r.requested_to_email && r.requested_to_email.toLowerCase() === currentUserEmail.toLowerCase())
+      ))
     );
   };
 
@@ -1223,11 +1227,17 @@ export default function JewelleryRequests() {
                       )}
                     </div>
 
-                    {req.requested_to_name && (
+                    {(req.requested_to_name || req.approved_by_name) && (
                       <div className="jr-party-box">
-                        <span style={{ fontWeight: 700, color: "#5C706E" }}>Target:</span>
-                        <span style={{ fontWeight: 600 }}>{req.requested_to_name}</span>
-                        {req.requested_to_role && (
+                        <span style={{ fontWeight: 700, color: "#5C706E" }}>
+                          {req.status === "sent" ? "Approved by:" : "Target:"}
+                        </span>
+                        <span style={{ fontWeight: 600 }}>
+                          {req.status === "sent"
+                            ? (req.approved_by_name || req.requested_to_name)
+                            : (req.requested_to_name || "Direct Upstream")}
+                        </span>
+                        {(req.status === "sent" ? (req.approved_by_role || req.requested_to_role) : req.requested_to_role) && (
                           <span
                             style={{
                               fontSize: "10.5px",
@@ -1238,7 +1248,7 @@ export default function JewelleryRequests() {
                               borderRadius: "4px",
                             }}
                           >
-                            {ROLE_BADGE_CONFIG[req.requested_to_role]?.label || req.requested_to_role}
+                            {ROLE_BADGE_CONFIG[req.status === "sent" ? (req.approved_by_role || req.requested_to_role) : req.requested_to_role]?.label || (req.status === "sent" ? (req.approved_by_role || req.requested_to_role) : req.requested_to_role)}
                           </span>
                         )}
                         {isPending && (

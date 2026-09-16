@@ -681,6 +681,9 @@ class JewelryProduct(models.Model):
     net_weight   = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
     making_charge = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     wastage_charge = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
+    # ── Flat die/making charge for bullion (Gold/Silver Coins & Bars) — a fixed
+    # rupee amount per piece, not a %, unlike making_charge above ──
+    die_charge = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     stone_value   = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     tax_percent   = models.DecimalField(max_digits=5, decimal_places=2, default=3.00)
     price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)

@@ -160,11 +160,17 @@ const giftingFilterCategories = [
     return AGE_OPTIONS_ALL
   }
 
+  // Same 8 occasions offered as checkboxes on Add New Product — this filter
+  // stays a single-select dropdown (customer picks one at a time to browse)
   const OCCASION_OPTIONS = [
     ['All', ''],
-    ['Daily Wear', 'Daily Wear'],
-    ['Casual Wear', 'Casual Wear'],
+    ['Wedding', 'Wedding'],
+    ['Birthday', 'Birthday'],
+    ['Anniversary', 'Anniversary'],
+    ['Auspicious', 'Auspicious'],
+    ['Office Wear', 'Office Wear'],
     ['Modern Wear', 'Modern Wear'],
+    ['Casual Wear', 'Casual Wear'],
     ['Traditional Wear', 'Traditional Wear'],
   ]
 
@@ -670,6 +676,7 @@ function QuickFilterDropdown({ label, options, currentValue, onSelect }) {
     </div>
   )
 }
+
 
 function RightRail({ copy }) {
     return (

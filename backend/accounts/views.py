@@ -2192,9 +2192,17 @@ class JewelryProductView(APIView):
         if age_group:
             qs = qs.filter(age_group=age_group)
 
+        # ── Occasion is now a checkbox (multi-select) filter on the frontend —
+        # comma-joined values ("Wedding,Birthday"), OR-matched. A single value
+        # still works exactly as before (splits into a 1-item list). ──
         occasion = request.query_params.get('occasion')
         if occasion:
-            qs = qs.filter(occasion__icontains=occasion)
+            occasion_list = [o.strip() for o in occasion.split(',') if o.strip()]
+            if occasion_list:
+                occasion_q = Q()
+                for o in occasion_list:
+                    occasion_q |= Q(occasion__icontains=o)
+                qs = qs.filter(occasion_q)
 
         wedding_category = request.query_params.get('wedding_category')
         if wedding_category:

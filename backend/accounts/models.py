@@ -671,18 +671,6 @@ class JewelryProduct(models.Model):
         ('Limited', 'Limited'),
         ('', 'N/A'),
     ]
-    OCCASION_CHOICES = [
-        ('Wedding', 'Wedding'),
-        ('Birthday', 'Birthday'),
-        ('Anniversary', 'Anniversary'),
-        ('Auspicious', 'Auspicious'),
-        ('Office Wear', 'Office Wear'),
-        ('Modern Wear', 'Modern Wear'),
-        ('Casual Wear', 'Casual Wear'),
-        ('Traditional Wear', 'Traditional Wear'),
-        ('', 'N/A'),
-    ]
-
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
     metal = models.CharField(max_length=10, choices=METAL_CHOICES)
     grade = models.CharField(max_length=10, choices=GRADE_CHOICES, blank=True)
@@ -698,7 +686,12 @@ class JewelryProduct(models.Model):
     price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     original_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     tag = models.CharField(max_length=50, choices=TAG_CHOICES, blank=True)
-    occasion = models.CharField(max_length=50, choices=OCCASION_CHOICES, blank=True)
+    # ── Occasion is now checkbox (multi-select) on Add New Product — stores a
+    # comma-joined string ("Wedding,Anniversary"), same string type as before,
+    # so no serializer/view changes needed anywhere it's already read/written.
+    # `choices=` dropped since a comma-joined value isn't one of the fixed
+    # choices and DRF's auto-generated ChoiceField would reject it. ──
+    occasion = models.CharField(max_length=200, blank=True)
     wedding_category = models.CharField(max_length=100, blank=True)
     gender = models.CharField(
     max_length=10,

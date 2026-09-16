@@ -204,7 +204,7 @@ export default function AddNewProduct() {
    const [productForm, setProductForm] = useState({
     category: '', metal: '', grade: '', name: '', nameChoice: '', description: '',
     cross_weight: '', stone_weight: '', making_charge: '', stone_value: '',
-    tag: '', subcategory: '', occasion: '', wedding_category: '', gender: 'all', wastage_charge: '',
+    tag: '', subcategory: '', occasion: [], wedding_category: '', gender: 'all', wastage_charge: '',
     stock_quantity: '', gift_tags: [], gift_subcategory: '', age_group: ''
   })
   const [productSaving, setProductSaving] = useState(false)
@@ -370,6 +370,7 @@ export default function AddNewProduct() {
       Object.entries(productForm).forEach(([k, v]) => {
         if (k === 'subcategory' || k === 'nameChoice') return   // backend model-la illa — skip pannanum
         if (k === 'gift_tags') { fd.append(k, JSON.stringify(v)); return }   // array-ah JSON string-a send pannanum
+        if (k === 'occasion') { fd.append(k, v.join(',')); return }   // multi-select array — comma-joined string-a send pannanum (backend CharField)
         fd.append(k, v)
       })
       fd.append('net_weight', netWeight || 0)
@@ -395,7 +396,7 @@ export default function AddNewProduct() {
       setProductForm({
         category: '', metal: '', grade: '', name: '', nameChoice: '', description: '',
         cross_weight: '', stone_weight: '', making_charge: '', stone_value: '',
-        tag: '', subcategory: '', occasion: '', wedding_category: '', gender: 'all', wastage_charge: '',
+        tag: '', subcategory: '', occasion: [], wedding_category: '', gender: 'all', wastage_charge: '',
         stock_quantity: '', gift_tags: [], gift_subcategory: '', age_group: ''
       })
       setProductImages([])
@@ -638,10 +639,38 @@ export default function AddNewProduct() {
           <div className="anp-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px', marginBottom: '16px', paddingTop: '18px' }}>
             <div>
               <label style={lblStyle}>Occasion</label>
-              <select value={productForm.occasion} onChange={e => setProductForm(f => ({ ...f, occasion: e.target.value }))} style={{ ...inpStyle, cursor: 'pointer' }}>
-                <option value="" style={{ background: optionBg }}>-- None --</option>
-                {OCCASIONS.map(o => <option key={o} value={o} style={{ background: optionBg }}>{o}</option>)}
-              </select>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {OCCASIONS.map(o => {
+                  const checked = productForm.occasion.includes(o)
+                  return (
+                    <button
+                      key={o}
+                      type="button"
+                      onClick={() => setProductForm(f => ({
+                        ...f,
+                        occasion: checked ? f.occasion.filter(x => x !== o) : [...f.occasion, o]
+                      }))}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        padding: '7px 12px', borderRadius: '999px',
+                        border: `1.5px solid ${checked ? '#073B3F' : inpBorder}`,
+                        background: checked ? '#073B3F' : inpBg,
+                        color: checked ? '#fff' : text,
+                        fontSize: '12.5px', fontWeight: 700, cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <span style={{
+                        width: '14px', height: '14px', borderRadius: '4px',
+                        border: `1.5px solid ${checked ? '#fff' : inpBorder}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '10px', fontWeight: 900, flexShrink: 0,
+                      }}>{checked ? '✓' : ''}</span>
+                      {o}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
             <div>
               <label style={lblStyle}>Tag</label>

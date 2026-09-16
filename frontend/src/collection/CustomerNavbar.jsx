@@ -1985,8 +1985,10 @@ export default function CustomerNavbar() {
         .exact-mega-wrap {
           position: absolute;
           top: 100%;
-          left: 0;
-          right: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 100%;
+          max-width: 1600px;
           z-index: 9998;
           pointer-events: none;
         }

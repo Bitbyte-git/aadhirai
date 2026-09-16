@@ -167,7 +167,7 @@ export default function JewelleryImageModal({ isOpen, onClose, product }) {
                 {product.name || "Jewellery Piece"}
               </h2>
               <div style={{ fontSize: "13px", color: "#5C706E", textTransform: "capitalize" }}>
-                Category: <strong>{product.category || "General"}</strong> • Occasion: <strong>{product.occasion || "Daily Wear"}</strong>
+                Category: <strong>{product.category || "General"}</strong> • Occasion: <strong>{(product.occasion || "").split(",").filter(Boolean).join(", ") || "Daily Wear"}</strong>
               </div>
             </div>
 

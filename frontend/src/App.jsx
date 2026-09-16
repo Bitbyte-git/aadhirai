@@ -69,6 +69,7 @@ const Report = lazy(() => import('./Orders/Report'))
 const LoginActive = lazy(() => import('./Orders/login_active'))
 const LoginInactive = lazy(() => import('./Orders/login_inactive'))
 const CoinsReward = lazy(() => import('./payments/Coins_Reward'))
+const LoginRewardTransaction = lazy(() => import('./LoginRewardManagement/LoginRewardTransaction'))
 const BuyCoin = lazy(() => import('./Coins_products/Buy_Coin'))
 const StoredCoins = lazy(() => import('./Coins_products/Stored_coins'))
 const CoinRequests = lazy(() => import('./Coins_products/Coin_Requests'))
@@ -382,6 +383,7 @@ export default function App() {
           <Route path="/login-inactive" element={<LoginInactive />} />
           <Route path="/buy-coin" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><BuyCoin /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/coins-reward" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><CoinsReward /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/login-reward-transactions" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><LoginRewardTransaction /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/stored-coins" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><StoredCoins /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/available-coins" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><StoredCoins /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/member-holdings/:userId" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><MemberHoldingsDetail /></WithInternalRoleNavbar></ProtectedRoute>} />

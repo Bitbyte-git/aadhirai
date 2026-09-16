@@ -6,6 +6,7 @@ import JewelleryImageModal from "./JewelleryImageModal";
 import { JewelleryRequestSkeletonList } from "./JewellerySkeleton";
 import ActionSuccessModal from "./ActionSuccessModal";
 import LoadMoreControl from "./LoadMoreControl";
+import { SkeletonText } from "../components/Skeleton";
 import {
   JewelryIcon,
   InboxIcon,
@@ -31,11 +32,20 @@ const ROLE_BADGE_CONFIG = {
 };
 
 const PERIOD_OPTIONS = [
+  { key: "all", label: "All Time" },
   { key: "today", label: "Today" },
   { key: "week", label: "This Week" },
   { key: "month", label: "This Month" },
   { key: "year", label: "This Year" },
-  { key: "all", label: "All Time" },
+];
+
+const LEADER_ROLE_OPTIONS = [
+  { key: "all", label: "All" },
+  { key: "admin", label: "Super Stockist" },
+  { key: "dealer", label: "Distributor" },
+  { key: "sub_dealer", label: "Wholesale Dealer" },
+  { key: "promotor", label: "Retailer" },
+  { key: "customer", label: "Customer" },
 ];
 
 export default function JewelleryRequests() {
@@ -55,9 +65,10 @@ export default function JewelleryRequests() {
   const [visibleLimit, setVisibleLimit] = useState(100);
   const [successModal, setSuccessModal] = useState(null);
 
-  // Period filter & 5 Interactive Cards state
-  const [period, setPeriod] = useState("today");
+  // Period filter & 4 Interactive Cards state
+  const [period, setPeriod] = useState("all");
   const [activeCard, setActiveCard] = useState("my_requests");
+  const [leaderRoleFilter, setLeaderRoleFilter] = useState("admin");
 
   // Create Request Modal state
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -269,59 +280,143 @@ export default function JewelleryRequests() {
     return true;
   };
 
-  // 1. Requests filtered by selected period
-  const periodFilteredAll = useMemo(() => {
-    return requests.filter((r) => isDateInPeriod(r.created_at, period));
-  }, [requests, period]);
+  // Days Pending / Duration calculation helper
+  const getDaysPendingInfo = (createdAt, status, sentAt) => {
+    if (!createdAt) return { text: "0 days", label: "0 days", badgeClass: "normal", days: 0 };
+    const start = new Date(createdAt);
+    const end = status === "sent" && sentAt ? new Date(sentAt) : new Date();
+    const diffMs = Math.max(0, end - start);
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
 
-  // 2. Count metrics for the 5 cards for the current period
+    let timeStr = "";
+    if (diffDays === 0) {
+      timeStr = diffHours <= 1 ? "< 1 hr" : `${diffHours} hrs`;
+    } else if (diffDays === 1) {
+      timeStr = "1 day";
+    } else {
+      timeStr = `${diffDays} days`;
+    }
+
+    if (status === "pending") {
+      let badgeClass = "normal";
+      let icon = "⏳";
+      if (diffDays >= 5) {
+        badgeClass = "overdue";
+        icon = "🚨";
+      } else if (diffDays >= 2) {
+        badgeClass = "delayed";
+        icon = "⚠️";
+      }
+      return {
+        days: diffDays,
+        text: `${timeStr} pending`,
+        label: `${icon} ${timeStr} Pending`,
+        badgeClass,
+      };
+    } else if (status === "sent") {
+      return {
+        days: diffDays,
+        text: `Approved in ${timeStr}`,
+        label: `⚡ Approved in ${timeStr}`,
+        badgeClass: "approved",
+      };
+    } else {
+      return {
+        days: diffDays,
+        text: `Declined in ${timeStr}`,
+        label: `Declined in ${timeStr}`,
+        badgeClass: "rejected",
+      };
+    }
+  };
+
+  // Helper to determine if a request was sent to me for approval
+  const isIncomingToMe = (r) => {
+    if (isSuperAdmin) {
+      return (
+        r.requested_to_role === "super_admin" ||
+        r.requested_to === currentUserId ||
+        r.requested_to_email === currentUserEmail ||
+        !r.requested_to_role
+      );
+    }
+    return r.requested_to === currentUserId || r.requested_to_email === currentUserEmail;
+  };
+
+  // Helper to determine if a request was approved by this user (or Super Admin)
+  const isApprovedByMe = (r) => {
+    if (r.status !== "sent") return false;
+    if (isSuperAdmin) {
+      return (
+        r.approved_by_role === "super_admin" ||
+        r.approved_by === currentUserId ||
+        r.approved_by_email === currentUserEmail ||
+        (!r.approved_by && (
+          r.requested_to_role === "super_admin" ||
+          r.requested_to === currentUserId ||
+          r.requested_to_email === currentUserEmail
+        ))
+      );
+    }
+    return (
+      r.approved_by === currentUserId ||
+      r.approved_by_email === currentUserEmail ||
+      (!r.approved_by && (r.requested_to === currentUserId || r.requested_to_email === currentUserEmail))
+    );
+  };
+
+  // Helper to determine if a request was approved by downline leaders
+  const isLeaderApproved = (r) => {
+    if (r.status !== "sent") return false;
+    return !isApprovedByMe(r);
+  };
+
+  // Helper to determine if a pending request is pending with team leaders
+  const isLeaderRequest = (r) => {
+    if (isSuperAdmin) {
+      return r.requested_to_role && r.requested_to_role !== "super_admin";
+    }
+    return r.requested_by === currentUserId || r.requested_by_email === currentUserEmail;
+  };
+
+  // Count metrics for the 4 cards:
+  // - Pending requests count ALL-TIME (never filtered to 0 by period)
+  // - Approved requests count filtered by selected Period
   const counts = useMemo(() => {
-    let myReq = 0;
+    let allMyPending = 0;
+    let allLeaderPending = 0;
     let myApp = 0;
-    let myPend = 0;
     let ldrApp = 0;
-    let ldrPend = 0;
 
-    periodFilteredAll.forEach((r) => {
-      const isTargetMe = isSuperAdmin || r.requested_to === currentUserId || r.requested_to_email === currentUserEmail;
-      const isOriginMe = !isSuperAdmin && (r.requested_by === currentUserId || r.requested_by_email === currentUserEmail);
-
-      // Incoming / My Requests
-      if (isTargetMe) {
-        myReq++;
-        if (r.status === "sent") myApp++;
-        if (r.status === "pending") myPend++;
+    requests.forEach((r) => {
+      // Pending counts (ALL-TIME)
+      if (r.status === "pending") {
+        if (isIncomingToMe(r)) allMyPending++;
+        if (isLeaderRequest(r)) allLeaderPending++;
       }
 
-      // Leader Requests
-      if (isSuperAdmin) {
-        if (r.requested_to_role !== "super_admin") {
-          if (r.status === "sent") ldrApp++;
-          if (r.status === "pending") ldrPend++;
-        }
-      } else {
-        if (isOriginMe) {
-          if (r.status === "sent") ldrApp++;
-          if (r.status === "pending") ldrPend++;
-        }
+      // Approved counts (Period-Filtered)
+      if (r.status === "sent" && isDateInPeriod(r.sent_at || r.created_at, period)) {
+        if (isApprovedByMe(r)) myApp++;
+        if (isLeaderApproved(r)) ldrApp++;
       }
     });
 
     return {
-      myRequests: myReq,
+      myRequests: allMyPending,
       myApproved: myApp,
-      myPending: myPend,
       leaderApproved: ldrApp,
-      leaderPending: ldrPend,
+      leaderPending: allLeaderPending,
     };
-  }, [periodFilteredAll, isSuperAdmin, currentUserId, currentUserEmail]);
+  }, [requests, period, isSuperAdmin, currentUserId, currentUserEmail]);
 
-  // 3. Card specifications
+  // 4 Interactive Cards (My Pending Requests card removed as requested)
   const cardList = [
     {
       id: "my_requests",
       label: isSuperAdmin ? "Requests" : "My Requests",
-      sub: isSuperAdmin ? "All received requests" : "Received from downline",
+      sub: isSuperAdmin ? "All pending received requests" : "Pending from downline",
       val: counts.myRequests,
       border: "#073B3F",
       iconBg: "#EFF6F6",
@@ -331,7 +426,7 @@ export default function JewelleryRequests() {
     {
       id: "my_approved",
       label: "My Approved Requests",
-      sub: isSuperAdmin ? "All approved requests" : "Approved by me",
+      sub: isSuperAdmin ? "Approved by Super Admin" : "Approved by me",
       val: counts.myApproved,
       border: "#166534",
       iconBg: "#E6F4EA",
@@ -339,19 +434,9 @@ export default function JewelleryRequests() {
       IconComponent: CheckIcon,
     },
     {
-      id: "my_pending",
-      label: "My Pending Requests",
-      sub: isSuperAdmin ? "Awaiting approval" : "Awaiting my approval",
-      val: counts.myPending,
-      border: "#0A5C63",
-      iconBg: "#E6F4F2",
-      iconColor: "#0A5C63",
-      IconComponent: JewelryIcon,
-    },
-    {
       id: "leader_approved",
       label: "Leader Approved Requests",
-      sub: isSuperAdmin ? "Team leader approved" : "Approved by my leader",
+      sub: isSuperAdmin ? "Approved by team leaders" : "Approved by my leader",
       val: counts.leaderApproved,
       border: "#2563EB",
       iconBg: "#EFF6FF",
@@ -370,36 +455,57 @@ export default function JewelleryRequests() {
     },
   ];
 
-  // 4. Requests currently matching both the Period and the Active Card
-  const filteredRequests = useMemo(() => {
-    return periodFilteredAll.filter((r) => {
-      const isTargetMe = isSuperAdmin || r.requested_to === currentUserId || r.requested_to_email === currentUserEmail;
-      const isOriginMe = !isSuperAdmin && (r.requested_by === currentUserId || r.requested_by_email === currentUserEmail);
+  // Helper to filter by leader role (All, admin, dealer, sub_dealer, promotor, customer)
+  const matchesLeaderRole = (r, roleKey) => {
+    if (!roleKey || roleKey === "all") return true;
+    if (roleKey === "customer") {
+      return r.requested_by_role === "customer" || r.requested_to_role === "customer";
+    }
+    return (
+      r.approved_by_role === roleKey ||
+      r.requested_to_role === roleKey ||
+      r.requested_by_role === roleKey
+    );
+  };
 
-      if (activeCard === "my_requests") {
-        return isTargetMe;
-      }
-      if (activeCard === "my_approved") {
-        return isTargetMe && r.status === "sent";
-      }
-      if (activeCard === "my_pending") {
-        return isTargetMe && r.status === "pending";
-      }
-      if (activeCard === "leader_approved") {
-        if (isSuperAdmin) {
-          return r.status === "sent" && r.requested_to_role !== "super_admin";
-        }
-        return isOriginMe && r.status === "sent";
-      }
+  // Helper to get count for each role pill in Leader Approved / Pending requests
+  const getLeaderRoleCount = (roleKey) => {
+    const baseList = requests.filter((r) => {
       if (activeCard === "leader_pending") {
-        if (isSuperAdmin) {
-          return r.status === "pending" && r.requested_to_role !== "super_admin";
-        }
-        return isOriginMe && r.status === "pending";
+        return isLeaderRequest(r) && r.status === "pending";
       }
-      return true;
+      return isLeaderApproved(r) && isDateInPeriod(r.sent_at || r.created_at, period);
     });
-  }, [periodFilteredAll, activeCard, isSuperAdmin, currentUserId, currentUserEmail]);
+    if (roleKey === "all") return baseList.length;
+    return baseList.filter((r) => matchesLeaderRole(r, roleKey)).length;
+  };
+
+  // Requests currently matching the Active Card & Role Filter:
+  // - Pending cards show all active pending requests
+  // - Approved cards show requests filtered by selected period
+  // - Leader Approved supports role sub-filter (All, Super Stockist [default], Distributor, Wholesale Dealer, Retailer, Customer)
+  const filteredRequests = useMemo(() => {
+    if (activeCard === "my_requests") {
+      return requests.filter((r) => isIncomingToMe(r) && r.status === "pending");
+    }
+    if (activeCard === "leader_pending") {
+      return requests.filter((r) => isLeaderRequest(r) && r.status === "pending");
+    }
+    if (activeCard === "my_approved") {
+      return requests.filter(
+        (r) => isApprovedByMe(r) && isDateInPeriod(r.sent_at || r.created_at, period)
+      );
+    }
+    if (activeCard === "leader_approved") {
+      return requests.filter(
+        (r) =>
+          isLeaderApproved(r) &&
+          isDateInPeriod(r.sent_at || r.created_at, period) &&
+          matchesLeaderRole(r, leaderRoleFilter)
+      );
+    }
+    return requests;
+  }, [requests, activeCard, period, leaderRoleFilter, isSuperAdmin, currentUserId, currentUserEmail]);
 
   const currentCardMeta = cardList.find((c) => c.id === activeCard) || cardList[0];
 
@@ -542,7 +648,69 @@ export default function JewelleryRequests() {
           box-shadow: 0 3px 10px rgba(7, 59, 63, 0.18);
         }
 
-        /* 5 Responsive Interactive Cards */
+        /* Leader Role Sub-Filter Bar */
+        .jr-role-filter-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: #FFFFFF;
+          border: 1px solid #E1EBEA;
+          border-radius: 16px;
+          padding: 10px 18px;
+          margin-bottom: 20px;
+          gap: 14px;
+          flex-wrap: wrap;
+          box-shadow: 0 2px 10px rgba(7, 59, 63, 0.02);
+        }
+
+        .jr-role-pills {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .jr-role-pill {
+          padding: 6px 14px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 700;
+          border: 1px solid #D6E2E1;
+          background: #FFFFFF;
+          color: #5C706E;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          transition: all 150ms ease;
+        }
+
+        .jr-role-pill:hover {
+          border-color: #073B3F;
+          color: #073B3F;
+        }
+
+        .jr-role-pill.active {
+          background: #073B3F;
+          color: #FFFFFF;
+          border-color: #073B3F;
+          box-shadow: 0 3px 10px rgba(7, 59, 63, 0.18);
+        }
+
+        .jr-role-count {
+          font-size: 10.5px;
+          font-weight: 800;
+          padding: 1px 6px;
+          border-radius: 999px;
+          background: rgba(0, 0, 0, 0.06);
+        }
+
+        .jr-role-pill.active .jr-role-count {
+          background: rgba(255, 255, 255, 0.25);
+          color: #FFFFFF;
+        }
+
+        /* 4 Responsive Interactive Cards */
         .jr-stats-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -652,6 +820,47 @@ export default function JewelleryRequests() {
           display: flex;
           align-items: center;
           gap: 8px;
+        }
+
+        .jr-days-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 11px;
+          font-weight: 800;
+          padding: 3px 10px;
+          border-radius: 999px;
+          letter-spacing: 0.02em;
+        }
+
+        .jr-days-pill.normal {
+          background: #EFF6F6;
+          color: #073B3F;
+          border: 1px solid #CEE3E1;
+        }
+
+        .jr-days-pill.delayed {
+          background: #FFFBEB;
+          color: #B45309;
+          border: 1px solid #FDE68A;
+        }
+
+        .jr-days-pill.overdue {
+          background: #FEF2F2;
+          color: #DC2626;
+          border: 1px solid #FECACA;
+        }
+
+        .jr-days-pill.approved {
+          background: #ECFDF5;
+          color: #047857;
+          border: 1px solid #A7F3D0;
+        }
+
+        .jr-days-pill.rejected {
+          background: #F8FAFC;
+          color: #64748B;
+          border: 1px solid #E2E8F0;
         }
 
         .jr-req-parties {
@@ -873,11 +1082,43 @@ export default function JewelleryRequests() {
           })}
         </div>
 
+        {/* Leader Role Sub-Filter Bar (Shown for Leader Approved and Leader Pending requests) */}
+        {(activeCard === "leader_approved" || activeCard === "leader_pending") && (
+          <div className="jr-role-filter-bar">
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <UsersIcon size={16} color="#073B3F" />
+              <span style={{ fontSize: "13px", fontWeight: 700, color: "#073B3F" }}>Filter by Role:</span>
+            </div>
+            <div className="jr-role-pills">
+              {LEADER_ROLE_OPTIONS.map((opt) => {
+                const isSelected = leaderRoleFilter === opt.key;
+                const count = getLeaderRoleCount(opt.key);
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    className={`jr-role-pill ${isSelected ? "active" : ""}`}
+                    onClick={() => setLeaderRoleFilter(opt.key)}
+                  >
+                    <span>{opt.label}</span>
+                    <span className="jr-role-count">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Section Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px", flexWrap: "wrap", gap: "10px" }}>
           <div>
             <h3 style={{ margin: "0", fontSize: "17px", fontWeight: 800, color: "#073B3F" }}>
               {currentCardMeta.label}
+              {(activeCard === "leader_approved" || activeCard === "leader_pending") && leaderRoleFilter !== "all" && (
+                <span style={{ fontSize: "14px", fontWeight: 700, color: "#0A5C63", marginLeft: "8px" }}>
+                  — {LEADER_ROLE_OPTIONS.find((o) => o.key === leaderRoleFilter)?.label}
+                </span>
+              )}
             </h3>
             <span style={{ fontSize: "12.5px", color: "#5C706E" }}>
               Showing {filteredRequests.length} matching requests ({PERIOD_OPTIONS.find((p) => p.key === period)?.label})
@@ -902,9 +1143,12 @@ export default function JewelleryRequests() {
             <JewelryIcon size={40} color="#B4CECC" style={{ marginBottom: "12px" }} />
             <div style={{ fontSize: "16px", fontWeight: 800, color: "#073B3F" }}>
               No Requests in {currentCardMeta.label}
+              {(activeCard === "leader_approved" || activeCard === "leader_pending") && leaderRoleFilter !== "all" && (
+                <span> ({LEADER_ROLE_OPTIONS.find((o) => o.key === leaderRoleFilter)?.label})</span>
+              )}
             </div>
             <p style={{ margin: "6px 0 0", fontSize: "13.5px" }}>
-              Zero jewellery requests found for {PERIOD_OPTIONS.find((p) => p.key === period)?.label}. Click another card or time period.
+              Zero jewellery requests found for {PERIOD_OPTIONS.find((p) => p.key === period)?.label}. Click "All" or another role / time period.
             </p>
           </div>
         ) : (
@@ -918,6 +1162,7 @@ export default function JewelleryRequests() {
               };
               const isPending = req.status === "pending";
               const canApproveThis = isPending && (isSuperAdmin || req.requested_to === currentUserId || req.requested_to_email === currentUserEmail);
+              const pendingInfo = getDaysPendingInfo(req.created_at, req.status, req.sent_at);
 
               return (
                 <div key={req.id} className="jr-req-card">
@@ -936,6 +1181,14 @@ export default function JewelleryRequests() {
                         }}
                       >
                         {isPending ? "Pending Review" : req.status === "sent" ? "Approved" : "Declined"}
+                      </span>
+
+                      {/* Days Pending / Duration Badge */}
+                      <span
+                        className={`jr-days-pill ${pendingInfo.badgeClass}`}
+                        title={`Submitted: ${new Date(req.created_at).toLocaleString()}`}
+                      >
+                        {pendingInfo.label}
                       </span>
                     </div>
 
@@ -986,6 +1239,11 @@ export default function JewelleryRequests() {
                             }}
                           >
                             {ROLE_BADGE_CONFIG[req.requested_to_role]?.label || req.requested_to_role}
+                          </span>
+                        )}
+                        {isPending && (
+                          <span style={{ color: pendingInfo.badgeClass === "overdue" ? "#DC2626" : pendingInfo.badgeClass === "delayed" ? "#B45309" : "#5C706E", fontSize: "11px", fontWeight: 700, marginLeft: "4px" }}>
+                            • {pendingInfo.text}
                           </span>
                         )}
                       </div>
@@ -1089,8 +1347,13 @@ export default function JewelleryRequests() {
                         </div>
                       </>
                     ) : req.status === "sent" ? (
-                      <div style={{ fontSize: "12px", color: "#166534", fontWeight: 700, padding: "6px 12px", background: "#F0FDF4", borderRadius: "8px", border: "1px solid #DCFCE7" }}>
-                        Disbursed & added to requester stock
+                      <div style={{ fontSize: "12px", color: "#166534", fontWeight: 700, padding: "6px 12px", background: "#F0FDF4", borderRadius: "8px", border: "1px solid #DCFCE7", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                        <span>✓ Disbursed & added to requester stock</span>
+                        {req.approved_by_name && (
+                          <span style={{ color: "#15803D", fontWeight: 600, fontSize: "11.5px" }}>
+                            • Approved by <strong>{req.approved_by_name}</strong> {req.approved_by_role && `(${ROLE_BADGE_CONFIG[req.approved_by_role]?.label || (req.approved_by_role === 'super_admin' ? 'Super Admin' : req.approved_by_role)})`}
+                          </span>
+                        )}
                       </div>
                     ) : req.status === "rejected" ? (
                       <div style={{ fontSize: "12px", color: "#991B1B", fontWeight: 600, padding: "6px 12px", background: "#FEF2F2", borderRadius: "8px", border: "1px solid #FEE2E2" }}>

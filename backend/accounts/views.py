@@ -90,6 +90,26 @@ REWARD_COINS = {
     'bonus_30': 10,
 }
 
+def _grant_login_reward(user, reward_type, coins, date):
+    """Logs the reward (CoinRewardLog — powers the admin-facing Rewards page)
+    AND actually pays it out: credits the real wallet balance + writes a
+    CoinRecharge ledger row (source='reward') so it shows up in the user's
+    own Recharge/Wallet transaction history. Previously CoinRewardLog.create()
+    was called alone — the reward was recorded but never reached the user's
+    spendable balance or their visible history, a real (now-fixed) bug."""
+    CoinRewardLog.objects.create(user=user, reward_type=reward_type, coins=coins, date=date)
+
+    wallet, _ = Wallet.objects.get_or_create(user=user)
+    wallet.balance_coins += coins
+    wallet.save(update_fields=['balance_coins'])
+
+    CoinRecharge.objects.create(
+        user=user, amount_paid=Decimal('0.00'), coins_credited=coins,
+        payment_method='reward', status='success',
+        entry_type='credit', source='reward',
+    )
+
+
 def get_login_streak(user, upto_date):
     """upto_date-la irundhu backward-a consecutive days evlo login pannirukanga nu count pannum.
     Calendar month boundary-ku ulle mattum count pannும் — month maarina streak reset aagும்.
@@ -143,6 +163,36 @@ def get_user_display_info(user):
             'position': 'Super Admin',
         }
     return {'user_id_str': None, 'name': user.email, 'phone': None, 'level': None, 'position': None}
+
+
+def _bulk_user_display_map(users):
+    """Bulk version of get_user_display_info — {user_id: {...}} — one query
+    per role instead of one query per user, same N+1 reasoning as
+    _bulk_profile_id_map above (used for rendering reward/transaction lists)."""
+    role_profile_map = {
+        'admin': (AdminProfile, 'admin_id'), 'dealer': (DealerProfile, 'dealer_id'),
+        'sub_dealer': (SubDealerProfile, 'sub_dealer_id'), 'promotor': (PromotorProfile, 'promotor_id'),
+        'customer': (CustomerProfile, 'customer_id'),
+    }
+    ids_by_role = {}
+    for u in users:
+        ids_by_role.setdefault(u.role, set()).add(u.id)
+
+    result = {}
+    for role, user_ids in ids_by_role.items():
+        cfg = role_profile_map.get(role)
+        if not cfg:
+            continue
+        model, id_field = cfg
+        for p in model.objects.filter(user_id__in=user_ids):
+            result[p.user_id] = {
+                'user_id_str': getattr(p, id_field, None),
+                'name': f"{p.first_name} {p.last_name or ''}".strip(),
+                'phone': p.mobile_number,
+                'level': ROLE_LEVEL.get(role),
+                'position': ROLE_LABEL.get(role),
+            }
+    return result
 
 
 def get_user_profile_id(user):
@@ -270,24 +320,15 @@ class LoginView(APIView):
 
             if created_today_log:
                 if is_first_ever_login:
-                    CoinRewardLog.objects.create(
-                        user=user, reward_type='first_login',
-                        coins=REWARD_COINS['first_login'], date=today
-                    )
+                    _grant_login_reward(user, 'first_login', REWARD_COINS['first_login'], today)
                 else:
-                    CoinRewardLog.objects.create(
-                        user=user, reward_type='daily_login',
-                        coins=REWARD_COINS['daily_login'], date=today
-                    )
+                    _grant_login_reward(user, 'daily_login', REWARD_COINS['daily_login'], today)
 
                 streak = get_login_streak(user, today)
                 bonus_map = {10: 'bonus_10', 20: 'bonus_20', 30: 'bonus_30'}
                 if streak in bonus_map:
                     rtype = bonus_map[streak]
-                    CoinRewardLog.objects.create(
-                        user=user, reward_type=rtype,
-                        coins=REWARD_COINS[rtype], date=today
-                    )
+                    _grant_login_reward(user, rtype, REWARD_COINS[rtype], today)
 
         # Step 4: Success
         refresh = RefreshToken.for_user(user)
@@ -4899,7 +4940,7 @@ class CoinRequestView(APIView):
                 base_qs = CoinRequest.objects.all()
             else:
                 base_qs = CoinRequest.objects.filter(
-                    Q(requested_to=request.user) | Q(requested_by=request.user)
+                    Q(requested_to=request.user) | Q(requested_by=request.user) | Q(approved_by=request.user)
                 )
 
             # Search filter (by person ID, phone, email, name across both requester & approver)
@@ -4994,7 +5035,7 @@ class CoinRequestView(APIView):
                 reqs = CoinRequest.objects.all()
             else:
                 reqs = CoinRequest.objects.filter(
-                    Q(requested_to=request.user) | Q(requested_by=request.user)
+                    Q(requested_to=request.user) | Q(requested_by=request.user) | Q(approved_by=request.user)
                 )
         elif box == 'sent':
             reqs = CoinRequest.objects.filter(requested_by=request.user)
@@ -5082,6 +5123,7 @@ class CoinRequestApproveView(APIView):
 
         coin_request.status = 'sent'
         coin_request.sent_at = timezone.now()
+        coin_request.approved_by = request.user
         coin_request.save()
 
         return Response({'message': 'Request approved successfully!'})
@@ -5173,6 +5215,7 @@ class CoinRequestApproveAllView(APIView):
 
             coin_request.status = 'sent'
             coin_request.sent_at = timezone.now()
+            coin_request.approved_by = request.user
             coin_request.save()
             count += 1
 
@@ -5946,7 +5989,7 @@ class JewelryRequestView(APIView):
                 base_qs = JewelryRequest.objects.all()
             else:
                 base_qs = JewelryRequest.objects.filter(
-                    Q(requested_to=request.user) | Q(requested_by=request.user)
+                    Q(requested_to=request.user) | Q(requested_by=request.user) | Q(approved_by=request.user)
                 )
 
             search = request.query_params.get('search', '').strip()
@@ -6053,7 +6096,7 @@ class JewelryRequestView(APIView):
             if role == 'super_admin':
                 reqs = JewelryRequest.objects.all()
             else:
-                reqs = JewelryRequest.objects.filter(Q(requested_to=request.user) | Q(requested_by=request.user))
+                reqs = JewelryRequest.objects.filter(Q(requested_to=request.user) | Q(requested_by=request.user) | Q(approved_by=request.user))
             if status_param and status_param != 'all':
                 reqs = reqs.filter(status=status_param)
         elif box == 'sent':
@@ -6144,6 +6187,7 @@ class JewelryRequestApproveView(APIView):
 
         req.status = 'sent'
         req.sent_at = timezone.now()
+        req.approved_by = request.user
         req.save()
         return Response({'message': 'Jewelry request approved and stock transferred successfully!'})
 
@@ -6233,6 +6277,129 @@ class TodayRewardsView(APIView):
             'summary': summary,
             'rewards': rewards,
         })
+
+
+class LoginRewardTransactionView(APIView):
+    """Super Admin ku — Login Reward coins (daily/streak, CoinRewardLog) +
+    manually 'Send Coins' pண்ணின credits (CoinRecharge source=admin_credit),
+    rendumey combine pண்ணி, role + period filter oda oru unified transaction
+    history kaаттும். Login Reward Management > LoginRewardTransaction.jsx ku."""
+    permission_classes = [IsAuthenticated]
+
+    ROLE_LABELS = {
+        'admin': 'Super Stockist', 'dealer': 'Distributor', 'sub_dealer': 'Wholesale Dealer',
+        'promotor': 'Retailer', 'customer': 'Customer',
+    }
+
+    def get(self, request):
+        if request.user.role != 'super_admin':
+            return Response({'error': 'Not authorized'}, status=403)
+
+        role = request.query_params.get('role', 'all')
+        period = request.query_params.get('period', 'today')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        page = max(int(request.query_params.get('page', 1)), 1)
+        page_size = 20
+        export_csv = request.query_params.get('export') == 'csv'
+
+        today = timezone.now().date()
+        if period == 'today':
+            range_start, range_end = today, today
+        elif period == 'week':
+            range_start, range_end = today - timedelta(days=today.weekday()), today
+        elif period == 'month':
+            range_start, range_end = today.replace(day=1), today
+        elif period == '6month':
+            range_start, range_end = today - timedelta(days=180), today
+        elif period == 'year':
+            range_start, range_end = today.replace(month=1, day=1), today
+        elif period == 'custom' and start_date and end_date:
+            range_start, range_end = start_date, end_date
+        else:
+            range_start, range_end = today, today
+
+        reward_qs = CoinRewardLog.objects.filter(
+            date__gte=range_start, date__lte=range_end
+        ).exclude(user__role='super_admin').select_related('user')
+        credit_qs = CoinRecharge.objects.filter(
+            source='admin_credit', status='success',
+            created_at__date__gte=range_start, created_at__date__lte=range_end,
+        ).select_related('user')
+
+        if role != 'all':
+            if role not in self.ROLE_LABELS:
+                return Response({'error': 'invalid role'}, status=400)
+            reward_qs = reward_qs.filter(user__role=role)
+            credit_qs = credit_qs.filter(user__role=role)
+
+        reward_total = reward_qs.aggregate(c=Sum('coins'))['c'] or 0
+        credit_total = credit_qs.aggregate(c=Sum('coins_credited'))['c'] or 0
+        total_transactions = reward_qs.count() + credit_qs.count()
+        recipient_ids = set(reward_qs.values_list('user_id', flat=True)) | set(credit_qs.values_list('user_id', flat=True))
+
+        combined = [
+            {'kind': 'reward', 'sort_key': r.created_at, 'user': r.user,
+             'coins': r.coins, 'label': dict(CoinRewardLog.REWARD_TYPES).get(r.reward_type), 'date': r.date}
+            for r in reward_qs.order_by('-created_at')
+        ] + [
+            {'kind': 'manual_credit', 'sort_key': c.created_at, 'user': c.user,
+             'coins': c.coins_credited, 'label': 'Manual Credit', 'date': c.created_at.date()}
+            for c in credit_qs.order_by('-created_at')
+        ]
+        combined.sort(key=lambda x: x['sort_key'], reverse=True)
+
+        if export_csv:
+            export_rows = combined[:REPORT_MAX_ROWS]
+            display_map = _bulk_user_display_map([row['user'] for row in export_rows])
+            buffer = _build_report_pdf(
+                title='Login Reward Transactions',
+                subtitle='Daily/streak login rewards plus manually sent AUG Coins, combined into one ledger.',
+                period_label=_period_label(period, start_date, end_date),
+                stats=[('Total Coins Given', f'{reward_total + credit_total:,}'), ('Transactions', total_transactions), ('Recipients', len(recipient_ids))],
+                columns=['Role', 'User ID', 'Name', 'Type', 'Coins', 'Date'],
+                rows=[
+                    [
+                        self.ROLE_LABELS.get(row['user'].role, row['user'].role),
+                        display_map.get(row['user'].id, {}).get('user_id_str') or row['user'].email,
+                        display_map.get(row['user'].id, {}).get('name') or row['user'].email,
+                        row['label'], f"{row['coins']:,}", row['date'].strftime('%d-%b-%Y'),
+                    ] for row in export_rows
+                ],
+                total_rows=len(combined),
+            )
+            fname_role = role if role != 'all' else 'all-roles'
+            return FileResponse(buffer, as_attachment=True, filename=f'login-reward-transactions-{fname_role}-{period}.pdf', content_type='application/pdf')
+
+        start = (page - 1) * page_size
+        page_rows = combined[start:start + page_size]
+        display_map = _bulk_user_display_map([row['user'] for row in page_rows])
+
+        return Response({
+            'role': role,
+            'period': period,
+            'total_coins': reward_total + credit_total,
+            'reward_coins': reward_total,
+            'manual_coins': credit_total,
+            'total_transactions': total_transactions,
+            'total_recipients': len(recipient_ids),
+            'page': page,
+            'has_more': start + page_size < len(combined),
+            'transactions': [
+                {
+                    'kind': row['kind'],
+                    'role': row['user'].role,
+                    'role_label': self.ROLE_LABELS.get(row['user'].role, row['user'].role),
+                    'user_id': display_map.get(row['user'].id, {}).get('user_id_str'),
+                    'name': display_map.get(row['user'].id, {}).get('name') or row['user'].email,
+                    'phone': display_map.get(row['user'].id, {}).get('phone'),
+                    'label': row['label'],
+                    'coins': row['coins'],
+                    'date': row['date'].isoformat(),
+                } for row in page_rows
+            ],
+        })
+
 
 # ── NEW: Retailer Promotion System ──
 class RetailerPromotionListView(APIView):

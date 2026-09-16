@@ -96,8 +96,8 @@ export default function CoinsReward() {
   return (
     <div className="rw-page">
       <style>{`
-        .rw-page{min-height:100vh;background:linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 48%,#E7EDEC 100%);color:#111817;font-family:"Manrope","Inter",system-ui,sans-serif;padding:32px 24px}
-        .rw-wrap{max-width:1200px;margin:0 auto}
+        .rw-page{min-height:100vh;background:linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 48%,#E7EDEC 100%);color:#111817;font-family:"Manrope","Inter",system-ui,sans-serif;padding:32px 0}
+        .rw-wrap{width:min(1500px,calc(100% - 48px));margin:0 auto}
         .rw-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:24px;flex-wrap:wrap}
         .rw-kicker{font-size:11px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:#BB8958;margin-bottom:6px}
         .rw-title{margin:0;font-size:32px;line-height:1.1;color:#0C4044;font-weight:900;letter-spacing:-0.02em}
@@ -141,7 +141,8 @@ export default function CoinsReward() {
         .rw-badge{display:inline-block;background:rgba(12,64,68,.08);color:#0C4044;border:1px solid rgba(12,64,68,.2);border-radius:999px;padding:4px 12px;font-size:12px;font-weight:900}
         .rw-reward-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:rgba(187,137,88,0.12);color:#9F6130;border:1px solid rgba(187,137,88,0.3);font-weight:850;font-size:12px}
         @media(max-width:768px){
-          .rw-page{padding:20px 14px}
+          .rw-page{padding:20px 0}
+          .rw-wrap{width:calc(100% - 28px)}
           .rw-head{align-items:stretch;flex-direction:column;gap:14px}
           .rw-actions{display:grid;grid-template-columns:1fr auto;width:100%}
           .rw-select{width:100%}

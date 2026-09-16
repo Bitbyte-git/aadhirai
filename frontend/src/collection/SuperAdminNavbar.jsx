@@ -412,6 +412,7 @@ export default function SuperAdminNavbar({
   ]
   const reports = [
     ['Login Reward', () => navigate('/coins-reward')],
+    ['Login Reward Transactions', () => navigate('/login-reward-transactions')],
     ['Sales Report', () => navigate('/sales-report')],
     ['Login Active', () => navigate('/login-active')],
     ['Login Inactive', () => navigate('/login-inactive')],

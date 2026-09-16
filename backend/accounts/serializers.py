@@ -680,14 +680,18 @@ class CoinRequestSerializer(serializers.ModelSerializer):
     requested_to_name = serializers.SerializerMethodField()
     requested_to_phone = serializers.SerializerMethodField()
     requested_to_role = serializers.CharField(source='requested_to.role', read_only=True)
+    approved_by_email = serializers.EmailField(source='approved_by.email', read_only=True)
+    approved_by_role = serializers.CharField(source='approved_by.role', read_only=True)
+    approved_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = CoinRequest
         fields = ['id', 'requested_by', 'requested_by_email', 'requested_by_id_str',
                   'requested_by_name', 'requested_by_phone', 'requested_by_role',
                   'requested_to', 'requested_to_email', 'requested_to_id_str', 'requested_to_name', 'requested_to_phone', 'requested_to_role',
+                  'approved_by', 'approved_by_email', 'approved_by_role', 'approved_by_name',
                   'status', 'reject_reason', 'items', 'created_at', 'sent_at']
-        read_only_fields = ['requested_by', 'requested_to', 'status', 'reject_reason', 'created_at', 'sent_at']
+        read_only_fields = ['requested_by', 'requested_to', 'approved_by', 'status', 'reject_reason', 'created_at', 'sent_at']
 
     def _get_profile(self, obj):
         return self._get_profile_by_user(obj.requested_by)
@@ -767,6 +771,16 @@ class CoinRequestSerializer(serializers.ModelSerializer):
             return getattr(p, 'mobile_number', None)
         return None
 
+    def get_approved_by_name(self, obj):
+        if not obj.approved_by:
+            return None
+        p = self._get_profile_by_user(obj.approved_by)
+        if not p:
+            if getattr(obj.approved_by, 'role', None) == 'super_admin':
+                return 'Super Admin'
+            return getattr(obj.approved_by, 'email', '')
+        return f"{getattr(p, 'first_name', '')} {getattr(p, 'last_name', '') or ''}".strip() or getattr(obj.approved_by, 'email', '')
+
     def create(self, validated_data):
         items_data = validated_data.pop('items')
         req = CoinRequest.objects.create(**validated_data)
@@ -833,14 +847,18 @@ class JewelryRequestSerializer(serializers.ModelSerializer):
     requested_to_name = serializers.SerializerMethodField()
     requested_to_phone = serializers.SerializerMethodField()
     requested_to_role = serializers.CharField(source='requested_to.role', read_only=True)
+    approved_by_email = serializers.EmailField(source='approved_by.email', read_only=True)
+    approved_by_role = serializers.CharField(source='approved_by.role', read_only=True)
+    approved_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = JewelryRequest
         fields = ['id', 'requested_by', 'requested_by_email', 'requested_by_id_str',
                   'requested_by_name', 'requested_by_phone', 'requested_by_role',
                   'requested_to', 'requested_to_email', 'requested_to_id_str', 'requested_to_name', 'requested_to_phone', 'requested_to_role',
+                  'approved_by', 'approved_by_email', 'approved_by_role', 'approved_by_name',
                   'status', 'reject_reason', 'items', 'created_at', 'sent_at']
-        read_only_fields = ['requested_by', 'requested_to', 'status', 'reject_reason', 'created_at', 'sent_at']
+        read_only_fields = ['requested_by', 'requested_to', 'approved_by', 'status', 'reject_reason', 'created_at', 'sent_at']
 
     def _get_profile_by_user(self, user):
         if not user:
@@ -909,4 +927,14 @@ class JewelryRequestSerializer(serializers.ModelSerializer):
         p = self._get_profile_by_user(obj.requested_to)
         if not p:
             return getattr(obj.requested_to, 'phone_number', '') or ''
-        return getattr(p, 'mobile_number', '') or getattr(obj.requested_to, 'phone_number', '') or ''
+        return getattr(p, 'mobile_number', '') or getattr(obj.requested_to, 'phone_number', '') or ''
+
+    def get_approved_by_name(self, obj):
+        if not obj.approved_by:
+            return ''
+        p = self._get_profile_by_user(obj.approved_by)
+        if not p:
+            if getattr(obj.approved_by, 'role', None) == 'super_admin':
+                return 'Super Admin'
+            return getattr(obj.approved_by, 'email', '')
+        return f"{getattr(p, 'first_name', '')} {getattr(p, 'last_name', '') or ''}".strip() or getattr(obj.approved_by, 'email', '')

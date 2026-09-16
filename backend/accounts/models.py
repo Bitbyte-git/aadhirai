@@ -938,6 +938,7 @@ class CoinRequest(models.Model):
 
     requested_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='coin_requests_made')
     requested_to = models.ForeignKey(User, on_delete=models.CASCADE, related_name='coin_requests_received')
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='coin_requests_approved')
 
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     reject_reason = models.TextField(null=True, blank=True)
@@ -995,6 +996,7 @@ class JewelryRequest(models.Model):
 
     requested_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='jewelry_requests_made')
     requested_to = models.ForeignKey(User, on_delete=models.CASCADE, related_name='jewelry_requests_received')
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='jewelry_requests_approved')
 
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     reject_reason = models.TextField(null=True, blank=True)
@@ -1041,6 +1043,7 @@ class CoinRecharge(models.Model):
         ('commission', 'Commission'),
         ('purchase', 'Purchase'),
         ('admin', 'BBTEAM'),
+        ('reward', 'Login Reward'),
         ('other', 'Other'),
     ]
     STATUS_CHOICES = [
@@ -1058,6 +1061,7 @@ class CoinRecharge(models.Model):
         ('commission', 'Commission'),
         ('purchase', 'Purchase'),
         ('admin_credit', 'BBTEAM Credit'),
+        ('reward', 'Login Reward'),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='coin_recharges')

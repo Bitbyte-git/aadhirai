@@ -26,6 +26,9 @@ const MethodIcon = ({ type, size = 18 }) => {
   if (type === 'commission') return (
     <svg {...common}><path d="M20.8 5.6a5.1 5.1 0 0 0-7.2 0L12 7.2l-1.6-1.6a5.1 5.1 0 0 0-7.2 7.2L12 21l8.8-8.2a5.1 5.1 0 0 0 0-7.2Z" /></svg>
   )
+  if (type === 'reward') return (
+    <svg {...common}><polyline points="20 12 20 22 4 22 4 12" /><rect x="2" y="7" width="20" height="5" /><line x1="12" y1="22" x2="12" y2="7" /><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7Z" /><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7Z" /></svg>
+  )
   return (
     <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>
   )
@@ -104,6 +107,7 @@ const rechargeStyles = `
   .rc-method-tag.other{background:rgba(7,59,63,.08);color:${RED}}
   .rc-method-tag.commission{background:rgba(139,92,246,.12);color:#8b5cf6}
   .rc-method-tag.purchase{background:rgba(229,62,62,.1);color:#c0392b}
+  .rc-method-tag.reward{background:rgba(22,118,79,.12);color:#16764F}
   .rc-history-source{color:${GOLD};font-size:11px;font-weight:700;margin-top:2px}
   .rc-direction-badge{display:inline-block;font-size:9px;font-weight:900;padding:3px 8px;border-radius:20px;letter-spacing:.4px;margin-left:8px}
   .rc-direction-badge.credit{background:rgba(22,163,74,.12);color:#16a34a}
@@ -489,7 +493,7 @@ const handleToggleAutopay = async () => {
                 <div className="rc-empty">No recharges yet</div>
               ) : (
                 wallet.history.map(h => {
-                  const methodColors = { card: '#2563eb', upi: '#9333ea', netbanking: '#ea580c', wallet: '#0d9488', other: RED, commission: '#8b5cf6', purchase: '#c0392b' }
+                  const methodColors = { card: '#2563eb', upi: '#9333ea', netbanking: '#ea580c', wallet: '#0d9488', other: RED, commission: '#8b5cf6', purchase: '#c0392b', reward: '#16764F' }
                   return (
                     <div key={h.id} className="rc-history-row">
                       <div className="rc-history-icon" style={{ background: methodColors[h.payment_method] || RED }}>
@@ -513,6 +517,9 @@ const handleToggleAutopay = async () => {
                         )}
                         {h.type === 'admin_credit' && (
                           <div className="rc-history-source">Sent by {h.source}</div>
+                        )}
+                        {h.type === 'reward' && (
+                          <div className="rc-history-source">Login Reward</div>
                         )}
                       </div>
                       <span className={`rc-method-tag ${h.payment_method}`}>{h.payment_method === 'admin' ? 'BBTEAM' : h.payment_method}</span>
@@ -579,7 +586,7 @@ const handleToggleAutopay = async () => {
             <div className="rc-empty">No recharges yet</div>
           ) : (
             (() => {
-              const methodColors = { card: '#2563eb', upi: '#9333ea', netbanking: '#ea580c', wallet: '#0d9488', other: RED, commission: '#8b5cf6', purchase: '#c0392b' }
+              const methodColors = { card: '#2563eb', upi: '#9333ea', netbanking: '#ea580c', wallet: '#0d9488', other: RED, commission: '#8b5cf6', purchase: '#c0392b', reward: '#16764F' }
               let lastGroup = null
               return fullHistory.map(h => {
                 const group = dateGroupLabel(h.created_at)
@@ -610,6 +617,9 @@ const handleToggleAutopay = async () => {
                         )}
                         {h.type === 'admin_credit' && (
                           <div className="rc-history-source">Sent by {h.source}</div>
+                        )}
+                        {h.type === 'reward' && (
+                          <div className="rc-history-source">Login Reward</div>
                         )}
                       </div>
                       <span className={`rc-method-tag ${h.payment_method}`}>{h.payment_method === 'admin' ? 'BBTEAM' : h.payment_method}</span>

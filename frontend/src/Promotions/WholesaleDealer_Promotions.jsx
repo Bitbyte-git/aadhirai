@@ -118,46 +118,71 @@ export default function WholesaleDealerPromotions() {
 
   // Key Aggregations
   const pendingCount = rows.filter((r) => r.status === "pending" || r.status === "none").length;
+  const totalVolume = rows.reduce((sum, r) => sum + (Number(r.total_value) || 0), 0);
 
-  const exportCSV = () => {
-    if (!filteredRows.length) return;
-    const headers = [
-      "S.No",
-      "Retailer ID",
-      "First Name",
-      "Last Name",
-      "Email",
-      "Phone Number",
-      "Today's Customers",
-      "Total Customers",
-      "Total Sales Value (INR)",
-      "Status",
-    ];
+  const [downloadingReport, setDownloadingReport] = useState(false);
 
-    const csvRows = filteredRows.map((r, i) => [
-      i + 1,
-      `"${r.promotor_id || ""}"`,
-      `"${(r.first_name || "").replace(/"/g, '""')}"`,
-      `"${(r.last_name || "").replace(/"/g, '""')}"`,
-      `"${(r.email || "").replace(/"/g, '""')}"`,
-      `"${r.mobile_number || ""}"`,
-      r.today_customers || 0,
-      r.total_customers || 0,
-      r.total_value || 0,
-      `"${r.status || "pending"}"`,
-    ]);
+  const downloadReport = async () => {
+    if (!filteredRows.length || downloadingReport) return;
+    setDownloadingReport(true);
+    try {
+      const columns = [
+        "S.No",
+        "Retailer ID",
+        "Name",
+        "Email",
+        "Phone Number",
+        "Today's Customers",
+        "Total Customers",
+        "Total Sales Value",
+        "Status",
+      ];
 
-    const blob = new Blob([[headers.join(","), ...csvRows.map((r) => r.join(","))].join("\n")], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `wholesale_dealer_promotions_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast("Exported Wholesale Dealer Promotions CSV");
+      const rowsPayload = filteredRows.map((r, i) => [
+        i + 1,
+        r.promotor_id || "—",
+        `${r.first_name || ""} ${r.last_name || ""}`.trim() || "—",
+        r.email || "—",
+        r.mobile_number || "—",
+        r.today_customers || 0,
+        r.total_customers || 0,
+        money(r.total_value || 0),
+        (STATUS_CFG[r.status] || STATUS_CFG.none).label,
+      ]);
+
+      const statsPayload = [
+        { label: "Total Candidates", value: rows.length },
+        { label: "Pending Review", value: pendingCount },
+        { label: "Approved", value: approvedCount },
+        { label: "Total Volume", value: money(totalVolume) },
+      ];
+
+      const res = await api.post(
+        "/generic-table-pdf/",
+        {
+          title: "Wholesale Dealer Promotions Report",
+          subtitle: "Retailers whose customer downline crossed ₹10,00,000 sales or 15+ customers.",
+          period_label: `Generated ${new Date().toLocaleDateString("en-IN")}`,
+          stats: statsPayload,
+          columns,
+          rows: rowsPayload,
+        },
+        { responseType: "blob" }
+      );
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `wholesale_dealer_promotions_${new Date().toISOString().slice(0, 10)}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast("Report downloaded successfully!");
+    } catch {
+      showToast("Could not download the report — try again.", "error");
+    }
+    setDownloadingReport(false);
   };
 
   return (
@@ -995,13 +1020,17 @@ export default function WholesaleDealerPromotions() {
               <span>{loading ? "Refreshing..." : "Refresh"}</span>
             </button>
 
-            <button className="wdp-export-btn" onClick={exportCSV} disabled={loading || !filteredRows.length}>
+            <button
+              className="wdp-export-btn"
+              onClick={downloadReport}
+              disabled={loading || downloadingReport || !filteredRows.length}
+            >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              <span>Export CSV</span>
+              <span>{downloadingReport ? "Preparing..." : "Download Report"}</span>
             </button>
           </div>
         </div>

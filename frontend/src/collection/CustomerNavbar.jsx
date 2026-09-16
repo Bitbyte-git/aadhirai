@@ -994,6 +994,21 @@ export default function CustomerNavbar() {
   const megaRefs = useRef({});
   const recognitionRef = useRef(null);
   const [loginDropOpen, setLoginDropOpen] = useState(false);
+  const loginHideTimerRef = useRef(null);
+  const openLoginDrop = () => {
+    if (loginHideTimerRef.current) {
+      clearTimeout(loginHideTimerRef.current);
+      loginHideTimerRef.current = null;
+    }
+    setLoginDropOpen(true);
+  };
+  const scheduleCloseLoginDrop = () => {
+    if (loginHideTimerRef.current) clearTimeout(loginHideTimerRef.current);
+    loginHideTimerRef.current = setTimeout(() => setLoginDropOpen(false), 2000);
+  };
+  useEffect(() => () => {
+    if (loginHideTimerRef.current) clearTimeout(loginHideTimerRef.current);
+  }, []);
   const goLogin = () => navigate("/login");
 
   const requireLogin = (route) => {
@@ -3180,8 +3195,8 @@ export default function CustomerNavbar() {
               {!isLoggedIn && (
                 <div
                   className="exact-login-popover-wrap"
-                  onMouseEnter={() => setLoginDropOpen(true)}
-                  onMouseLeave={() => setLoginDropOpen(false)}
+                  onMouseEnter={openLoginDrop}
+                  onMouseLeave={scheduleCloseLoginDrop}
                 >
                   <button
                     className="login-pill"

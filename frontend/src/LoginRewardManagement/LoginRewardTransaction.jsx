@@ -45,7 +45,7 @@ const styles = `
   .lrt-date-to{color:${MUTED};font-weight:800;font-size:12px}
   .lrt-apply-btn{height:38px;padding:0 18px;border-radius:20px;border:none;background:${ACCENT};color:#fff;font-weight:900;font-size:12px;cursor:pointer;white-space:nowrap}
   .lrt-apply-btn:hover{background:${DEEP}}
-  .lrt-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+  .lrt-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:24px}
   .lrt-card{border:1px solid rgba(189,207,206,.8);border-radius:14px;background:#fff;padding:20px;box-shadow:0 12px 30px rgba(12,64,68,.06);box-sizing:border-box}
   .lrt-card-label{font-size:10.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:${MUTED};margin-bottom:8px}
   .lrt-card-value{font-family:"Playfair Display",serif;font-size:23px;color:${PRIMARY};font-weight:700}
@@ -75,7 +75,6 @@ const styles = `
   .lrt-error{display:flex;flex-direction:column;align-items:center;gap:12px;padding:60px 20px;color:${MUTED};text-align:center}
   .lrt-error-title{color:${PRIMARY};font-weight:900;font-size:15px}
   .lrt-retry-btn{padding:10px 22px;border-radius:20px;border:none;background:${PRIMARY};color:#fff;font-weight:800;font-size:12.5px;cursor:pointer}
-  @media(max-width:900px){.lrt-cards{grid-template-columns:1fr 1fr}}
   @media(max-width:768px){
     .lrt-main{width:100%!important;padding:20px 14px 60px!important}
     .lrt-headrow{flex-direction:column!important;align-items:stretch!important}
@@ -257,7 +256,7 @@ export default function LoginRewardTransaction() {
         {loading ? (
           <>
             <div className="lrt-cards">
-              {[0, 1, 2, 3].map(i => (
+              {[0, 1].map(i => (
                 <div className="lrt-card" key={i} style={{ borderStyle: 'dashed' }}>
                   <SkeletonText width="60%" height="10px" />
                   <div style={{ marginTop: 10 }}><SkeletonText width="80%" height="20px" /></div>
@@ -296,14 +295,6 @@ export default function LoginRewardTransaction() {
               <div className="lrt-card">
                 <div className="lrt-card-label">Login Reward Coins</div>
                 <div className="lrt-card-value">{(summary.reward_coins || 0).toLocaleString('en-IN')}</div>
-              </div>
-              <div className="lrt-card">
-                <div className="lrt-card-label">Manually Sent Coins</div>
-                <div className="lrt-card-value">{(summary.manual_coins || 0).toLocaleString('en-IN')}</div>
-              </div>
-              <div className="lrt-card">
-                <div className="lrt-card-label">Recipients</div>
-                <div className="lrt-card-value">{summary.total_recipients}</div>
               </div>
             </div>
 

@@ -21,10 +21,11 @@ import {
   PackageIcon,
   ArrowUpRightIcon,
   ArrowDownLeftIcon,
+  UsersIcon,
 } from "../components/SvgIcons";
 
 const ROLE_BADGE_CONFIG = {
-  super_admin: { bg: "#FEF3C7", color: "#92400E", border: "#FDE68A", label: "Super Admin" },
+  super_admin: { bg: "#EFF6F6", color: "#073B3F", border: "#CEE3E1", label: "Super Admin" },
   admin: { bg: "#F3E8FF", color: "#6B21A8", border: "#E9D5FF", label: "Admin" },
   dealer: { bg: "#E0F2FE", color: "#0369A1", border: "#BAE6FD", label: "Dealer" },
   sub_dealer: { bg: "#ECFDF5", color: "#047857", border: "#A7F3D0", label: "Sub Dealer" },
@@ -32,9 +33,9 @@ const ROLE_BADGE_CONFIG = {
 };
 
 const STATUS_CFG = {
-  pending: { color: "#B45309", bg: "#FEF3C7", border: "#FDE68A", label: "Pending", icon: ClockIcon },
-  sent: { color: "#137333", bg: "#E6F4EA", border: "#CEEAD6", label: "Approved", icon: CheckIcon },
-  rejected: { color: "#DC2626", bg: "#FEF2F2", border: "#FCA5A5", label: "Declined", icon: CloseIcon },
+  pending: { color: "#0369A1", bg: "#F0F9FF", border: "#BAE6FD", label: "Pending", icon: ClockIcon },
+  sent: { color: "#166534", bg: "#E6F4EA", border: "#BBF7D0", label: "Approved", icon: CheckIcon },
+  rejected: { color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", label: "Declined", icon: CloseIcon },
 };
 
 export default function JewelleryTransactions() {
@@ -42,13 +43,17 @@ export default function JewelleryTransactions() {
   const currentRole = localStorage.getItem("role") || "";
   const isSuperAdmin = currentRole === "super_admin";
   const myEmail = (localStorage.getItem("email") || "").toLowerCase();
+  const currentUserId = Number(
+    localStorage.getItem("user_id") || localStorage.getItem("id") || 0
+  );
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
   const [period, setPeriod] = useState("all"); // 'all' (default) | 'day' | 'week' | 'month' | 'year' | 'custom'
-  const [flowFilter, setFlowFilter] = useState("all"); // 'all' | 'mint' | 'disbursed' (superadmin) OR 'all' | 'inward' | 'outward' (downlines)
+  const [activeCard, setActiveCard] = useState("my_transactions"); // 'my_transactions' | 'leader_transactions'
+  const [leaderRoleFilter, setLeaderRoleFilter] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -77,7 +82,7 @@ export default function JewelleryTransactions() {
     setError("");
     setVisibleLimit(100);
     try {
-      const params = { box: "history", status: filter, period };
+      const params = { box: "history", status: filter, period, limit: 500 };
       if (period === "custom") {
         if (startDate) params.start_date = startDate;
         if (endDate) params.end_date = endDate;
@@ -107,49 +112,383 @@ export default function JewelleryTransactions() {
     return () => clearTimeout(handler);
   }, [filter, searchTerm, period, startDate, endDate]);
 
-  const mintCount = useMemo(() => {
-    return requests.filter((r) => r.reject_reason === "MASTER_MINT").length;
-  }, [requests]);
+  // Classification logic for My Transactions vs Leader Transactions
+  const isMyTransaction = (r) => {
+    if (isSuperAdmin) {
+      return (
+        r.reject_reason === "MASTER_MINT" ||
+        r.requested_by_role === "super_admin" ||
+        r.requested_to_role === "super_admin" ||
+        r.approved_by_role === "super_admin" ||
+        (currentUserId && (
+          r.requested_by === currentUserId ||
+          r.requested_to === currentUserId ||
+          r.approved_by === currentUserId
+        )) ||
+        (myEmail && (
+          (r.requested_by_email || "").toLowerCase() === myEmail ||
+          (r.requested_to_email || "").toLowerCase() === myEmail ||
+          (r.approved_by_email || "").toLowerCase() === myEmail
+        ))
+      );
+    }
+    // For Downline Leaders: Approved by me OR Buy requests made by me
+    const isBuyer =
+      (currentUserId && r.requested_by === currentUserId) ||
+      (myEmail && (r.requested_by_email || "").toLowerCase() === myEmail);
+    const isApprover =
+      (currentUserId && (r.requested_to === currentUserId || r.approved_by === currentUserId)) ||
+      (myEmail && (
+        (r.requested_to_email || "").toLowerCase() === myEmail ||
+        (r.approved_by_email || "").toLowerCase() === myEmail
+      ));
+    return isBuyer || isApprover;
+  };
 
-  const disbursedCount = useMemo(() => {
-    return requests.filter(
-      (r) => r.status === "sent" && r.reject_reason !== "MASTER_MINT"
-    ).length;
-  }, [requests]);
+  const isLeaderTransaction = (r) => {
+    return !isMyTransaction(r);
+  };
 
-  const inwardCount = useMemo(() => {
-    return requests.filter(
-      (r) => (r.requested_by_email || "").toLowerCase() === myEmail
-    ).length;
-  }, [requests, myEmail]);
+  const LEADER_ROLES = [
+    { key: "all", label: "All" },
+    { key: "admin", label: "Super Stockist" },
+    { key: "dealer", label: "Distributor" },
+    { key: "sub_dealer", label: "Wholesale Dealer" },
+    { key: "promotor", label: "Retailer" },
+    { key: "customer", label: "Customer" },
+  ];
 
-  const outwardCount = useMemo(() => {
-    return requests.filter(
-      (r) => (r.requested_to_email || "").toLowerCase() === myEmail
-    ).length;
-  }, [requests, myEmail]);
+  const matchesLeaderRole = (r, roleKey) => {
+    if (!roleKey || roleKey === "all") return true;
+    if (roleKey === "customer") {
+      return r.requested_by_role === "customer" || r.requested_to_role === "customer";
+    }
+    return (
+      r.approved_by_role === roleKey ||
+      r.requested_to_role === roleKey ||
+      r.requested_by_role === roleKey
+    );
+  };
+
+  const myTxCount = useMemo(() => {
+    return requests.filter(isMyTransaction).length;
+  }, [requests, isSuperAdmin, currentUserId, myEmail]);
+
+  const leaderTxCount = useMemo(() => {
+    return requests.filter(isLeaderTransaction).length;
+  }, [requests, isSuperAdmin, currentUserId, myEmail]);
+
+  const getLeaderRoleCount = (roleKey) => {
+    const baseList = requests.filter(isLeaderTransaction);
+    if (roleKey === "all") return baseList.length;
+    return baseList.filter((r) => matchesLeaderRole(r, roleKey)).length;
+  };
+
+  const cardFilteredList = useMemo(() => {
+    if (activeCard === "my_transactions") {
+      return requests.filter(isMyTransaction);
+    } else {
+      let list = requests.filter(isLeaderTransaction);
+      if (leaderRoleFilter !== "all") {
+        list = list.filter((r) => matchesLeaderRole(r, leaderRoleFilter));
+      }
+      return list;
+    }
+  }, [requests, activeCard, leaderRoleFilter, isSuperAdmin, currentUserId, myEmail]);
+
+  const activeStatusCounts = useMemo(() => {
+    return {
+      total: cardFilteredList.length,
+      pending: cardFilteredList.filter((r) => r.status === "pending").length,
+      sent: cardFilteredList.filter((r) => r.status === "sent").length,
+      rejected: cardFilteredList.filter((r) => r.status === "rejected").length,
+    };
+  }, [cardFilteredList]);
 
   const displayedRequests = useMemo(() => {
-    let list = requests;
-    if (isSuperAdmin && flowFilter !== "all") {
-      if (flowFilter === "mint") {
-        list = list.filter((r) => r.reject_reason === "MASTER_MINT");
-      } else if (flowFilter === "disbursed") {
-        list = list.filter((r) => r.reject_reason !== "MASTER_MINT");
-      }
-    } else if (!isSuperAdmin && flowFilter !== "all") {
-      if (flowFilter === "inward") {
-        list = list.filter(
-          (r) => (r.requested_by_email || "").toLowerCase() === myEmail
+    let list = cardFilteredList;
+
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase().trim();
+      list = list.filter((r) => {
+        const idStr = String(r.id || "");
+        const byName = (r.requested_by_name || "").toLowerCase();
+        const byEmail = (r.requested_by_email || "").toLowerCase();
+        const byPhone = (r.requested_by_phone || "").toLowerCase();
+        const toName = (r.requested_to_name || "").toLowerCase();
+        const toEmail = (r.requested_to_email || "").toLowerCase();
+        const itemsStr = (r.items || [])
+          .map((i) => `${i.product?.name || ""} ${i.product?.product_code || ""}`)
+          .join(" ")
+          .toLowerCase();
+        return (
+          idStr.includes(q) ||
+          byName.includes(q) ||
+          byEmail.includes(q) ||
+          byPhone.includes(q) ||
+          toName.includes(q) ||
+          toEmail.includes(q) ||
+          itemsStr.includes(q)
         );
-      } else if (flowFilter === "outward") {
-        list = list.filter(
-          (r) => (r.requested_to_email || "").toLowerCase() === myEmail
-        );
-      }
+      });
     }
+
     return list;
-  }, [requests, flowFilter, myEmail, isSuperAdmin]);
+  }, [cardFilteredList, searchTerm]);
+
+  // Export Formatted Document / PDF Report
+  const exportDocument = () => {
+    if (!displayedRequests.length) {
+      alert("No transaction records to export");
+      return;
+    }
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to open the jewellery transaction document.");
+      return;
+    }
+
+    const rowsHtml = displayedRequests
+      .map((r) => {
+        const itemsFormatted = (r.items || [])
+          .map(
+            (i) =>
+              `<div><strong>${i.product?.name || "Jewellery Item"}</strong> [${i.product?.product_code || ""}] × ${i.qty} (${i.product?.metal || ""} ${i.product?.grade || ""})</div>`
+          )
+          .join("");
+        const statusColor =
+          r.status === "sent"
+            ? "#166534"
+            : r.status === "rejected"
+            ? "#DC2626"
+            : "#0369A1";
+        const statusBg =
+          r.status === "sent"
+            ? "#E6F4EA"
+            : r.status === "rejected"
+            ? "#FEF2F2"
+            : "#F0F9FF";
+        const statusBorder =
+          r.status === "sent"
+            ? "#BBF7D0"
+            : r.status === "rejected"
+            ? "#FECACA"
+            : "#BAE6FD";
+        const statusLabel =
+          r.status === "sent"
+            ? "Approved"
+            : r.status === "rejected"
+            ? "Declined"
+            : "Pending";
+        const approverText = r.approved_by_name
+          ? `${r.approved_by_name} (${r.approved_by_role === 'super_admin' ? 'Super Admin' : (r.approved_by_role || 'Approver')})`
+          : r.requested_to_name
+          ? `${r.requested_to_name} (${r.requested_to_role || 'Approver'})`
+          : "Direct Upstream";
+
+        return `
+          <tr style="border-bottom: 1px solid #E2E8F0;">
+            <td style="padding: 10px 12px; font-family: monospace; font-size: 12px; color: #073B3F; font-weight: 700;">#${r.id}</td>
+            <td style="padding: 10px 12px; font-size: 12px; color: #334155; white-space: nowrap;">${new Date(r.created_at).toLocaleString("en-IN")}</td>
+            <td style="padding: 10px 12px; font-size: 12px; color: #0F172A;">
+              <strong>${r.requested_by_name || r.requested_by_email}</strong>
+              <div style="font-size: 11px; color: #64748B;">${r.requested_by_id_str ? `[${r.requested_by_id_str}] ` : ''}${r.requested_by_role || ''}</div>
+            </td>
+            <td style="padding: 10px 12px; font-size: 12px; color: #0F172A;">
+              ${approverText}
+            </td>
+            <td style="padding: 10px 12px; font-size: 12px; color: #0F172A;">
+              ${itemsFormatted || '-'}
+            </td>
+            <td style="padding: 10px 12px; font-size: 12px; text-align: center;">
+              <span style="display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; background: ${statusBg}; color: ${statusColor}; border: 1px solid ${statusBorder};">
+                ${statusLabel}
+              </span>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const approvedCount = displayedRequests.filter((r) => r.status === "sent").length;
+    const pendingCount = displayedRequests.filter((r) => r.status === "pending").length;
+    const rejectedCount = displayedRequests.filter((r) => r.status === "rejected").length;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Jewellery_Transactions_Audit_Report_${new Date().toISOString().slice(0, 10)}</title>
+          <style>
+            @media print {
+              @page { size: A4 landscape; margin: 15mm; }
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              .no-print { display: none !important; }
+            }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+              color: #0F172A;
+              margin: 0;
+              padding: 24px;
+              background: #FFFFFF;
+            }
+            .header-box {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              border-bottom: 2px solid #073B3F;
+              padding-bottom: 16px;
+              margin-bottom: 20px;
+            }
+            .title {
+              font-size: 22px;
+              font-weight: 800;
+              color: #073B3F;
+              margin: 0 0 4px;
+            }
+            .subtitle {
+              font-size: 13px;
+              color: #475569;
+              margin: 0;
+            }
+            .meta-box {
+              text-align: right;
+              font-size: 12px;
+              color: #475569;
+              line-height: 1.6;
+            }
+            .summary-cards {
+              display: flex;
+              gap: 12px;
+              margin-bottom: 20px;
+            }
+            .summary-card {
+              flex: 1;
+              background: #F8FAFA;
+              border: 1px solid #E2E8F0;
+              border-radius: 8px;
+              padding: 10px 14px;
+            }
+            .summary-card-title {
+              font-size: 11px;
+              font-weight: 700;
+              color: #64748B;
+              text-transform: uppercase;
+            }
+            .summary-card-value {
+              font-size: 20px;
+              font-weight: 800;
+              color: #073B3F;
+              margin-top: 2px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 10px;
+            }
+            th {
+              background: #073B3F;
+              color: #FFFFFF;
+              font-size: 11px;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+              padding: 10px 12px;
+              text-align: left;
+            }
+            .print-btn-bar {
+              position: sticky;
+              top: 0;
+              background: #073B3F;
+              color: #FFFFFF;
+              padding: 12px 24px;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              margin: -24px -24px 20px -24px;
+              z-index: 1000;
+            }
+            .btn {
+              padding: 8px 16px;
+              border-radius: 6px;
+              border: none;
+              font-size: 13px;
+              font-weight: 700;
+              cursor: pointer;
+            }
+            .btn-print { background: #CCA881; color: #073B3F; }
+            .btn-close { background: rgba(255,255,255,0.2); color: #FFFFFF; margin-left: 8px; }
+          </style>
+        </head>
+        <body>
+          <div class="print-btn-bar no-print">
+            <span style="font-weight: 700; font-size: 14px;">BitByte Jewellery Transaction Audit Document</span>
+            <div>
+              <button class="btn btn-print" onclick="window.print()">Print / Save as PDF</button>
+              <button class="btn btn-close" onclick="window.close()">Close</button>
+            </div>
+          </div>
+
+          <div class="header-box">
+            <div>
+              <h1 class="title">Jewellery Transaction Audit Report</h1>
+              <p class="subtitle">BitByte Marketing Ledger — Official Record of Jewellery Allocations & Transfers</p>
+            </div>
+            <div class="meta-box">
+              <div><strong>Generated Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+              <div><strong>Filter Period:</strong> ${period.toUpperCase()}</div>
+              <div><strong>Total Records:</strong> ${requests.length}</div>
+            </div>
+          </div>
+
+          <div class="summary-cards">
+            <div class="summary-card">
+              <div class="summary-card-title">Total Transactions</div>
+              <div class="summary-card-value">${requests.length}</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-card-title">Approved & Disbursed</div>
+              <div class="summary-card-value" style="color: #166534;">${approvedCount}</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-card-title">Pending Review</div>
+              <div class="summary-card-value" style="color: #0369A1;">${pendingCount}</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-card-title">Declined</div>
+              <div class="summary-card-value" style="color: #DC2626;">${rejectedCount}</div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Req #</th>
+                <th>Date & Time</th>
+                <th>Requester</th>
+                <th>Approver / Target</th>
+                <th>Jewellery Items</th>
+                <th style="text-align: center;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+
+          <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #E2E8F0; display: flex; justify-content: space-between; font-size: 11px; color: #94A3B8;">
+            <span>Confidential — BitByte Marketing Internal Audit Report</span>
+            <span>BitByte Marketing Technology Pvt. Ltd.</span>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
 
   // Export CSV
   const exportCSV = () => {
@@ -191,7 +530,10 @@ export default function JewelleryTransactions() {
       <style>{`
         .jt-page {
           min-height: 100vh;
-          background: #F4F8F8;
+          background: #F8FAF9;
+          background-image: 
+            radial-gradient(at 0% 0%, rgba(7, 59, 63, 0.05) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(204, 168, 129, 0.06) 0px, transparent 50%);
           padding: 24px 32px 60px;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           color: #111817;
@@ -247,6 +589,42 @@ export default function JewelleryTransactions() {
           font-size: 13px;
           font-weight: 700;
           cursor: pointer;
+          transition: all 180ms ease;
+          box-shadow: 0 4px 12px rgba(7, 59, 63, 0.15);
+        }
+
+        .jt-btn-export:hover:not(:disabled) {
+          background: #0C4E53;
+        }
+
+        .jt-btn-export:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+
+        .jt-btn-secondary {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 9px 16px;
+          background: #FFFFFF;
+          border: 1px solid #D6E2E1;
+          border-radius: 12px;
+          color: #073B3F;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 180ms ease;
+        }
+
+        .jt-btn-secondary:hover:not(:disabled) {
+          background: #F0F5F5;
+          border-color: #073B3F;
+        }
+
+        .jt-btn-secondary:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
         }
 
         /* Period filter bar */
@@ -324,43 +702,183 @@ export default function JewelleryTransactions() {
           outline: none;
         }
 
-        /* Stats Grid */
+        /* Stats Grid - 2 Interactive Cards */
         .jt-stats-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 16px;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 18px;
           margin-bottom: 24px;
         }
 
         .jt-stat-card {
           background: #FFFFFF;
-          border: 1px solid #E1EBEA;
+          border: 2px solid #E1EBEA;
           border-radius: 18px;
-          padding: 18px 20px;
+          padding: 20px 24px;
           box-shadow: 0 2px 12px rgba(7, 59, 63, 0.03);
+          cursor: pointer;
+          transition: all 180ms ease;
+          position: relative;
+          user-select: none;
+        }
+
+        .jt-stat-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 22px rgba(7, 59, 63, 0.08);
+        }
+
+        .jt-stat-card.active-my {
+          border-color: #073B3F;
+          background: linear-gradient(180deg, #F4F9F9 0%, #FFFFFF 100%);
+          box-shadow: 0 8px 24px rgba(7, 59, 63, 0.12);
+        }
+
+        .jt-stat-card.active-leader {
+          border-color: #0284C7;
+          background: linear-gradient(180deg, #F0F9FF 0%, #FFFFFF 100%);
+          box-shadow: 0 8px 24px rgba(2, 132, 199, 0.12);
+        }
+
+        .jt-stat-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 10px;
+        }
+
+        .jt-stat-label-wrap {
+          display: flex;
+          align-items: center;
+          gap: 10px;
         }
 
         .jt-stat-label {
-          font-size: 11.5px;
-          font-weight: 700;
+          font-size: 12px;
+          font-weight: 800;
           color: #5C706E;
           text-transform: uppercase;
+          letter-spacing: 0.06em;
+        }
+
+        .jt-stat-pill-active {
+          font-size: 10px;
+          font-weight: 800;
           letter-spacing: 0.05em;
-          margin-bottom: 6px;
+          padding: 3px 10px;
+          border-radius: 999px;
+          text-transform: uppercase;
+        }
+
+        .jt-stat-pill-active.my {
+          background: #073B3F;
+          color: #FFFFFF;
+        }
+
+        .jt-stat-pill-active.leader {
+          background: #0284C7;
+          color: #FFFFFF;
+        }
+
+        .jt-stat-icon-wrap {
+          width: 40px;
+          height: 40px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .jt-stat-icon-wrap.my {
+          background: #EFF6F6;
+        }
+
+        .jt-stat-icon-wrap.leader {
+          background: #E0F2FE;
         }
 
         .jt-stat-val {
-          font-size: 28px;
+          font-size: 32px;
           font-weight: 800;
-          color: #073B3F;
           line-height: 1;
         }
 
         .jt-stat-sub {
-          font-size: 12px;
+          font-size: 12.5px;
           color: #7A8987;
-          margin-top: 5px;
+          margin-top: 6px;
           font-weight: 600;
+        }
+
+        /* Leader Role Filter Bar */
+        .jt-leader-role-bar {
+          background: #F0F9FF;
+          border: 1px solid #BAE6FD;
+          border-radius: 14px;
+          padding: 12px 18px;
+          margin-bottom: 22px;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          flex-wrap: wrap;
+          box-shadow: 0 2px 8px rgba(2, 132, 199, 0.06);
+        }
+
+        .jt-leader-role-title {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 12px;
+          font-weight: 800;
+          color: #0369A1;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+
+        .jt-leader-role-pills {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .jt-role-pill-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          border-radius: 999px;
+          border: 1px solid #BAE6FD;
+          background: #FFFFFF;
+          color: #0369A1;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 140ms ease;
+        }
+
+        .jt-role-pill-btn:hover {
+          background: #E0F2FE;
+          border-color: #0284C7;
+        }
+
+        .jt-role-pill-btn.active {
+          background: #0284C7;
+          border-color: #0284C7;
+          color: #FFFFFF;
+          box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+        }
+
+        .jt-role-pill-count {
+          padding: 1px 6px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 800;
+          background: rgba(0, 0, 0, 0.08);
+        }
+
+        .jt-role-pill-btn.active .jt-role-pill-count {
+          background: rgba(255, 255, 255, 0.25);
+          color: #FFFFFF;
         }
 
         /* Controls: Search + Status Filter Pills + View Mode */
@@ -574,29 +1092,11 @@ export default function JewelleryTransactions() {
             <button
               type="button"
               className="jt-btn-export"
-              disabled={requests.length === 0}
-              onClick={exportCSV}
+              disabled={displayedRequests.length === 0}
+              onClick={exportDocument}
+              title="Download or Print Formatted Report / PDF"
             >
-              <DownloadIcon size={14} color="#FFFFFF" /> Export CSV
-            </button>
-            <button
-              type="button"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "9px 16px",
-                background: "#FFFFFF",
-                border: "1px solid #D6E2E1",
-                borderRadius: "12px",
-                color: "#073B3F",
-                fontSize: "13px",
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-              onClick={() => navigate("/available-jewellery")}
-            >
-              <JewelryIcon size={14} color="#073B3F" /> Available Jewellery
+              <DownloadIcon size={14} color="#FFFFFF" /> Download Report
             </button>
           </div>
         </div>
@@ -646,48 +1146,85 @@ export default function JewelleryTransactions() {
           )}
         </div>
 
-        {/* 4 Stat Cards */}
+        {/* 2 Interactive Cards: My Transactions & Leader Transactions */}
         <div className="jt-stats-grid">
-          <div className="jt-stat-card" style={{ borderLeft: "4px solid #073B3F" }}>
-            <div className="jt-stat-label">Total Transactions</div>
-            <div className="jt-stat-val">{statusCounts.total || 0}</div>
+          {/* Card 1: My Transactions */}
+          <div
+            className={`jt-stat-card ${activeCard === "my_transactions" ? "active-my" : ""}`}
+            onClick={() => setActiveCard("my_transactions")}
+          >
+            <div className="jt-stat-top">
+              <div className="jt-stat-label-wrap">
+                <span className="jt-stat-label">My Transactions</span>
+                {activeCard === "my_transactions" && (
+                  <span className="jt-stat-pill-active my">Active View</span>
+                )}
+              </div>
+              <div className="jt-stat-icon-wrap my">
+                <PackageIcon size={20} color="#073B3F" />
+              </div>
+            </div>
+            <div className="jt-stat-val" style={{ color: "#073B3F" }}>{myTxCount}</div>
             <div className="jt-stat-sub">
-              {period === "day"
-                ? "Today's logged transfers"
-                : period === "week"
-                ? "This week's transfers"
-                : period === "month"
-                ? "This month's transfers"
-                : period === "year"
-                ? "This year's transfers"
-                : "Selected period"}
+              {isSuperAdmin
+                ? "Master stock additions & Super Stockist transfers"
+                : "Transactions approved by me & my buy orders"}
             </div>
           </div>
 
-          <div className="jt-stat-card" style={{ borderLeft: "4px solid #D97706" }}>
-            <div className="jt-stat-label">Pending Review</div>
-            <div className="jt-stat-val">{statusCounts.pending || 0}</div>
-            <div className="jt-stat-sub" style={{ color: "#B45309" }}>
-              {statusCounts.pending_pieces ? `${statusCounts.pending_pieces} pieces awaiting approval` : "Awaiting decision"}
+          {/* Card 2: Leader Transactions */}
+          <div
+            className={`jt-stat-card ${activeCard === "leader_transactions" ? "active-leader" : ""}`}
+            onClick={() => setActiveCard("leader_transactions")}
+          >
+            <div className="jt-stat-top">
+              <div className="jt-stat-label-wrap">
+                <span className="jt-stat-label">Leader Transactions</span>
+                {activeCard === "leader_transactions" && (
+                  <span className="jt-stat-pill-active leader">Active View</span>
+                )}
+              </div>
+              <div className="jt-stat-icon-wrap leader">
+                <UsersIcon size={20} color="#0284C7" />
+              </div>
             </div>
-          </div>
-
-          <div className="jt-stat-card" style={{ borderLeft: "4px solid #166534" }}>
-            <div className="jt-stat-label">Approved & Disbursed</div>
-            <div className="jt-stat-val">{statusCounts.sent || 0}</div>
-            <div className="jt-stat-sub" style={{ color: "#166534" }}>
-              {statusCounts.disbursed_pieces ? `${statusCounts.disbursed_pieces} pieces out in circulation` : "Disbursed"}
+            <div className="jt-stat-val" style={{ color: "#0284C7" }}>{leaderTxCount}</div>
+            <div className="jt-stat-sub">
+              {isSuperAdmin
+                ? "Downline network transfers (Super Stockist, Distributor, Wholesale, Retailer)"
+                : "Transfers across downline team hierarchy"}
             </div>
-          </div>
-
-          <div className="jt-stat-card" style={{ borderLeft: "4px solid #DC2626" }}>
-            <div className="jt-stat-label">Declined</div>
-            <div className="jt-stat-val">{statusCounts.rejected || 0}</div>
-            <div className="jt-stat-sub">Declined transfers</div>
           </div>
         </div>
 
-        {/* Controls Card: Search + Flow Filter + Status Filter Pills + View Mode */}
+        {/* Leader Role Sub-Filter Bar (Shown when Leader Transactions card is selected) */}
+        {activeCard === "leader_transactions" && (
+          <div className="jt-leader-role-bar">
+            <div className="jt-leader-role-title">
+              <UsersIcon size={14} color="#0369A1" />
+              <span>Leader Role:</span>
+            </div>
+            <div className="jt-leader-role-pills">
+              {LEADER_ROLES.map((lr) => {
+                const count = getLeaderRoleCount(lr.key);
+                const isActive = leaderRoleFilter === lr.key;
+                return (
+                  <button
+                    key={lr.key}
+                    type="button"
+                    className={`jt-role-pill-btn ${isActive ? "active" : ""}`}
+                    onClick={() => setLeaderRoleFilter(lr.key)}
+                  >
+                    <span>{lr.label}</span>
+                    <span className="jt-role-pill-count">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Controls Card: Search + Status Filter Pills + View Mode */}
         <div className="jt-controls-card">
           <div className="jt-search-wrap">
             <span className="jt-search-icon">
@@ -702,103 +1239,12 @@ export default function JewelleryTransactions() {
             />
           </div>
 
-          {/* Flow Direction Pills */}
-          {isSuperAdmin ? (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                background: "#F4F8F8",
-                border: "1px solid #D6E2E1",
-                borderRadius: "12px",
-                padding: "4px",
-              }}
-            >
-              {[
-                { key: "all", label: `All Events (${requests.length})`, icon: null },
-                { key: "mint", label: `Master Stock Added (${mintCount})`, icon: PackageIcon },
-                { key: "disbursed", label: `Stock Disbursed (${disbursedCount})`, icon: ArrowUpRightIcon },
-              ].map((fl) => {
-                const Icon = fl.icon;
-                return (
-                  <button
-                    key={fl.key}
-                    type="button"
-                    onClick={() => setFlowFilter(fl.key)}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      padding: "6px 12px",
-                      borderRadius: "8px",
-                      border: "none",
-                      fontSize: "12px",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      background: flowFilter === fl.key ? "#073B3F" : "transparent",
-                      color: flowFilter === fl.key ? "#FFFFFF" : "#5C706E",
-                      transition: "all 150ms ease",
-                    }}
-                  >
-                    {Icon && <Icon size={13} color={flowFilter === fl.key ? "#FFFFFF" : "#5C706E"} />}
-                    <span>{fl.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                background: "#F4F8F8",
-                border: "1px solid #D6E2E1",
-                borderRadius: "12px",
-                padding: "4px",
-              }}
-            >
-              {[
-                { key: "all", label: `All (${requests.length})`, icon: null },
-                { key: "inward", label: `Received / My Buys (${inwardCount})`, icon: ArrowDownLeftIcon },
-                { key: "outward", label: `Disbursed / Downlines (${outwardCount})`, icon: ArrowUpRightIcon },
-              ].map((fl) => {
-                const Icon = fl.icon;
-                return (
-                  <button
-                    key={fl.key}
-                    type="button"
-                    onClick={() => setFlowFilter(fl.key)}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      padding: "6px 12px",
-                      borderRadius: "8px",
-                      border: "none",
-                      fontSize: "12px",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      background: flowFilter === fl.key ? "#073B3F" : "transparent",
-                      color: flowFilter === fl.key ? "#FFFFFF" : "#5C706E",
-                      transition: "all 150ms ease",
-                    }}
-                  >
-                    {Icon && <Icon size={13} color={flowFilter === fl.key ? "#FFFFFF" : "#5C706E"} />}
-                    <span>{fl.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
           <div className="jt-filter-pills">
             {[
-              { key: "all", label: `All (${statusCounts.total || 0})` },
-              { key: "pending", label: `Pending (${statusCounts.pending || 0})` },
-              { key: "sent", label: `Approved (${statusCounts.sent || 0})` },
-              { key: "rejected", label: `Declined (${statusCounts.rejected || 0})` },
+              { key: "all", label: `All (${activeStatusCounts.total || 0})` },
+              { key: "pending", label: `Pending (${activeStatusCounts.pending || 0})` },
+              { key: "sent", label: `Approved (${activeStatusCounts.sent || 0})` },
+              { key: "rejected", label: `Declined (${activeStatusCounts.rejected || 0})` },
             ].map((f) => (
               <button
                 key={f.key}
@@ -848,15 +1294,9 @@ export default function JewelleryTransactions() {
               No jewellery transactions found
             </div>
             <p style={{ margin: "6px 0 0", fontSize: "13.5px" }}>
-              {flowFilter === "inward"
-                ? "No jewellery requests submitted by you found in this filter."
-                : flowFilter === "outward"
-                ? "No jewellery requests submitted to you by downlines found in this filter."
-                : flowFilter === "mint"
-                ? "No master stock minting additions logged."
-                : flowFilter === "disbursed"
-                ? "No stock disbursements to downlines logged."
-                : "Transactions matching your filters will appear here once jewellery allocations occur."}
+              {activeCard === "my_transactions"
+                ? "No transactions found under My Transactions for this period."
+                : "No leader transactions found matching your selected role or filter criteria."}
             </p>
           </div>
         ) : viewMode === "cards" ? (

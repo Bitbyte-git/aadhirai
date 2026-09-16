@@ -391,14 +391,12 @@ export default function SuperAdminNavbar({
     ['Referral Customer', () => navigate('/referral-customers')],
     ['Create Customer', () => navigate('/create-customer')],
   ]
- const celebrations = [
-  ["Today's Birthdays", () => { setShowBirthdayList(true); fetchCelebrations() }],
-  ["Today's Anniversaries", () => { setShowAnniversaryList(true); fetchCelebrations() }],
-  ['Work Anniversaries', () => { setShowJoinDateList(true); fetchCelebrations() }],
-]
   const announcements = [
     ['Send Announcement', () => { setShowAnnouncement(true); setAnnouncementMsg('') }],
     ['My Announcements', () => { setShowMyAnnouncements(true); fetchMyAnnouncements() }],
+    ["Today's Birthdays", () => { setShowBirthdayList(true); fetchCelebrations() }],
+    ["Today's Anniversaries", () => { setShowAnniversaryList(true); fetchCelebrations() }],
+    ['Joining Anniversaries', () => { setShowJoinDateList(true); fetchCelebrations() }],
   ]
   const coins = [
     ['Add Coins', () => navigate('/buy-coin')],
@@ -434,7 +432,7 @@ export default function SuperAdminNavbar({
     ['Autopay List', () => navigate('/superadmin-autopay-list')],
   ]
   const mobileMenuGroups = [
-    ['Management', management], ['Celebrations', celebrations],
+    ['Management', management],
     ['Announcements', announcements], ['Coins', coins],
     ['Reports', reports], ['Promotion', promotion], ['Payment', payment],
   ]
@@ -507,10 +505,13 @@ export default function SuperAdminNavbar({
 .san-mic-btn:hover { background: #0C4044; color: #FDFDFC; }
 .san-mic-btn.is-listening { background: #C92035; border-color: #C92035; color: #FDFDFC; animation: san-mic-pulse 1.1s ease-in-out infinite; }
 @keyframes san-mic-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(201,32,53,.5); } 50% { box-shadow: 0 0 0 8px rgba(201,32,53,0); } }
-.san-menu-center { flex: 0 0 auto; display: flex; justify-content: center; align-items: stretch; gap: 0; }
+.san-menu-center { flex: 0 0 auto; display: flex; justify-content: center; align-items: stretch; gap: 2px; }
+.san-menu-actions { display: flex; align-items: stretch; gap: 4px; margin-left: 8px; padding-left: 10px; border-left: 1px solid rgba(189,207,206,.7); }
 .san-menu-group { position: relative; display: flex; }
 .san-menu-trigger { border: 0; background: transparent; min-width: auto; flex-shrink: 0; padding: 0 9px; color: #073B3F; font-family: Georgia, 'Times New Roman', serif; font-size: 12.5px; font-weight: 800; letter-spacing: .01em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; white-space: nowrap; }
 .san-menu-trigger:hover { background: #F3F3F0; border-radius: 999px; }
+.san-menu-logout { color: #C92035; }
+.san-menu-logout:hover { background: rgba(201,32,53,0.1); }
 .san-menu-dropdown { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 0; padding: 22px 20px 18px; min-width: 280px; max-width: min(340px, calc(100vw - 24px)); max-height: calc(100vh - 120px); overflow-y: auto; background: #FDFDFC; border: 1.5px solid rgba(189,207,206,.85); box-shadow: 0 24px 60px rgba(7,59,63,.20); border-radius: 14px; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .16s ease, visibility .16s ease; z-index: 200; }
 .san-menu-group.is-open .san-menu-dropdown { opacity: 1; visibility: visible; pointer-events: auto; transform: translateX(-50%); }
 .san-menu-group:first-child .san-menu-dropdown,
@@ -635,15 +636,19 @@ export default function SuperAdminNavbar({
             </div>
             <div className="san-menu-center">
               <MenuGroup label="Management" items={management} />
-              <MenuGroup label="Celebrations" items={celebrations} />
               <MenuGroup label="Announcements" items={announcements} />
               <MenuGroup label="Coins" items={coins} />
               <MenuGroup label="Reports" items={reports} />
               <MenuGroup label="Promotion" items={promotion} />
               <MenuGroup label="Payment" items={payment} />
-              <button className="san-menu-trigger" type="button" onClick={() => navigate('/sold-out-products')}>
-                <Icon name="stock" size={16} />Inventory
-              </button>
+              <div className="san-menu-actions">
+                <button className="san-menu-trigger" type="button" onClick={() => navigate('/sold-out-products')}>
+                  <Icon name="stock" size={16} />Inventory
+                </button>
+                <button className="san-menu-trigger san-menu-logout" type="button" onClick={logout}>
+                  <Icon name="logout" size={16} />Logout
+                </button>
+              </div>
             </div>
 
             <button className="san-hamburger" type="button" onClick={() => setShowMobileDrawer(true)} aria-label="Open menu">
@@ -1038,7 +1043,7 @@ export default function SuperAdminNavbar({
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#BB8958" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 4h8v6a4 4 0 01-8 0V4z"/><path d="M8 5H5a2 2 0 002 4M16 5h3a2 2 0 01-2 4"/><path d="M12 14v3M9 21h6M9 21l1-4h4l1 4"/></svg>
                 </div>
                 <div>
-                  <div style={{ color: '#BB8958', fontWeight: 800, fontSize: '14px' }}>WORK ANNIVERSARIES</div>
+                  <div style={{ color: '#BB8958', fontWeight: 800, fontSize: '14px' }}>JOINING ANNIVERSARIES</div>
                   <div style={{ color: '#53615F', fontSize: '12px', fontWeight: 650, marginTop: '4px' }}>{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
                 </div>
               </div>
@@ -1055,7 +1060,7 @@ export default function SuperAdminNavbar({
   </div>
 ) : joinDateList.length === 0 ? (
   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '14px', textAlign: 'center', padding: '60px 0' }}>
-    <span style={{ color: '#7A8987', fontSize: '14px', fontWeight: 600 }}>No work anniversaries today</span>
+    <span style={{ color: '#7A8987', fontSize: '14px', fontWeight: 600 }}>No joining anniversaries today</span>
   </div>
 ) : joinDateList.map((m, i) => (
                 <div
@@ -1064,7 +1069,7 @@ export default function SuperAdminNavbar({
                     const yrs = m._yearsCompleted
                     const ordinal = yrs === 1 ? '1st' : yrs === 2 ? '2nd' : yrs === 3 ? '3rd' : `${yrs}th`
                     setSpecialAnnForm({
-                      title: `🎉 Happy ${ordinal} Work Anniversary ${m.first_name} ${m.last_name || ''} (${m._id})`,
+                      title: `🎉 Happy ${ordinal} Joining Anniversary ${m.first_name} ${m.last_name || ''} (${m._id})`,
                       message: `By BitByte Technologies — Congratulations on completing ${yrs} amazing year${yrs > 1 ? 's' : ''} with us! Your dedication and hard work are truly valued. Here's to many more years of success together!`,
                       roles: ['admin', 'dealer', 'sub_dealer', 'promotor', 'customer']
                     })

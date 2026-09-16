@@ -501,10 +501,14 @@ const handleToggleAutopay = async () => {
                       </div>
                       <div className="rc-history-body">
                         <div className="rc-history-amount">
-                          {h.direction === 'debit' ? '−' : '+'}₹{h.amount_paid}{' '}
-                          <span style={{ color: MUTED, fontWeight: 700 }}>→</span>{' '}
+                          {h.type !== 'reward' && (
+                            <>
+                              {h.direction === 'debit' ? '−' : '+'}₹{h.amount_paid}{' '}
+                              <span style={{ color: MUTED, fontWeight: 700 }}>→</span>{' '}
+                            </>
+                          )}
                           <span className="rc-history-coins">
-                            {h.direction === 'debit' ? '−' : ''}{h.coins_credited.toLocaleString('en-IN')} coins
+                            {h.direction === 'debit' ? '−' : '+'}{h.coins_credited.toLocaleString('en-IN')} coins
                           </span>
                           <DirectionBadge direction={h.direction} />
                         </div>
@@ -601,10 +605,14 @@ const handleToggleAutopay = async () => {
                       </div>
                       <div className="rc-history-body">
                         <div className="rc-history-amount">
-                          {h.direction === 'debit' ? '−' : '+'}₹{h.amount_paid}{' '}
-                          <span style={{ color: MUTED, fontWeight: 700 }}>→</span>{' '}
+                          {h.type !== 'reward' && (
+                            <>
+                              {h.direction === 'debit' ? '−' : '+'}₹{h.amount_paid}{' '}
+                              <span style={{ color: MUTED, fontWeight: 700 }}>→</span>{' '}
+                            </>
+                          )}
                           <span className="rc-history-coins">
-                            {h.direction === 'debit' ? '−' : ''}{h.coins_credited.toLocaleString('en-IN')} coins
+                            {h.direction === 'debit' ? '−' : '+'}{h.coins_credited.toLocaleString('en-IN')} coins
                           </span>
                           <DirectionBadge direction={h.direction} />
                         </div>

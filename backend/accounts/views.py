@@ -5243,6 +5243,24 @@ class SuperAdminAddCoinsView(APIView):
             stock.qty += int(item.get('qty', 0))
             stock.save()
 
+        # Log MASTER_MINT in CoinRequest for official audit trail (matching Jewelry)
+        coin_req = CoinRequest.objects.create(
+            requested_by=request.user,
+            requested_to=request.user,
+            status='sent',
+            reject_reason='MASTER_MINT',
+            approved_by=request.user,
+            sent_at=timezone.now(),
+        )
+        for item in items:
+            CoinRequestItem.objects.create(
+                request=coin_req,
+                metal_type=item.get('metal_type'),
+                weight_label=item.get('weight_label'),
+                weight_grams=item.get('weight_grams'),
+                qty=item.get('qty', 0),
+            )
+
         return Response({'message': 'Coins added to your stock successfully!'})
 
 
@@ -7632,15 +7650,14 @@ def _build_report_pdf(title, subtitle, period_label, stats, columns, rows, col_w
     calls this, so they all look consistent and only need to hand over their
     own stats/columns/rows.
     stats: list of (label, value) tuples shown as summary boxes at the top.
-    columns: list of column header strings. rows: list of row-value-lists —
-    kept as PLAIN strings/numbers (not Paragraph objects): for a large period
-    (Month/Year) this can be thousands of rows, and reportlab laying out a
-    Paragraph per cell is what actually blows past Render's 120s gunicorn
-    timeout — plain-string cells use Table's fast built-in text drawing
-    instead. Callers already slice their queryset to REPORT_MAX_ROWS before
-    building `rows` (also avoids fetching profile data for rows that would
-    just get discarded here) — pass the TRUE total via total_rows so the
-    truncation note below is accurate."""
+    columns: list of column header strings. rows: list of row-value-lists.
+    Body cells are wrapped in Paragraph so long names/IDs wrap onto a second
+    line instead of overflowing into the next column (plain strings don't
+    wrap — that overlap is what REPORT_MAX_ROWS below guards the cost of).
+    Callers already slice their queryset to REPORT_MAX_ROWS before building
+    `rows` (also avoids fetching profile data for rows that would just get
+    discarded here) — pass the TRUE total via total_rows so the truncation
+    note below is accurate."""
     truncated_by = max(0, (total_rows or len(rows)) - len(rows))
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=30, bottomMargin=34, leftMargin=32, rightMargin=32)
@@ -7664,6 +7681,10 @@ def _build_report_pdf(title, subtitle, period_label, stats, columns, rows, col_w
                                        fontName='Helvetica-Bold', fontSize=12, alignment=TA_CENTER, spaceBefore=3)
     note_style = ParagraphStyle('RNote', parent=styles['Normal'], textColor=colors.HexColor('#7A8987'),
                                  fontSize=8, alignment=TA_CENTER, spaceBefore=10)
+    cell_style = ParagraphStyle('RCell', parent=styles['Normal'], textColor=colors.HexColor('#111817'),
+                                 fontName='Helvetica', fontSize=8, leading=10)
+    head_style = ParagraphStyle('RHead', parent=styles['Normal'], textColor=colors.white,
+                                 fontName='Helvetica-Bold', fontSize=8, leading=10)
 
     logo_path = settings.BASE_DIR / 'accounts' / 'assets' / 'athirai_logo.png'
     try:
@@ -7709,17 +7730,19 @@ def _build_report_pdf(title, subtitle, period_label, stats, columns, rows, col_w
         elements.append(stat_row)
         elements.append(Spacer(1, 16))
 
-    body_rows = [[str(c) for c in row] for row in rows] if rows else [['-'] * len(columns)]
-    table_data = [list(columns)] + body_rows
+    # ── Paragraph parses a small XML-like markup — un-escaped '&'/'<'/'>' in a
+    # name/email (e.g. "R&B Jewellers") would otherwise crash PDF generation ──
+    def _esc(v):
+        return str(v).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+    header_row = [Paragraph(_esc(c), head_style) for c in columns]
+    body_rows = [[Paragraph(_esc(c), cell_style) for c in row] for row in rows] if rows else [[Paragraph('-', cell_style)] * len(columns)]
+    table_data = [header_row] + body_rows
     col_count = len(columns)
     widths = col_widths or [content_width / col_count] * col_count
     table = Table(table_data, colWidths=widths, repeatRows=1)
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#073B3F')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D1DFDE')),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAF9')]),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -7737,6 +7760,43 @@ def _build_report_pdf(title, subtitle, period_label, stats, columns, rows, col_w
     doc.build(elements)
     buffer.seek(0)
     return buffer
+
+
+class GenericTablePDFView(APIView):
+    """Turns whatever table a page ALREADY HAS on screen into a branded PDF —
+    for pages whose data comes from a complex non-paginated tree endpoint
+    (e.g. Promotion_sales_order_list.jsx, built from recursive hierarchy
+    queries) that isn't worth re-implementing a second time server-side just
+    for export. Frontend POSTs exactly the columns/rows it's rendering, so
+    the PDF always matches what the admin is looking at."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if request.user.role not in ['super_admin', 'admin']:
+            return Response({'error': 'Permission denied'}, status=403)
+
+        data = request.data
+        title = str(data.get('title') or 'Report')[:120]
+        subtitle = str(data.get('subtitle') or '')[:300]
+        period_label = str(data.get('period_label') or '')[:120]
+        columns = data.get('columns')
+        rows = data.get('rows')
+        stats = data.get('stats') or []
+
+        if not isinstance(columns, list) or not columns or not isinstance(rows, list):
+            return Response({'error': 'columns (non-empty list) and rows (list) are required'}, status=400)
+
+        total_rows = len(rows)
+        rows = rows[:REPORT_MAX_ROWS]
+        stats_tuples = [(str(s.get('label', ''))[:60], str(s.get('value', ''))[:40]) for s in stats if isinstance(s, dict)][:6]
+
+        buffer = _build_report_pdf(
+            title=title, subtitle=subtitle, period_label=period_label,
+            stats=stats_tuples, columns=[str(c)[:60] for c in columns], rows=rows,
+            total_rows=total_rows,
+        )
+        safe_name = ''.join(c if c.isalnum() or c in '-_' else '-' for c in title.lower())[:60] or 'report'
+        return FileResponse(buffer, as_attachment=True, filename=f'{safe_name}.pdf', content_type='application/pdf')
 
 
 class OrderReceiptPDFView(APIView):

@@ -53,46 +53,62 @@ export default function PromotionSalesOrderList() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const exportCSV = () => {
-    if (!filteredRows.length) return;
-    const headers = isCustomerMode
-      ? ["Position", "Customer ID", "Name", "Email", "Phone", "Orders", "Total Value (INR)"]
-      : ["#", "Node ID", "Name", "Email", "Phone", "Customers", "Total Value (INR)"];
+  const [downloadingReport, setDownloadingReport] = useState(false);
 
-    const csvData = filteredRows.map((r, i) =>
-      isCustomerMode
+  const downloadReport = async () => {
+    if (!filteredRows.length || downloadingReport) return;
+    setDownloadingReport(true);
+    try {
+      const columns = isCustomerMode
+        ? ["Position", "Customer ID", "Name", "Email", "Phone", "Orders", "Total Value"]
+        : ["#", "Node ID", "Name", "Email", "Phone", "Customers", "Total Value"];
+
+      const rowsPayload = filteredRows.map((r, i) =>
+        isCustomerMode
+          ? [r.position || i + 1, r.customer_id || "—", r.name || "—", r.email || "—", r.phone || "—", r.order_count || 0, money(r.total_value || 0)]
+          : [i + 1, r.id_str || "—", r.name || "—", r.email || "—", r.phone || "—", r.total_customers || 0, money(r.total_value || 0)]
+      );
+
+      const statsPayload = isCustomerMode
         ? [
-            `"${r.position || i + 1}"`,
-            `"${r.customer_id || ""}"`,
-            `"${(r.name || "").replace(/"/g, '""')}"`,
-            `"${r.email || ""}"`,
-            `"${r.phone || ""}"`,
-            r.order_count || 0,
-            r.total_value || 0,
+            { label: "Total Customers", value: totalRecords },
+            { label: "Total Orders", value: totalOrders },
+            { label: "Total Value", value: money(totalValue) },
           ]
         : [
-            i + 1,
-            `"${r.id_str || ""}"`,
-            `"${(r.name || "").replace(/"/g, '""')}"`,
-            `"${r.email || ""}"`,
-            `"${r.phone || ""}"`,
-            r.total_customers || 0,
-            r.total_value || 0,
-          ]
-    );
+            { label: "Total " + pageTitle, value: totalRecords },
+            { label: "Total Customers", value: totalCustomersAgg },
+            { label: "Total Value", value: money(totalValue) },
+          ];
 
-    const blob = new Blob(
-      [[headers.join(","), ...csvData.map((row) => row.join(","))].join("\n")],
-      { type: "text/csv;charset=utf-8;" }
-    );
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `promotion_${listType}_${userId || "orders"}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast("CSV file exported successfully!");
+      const res = await api.post(
+        "/generic-table-pdf/",
+        {
+          title: `${pageTitle}${nodeName ? " — " + nodeName : ""}`,
+          subtitle: isCustomerMode
+            ? "Full recursive customer chain and downline order performance."
+            : `All direct and downline ${pageTitle.toLowerCase()} ranked by sales value.`,
+          period_label: `Parent: ${parentRole}${nodeName ? " (" + nodeName + ")" : ""}`,
+          stats: statsPayload,
+          columns,
+          rows: rowsPayload,
+        },
+        { responseType: "blob" }
+      );
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `promotion_${listType}_${userId || "orders"}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast("Report downloaded successfully!");
+    } catch {
+      showToast("Could not download the report — try again.");
+    }
+    setDownloadingReport(false);
   };
 
   useEffect(() => {
@@ -1005,16 +1021,16 @@ export default function PromotionSalesOrderList() {
               <div className="psl-header-actions">
                 <button
                   className="psl-btn-export"
-                  onClick={exportCSV}
-                  disabled={loading || filteredRows.length === 0}
-                  title="Download CSV report"
+                  onClick={downloadReport}
+                  disabled={loading || downloadingReport || filteredRows.length === 0}
+                  title="Download PDF report"
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                     <polyline points="7 10 12 15 17 10" />
                     <line x1="12" y1="15" x2="12" y2="3" />
                   </svg>
-                  <span>Export CSV</span>
+                  <span>{downloadingReport ? "Preparing..." : "Download Report"}</span>
                 </button>
               </div>
             </div>

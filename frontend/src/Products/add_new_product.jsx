@@ -65,6 +65,8 @@ const TAGS = ['Bestseller', 'Bridal', 'Premium', 'Statement', 'Stackable', 'New'
 const OCCASIONS = ['Wedding', 'Birthday', 'Anniversary', 'Auspicious', 'Office Wear', 'Modern Wear', 'Casual Wear', 'Traditional Wear']
 // const WEDDING_CATEGORIES = ['Wedding Ring', 'Wedding Necklaces', 'Wedding Chain', 'Wedding Bangles', 'Wedding Earring']
 const GENDERS = ['all', 'women', 'men', 'kids']
+// display-only labels — underlying value stays 'women'/'men' (existing products + getAgeOptions rely on it)
+const GENDER_LABELS = { all: 'All', women: 'Female', men: 'Male', kids: 'Kids' }
 
 const AGE_GROUPS_KIDS = [
   { value: '', label: 'All' },
@@ -529,7 +531,7 @@ export default function AddNewProduct() {
                 onChange={e => setProductForm(f => ({ ...f, gender: e.target.value, age_group: '' }))}
                 style={{ ...inpStyle, cursor: 'pointer' }}
               >
-                {GENDERS.map(g => <option key={g} value={g} style={{ background: optionBg }}>{g.charAt(0).toUpperCase() + g.slice(1)}</option>)}
+                {GENDERS.map(g => <option key={g} value={g} style={{ background: optionBg }}>{GENDER_LABELS[g]}</option>)}
               </select>
             </div>
 
@@ -706,13 +708,20 @@ export default function AddNewProduct() {
           <div className="anp-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '18px', marginBottom: '18px', paddingTop: '18px' }}>
             <div>
               <label style={lblStyle}>Making Charge (%)</label>
-              <input type="number" step="0.01" value={productForm.making_charge}
+              <input type="number" step="0.01" min="0" max="40" value={productForm.making_charge}
                 onChange={e => {
-                  const v = e.target.value
-                  setProductForm(f => ({ ...f, making_charge: v }))
-                  calcAll(productForm.cross_weight, productForm.stone_weight, productForm.metal, productForm.grade, v, productForm.wastage_charge, productForm.stone_value)
+                  let v = e.target.value
+                  if (v !== '' && parseFloat(v) > 40) v = '40'
+                  // discount can never exceed making charge — if making charge just
+                  // dropped below the current discount, pull the discount down too
+                  const maxDiscount = parseFloat(v) || 0
+                  const discountVal = parseFloat(productForm.wastage_charge) || 0
+                  const nextDiscount = discountVal > maxDiscount ? String(maxDiscount) : productForm.wastage_charge
+                  setProductForm(f => ({ ...f, making_charge: v, wastage_charge: nextDiscount }))
+                  calcAll(productForm.cross_weight, productForm.stone_weight, productForm.metal, productForm.grade, v, nextDiscount, productForm.stone_value)
                 }}
                 placeholder="e.g. 2" style={inpStyle} />
+              <div style={{ fontSize: '10px', color: '#7A8987', marginTop: '4px' }}>Max 40%</div>
               {makingAmt && (
                 <div style={{ fontSize: '10px', color: '#0C4044', marginTop: '4px' }}>
                   = ₹{Number(makingAmt).toLocaleString('en-IN')}
@@ -722,13 +731,18 @@ export default function AddNewProduct() {
 
             <div>
               <label style={lblStyle}>Discount (%)</label>
-              <input type="number" step="0.01" value={productForm.wastage_charge}
+              <input type="number" step="0.01" min="0" max={parseFloat(productForm.making_charge) || 0} value={productForm.wastage_charge}
                 onChange={e => {
-                  const v = e.target.value
+                  let v = e.target.value
+                  const maxDiscount = parseFloat(productForm.making_charge) || 0
+                  if (v !== '' && parseFloat(v) > maxDiscount) v = String(maxDiscount)
                   setProductForm(f => ({ ...f, wastage_charge: v }))
                   calcAll(productForm.cross_weight, productForm.stone_weight, productForm.metal, productForm.grade, productForm.making_charge, v, productForm.stone_value)
                 }}
                 placeholder="e.g. 4" style={inpStyle} />
+              <div style={{ fontSize: '10px', color: '#7A8987', marginTop: '4px' }}>
+                Max {parseFloat(productForm.making_charge) || 0}% (can't exceed Making Charge)
+              </div>
               {discountAmt && (
                 <div style={{ fontSize: '10px', color: '#BB8958', marginTop: '4px' }}>
                   − ₹{Number(discountAmt).toLocaleString('en-IN')} off making

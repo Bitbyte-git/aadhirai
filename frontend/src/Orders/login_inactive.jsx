@@ -135,6 +135,16 @@ export default function LoginInactive() {
     });
   };
 
+  const formatDate = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
   const formatDays = (days) => {
     if (days === null || days === undefined) return "—";
     if (days === 0) return "Today";
@@ -207,7 +217,7 @@ export default function LoginInactive() {
       `"${(u.name || "").replace(/"/g, '""')}"`,
       `"${u.phone || ""}"`,
       formatDays(u.days_inactive),
-      `"${formatTime(u.last_login)}"`,
+      `"${u.last_login ? formatTime(u.last_login) : `Never Login (Created: ${formatDate(u.created_at)})`}"`,
     ]);
 
     const blob = new Blob(
@@ -623,13 +633,6 @@ export default function LoginInactive() {
         `}</style>
 
         <div className="pil-wrap">
-          {/* Topbar */}
-          <div className="pil-topbar">
-            <button className="pil-back-btn" onClick={() => navigate(-1)}>
-              <ArrowLeftIcon size={14} color="#073B3F" /> Back
-            </button>
-          </div>
-
           {/* Header Card */}
           <div className="pil-header-card">
             <div className="pil-header-info">
@@ -835,9 +838,16 @@ export default function LoginInactive() {
                           {u.last_login ? (
                             <span>{formatTime(u.last_login)}</span>
                           ) : (
-                            <span style={{ color: "#7A8987", fontSize: "12px", fontWeight: 600 }}>
-                              Never Login
-                            </span>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                              <span style={{ color: "#7A8987", fontSize: "12px", fontWeight: 700 }}>
+                                Never Login
+                              </span>
+                              {u.created_at && (
+                                <span style={{ fontSize: "11px", color: "#94A3B8", fontWeight: 500 }}>
+                                  Created: {formatDate(u.created_at)}
+                                </span>
+                              )}
+                            </div>
                           )}
                         </td>
                       </tr>

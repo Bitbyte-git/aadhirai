@@ -9,12 +9,12 @@ import {
 } from '../components/SvgIcons'
 
 const STATUS_COLORS = {
-  pending:    { bg: 'rgba(204,168,129,0.16)', border: 'rgba(204,168,129,0.48)', color: '#BB8958' },
-  confirmed:  { bg: 'rgba(12,64,68,0.10)',  border: 'rgba(12,64,68,0.38)',  color: '#0C4044' },
-  processing: { bg: 'rgba(189,207,206,0.24)', border: 'rgba(189,207,206,0.68)', color: '#0C4044' },
-  shipped:    { bg: 'rgba(187,137,88,0.14)',  border: 'rgba(187,137,88,0.44)',  color: '#8A623D' },
-  delivered:  { bg: 'rgba(12,64,68,0.12)',   border: 'rgba(12,64,68,0.42)',   color: '#073B3F' },
-  cancelled:  { bg: 'rgba(201,32,53,0.10)',   border: 'rgba(201,32,53,0.42)',   color: '#C92035' },
+  pending:    { bg: '#FFF7E6', border: 'rgba(183,121,31,0.28)', color: '#B7791F', icon: '🟡' },
+  confirmed:  { bg: '#E8F1FF', border: 'rgba(37,99,235,0.28)', color: '#2563EB', icon: '🔵' },
+  processing: { bg: '#F3E8FF', border: 'rgba(124,58,237,0.28)', color: '#7C3AED', icon: '🟣' },
+  shipped:    { bg: '#E0F2FE', border: 'rgba(2,132,199,0.28)', color: '#0284C7', icon: '🔷' },
+  delivered:  { bg: '#E8F7EE', border: 'rgba(21,128,61,0.28)', color: '#15803D', icon: '🟢' },
+  cancelled:  { bg: '#FEECEC', border: 'rgba(220,38,38,0.28)', color: '#DC2626', icon: '🔴' },
 }
 
 const PERIODS = [
@@ -244,11 +244,11 @@ export default function AdminOrdersPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 14, marginBottom: 32 }}>
           {[
             { label: 'Total Orders', value: stats.total, color: '#0C4044' },
-            { label: 'Pending', value: stats.pending, color: '#BB8958' },
-            { label: 'Confirmed', value: stats.confirmed, color: '#0C4044' },
-            { label: 'Shipped', value: stats.shipped, color: '#8A623D' },
-            { label: 'Delivered', value: stats.delivered, color: '#073B3F' },
-            { label: 'Total Revenue', value: inr(stats.revenue), color: '#C92035', isText: true },
+            { label: 'Pending', value: stats.pending, color: '#B7791F' },
+            { label: 'Confirmed', value: stats.confirmed, color: '#2563EB' },
+            { label: 'Shipped', value: stats.shipped, color: '#0284C7' },
+            { label: 'Delivered', value: stats.delivered, color: '#15803D' },
+            { label: 'Total Revenue', value: inr(stats.revenue), color: '#073B3F', isText: true },
           ].map(s => (
             <div className="orders-stat" key={s.label} style={{ background: cardBg, border: cardBorder, borderRadius: 14, padding: '16px 18px', animation: 'fadeIn 0.4s ease both' }}>
               <div style={{ fontSize: 9, color: subtext, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 8 }}>{s.label}</div>
@@ -349,8 +349,8 @@ export default function AdminOrdersPage() {
                     </div>
 
                     <div>
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: st.bg, border: `1px solid ${st.border}`, color: st.color, textTransform: 'capitalize' }}>
-                        {order.status}
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: st.bg, border: `1px solid ${st.border}`, color: st.color, textTransform: 'capitalize', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ fontSize: 10 }}>{st.icon}</span> {order.status}
                       </span>
                     </div>
 
@@ -414,8 +414,9 @@ export default function AdminOrdersPage() {
                               <button key={s} disabled={isCurrent || statusUpdating === order.id}
                                 onClick={() => updateStatus(order.id, s)}
                                 style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 8, border: `1.5px solid ${isCurrent ? sc.border : border}`, background: isCurrent ? sc.bg : 'rgba(253,253,252,0.76)', color: isCurrent ? sc.color : subtext, fontSize: 12, fontWeight: isCurrent ? 800 : 500, cursor: isCurrent ? 'default' : 'pointer', textTransform: 'capitalize', textAlign: 'left', transition: 'all 0.15s' }}>
-                                {isCurrent ? <CheckIcon size={13} color={sc.color} /> : <span style={{ width: 13, height: 13, borderRadius: '50%', border: `1.5px solid ${subtext}`, display: 'inline-block' }} />}
+                                <span style={{ fontSize: 12 }}>{sc.icon}</span>
                                 {s}
+                                {isCurrent && <CheckIcon size={13} color={sc.color} style={{ marginLeft: 'auto' }} />}
                                 {statusUpdating === order.id && !isCurrent && ' ...'}
                               </button>
                             )

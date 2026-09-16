@@ -28,24 +28,61 @@ const formatWeight = (grams) => {
   return `${g.toFixed(2)} g`;
 };
 
+// Clean, professional luxury bullion icons without dollar sign
+function StockLayersIcon({ size = 18, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m12 2 10 5-10 5-10-5Z" />
+      <path d="m2 12 10 5 10-5" />
+      <path d="m2 17 10 5 10-5" />
+    </svg>
+  );
+}
+
+function GoldIngotIcon({ size = 18, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 8h12l3 9H3l3-9z" />
+      <path d="M7 11h10" />
+    </svg>
+  );
+}
+
+function GoldPurityIcon({ size = 18, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+
+function SilverBarIcon({ size = 18, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  );
+}
+
 const METAL_THEMES = {
   gold_22k: {
     label: "Gold 22K",
     purity: "916 Hallmarked",
-    color: "#B45309",
-    bg: "#FEF3C7",
-    border: "#FDE68A",
-    cardAccent: "#D97706",
-    IconComponent: CoinIcon,
+    color: "#073B3F",
+    bg: "#EFF6F6",
+    border: "#D1DFDE",
+    cardAccent: "#073B3F",
+    IconComponent: GoldIngotIcon,
   },
   gold_24k: {
     label: "Gold 24K",
     purity: "999 Fine Gold",
-    color: "#92400E",
-    bg: "#FDF6B2",
-    border: "#FCE96A",
-    cardAccent: "#B45309",
-    IconComponent: SparkleIcon,
+    color: "#0A5C63",
+    bg: "#E6F2F2",
+    border: "#C4DADA",
+    cardAccent: "#0A5C63",
+    IconComponent: GoldPurityIcon,
   },
   silver_999: {
     label: "Silver 999",
@@ -54,7 +91,7 @@ const METAL_THEMES = {
     bg: "#F1F5F9",
     border: "#CBD5E1",
     cardAccent: "#64748B",
-    IconComponent: BullionIcon,
+    IconComponent: SilverBarIcon,
   },
 };
 
@@ -65,7 +102,7 @@ const COIN_METAL_LABELS_TEXT = {
 };
 
 const ROLE_BADGE_CONFIG = {
-  super_admin: { bg: "#FEF3C7", color: "#92400E", border: "#FDE68A", label: "Super Admin" },
+  super_admin: { bg: "#EFF6F6", color: "#073B3F", border: "#D6E2E1", label: "Super Admin" },
   admin: { bg: "#F3E8FF", color: "#6B21A8", border: "#E9D5FF", label: "Admin" },
   dealer: { bg: "#E0F2FE", color: "#0369A1", border: "#BAE6FD", label: "Dealer" },
   sub_dealer: { bg: "#ECFDF5", color: "#047857", border: "#A7F3D0", label: "Sub Dealer" },
@@ -78,6 +115,7 @@ export default function StoredCoins() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedMetalFilter, setSelectedMetalFilter] = useState("all"); // 'all' | 'gold_22k' | 'gold_24k' | 'silver_999'
 
   // Super Admin view scope & hierarchy states
   const currentRole = localStorage.getItem("role") || "";
@@ -854,18 +892,18 @@ export default function StoredCoins() {
         }
 
         .sc-metal-pill.g22 {
-          border-color: #FDE68A;
-          background: #FFFBEB;
+          border-color: #D6E2E1;
+          background: #EFF6F6;
         }
 
         .sc-metal-pill.g24 {
-          border-color: #FCE96A;
-          background: #FEFCE8;
+          border-color: #C4DADA;
+          background: #E6F2F2;
         }
 
         .sc-metal-pill.slv {
-          border-color: #E2E8F0;
-          background: #F8FAFC;
+          border-color: #CBD5E1;
+          background: #F1F5F9;
         }
 
         .sc-metal-pill-name {
@@ -875,8 +913,8 @@ export default function StoredCoins() {
           text-transform: uppercase;
         }
 
-        .sc-metal-pill.g22 .sc-metal-pill-name { color: #92400E; }
-        .sc-metal-pill.g24 .sc-metal-pill-name { color: #854D0E; }
+        .sc-metal-pill.g22 .sc-metal-pill-name { color: #073B3F; }
+        .sc-metal-pill.g24 .sc-metal-pill-name { color: #0A5C63; }
         .sc-metal-pill.slv .sc-metal-pill-name { color: #475569; }
 
         .sc-metal-pill-qty {
@@ -885,8 +923,8 @@ export default function StoredCoins() {
           line-height: 1.2;
         }
 
-        .sc-metal-pill.g22 .sc-metal-pill-qty { color: #B45309; }
-        .sc-metal-pill.g24 .sc-metal-pill-qty { color: #92400E; }
+        .sc-metal-pill.g22 .sc-metal-pill-qty { color: #073B3F; }
+        .sc-metal-pill.g24 .sc-metal-pill-qty { color: #0A5C63; }
         .sc-metal-pill.slv .sc-metal-pill-qty { color: #334155; }
 
         .sc-metal-pill-wt {
@@ -896,16 +934,16 @@ export default function StoredCoins() {
           border-radius: 4px;
           padding: 1px 4px;
         }
-        .sc-metal-pill.g22 .sc-metal-pill-wt { color: #92400E; background: rgba(217, 119, 6, 0.12); }
-        .sc-metal-pill.g24 .sc-metal-pill-wt { color: #854D0E; background: rgba(180, 83, 9, 0.12); }
+        .sc-metal-pill.g22 .sc-metal-pill-wt { color: #073B3F; background: rgba(7, 59, 63, 0.08); }
+        .sc-metal-pill.g24 .sc-metal-pill-wt { color: #0A5C63; background: rgba(10, 92, 99, 0.08); }
         .sc-metal-pill.slv .sc-metal-pill-wt { color: #475569; background: rgba(100, 116, 139, 0.12); }
 
         .sc-holding-item-wt {
           font-size: 11px;
           font-weight: 700;
-          color: #B45309;
-          background: #FFFBEB;
-          border: 1px solid #FEF3C7;
+          color: #073B3F;
+          background: #EFF6F6;
+          border: 1px solid #D6E2E1;
           padding: 2px 6px;
           border-radius: 5px;
           white-space: nowrap;
@@ -1034,17 +1072,6 @@ export default function StoredCoins() {
                 : "Vault coin stock across purity and denomination weights."}
             </p>
           </div>
-          <div className="sc-header-actions">
-            <button className="sc-btn-secondary" onClick={() => navigate("/coin-requests-page")}>
-              <InboxIcon size={15} color="#073B3F" /> Requests Coins
-            </button>
-            <button className="sc-btn-secondary" onClick={() => navigate("/coin-transactions")}>
-              <HistoryIcon size={15} color="#073B3F" /> Transactions
-            </button>
-            <button className="sc-btn-primary" onClick={() => navigate("/buy-coin")}>
-              <PlusIcon size={15} color="#FFFFFF" /> Add Coins
-            </button>
-          </div>
         </div>
 
         {/* Error Banner */}
@@ -1080,58 +1107,134 @@ export default function StoredCoins() {
         {/* VIEW 1: MY VAULT STOCK */}
         {scope === "vault" && (
           <>
-            {/* 4 Stat Cards */}
+            {/* 4 Filterable Stat Cards */}
             <div className="sc-stats-grid">
-              <div className="sc-stat-card" style={{ borderLeft: "4px solid #073B3F" }}>
+              <div
+                className="sc-stat-card"
+                onClick={() => setSelectedMetalFilter("all")}
+                style={{
+                  cursor: "pointer",
+                  borderLeft: "4px solid #073B3F",
+                  borderColor: selectedMetalFilter === "all" ? "#073B3F" : "#E2E8F0",
+                  background: selectedMetalFilter === "all" ? "#F4F9F9" : "#FFFFFF",
+                  boxShadow: selectedMetalFilter === "all" ? "0 8px 24px rgba(7, 59, 63, 0.12)" : "0 4px 14px rgba(7, 59, 63, 0.04)",
+                  transform: selectedMetalFilter === "all" ? "translateY(-2px)" : "none",
+                }}
+                title="Click to show all coin purities"
+              >
                 <div className="sc-stat-header">
-                  <span className="sc-stat-label">Total Stock</span>
-                  <div className="sc-stat-icon" style={{ background: "#EFF6F6", color: "#073B3F" }}>
-                    <CoinIcon size={18} color="#073B3F" />
+                  <span className="sc-stat-label" style={{ color: selectedMetalFilter === "all" ? "#073B3F" : "#5C706E" }}>
+                    Total Stock
+                  </span>
+                  <div className="sc-stat-icon" style={{ background: selectedMetalFilter === "all" ? "#073B3F" : "#EFF6F6", color: selectedMetalFilter === "all" ? "#FFFFFF" : "#073B3F" }}>
+                    <StockLayersIcon size={18} color={selectedMetalFilter === "all" ? "#FFFFFF" : "#073B3F"} />
                   </div>
                 </div>
                 <div className="sc-stat-value">
                   {loading ? <SkeletonText width="60px" height="30px" /> : totalCoins.toLocaleString()}
                 </div>
-                <div className="sc-stat-sub">{totalLines} weights in stock</div>
+                <div className="sc-stat-sub" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>{totalLines} weights in stock</span>
+                  {selectedMetalFilter === "all" && (
+                    <span style={{ fontSize: "10px", fontWeight: 800, color: "#073B3F", background: "#D1DFDE", padding: "1px 6px", borderRadius: "4px" }}>ALL</span>
+                  )}
+                </div>
               </div>
 
-              <div className="sc-stat-card" style={{ borderLeft: "4px solid #D97706" }}>
+              <div
+                className="sc-stat-card"
+                onClick={() => setSelectedMetalFilter("gold_22k")}
+                style={{
+                  cursor: "pointer",
+                  borderLeft: "4px solid #073B3F",
+                  borderColor: selectedMetalFilter === "gold_22k" ? "#073B3F" : "#E2E8F0",
+                  background: selectedMetalFilter === "gold_22k" ? "#F4F9F9" : "#FFFFFF",
+                  boxShadow: selectedMetalFilter === "gold_22k" ? "0 8px 24px rgba(7, 59, 63, 0.12)" : "0 4px 14px rgba(7, 59, 63, 0.04)",
+                  transform: selectedMetalFilter === "gold_22k" ? "translateY(-2px)" : "none",
+                }}
+                title="Click to filter Gold 22K coins only"
+              >
                 <div className="sc-stat-header">
-                  <span className="sc-stat-label">Gold 22K</span>
-                  <div className="sc-stat-icon" style={{ background: "#FEF3C7", color: "#B45309" }}>
-                    <CoinIcon size={18} color="#B45309" />
+                  <span className="sc-stat-label" style={{ color: selectedMetalFilter === "gold_22k" ? "#073B3F" : "#5C706E" }}>
+                    Gold 22K
+                  </span>
+                  <div className="sc-stat-icon" style={{ background: selectedMetalFilter === "gold_22k" ? "#073B3F" : "#EFF6F6", color: selectedMetalFilter === "gold_22k" ? "#FFFFFF" : "#073B3F" }}>
+                    <GoldIngotIcon size={18} color={selectedMetalFilter === "gold_22k" ? "#FFFFFF" : "#073B3F"} />
                   </div>
                 </div>
                 <div className="sc-stat-value">
                   {loading ? <SkeletonText width="60px" height="30px" /> : gold22Total.toLocaleString()}
                 </div>
-                <div className="sc-stat-sub">916 Hallmarked</div>
+                <div className="sc-stat-sub" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>916 Hallmarked</span>
+                  {selectedMetalFilter === "gold_22k" && (
+                    <span style={{ fontSize: "10px", fontWeight: 800, color: "#073B3F", background: "#D1DFDE", padding: "1px 6px", borderRadius: "4px" }}>SELECTED</span>
+                  )}
+                </div>
               </div>
 
-              <div className="sc-stat-card" style={{ borderLeft: "4px solid #B45309" }}>
+              <div
+                className="sc-stat-card"
+                onClick={() => setSelectedMetalFilter("gold_24k")}
+                style={{
+                  cursor: "pointer",
+                  borderLeft: "4px solid #0A5C63",
+                  borderColor: selectedMetalFilter === "gold_24k" ? "#073B3F" : "#E2E8F0",
+                  background: selectedMetalFilter === "gold_24k" ? "#F4F9F9" : "#FFFFFF",
+                  boxShadow: selectedMetalFilter === "gold_24k" ? "0 8px 24px rgba(7, 59, 63, 0.12)" : "0 4px 14px rgba(7, 59, 63, 0.04)",
+                  transform: selectedMetalFilter === "gold_24k" ? "translateY(-2px)" : "none",
+                }}
+                title="Click to filter Gold 24K coins only"
+              >
                 <div className="sc-stat-header">
-                  <span className="sc-stat-label">Gold 24K</span>
-                  <div className="sc-stat-icon" style={{ background: "#FDF6B2", color: "#92400E" }}>
-                    <SparkleIcon size={18} color="#92400E" />
+                  <span className="sc-stat-label" style={{ color: selectedMetalFilter === "gold_24k" ? "#073B3F" : "#5C706E" }}>
+                    Gold 24K
+                  </span>
+                  <div className="sc-stat-icon" style={{ background: selectedMetalFilter === "gold_24k" ? "#073B3F" : "#EFF6F6", color: selectedMetalFilter === "gold_24k" ? "#FFFFFF" : "#073B3F" }}>
+                    <GoldPurityIcon size={18} color={selectedMetalFilter === "gold_24k" ? "#FFFFFF" : "#073B3F"} />
                   </div>
                 </div>
                 <div className="sc-stat-value">
                   {loading ? <SkeletonText width="60px" height="30px" /> : gold24Total.toLocaleString()}
                 </div>
-                <div className="sc-stat-sub">999 Pure Bullion</div>
+                <div className="sc-stat-sub" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>999 Pure Bullion</span>
+                  {selectedMetalFilter === "gold_24k" && (
+                    <span style={{ fontSize: "10px", fontWeight: 800, color: "#073B3F", background: "#D1DFDE", padding: "1px 6px", borderRadius: "4px" }}>SELECTED</span>
+                  )}
+                </div>
               </div>
 
-              <div className="sc-stat-card" style={{ borderLeft: "4px solid #64748B" }}>
+              <div
+                className="sc-stat-card"
+                onClick={() => setSelectedMetalFilter("silver_999")}
+                style={{
+                  cursor: "pointer",
+                  borderLeft: "4px solid #64748B",
+                  borderColor: selectedMetalFilter === "silver_999" ? "#073B3F" : "#E2E8F0",
+                  background: selectedMetalFilter === "silver_999" ? "#F4F9F9" : "#FFFFFF",
+                  boxShadow: selectedMetalFilter === "silver_999" ? "0 8px 24px rgba(7, 59, 63, 0.12)" : "0 4px 14px rgba(7, 59, 63, 0.04)",
+                  transform: selectedMetalFilter === "silver_999" ? "translateY(-2px)" : "none",
+                }}
+                title="Click to filter Silver 999 coins only"
+              >
                 <div className="sc-stat-header">
-                  <span className="sc-stat-label">Silver 999</span>
-                  <div className="sc-stat-icon" style={{ background: "#F1F5F9", color: "#475569" }}>
-                    <BullionIcon size={18} color="#475569" />
+                  <span className="sc-stat-label" style={{ color: selectedMetalFilter === "silver_999" ? "#073B3F" : "#5C706E" }}>
+                    Silver 999
+                  </span>
+                  <div className="sc-stat-icon" style={{ background: selectedMetalFilter === "silver_999" ? "#073B3F" : "#F1F5F9", color: selectedMetalFilter === "silver_999" ? "#FFFFFF" : "#475569" }}>
+                    <SilverBarIcon size={18} color={selectedMetalFilter === "silver_999" ? "#FFFFFF" : "#475569"} />
                   </div>
                 </div>
                 <div className="sc-stat-value">
                   {loading ? <SkeletonText width="60px" height="30px" /> : silver999Total.toLocaleString()}
                 </div>
-                <div className="sc-stat-sub">Fine Silver</div>
+                <div className="sc-stat-sub" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>Fine Silver</span>
+                  {selectedMetalFilter === "silver_999" && (
+                    <span style={{ fontSize: "10px", fontWeight: 800, color: "#073B3F", background: "#D1DFDE", padding: "1px 6px", borderRadius: "4px" }}>SELECTED</span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1171,56 +1274,58 @@ export default function StoredCoins() {
 
             {/* Grouped Stock Sections */}
             {!loading &&
-              grouped.map((group) => {
-                const IconComp = group.theme.IconComponent;
-                return (
-                  <section className="sc-group-section" key={group.metal}>
-                    <div className="sc-group-head">
-                      <div className="sc-group-title-box">
-                        <h2 className="sc-group-title">
-                          <IconComp size={18} color={group.theme.cardAccent} />
-                          <span>{group.theme.label}</span>
-                        </h2>
+              grouped
+                .filter((group) => selectedMetalFilter === "all" || group.metal === selectedMetalFilter)
+                .map((group) => {
+                  const IconComp = group.theme.IconComponent;
+                  return (
+                    <section className="sc-group-section" key={group.metal}>
+                      <div className="sc-group-head">
+                        <div className="sc-group-title-box">
+                          <h2 className="sc-group-title">
+                            <IconComp size={18} color={group.theme.cardAccent} />
+                            <span>{group.theme.label}</span>
+                          </h2>
+                        </div>
+                        <span
+                          className="sc-group-pill"
+                          style={{
+                            background: group.theme.bg,
+                            color: group.theme.color,
+                            border: `1px solid ${group.theme.border}`,
+                          }}
+                        >
+                          {group.groupTotal.toLocaleString()} pcs
+                        </span>
                       </div>
-                      <span
-                        className="sc-group-pill"
-                        style={{
-                          background: group.theme.bg,
-                          color: group.theme.color,
-                          border: `1px solid ${group.theme.border}`,
-                        }}
-                      >
-                        {group.groupTotal.toLocaleString()} pcs
-                      </span>
-                    </div>
 
-                    {group.filteredItems.length > 0 ? (
-                      <div className="sc-cards-grid">
-                        {group.filteredItems.map((s) => (
-                          <article
-                            className="sc-coin-card"
-                            key={s.id || `${s.metal_type}-${s.weight_label}`}
-                            style={{ "--accent-bar": group.theme.cardAccent }}
-                          >
-                            <div>
-                              <div className="sc-coin-weight">{s.weight_label}</div>
-                              <div className="sc-coin-meta">{group.theme.label}</div>
-                            </div>
-                            <div style={{ textAlign: "right" }}>
-                              <div className="sc-coin-qty">{s.qty}</div>
-                              <div className="sc-coin-unit">Available</div>
-                            </div>
-                          </article>
-                        ))}
-                      </div>
-                    ) : (
-                      <div style={{ textAlign: "center", padding: "30px", color: "#7A8987", fontSize: "13px" }}>
-                        No {group.theme.label} stock found.
-                      </div>
-                    )}
-                  </section>
-                );
-              })}
+                      {group.filteredItems.length > 0 ? (
+                        <div className="sc-cards-grid">
+                          {group.filteredItems.map((s) => (
+                            <article
+                              className="sc-coin-card"
+                              key={s.id || `${s.metal_type}-${s.weight_label}`}
+                              style={{ "--accent-bar": group.theme.cardAccent }}
+                            >
+                              <div>
+                                <div className="sc-coin-weight">{s.weight_label}</div>
+                                <div className="sc-coin-meta">{group.theme.label}</div>
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <div className="sc-coin-qty">{s.qty}</div>
+                                <div className="sc-coin-unit">Available</div>
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ textAlign: "center", padding: "30px", color: "#7A8987", fontSize: "13px" }}>
+                          No {group.theme.label} stock found.
+                        </div>
+                      )}
+                    </section>
+                  );
+                })}
           </>
         )}
 
@@ -1244,11 +1349,11 @@ export default function StoredCoins() {
                 </div>
               </div>
 
-              <div className="sc-stat-card" style={{ borderLeft: "4px solid #D97706" }}>
+              <div className="sc-stat-card" style={{ borderLeft: "4px solid #073B3F" }}>
                 <div className="sc-stat-header">
                   <span className="sc-stat-label">Gold 22K (916)</span>
-                  <div className="sc-stat-icon" style={{ background: "#FEF3C7", color: "#B45309" }}>
-                    <CoinIcon size={18} color="#B45309" />
+                  <div className="sc-stat-icon" style={{ background: "#EFF6F6", color: "#073B3F" }}>
+                    <GoldIngotIcon size={18} color="#073B3F" />
                   </div>
                 </div>
                 <div className="sc-stat-value">
@@ -1257,11 +1362,11 @@ export default function StoredCoins() {
                 <div className="sc-stat-sub">{formatWeight(hierarchyGold22kGrams)} gross weight</div>
               </div>
 
-              <div className="sc-stat-card" style={{ borderLeft: "4px solid #B45309" }}>
+              <div className="sc-stat-card" style={{ borderLeft: "4px solid #0A5C63" }}>
                 <div className="sc-stat-header">
                   <span className="sc-stat-label">Gold 24K (999)</span>
-                  <div className="sc-stat-icon" style={{ background: "#FDF6B2", color: "#92400E" }}>
-                    <SparkleIcon size={18} color="#92400E" />
+                  <div className="sc-stat-icon" style={{ background: "#E6F2F2", color: "#0A5C63" }}>
+                    <GoldPurityIcon size={18} color="#0A5C63" />
                   </div>
                 </div>
                 <div className="sc-stat-value">
@@ -1274,7 +1379,7 @@ export default function StoredCoins() {
                 <div className="sc-stat-header">
                   <span className="sc-stat-label">Silver 999</span>
                   <div className="sc-stat-icon" style={{ background: "#F1F5F9", color: "#475569" }}>
-                    <BullionIcon size={18} color="#475569" />
+                    <SilverBarIcon size={18} color="#475569" />
                   </div>
                 </div>
                 <div className="sc-stat-value">

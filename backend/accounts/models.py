@@ -1070,7 +1070,7 @@ class CoinRecharge(models.Model):
     entry_type = models.CharField(max_length=10, choices=ENTRY_TYPE_CHOICES, default='credit')
     source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='recharge')
     related_order = models.ForeignKey('JewelryOrder', on_delete=models.SET_NULL, null=True, blank=True, related_name='coin_entries')
-    commission_level = models.PositiveIntegerField(null=True, blank=True)
+    commission_level = models.IntegerField(null=True, blank=True)
     transaction_id = models.CharField(max_length=20, unique=True, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

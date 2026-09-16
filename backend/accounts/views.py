@@ -4717,7 +4717,7 @@ class TodayLoginStatusView(APIView):
 
             last_login_date = u.last_login.date() if u.last_login else None
             reference_date = last_login_date or (u.created_at.date() if u.created_at else today)
-            days_inactive = (today - reference_date).days if last_login_date else None
+            days_inactive = (today - reference_date).days
             is_active = bool(last_login_date and last_login_date >= (today - timedelta(days=self.PERIOD_DAYS.get(period, 0)))) if period != 'today' else bool(last_login_date and last_login_date == today)
 
             lookup_key = u.id if role_key == 'customer' else profile.id
@@ -4728,6 +4728,7 @@ class TodayLoginStatusView(APIView):
                 'email': u.email, 'phone': profile.mobile_number, 'location': profile.city_name,
                 'active': is_active,
                 'last_login': u.last_login.isoformat() if u.last_login else None,
+                'created_at': u.created_at.isoformat() if u.created_at else None,
                 'days_inactive': days_inactive,
                 'order_count': rollup_counts.get((role_key, lookup_key), 0),
             }
@@ -4738,14 +4739,14 @@ class TodayLoginStatusView(APIView):
             'period': period,
             'list_type': list_type,
             'total_count': total_count,
-            'other_count': active_total,
+            'other_count': (inactive_total + never_total) if list_type == 'active' else active_total,
             # ── Stable counters that don't shift when list_type changes — stat cards use these ──
             'active_count': active_total,
             'inactive_count': inactive_total,
             'never_login_count': never_total,
             'grand_total_count': grand_total,
             'results': entries,
-            'active': entries if list_type == 'active' else [],
+            'active': entries if list_type in ('active', 'all') else [],
             'inactive': entries if list_type in ('inactive', 'never', 'all') else [],
         })
 

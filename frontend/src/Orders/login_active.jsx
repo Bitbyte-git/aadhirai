@@ -106,79 +106,27 @@ export default function LoginActive() {
       setError("");
       try {
         const isAdminOnly = roleFilter === "Admin";
+        const initialLimit = (viewMode === "all" || isAdminOnly) ? 5000 : 100;
 
-        if (viewMode === "all") {
-          // "Total Users" view: the deployed backend doesn't understand list_type=all yet,
-          // but it already supports "active" and "inactive" separately — fetch both and
-          // merge client-side instead of waiting on a backend deploy.
-          const bigLimit = 5000;
-          const [activeRes, inactiveRes] = await Promise.all([
-            api.get("/today-login-status/", {
-              params: { role: roleFilter, period: periodFilter, list_type: "active", offset: 0, limit: bigLimit },
-            }),
-            api.get("/today-login-status/", {
-              params: { role: roleFilter, period: periodFilter, list_type: "inactive", offset: 0, limit: bigLimit },
-            }),
-          ]);
-          if (!isCurrent()) return;
-          const activeList = activeRes.data.active || [];
-          const inactiveList = inactiveRes.data.inactive || [];
-          let list = [...activeList, ...inactiveList];
-          const activeTotal = activeRes.data.total_count || 0;
-          const inactiveTotal = inactiveRes.data.total_count || 0;
-          setTotalCount(activeTotal + inactiveTotal);
-          setStatActiveCount(activeTotal);
-          setStatTotalUsers(activeTotal + inactiveTotal);
-          setOffset(list.length);
-          setLimit(bigLimit);
-          if (scopeIds) list = list.filter((u) => scopeIds.includes(u.id));
-          setData(list.sort((a, b) => a.level - b.level));
-        } else if (viewMode === "inactive") {
-          const initialLimit = isAdminOnly ? 5000 : 100;
+        const res = await api.get("/today-login-status/", {
+          params: {
+            role: roleFilter,
+            period: periodFilter,
+            list_type: viewMode,
+            offset: 0,
+            limit: initialLimit,
+          },
+        });
+        if (!isCurrent()) return;
 
-          const res = await api.get("/today-login-status/", {
-            params: {
-              role: roleFilter,
-              period: periodFilter,
-              list_type: "inactive",
-              offset: 0,
-              limit: initialLimit,
-            },
-          });
-          if (!isCurrent()) return;
-          let list = [...(res.data.inactive || [])];
-          setTotalCount(res.data.total_count || 0);
-          // active_count here is the OTHER bucket (active users), kept for the
-          // "Total Users" stat card's consistency; the inactive count IS totalCount.
-          setStatActiveCount(res.data.active_count ?? res.data.other_count ?? 0);
-          setStatTotalUsers((res.data.total_count || 0) + (res.data.active_count ?? res.data.other_count ?? 0));
-          setOffset(initialLimit);
-          setLimit(100);
-          if (scopeIds) list = list.filter((u) => scopeIds.includes(u.id));
-          setData(list.sort((a, b) => a.level - b.level));
-        } else {
-          // Default 100 items loaded initially
-          const initialLimit = isAdminOnly ? 5000 : 100;
-
-          const res = await api.get("/today-login-status/", {
-            params: {
-              role: roleFilter,
-              period: periodFilter,
-              list_type: "active",
-              offset: 0,
-              limit: initialLimit,
-            },
-          });
-          if (!isCurrent()) return;
-          let list = [...(res.data.active || [])];
-          setTotalCount(res.data.total_count || 0);
-          setStatActiveCount(res.data.total_count || 0);
-          setStatTotalUsers((res.data.total_count || 0) + (res.data.other_count || 0));
-          setOffset(initialLimit);
-          setLimit(100);
-          if (scopeIds) list = list.filter((u) => scopeIds.includes(u.id));
-          setData(list.sort((a, b) => a.level - b.level));
-        }
+        let list = [...(res.data.results || res.data.active || res.data.inactive || [])];
+        setTotalCount(res.data.total_count || 0);
+        setStatActiveCount(res.data.active_count ?? 0);
+        setStatTotalUsers(res.data.grand_total_count ?? (res.data.total_count || 0));
+        setOffset(initialLimit);
+        setLimit(100);
+        if (scopeIds) list = list.filter((u) => scopeIds.includes(u.id));
+        setData(list.sort((a, b) => a.level - b.level));
       } catch {
         if (isCurrent()) setError("Failed to load users.");
       }
@@ -199,6 +147,16 @@ export default function LoginActive() {
     });
   };
 
+  const formatDate = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
   // Client-side filtering for order count & search query
   const filtered = useMemo(() => {
     return data.filter((u) => {
@@ -210,36 +168,29 @@ export default function LoginActive() {
       if (orderFilter === "21+" && !(oc > 20)) return false;
 
       if (searchTerm.trim()) {
-        const q = searchTerm.toLowerCase().trim();
-        const id = (u.id || "").toLowerCase();
-        const name = (u.name || "").toLowerCase();
-        const phone = (u.phone || "").toLowerCase();
-        const role = (u.level_role || "").toLowerCase();
-        if (!id.includes(q) && !name.includes(q) && !phone.includes(q) && !role.includes(q)) {
-          return false;
-        }
+        const q = searchTerm.toLowerCase();
+        const matchId = String(u.id || "").toLowerCase().includes(q);
+        const matchName = (u.name || "").toLowerCase().includes(q);
+        const matchPhone = (u.phone || "").toLowerCase().includes(q);
+        const matchRole = (u.level_role || "").toLowerCase().includes(q);
+        if (!matchId && !matchName && !matchPhone && !matchRole) return false;
       }
       return true;
     });
   }, [data, orderFilter, searchTerm]);
 
   const isAdminOnly = roleFilter === "Admin";
-  // offset tracks how far into the backend's raw recordset we've paged, which is the
-  // correct measure of "more to fetch" — data.length can be lower than that if some
-  // raw rows get dropped (e.g. missing profile) while still being counted in total_count.
-  // "all" view already fetches everyone in one shot, so there's never more to load there.
-  const hasMore = (viewMode === "active" || viewMode === "inactive") && !isAdminOnly && offset < totalCount;
+  const hasMore = !isAdminOnly && offset < totalCount;
 
   const loadMore = async () => {
     const myFetchId = fetchIdRef.current;
-    const listType = viewMode === "inactive" ? "inactive" : "active";
     setLoadingMore(true);
     try {
       const res = await api.get("/today-login-status/", {
-        params: { role: roleFilter, period: periodFilter, list_type: listType, offset, limit },
+        params: { role: roleFilter, period: periodFilter, list_type: viewMode, offset, limit },
       });
       if (fetchIdRef.current !== myFetchId) return;
-      const newList = res.data[listType] || [];
+      const newList = res.data.results || res.data[viewMode] || res.data.active || res.data.inactive || [];
       setData((prev) => [...prev, ...newList].sort((a, b) => a.level - b.level));
       setOffset((prev) => prev + limit);
     } catch {
@@ -291,7 +242,7 @@ export default function LoginActive() {
       `"${(u.name || "").replace(/"/g, '""')}"`,
       `"${u.phone || ""}"`,
       u.order_count ?? 0,
-      `"${formatTime(u.last_login)}"`,
+      `"${u.last_login ? formatTime(u.last_login) : `Never Login (Created: ${formatDate(u.created_at)})`}"`,
     ]);
 
     const blob = new Blob(
@@ -717,13 +668,6 @@ export default function LoginActive() {
         `}</style>
 
         <div className="psl-wrap">
-          {/* Topbar */}
-          <div className="psl-topbar">
-            <button className="psl-back-btn" onClick={() => navigate(-1)}>
-              <ArrowLeftIcon size={14} color="#073B3F" /> Back
-            </button>
-          </div>
-
           {/* Header Card */}
           <div className="psl-header-card">
             <div className="psl-header-info">
@@ -947,9 +891,16 @@ export default function LoginActive() {
                               {formatTime(u.last_login)}
                             </span>
                           ) : (
-                            <span style={{ color: "#7A8987", fontSize: "12px", fontWeight: 600 }}>
-                              Never Login
-                            </span>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                              <span style={{ color: "#7A8987", fontSize: "12px", fontWeight: 700 }}>
+                                Never Login
+                              </span>
+                              {u.created_at && (
+                                <span style={{ fontSize: "11px", color: "#94A3B8", fontWeight: 500 }}>
+                                  Created: {formatDate(u.created_at)}
+                                </span>
+                              )}
+                            </div>
                           )}
                         </td>
                       </tr>

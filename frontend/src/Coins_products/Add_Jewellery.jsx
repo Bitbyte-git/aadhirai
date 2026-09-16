@@ -92,6 +92,7 @@ export default function AddJewellery() {
   // Images state
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [previewUrls, setPreviewUrls] = useState([]);
+  const [previewModalImage, setPreviewModalImage] = useState(null);
 
   // Live metal rates (for auto-price calculation)
   const [rates, setRates] = useState({
@@ -853,8 +854,8 @@ export default function AddJewellery() {
         }
 
         .aj-pill-btn.active-gold {
-          background: linear-gradient(135deg, #B45309 0%, #D97706 100%);
-          border-color: #B45309;
+          background: #073B3F;
+          border-color: #073B3F;
           color: #FFFFFF;
         }
 
@@ -898,7 +899,15 @@ export default function AddJewellery() {
           border-radius: 12px;
           overflow: hidden;
           position: relative;
-          border: 1px solid #D6E2E1;
+          border: 1.5px solid #D6E2E1;
+          cursor: pointer;
+          transition: transform 180ms ease, box-shadow 180ms ease;
+        }
+
+        .aj-preview-item:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(7, 59, 63, 0.15);
+          border-color: #073B3F;
         }
 
         .aj-preview-item img {
@@ -1045,12 +1054,12 @@ export default function AddJewellery() {
           <span style={{ fontSize: "12px", fontWeight: 800, color: "#7A8987", textTransform: "uppercase" }}>
             Live Rates:
           </span>
-          <div className="aj-rate-pill" style={{ background: "#FEF3C7", color: "#B45309" }}>
-            <CoinIcon size={14} color="#B45309" />
+          <div className="aj-rate-pill" style={{ background: "#EFF6F6", color: "#073B3F" }}>
+            <CoinIcon size={14} color="#073B3F" />
             <span>Gold 22K (916): ₹{rates.gold_22k.toLocaleString()}/g</span>
           </div>
-          <div className="aj-rate-pill" style={{ background: "#FDF6B2", color: "#92400E" }}>
-            <SparkleIcon size={14} color="#92400E" />
+          <div className="aj-rate-pill" style={{ background: "#E6F2F2", color: "#0A5C63" }}>
+            <SparkleIcon size={14} color="#0A5C63" />
             <span>Gold 24K (999): ₹{rates.gold_24k.toLocaleString()}/g</span>
           </div>
           <div className="aj-rate-pill" style={{ background: "#F1F5F9", color: "#475569" }}>
@@ -1150,8 +1159,8 @@ export default function AddJewellery() {
                   const firstImg = product.images?.[0]?.image;
                   const isGold = product.metal?.toLowerCase() === "gold";
                   const is24 = product.grade?.includes("24");
-                  const badgeBg = isGold ? (is24 ? "#FDF6B2" : "#FEF3C7") : "#F1F5F9";
-                  const badgeColor = isGold ? (is24 ? "#92400E" : "#B45309") : "#475569";
+                  const badgeBg = isGold ? (is24 ? "#E6F2F2" : "#EFF6F6") : "#F1F5F9";
+                  const badgeColor = isGold ? (is24 ? "#0A5C63" : "#073B3F") : "#475569";
                   const purityText = isGold ? (is24 ? "Gold 24K (999)" : "Gold 22K (916)") : "Silver 999";
                   const itemQty = qtyMap[product.id] || 1;
 
@@ -1570,12 +1579,21 @@ export default function AddJewellery() {
                   {previewUrls.length > 0 && (
                     <div className="aj-preview-grid">
                       {previewUrls.map((url, idx) => (
-                        <div key={idx} className="aj-preview-item">
+                        <div
+                          key={idx}
+                          className="aj-preview-item"
+                          onClick={() => setPreviewModalImage(url)}
+                          title="Click to view enlarged photo"
+                        >
                           <img src={url} alt={`Preview ${idx + 1}`} />
                           <button
                             type="button"
                             className="aj-remove-img"
-                            onClick={() => removeImage(idx)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeImage(idx);
+                            }}
+                            title="Remove photo"
                           >
                             <CloseIcon size={12} color="#FFFFFF" />
                           </button>
@@ -1692,8 +1710,8 @@ export default function AddJewellery() {
                   const firstImg = product.images?.[0]?.image;
                   const isGold = product.metal?.toLowerCase() === "gold";
                   const is24 = product.grade?.includes("24");
-                  const badgeBg = isGold ? (is24 ? "#FDF6B2" : "#FEF3C7") : "#F1F5F9";
-                  const badgeColor = isGold ? (is24 ? "#92400E" : "#B45309") : "#475569";
+                  const badgeBg = isGold ? (is24 ? "#E6F2F2" : "#EFF6F6") : "#F1F5F9";
+                  const badgeColor = isGold ? (is24 ? "#0A5C63" : "#073B3F") : "#475569";
                   const purityText = isGold ? (is24 ? "Gold 24K (999)" : "Gold 22K (916)") : "Silver 999";
                   const stock = product.stock_quantity ?? 0;
                   const lowThreshold = product.low_stock_threshold ?? 5;
@@ -2016,6 +2034,81 @@ export default function AddJewellery() {
       {toast && (
         <div className="aj-toast">
           <CheckIcon size={16} color="#4ADE80" /> {toast}
+        </div>
+      )}
+
+      {/* Uploaded Image Preview Lightbox Modal */}
+      {previewModalImage && (
+        <div
+          onClick={() => setPreviewModalImage(null)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(7, 28, 30, 0.85)",
+            backdropFilter: "blur(8px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 999999,
+            padding: "20px",
+            animation: "fadeIn 200ms ease-out",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "relative",
+              maxWidth: "85vw",
+              maxHeight: "85vh",
+              background: "#FFFFFF",
+              borderRadius: "20px",
+              padding: "16px",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.4)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewModalImage(null)}
+              style={{
+                position: "absolute",
+                top: "-14px",
+                right: "-14px",
+                background: "#073B3F",
+                color: "#FFFFFF",
+                border: "2px solid #FFFFFF",
+                borderRadius: "50%",
+                width: "36px",
+                height: "36px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+              }}
+              title="Close Preview"
+            >
+              <CloseIcon size={16} color="#FFFFFF" />
+            </button>
+            <img
+              src={previewModalImage}
+              alt="Enlarged Product Preview"
+              style={{
+                maxWidth: "100%",
+                maxHeight: "75vh",
+                objectFit: "contain",
+                borderRadius: "12px",
+              }}
+            />
+            <div style={{ marginTop: "10px", fontSize: "13px", fontWeight: 700, color: "#073B3F" }}>
+              {name ? `${name} - Photo Preview` : "Uploaded Photo Preview"}
+            </div>
+          </div>
         </div>
       )}
 

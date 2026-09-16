@@ -5,13 +5,21 @@ import CustomerFooter from '../collection/CustomerFooter'
 const API_BASE = 'https://bitbyte-backend-f66f.onrender.com'
 
 const STATUS_META = {
-  pending: { label: 'Pending', tone: '#BB8958', bg: 'rgba(187,137,88,0.12)', border: 'rgba(187,137,88,0.32)', step: 1 },
-  confirmed: { label: 'Confirmed', tone: '#0C4044', bg: 'rgba(12,64,68,0.12)', border: 'rgba(12,64,68,0.30)', step: 2 },
-  processing: { label: 'Processing', tone: '#9F6130', bg: 'rgba(159,97,48,0.12)', border: 'rgba(159,97,48,0.28)', step: 3 },
-  shipped: { label: 'Shipped', tone: '#0C4044', bg: 'rgba(12,64,68,0.14)', border: 'rgba(12,64,68,0.32)', step: 4 },
-  delivered: { label: 'Delivered', tone: '#16764F', bg: 'rgba(22,118,79,0.12)', border: 'rgba(22,118,79,0.30)', step: 5 },
-  cancelled: { label: 'Cancelled', tone: '#C92035', bg: 'rgba(201,32,53,0.10)', border: 'rgba(201,32,53,0.30)', step: 0 },
+  pending: { label: 'Pending', tone: '#B7791F', bg: '#FFF7E6', border: 'rgba(183,121,31,0.28)', icon: '🟡', step: 1 },
+  confirmed: { label: 'Confirmed', tone: '#2563EB', bg: '#E8F1FF', border: 'rgba(37,99,235,0.28)', icon: '🔵', step: 2 },
+  processing: { label: 'Processing', tone: '#7C3AED', bg: '#F3E8FF', border: 'rgba(124,58,237,0.28)', icon: '🟣', step: 3 },
+  shipped: { label: 'Shipped', tone: '#0284C7', bg: '#E0F2FE', border: 'rgba(2,132,199,0.28)', icon: '🔷', step: 4 },
+  delivered: { label: 'Delivered', tone: '#15803D', bg: '#E8F7EE', border: 'rgba(21,128,61,0.28)', icon: '🟢', step: 5 },
+  cancelled: { label: 'Cancelled', tone: '#DC2626', bg: '#FEECEC', border: 'rgba(220,38,38,0.28)', icon: '🔴', step: 0 },
 }
+
+const TIMELINE_STEPS = [
+  { key: 'pending', label: 'Placed', bg: '#FFF7E6', color: '#B7791F', border: '#B7791F', step: 1 },
+  { key: 'confirmed', label: 'Confirmed', bg: '#E8F1FF', color: '#2563EB', border: '#2563EB', step: 2 },
+  { key: 'processing', label: 'Processing', bg: '#F3E8FF', color: '#7C3AED', border: '#7C3AED', step: 3 },
+  { key: 'shipped', label: 'Shipped', bg: '#E0F2FE', color: '#0284C7', border: '#0284C7', step: 4 },
+  { key: 'delivered', label: 'Delivered', bg: '#E8F7EE', color: '#15803D', border: '#15803D', step: 5 },
+]
 
 const PAYMENT_LABELS = {
   upi: 'UPI',
@@ -138,17 +146,45 @@ function OrderTimeline({ status, events, loading }) {
     )
   }
 
-  // Fallback for orders placed before shipment tracking existed — the plain
-  // 5-step stage indicator, no location/date detail available.
-  const steps = ['Placed', 'Confirmed', 'Processing', 'Shipped', 'Delivered']
+  // 5-step stage indicator with exact status colors per stage
   return (
     <div className="os-timeline">
-      {steps.map((step, index) => {
-        const done = index + 1 <= meta.step
+      {TIMELINE_STEPS.map((st, index) => {
+        const isDone = index + 1 <= meta.step
+        const isCurrent = index + 1 === meta.step
+        const isLineDone = index > 0 && index <= meta.step
+        const lineBg = isLineDone ? st.color : 'rgba(122,137,135,0.20)'
+
         return (
-          <div className={`os-step ${done ? 'done' : ''}`} key={step}>
-            <span>{index + 1}</span>
-            <small>{step}</small>
+          <div
+            className={`os-step ${isDone ? 'done' : ''}`}
+            key={st.key}
+            style={{
+              '--step-line-bg': lineBg,
+              color: isDone ? st.color : '#7A8987',
+            }}
+          >
+            <span
+              style={{
+                background: isDone ? st.bg : '#F3F3F0',
+                color: isDone ? st.color : '#7A8987',
+                borderColor: isDone ? st.border : 'rgba(12,64,68,0.16)',
+                borderWidth: isDone ? '2px' : '1px',
+                borderStyle: 'solid',
+                fontWeight: 800,
+                boxShadow: isCurrent ? `0 0 0 4px ${st.color}26` : 'none',
+              }}
+            >
+              {isDone && !isCurrent ? <Icon name="check" size={13} /> : index + 1}
+            </span>
+            <small
+              style={{
+                color: isDone ? st.color : '#7A8987',
+                fontWeight: isDone ? 800 : 600,
+              }}
+            >
+              {st.label}
+            </small>
           </div>
         )
       })}
@@ -829,7 +865,8 @@ export default function OrderSummary() {
           left: -50%;
           width: 100%;
           height: 2px;
-          background: rgba(122,137,135,0.20);
+          background: var(--step-line-bg, rgba(122,137,135,0.20));
+          transition: background 0.3s ease;
         }
 
         .os-step:first-child:before {
@@ -837,8 +874,8 @@ export default function OrderSummary() {
         }
 
         .os-step span {
-          width: 30px;
-          height: 30px;
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
           display: grid;
           place-items: center;
@@ -846,16 +883,11 @@ export default function OrderSummary() {
           border: 1px solid rgba(12,64,68,0.16);
           position: relative;
           z-index: 1;
+          transition: all 0.25s ease;
         }
 
         .os-step.done {
-          color: #073B3F;
-        }
-
-        .os-step.done:before,
-        .os-step.done span {
-          background: #D1DFDE;
-          border-color: rgba(12,64,68,0.30);
+          /* Dynamically colored per step */
         }
 
         .os-cancelled {
@@ -1303,7 +1335,7 @@ export default function OrderSummary() {
                           className="os-status"
                           style={{ background: meta.bg, border: `1px solid ${meta.border}`, color: meta.tone }}
                         >
-                          <i className="os-status-dot" /> {meta.label}
+                          <span style={{ fontSize: '11px', lineHeight: 1 }}>{meta.icon}</span> {meta.label}
                         </span>
                       </div>
 

@@ -23,12 +23,12 @@ const formatWeight = (grams) => {
 };
 
 const ROLE_CONFIG = {
-  super_admin: { bg: "#FEF3C7", color: "#92400E", border: "#FDE68A", label: "Super Admin" },
-  admin: { bg: "#F3E8FF", color: "#6B21A8", border: "#E9D5FF", label: "Admin" },
-  dealer: { bg: "#E0F2FE", color: "#0369A1", border: "#BAE6FD", label: "Dealer" },
-  sub_dealer: { bg: "#ECFDF5", color: "#047857", border: "#A7F3D0", label: "Sub Dealer" },
-  promotor: { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", label: "Promotor" },
-  shop: { bg: "#FFF7ED", color: "#C2410C", border: "#FFEDD5", label: "Shop" },
+  super_admin: { bg: "#EFF6F6", color: "#073B3F", border: "#D1DFDE", label: "Super Admin" },
+  admin: { bg: "#F3E8FF", color: "#6B21A8", border: "#E9D5FF", label: "Super Stockist" },
+  dealer: { bg: "#E0F2FE", color: "#0369A1", border: "#BAE6FD", label: "Distributor" },
+  sub_dealer: { bg: "#ECFDF5", color: "#047857", border: "#A7F3D0", label: "Wholesale Dealer" },
+  promotor: { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", label: "Retailer" },
+  shop: { bg: "#F1F5F9", color: "#334155", border: "#CBD5E1", label: "Shop" },
 };
 
 export default function MemberHoldingsDetail() {
@@ -257,7 +257,7 @@ export default function MemberHoldingsDetail() {
                 )}
                 {(member.city || member.district) && (
                   <div className="mhd-contact-item">
-                    <LocationIcon size={13} color="#B45309" />
+                    <LocationIcon size={13} color="#0A4D52" />
                     <span>{[member.city, member.district, member.state].filter(Boolean).join(", ")}</span>
                   </div>
                 )}
@@ -268,7 +268,7 @@ export default function MemberHoldingsDetail() {
           {/* Live Rates Ticker Box on Right */}
           <div className="mhd-rates-box">
             <div className="mhd-rates-header">
-              <SparkleIcon size={15} color="#D97706" />
+              <SparkleIcon size={15} color="#073B3F" />
               <span>TODAY'S APPLIED SPOT RATES</span>
               <span className="mhd-live-pulse" />
             </div>
@@ -292,7 +292,12 @@ export default function MemberHoldingsDetail() {
         {/* 3 Executive Metric Cards */}
         <section className="mhd-metrics-grid">
           {/* Card 1: Combined Portfolio */}
-          <div className="mhd-metric-card highlight">
+          <div
+            className={`mhd-metric-card highlight ${activeTab === "all" ? "tab-active" : ""}`}
+            onClick={() => setActiveTab("all")}
+            style={{ cursor: "pointer" }}
+            title="Click to view all assets"
+          >
             <div className="mhd-metric-header">
               <span className="mhd-metric-label">TOTAL ASSET VALUATION</span>
               <span className="mhd-metric-badge">All In-Hand</span>
@@ -308,11 +313,16 @@ export default function MemberHoldingsDetail() {
           </div>
 
           {/* Card 2: Coins Asset */}
-          <div className="mhd-metric-card coins-card">
+          <div
+            className={`mhd-metric-card coins-card ${activeTab === "coins" ? "tab-active" : ""}`}
+            onClick={() => setActiveTab("coins")}
+            style={{ cursor: "pointer" }}
+            title="Click to filter coins only"
+          >
             <div className="mhd-metric-header">
               <span className="mhd-metric-label">COINS VALUATION</span>
               <div className="mhd-mini-icon-box gold">
-                <CoinIcon size={17} color="#B45309" />
+                <CoinIcon size={17} color="#073B3F" />
               </div>
             </div>
             <div className="mhd-metric-val coins">
@@ -326,7 +336,12 @@ export default function MemberHoldingsDetail() {
           </div>
 
           {/* Card 3: Jewellery Asset */}
-          <div className="mhd-metric-card jewels-card">
+          <div
+            className={`mhd-metric-card jewels-card ${activeTab === "jewellery" ? "tab-active" : ""}`}
+            onClick={() => setActiveTab("jewellery")}
+            style={{ cursor: "pointer" }}
+            title="Click to filter jewellery only"
+          >
             <div className="mhd-metric-header">
               <span className="mhd-metric-label">JEWELLERY VALUATION</span>
               <div className="mhd-mini-icon-box emerald">
@@ -397,7 +412,7 @@ export default function MemberHoldingsDetail() {
             <div className="mhd-section-header">
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <div className="mhd-section-icon gold">
-                  <CoinIcon size={20} color="#B45309" />
+                  <CoinIcon size={20} color="#073B3F" />
                 </div>
                 <div>
                   <h2 className="mhd-section-title">Coin Holdings & Today's Valuation</h2>
@@ -408,12 +423,24 @@ export default function MemberHoldingsDetail() {
               </div>
 
               <div className="mhd-purity-pills">
-                <span className="mhd-purity-pill g22">
+                <button
+                  type="button"
+                  onClick={() => setMetalFilter(metalFilter === "gold" ? "all" : "gold")}
+                  className={`mhd-purity-pill g22 ${metalFilter === "gold" ? "active-pill" : ""}`}
+                  style={{ cursor: "pointer", border: metalFilter === "gold" ? "2px solid #073B3F" : "1px solid #D1DFDE" }}
+                  title="Click to filter Gold 22K coins only"
+                >
                   22K: {coins.summary?.gold_22k?.pieces || 0} pcs ({coins.summary?.gold_22k?.grams || 0}g) = ₹{Number(coins.summary?.gold_22k?.valuation || 0).toLocaleString()}
-                </span>
-                <span className="mhd-purity-pill slv">
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMetalFilter(metalFilter === "silver" ? "all" : "silver")}
+                  className={`mhd-purity-pill slv ${metalFilter === "silver" ? "active-pill" : ""}`}
+                  style={{ cursor: "pointer", border: metalFilter === "silver" ? "2px solid #073B3F" : "1px solid #CBD5E1" }}
+                  title="Click to filter Silver coins only"
+                >
                   Silver: {coins.summary?.silver?.pieces || 0} pcs ({coins.summary?.silver?.grams || 0}g) = ₹{Number(coins.summary?.silver?.valuation || 0).toLocaleString()}
-                </span>
+                </button>
               </div>
             </div>
 
@@ -431,7 +458,7 @@ export default function MemberHoldingsDetail() {
                         <div className="mhd-cic-name-box">
                           <span
                             className="mhd-cic-dot"
-                            style={{ background: isSilver ? "#94A3B8" : "#D97706" }}
+                            style={{ background: isSilver ? "#94A3B8" : "#073B3F" }}
                           />
                           <div>
                             <span className="mhd-cic-name">{item.metal_label}</span>
@@ -889,12 +916,12 @@ const styles = `
 
 /* LIVE RATES CARD */
 .mhd-rates-box {
-  background: linear-gradient(135deg, #FFFDF0 0%, #FEF9C3 100%);
-  border: 1.5px solid #F6D860;
+  background: #F8FAFA;
+  border: 1.5px solid #D6E2E1;
   border-radius: 18px;
   padding: 16px 20px;
   min-width: 290px;
-  box-shadow: 0 4px 16px rgba(217, 119, 6, 0.08);
+  box-shadow: 0 4px 16px rgba(7, 59, 63, 0.04);
 }
 
 .mhd-rates-header {
@@ -903,7 +930,7 @@ const styles = `
   gap: 8px;
   font-size: 11px;
   font-weight: 800;
-  color: #92400E;
+  color: #073B3F;
   letter-spacing: 0.06em;
   margin-bottom: 10px;
 }
@@ -931,12 +958,12 @@ const styles = `
 }
 
 .mhd-rate-lbl {
-  color: #78350F;
+  color: #5C706E;
   font-weight: 600;
 }
 
 .mhd-rate-val {
-  color: #92400E;
+  color: #073B3F;
   font-weight: 800;
 }
 
@@ -974,13 +1001,27 @@ const styles = `
 }
 
 .mhd-metric-card.coins-card {
-  border-color: #FDE68A;
+  border-color: #D6E2E1;
   background: #FFFFFF;
+}
+
+.mhd-metric-card.coins-card.tab-active {
+  border-color: #073B3F;
+  box-shadow: 0 0 0 2px rgba(7, 59, 63, 0.2), 0 8px 24px rgba(7, 59, 63, 0.08);
 }
 
 .mhd-metric-card.jewels-card {
   border-color: #A7F3D0;
   background: #FFFFFF;
+}
+
+.mhd-metric-card.jewels-card.tab-active {
+  border-color: #047857;
+  box-shadow: 0 0 0 2px rgba(4, 120, 87, 0.2), 0 8px 24px rgba(4, 120, 87, 0.08);
+}
+
+.mhd-metric-card.highlight.tab-active {
+  box-shadow: 0 0 0 3px #0F5E64, 0 10px 32px rgba(6, 45, 48, 0.3);
 }
 
 .mhd-metric-header {
@@ -1021,7 +1062,8 @@ const styles = `
 }
 
 .mhd-mini-icon-box.gold {
-  background: #FEF3C7;
+  background: #EFF6F6;
+  color: #073B3F;
 }
 
 .mhd-mini-icon-box.emerald {
@@ -1040,7 +1082,7 @@ const styles = `
 }
 
 .mhd-metric-val.coins {
-  color: #B45309;
+  color: #073B3F;
 }
 
 .mhd-metric-val.jewels {
@@ -1170,7 +1212,8 @@ const styles = `
 }
 
 .mhd-section-icon.gold {
-  background: #FEF3C7;
+  background: #EFF6F6;
+  color: #073B3F;
 }
 
 .mhd-section-icon.emerald {
@@ -1204,9 +1247,9 @@ const styles = `
 }
 
 .mhd-purity-pill.g22 {
-  background: #FFFBEB;
-  color: #92400E;
-  border: 1px solid #FDE68A;
+  background: #EFF6F6;
+  color: #073B3F;
+  border: 1px solid #D1DFDE;
 }
 
 .mhd-purity-pill.slv {

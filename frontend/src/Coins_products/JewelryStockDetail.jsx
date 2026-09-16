@@ -14,11 +14,11 @@ import {
 } from "../components/SvgIcons";
 
 const ROLE_BADGES = {
-  super_admin: { bg: "#FEF3C7", color: "#92400E", label: "Super Admin" },
-  admin: { bg: "#F3E8FF", color: "#6B21A8", label: "Admin" },
-  dealer: { bg: "#E0F2FE", color: "#0369A1", label: "Dealer" },
-  sub_dealer: { bg: "#ECFDF5", color: "#047857", label: "Sub Dealer" },
-  promotor: { bg: "#EFF6FF", color: "#1D4ED8", label: "Promotor" },
+  super_admin: { bg: "#EFF6F6", color: "#073B3F", label: "Super Admin" },
+  admin: { bg: "#F3E8FF", color: "#6B21A8", label: "Super Stockist" },
+  dealer: { bg: "#E0F2FE", color: "#0369A1", label: "Distributor" },
+  sub_dealer: { bg: "#ECFDF5", color: "#047857", label: "Wholesale Dealer" },
+  promotor: { bg: "#EFF6FF", color: "#1D4ED8", label: "Retailer" },
 };
 
 export default function JewelryStockDetail() {
@@ -30,6 +30,7 @@ export default function JewelryStockDetail() {
   const [error, setError] = useState("");
   const [selectedImgIdx, setSelectedImgIdx] = useState(0);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [holderRoleFilter, setHolderRoleFilter] = useState("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -119,6 +120,10 @@ export default function JewelryStockDetail() {
   const rate = data.today_rate || {};
   const vb = data.valuation_breakdown || {};
   const holders = data.stock_holders || [];
+  const filteredHolders = (holders || []).filter((h) => {
+    if (holderRoleFilter === "all") return true;
+    return h.role === holderRoleFilter;
+  });
   const images = p.images || [];
   const activeImg = images[selectedImgIdx] || images[0] || null;
 
@@ -211,9 +216,9 @@ export default function JewelryStockDetail() {
                 <span
                   className="jsd-karat-pill"
                   style={{
-                    background: isGold ? "#FEF3C7" : "#F1F5F9",
-                    color: isGold ? "#92400E" : "#334155",
-                    border: `1px solid ${isGold ? "#FDE68A" : "#CBD5E1"}`,
+                    background: "#EFF6F6",
+                    color: "#073B3F",
+                    border: "1px solid #D1DFDE",
                   }}
                 >
                   {p.karat_label || `${p.grade} ${p.metal}`}
@@ -229,7 +234,7 @@ export default function JewelryStockDetail() {
             <div className="jsd-valuation-box">
               <div className="jsd-vb-header">
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <SparkleIcon size={16} color="#D97706" />
+                  <SparkleIcon size={16} color="#073B3F" />
                   <span className="jsd-vb-title">TODAY'S RATE VALUATION</span>
                 </div>
                 <div className="jsd-live-rate-tag">
@@ -324,17 +329,55 @@ export default function JewelryStockDetail() {
               <div>
                 <h2 className="jsd-holders-title">Stock Allocation Across Company & Team</h2>
                 <p className="jsd-holders-desc">
-                  Shows which admins, dealers, or vaults currently hold pieces of this design.
+                  Shows which super stockists, distributors, wholesale dealers, retailers, or vaults currently hold pieces of this design.
                 </p>
               </div>
             </div>
           </div>
 
-          {holders.length === 0 ? (
-            <div className="jsd-no-holders">No current stock allocations recorded.</div>
+          {/* Interactive Role Filter Pills */}
+          {holders.length > 0 && (
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "18px" }}>
+              {[
+                { key: "all", label: `All (${holders.length})` },
+                { key: "super_admin", label: "Super Admin" },
+                { key: "admin", label: "Super Stockist" },
+                { key: "dealer", label: "Distributor" },
+                { key: "sub_dealer", label: "Wholesale Dealer" },
+                { key: "promotor", label: "Retailer" },
+              ]
+                .filter((r) => r.key === "all" || holders.some((h) => h.role === r.key))
+                .map((r) => {
+                  const isActive = holderRoleFilter === r.key;
+                  return (
+                    <button
+                      key={r.key}
+                      type="button"
+                      onClick={() => setHolderRoleFilter(r.key)}
+                      style={{
+                        padding: "6px 14px",
+                        borderRadius: "10px",
+                        border: isActive ? "1.5px solid #073B3F" : "1.5px solid #D6E2E1",
+                        background: isActive ? "#073B3F" : "#FFFFFF",
+                        color: isActive ? "#FFFFFF" : "#5C706E",
+                        fontWeight: 700,
+                        fontSize: "12px",
+                        cursor: "pointer",
+                        transition: "all 150ms ease",
+                      }}
+                    >
+                      {r.label}
+                    </button>
+                  );
+                })}
+            </div>
+          )}
+
+          {filteredHolders.length === 0 ? (
+            <div className="jsd-no-holders">No current stock allocations recorded for this role.</div>
           ) : (
             <div className="jsd-holders-grid">
-              {holders.map((holder, idx) => {
+              {filteredHolders.map((holder, idx) => {
                 const badge = ROLE_BADGES[holder.role] || {
                   bg: "#F1F5F9",
                   color: "#334155",
@@ -689,11 +732,11 @@ const styles = `
 
 /* Valuation Box */
 .jsd-valuation-box {
-  background: #FFFDF5;
-  border: 1.5px solid #FDE68A;
+  background: #F8FAFA;
+  border: 1.5px solid #D6E2E1;
   border-radius: 18px;
   padding: 20px 22px;
-  box-shadow: 0 4px 16px rgba(217, 119, 6, 0.06);
+  box-shadow: 0 4px 16px rgba(7, 59, 63, 0.04);
 }
 
 .jsd-vb-header {
@@ -709,14 +752,15 @@ const styles = `
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.05em;
-  color: #92400E;
+  color: #073B3F;
 }
 
 .jsd-live-rate-tag {
   font-size: 11.5px;
   font-weight: 800;
-  background: #FEF3C7;
-  color: #92400E;
+  background: #EFF6F6;
+  color: #073B3F;
+  border: 1px solid #D1DFDE;
   padding: 3px 8px;
   border-radius: 6px;
 }
@@ -726,7 +770,7 @@ const styles = `
   flex-direction: column;
   gap: 6px;
   font-size: 13px;
-  color: #78350F;
+  color: #5C706E;
 }
 
 .jsd-calc-row {
@@ -736,14 +780,14 @@ const styles = `
 
 .jsd-calc-row.sub {
   font-weight: 700;
-  color: #92400E;
+  color: #073B3F;
   padding-top: 4px;
-  border-top: 1px dashed #FDE68A;
+  border-top: 1px dashed #D6E2E1;
 }
 
 .jsd-calc-divider {
   height: 1.5px;
-  background: #FDE68A;
+  background: #D6E2E1;
   margin: 10px 0;
 }
 
@@ -758,7 +802,7 @@ const styles = `
 .jsd-final-lbl {
   font-size: 11px;
   font-weight: 700;
-  color: #92400E;
+  color: #5C706E;
   display: block;
   margin-bottom: 2px;
 }
@@ -772,7 +816,7 @@ const styles = `
 .jsd-vault-total-price {
   font-size: 22px;
   font-weight: 800;
-  color: #D97706;
+  color: #073B3F;
 }
 
 /* Specs Section */

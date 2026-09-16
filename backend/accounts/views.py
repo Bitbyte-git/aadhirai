@@ -7974,6 +7974,76 @@ class PaymentsSummaryView(APIView):
                 ],
             })
 
+        elif view == 'general_customer_revenue':
+            # ── "General Customer" = CustomerProfile.created_by IS NULL — direct
+            # /register signup, no referral link. Same definition as
+            # GeneralCustomerListView. Buyer chain-ku creator edhуவும் illama
+            # irukkura padiyаal, distribute_commission() ku empty chain — yarukkum
+            # (Retailer/Dealer/etc) commission poogathu, Super Admin ku mattum
+            # thaan (My Commission + Balance) pogும். Idhu 'All Sales' oda subset. ──
+            base_qs = JewelryOrder.objects.filter(user__customer_profile__created_by__isnull=True)
+            period_qs = _apply_period_filter(base_qs, period, start_date, end_date)
+
+            total_revenue = period_qs.aggregate(total=Sum('total_price'))['total'] or 0
+            total_transactions = period_qs.count()
+
+            wallet_paid_total = period_qs.filter(payment_method='wallet').aggregate(total=Sum('total_price'))['total'] or 0
+            total_coins_sold = int(Decimal(str(wallet_paid_total)) * COIN_RATE_PER_RUPEE)
+
+            payment_breakdown = [
+                {'method': r['payment_method'], 'count': r['count'], 'total': float(r['total'] or 0)}
+                for r in period_qs.values('payment_method').annotate(count=Count('id'), total=Sum('total_price')).order_by('-total')
+            ]
+
+            six_months_ago = timezone.now().date() - timedelta(days=180)
+            trend_qs = (
+                base_qs.filter(created_at__date__gte=six_months_ago)
+                .annotate(month=TruncMonth('created_at'))
+                .values('month')
+                .annotate(revenue=Sum('total_price'))
+                .order_by('month')
+            )
+            monthly_trend = [
+                {'month': t['month'].strftime('%b %Y'), 'revenue': float(t['revenue'])}
+                for t in trend_qs
+            ]
+
+            txn_qs = period_qs.select_related('user').order_by('-created_at')
+
+            if export_csv:
+                response = HttpResponse(content_type='text/csv')
+                response['Content-Disposition'] = 'attachment; filename="general-customer-revenue-report.csv"'
+                writer = csv.writer(response)
+                writer.writerow(['Order ID', 'Buyer', 'Amount (Rs.)', 'Payment Method', 'Date'])
+                for o in txn_qs:
+                    writer.writerow([o.order_id, get_user_profile_id(o.user) or o.user.email, float(o.total_price), o.payment_method, o.created_at.strftime('%d-%b-%Y %H:%M')])
+                return response
+
+            start = (page - 1) * page_size
+            page_txns = txn_qs[start:start + page_size]
+
+            return Response({
+                'view': view,
+                'period': period,
+                'total_revenue': float(total_revenue),
+                'total_coins_sold': total_coins_sold,
+                'total_transactions': total_transactions,
+                'monthly_trend': monthly_trend,
+                'payment_breakdown': payment_breakdown,
+                'page': page,
+                'has_more': start + page_size < total_transactions,
+                'transactions': [
+                    {
+                        'transaction_id': o.order_id,
+                        'buyer': get_user_profile_id(o.user) or o.user.email,
+                        'amount': float(o.total_price),
+                        'coins': None,
+                        'payment_method': o.payment_method,
+                        'created_at': o.created_at,
+                    } for o in page_txns
+                ],
+            })
+
         elif view == 'athirai_revenue':
             # ── Athirai's real net revenue — every order's value MINUS the 27%
             # commission pool (COMMISSION_POOL_PERCENT) that gets distributed up

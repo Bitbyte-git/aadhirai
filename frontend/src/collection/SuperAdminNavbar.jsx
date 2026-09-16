@@ -258,6 +258,7 @@ export default function SuperAdminNavbar({
     { keywords: ['super stockist'], path: '/promotions/super-stockist' },
     { keywords: ['all sales', 'revenue', 'payments'], path: '/superadmin-payments' },
     { keywords: ['athirai revenue', 'net revenue'], path: '/athirai-revenue' },
+    { keywords: ['general customer revenue', 'direct purchase'], path: '/general-customer-revenue' },
     { keywords: ['super admin commission'], path: '/superadmin-commission' },
     { keywords: ['my commission'], path: '/my-commission' },
     { keywords: ['commissions', 'leaderboard commission'], path: '/commissions' },
@@ -424,6 +425,7 @@ export default function SuperAdminNavbar({
   const payment = [
     ['All Sales', () => navigate('/superadmin-payments')],
     ['Athirai Revenue', () => navigate('/athirai-revenue')],
+    ['General Customer Revenue', () => navigate('/general-customer-revenue')],
     ['Super Admin Commission', () => navigate('/superadmin-commission')],
     ['My Commission', () => navigate('/my-commission')],
     ['Commissions', () => navigate('/commissions')],

@@ -231,32 +231,332 @@ export default function LoginActive() {
     setSelectedCard("orders");
   };
 
-  const exportCSV = () => {
+  const exportDocument = () => {
     if (!filtered.length) return;
-    const headers = ["S.No", "Level", "Position", "User ID", "Name", "Phone No", "Orders", "Login Time"];
-    const csvData = filtered.map((u, i) => [
-      i + 1,
-      `"${u.level || ""}"`,
-      `"${ROLE_DISPLAY[u.level_role] || u.level_role || ""}"`,
-      `"${u.id || ""}"`,
-      `"${(u.name || "").replace(/"/g, '""')}"`,
-      `"${u.phone || ""}"`,
-      u.order_count ?? 0,
-      `"${u.last_login ? formatTime(u.last_login) : `Never Login (Created: ${formatDate(u.created_at)})`}"`,
-    ]);
 
-    const blob = new Blob(
-      [[headers.join(","), ...csvData.map((row) => row.join(","))].join("\n")],
-      { type: "text/csv;charset=utf-8;" }
-    );
+    const reportTitle = viewMode === "all" ? "All Users Activity Report" : viewMode === "inactive" ? "Inactive Users Report" : "Active Users Report";
+    const dateStr = new Date().toLocaleDateString("en-IN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const rowsHtml = filtered.map((u, i) => `
+      <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f8fbfb'};">
+        <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; text-align: center; font-size: 9.5pt;">${i + 1}</td>
+        <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; text-align: center; font-size: 9.5pt;">${u.level || "-"}</td>
+        <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; font-weight: bold; color: #073B3F; font-size: 9.5pt;">${ROLE_DISPLAY[u.level_role] || u.level_role || "-"}</td>
+        <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; font-family: 'Courier New', monospace; font-size: 9pt;">${u.id || "-"}</td>
+        <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; font-weight: 600; font-size: 9.5pt;">${u.name || "-"}</td>
+        <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; font-size: 9.5pt;">${u.phone || "-"}</td>
+        <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; text-align: center; font-size: 9.5pt; font-weight: bold;">${u.order_count ?? 0}</td>
+        <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; font-size: 9pt;">${u.last_login ? formatTime(u.last_login) : `Never Login (Created: ${formatDate(u.created_at)})`}</td>
+      </tr>
+    `).join("");
+
+    const documentHtml = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset='utf-8'>
+        <title>${reportTitle}</title>
+        <!--[if gte mso 9]>
+        <xml>
+          <w:WordDocument>
+            <w:View>Print</w:View>
+            <w:Zoom>100</w:Zoom>
+            <w:DoNotOptimizeForBrowser/>
+          </w:WordDocument>
+        </xml>
+        <![endif]-->
+        <style>
+          @page Section1 {
+            size: 841.9pt 595.3pt;
+            mso-page-orientation: landscape;
+            margin: 0.5in 0.5in 0.5in 0.5in;
+            mso-header-margin: 0.3in;
+            mso-footer-margin: 0.3in;
+          }
+          div.Section1 {
+            page: Section1;
+          }
+          body {
+            font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+            color: #111817;
+            margin: 0;
+            padding: 0;
+          }
+          .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            border-bottom: 2.5pt solid #073B3F;
+            margin-bottom: 12pt;
+          }
+          .brand-text {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #073B3F;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+          }
+          .report-heading {
+            font-size: 20pt;
+            font-weight: bold;
+            color: #073B3F;
+            margin: 3pt 0 4pt 0;
+          }
+          .meta-text {
+            font-size: 9.5pt;
+            color: #5C706E;
+            margin-bottom: 8pt;
+          }
+          .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #EFF6F6;
+            border: 1pt solid #D1DFDE;
+            margin-bottom: 14pt;
+          }
+          .summary-td {
+            padding: 9pt 14pt;
+            font-size: 9.5pt;
+            color: #073B3F;
+            border: none;
+          }
+          table.data-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+          }
+          table.data-table th {
+            background-color: #073B3F;
+            color: #FFFFFF;
+            padding: 9pt 6pt;
+            border: 1pt solid #073B3F;
+            font-size: 9.5pt;
+            font-weight: bold;
+            text-align: left;
+          }
+          table.data-table td {
+            padding: 8pt 6pt;
+            border: 1pt solid #D1DFDE;
+            font-size: 9.5pt;
+            vertical-align: middle;
+            word-wrap: break-word;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="Section1">
+          <table class="header-table">
+            <tr>
+              <td style="border: none; padding-bottom: 8pt;">
+                <div class="brand-text">ATHIRAI JEWELLERY — MANAGEMENT REPORT</div>
+                <div class="report-heading">${reportTitle}</div>
+                <div class="meta-text">Generated: ${dateStr} • Scope: ${scopeLabel || "All Hierarchy"}</div>
+              </td>
+            </tr>
+          </table>
+
+          <table class="summary-table">
+            <tr>
+              <td class="summary-td">
+                <strong>Total Users Listed:</strong> ${filtered.length} &nbsp;&nbsp;|&nbsp;&nbsp;
+                <strong>Filter Mode:</strong> ${viewMode === "all" ? "All Users" : viewMode === "inactive" ? "Inactive" : "Active"} &nbsp;&nbsp;|&nbsp;&nbsp;
+                <strong>Period:</strong> ${periodLabel}
+              </td>
+            </tr>
+          </table>
+
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 5%; text-align: center;">S.No</th>
+                <th style="width: 6%; text-align: center;">Level</th>
+                <th style="width: 15%;">Position</th>
+                <th style="width: 15%;">User ID</th>
+                <th style="width: 20%;">Name</th>
+                <th style="width: 13%;">Phone No</th>
+                <th style="width: 8%; text-align: center;">Orders</th>
+                <th style="width: 18%;">Login Time / Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\ufeff', documentHtml], {
+      type: "application/msword;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `users_report_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.href = url;
+    link.download = `${reportTitle.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.doc`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast("Report downloaded");
+    URL.revokeObjectURL(url);
+    showToast("Document downloaded successfully");
+  };
+
+  const printDocument = () => {
+    if (!filtered.length) return;
+
+    const reportTitle = viewMode === "all" ? "All Users Activity Report" : viewMode === "inactive" ? "Inactive Users Report" : "Active Users Report";
+    const dateStr = new Date().toLocaleDateString("en-IN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const rowsHtml = filtered.map((u, i) => `
+      <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f8fbfb'};">
+        <td style="padding: 7px 6px; border: 1px solid #d1dfde; text-align: center;">${i + 1}</td>
+        <td style="padding: 7px 6px; border: 1px solid #d1dfde; text-align: center;">${u.level || "-"}</td>
+        <td style="padding: 7px 6px; border: 1px solid #d1dfde; font-weight: bold; color: #073B3F;">${ROLE_DISPLAY[u.level_role] || u.level_role || "-"}</td>
+        <td style="padding: 7px 6px; border: 1px solid #d1dfde; font-family: monospace; font-size: 11px;">${u.id || "-"}</td>
+        <td style="padding: 7px 6px; border: 1px solid #d1dfde; font-weight: 600;">${u.name || "-"}</td>
+        <td style="padding: 7px 6px; border: 1px solid #d1dfde;">${u.phone || "-"}</td>
+        <td style="padding: 7px 6px; border: 1px solid #d1dfde; text-align: center; font-weight: bold;">${u.order_count ?? 0}</td>
+        <td style="padding: 7px 6px; border: 1px solid #d1dfde; font-size: 11px;">${u.last_login ? formatTime(u.last_login) : `Never Login (Created: ${formatDate(u.created_at)})`}</td>
+      </tr>
+    `).join("");
+
+    const printHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${reportTitle}</title>
+        <style>
+          @page {
+            size: A4 landscape;
+            margin: 12mm 12mm 12mm 12mm;
+          }
+          * { box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #111817;
+            margin: 0;
+            padding: 16px;
+            background: #fff;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .header {
+            border-bottom: 2.5px solid #073B3F;
+            padding-bottom: 10px;
+            margin-bottom: 14px;
+          }
+          .brand {
+            font-size: 11px;
+            font-weight: 800;
+            color: #073B3F;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+          }
+          .title {
+            font-size: 22px;
+            font-weight: 800;
+            color: #073B3F;
+            margin: 4px 0 3px 0;
+          }
+          .meta {
+            font-size: 11px;
+            color: #5C706E;
+          }
+          .summary-card {
+            background: #EFF6F6;
+            border: 1px solid #D1DFDE;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 12px;
+            color: #073B3F;
+            margin-bottom: 14px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            table-layout: fixed;
+          }
+          th {
+            background-color: #073B3F !important;
+            color: #ffffff !important;
+            padding: 8px 6px;
+            border: 1px solid #073B3F;
+            font-weight: 700;
+            font-size: 11.5px;
+            text-align: left;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          td {
+            padding: 7px 6px;
+            border: 1px solid #D1DFDE;
+            font-size: 11.5px;
+            vertical-align: middle;
+            word-wrap: break-word;
+          }
+          tr:nth-child(even) td {
+            background-color: #F8FBFB !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="brand">ATHIRAI JEWELLERY — MANAGEMENT REPORT</div>
+          <div class="title">${reportTitle}</div>
+          <div class="meta">Generated: ${dateStr} • Scope: ${scopeLabel || "All Hierarchy"}</div>
+        </div>
+        <div class="summary-card">
+          <strong>Total Users Listed:</strong> ${filtered.length} &nbsp;&nbsp;|&nbsp;&nbsp;
+          <strong>Filter Mode:</strong> ${viewMode === "all" ? "All Users" : viewMode === "inactive" ? "Inactive" : "Active"} &nbsp;&nbsp;|&nbsp;&nbsp;
+          <strong>Period:</strong> ${periodLabel}
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 5%; text-align: center;">S.No</th>
+              <th style="width: 6%; text-align: center;">Level</th>
+              <th style="width: 15%;">Position</th>
+              <th style="width: 15%;">User ID</th>
+              <th style="width: 20%;">Name</th>
+              <th style="width: 13%;">Phone No</th>
+              <th style="width: 8%; text-align: center;">Orders</th>
+              <th style="width: 18%;">Login Time / Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const printWin = window.open("", "_blank");
+    if (printWin) {
+      printWin.document.open();
+      printWin.document.write(printHtml);
+      printWin.document.close();
+      printWin.focus();
+      setTimeout(() => {
+        printWin.print();
+      }, 350);
+    }
   };
 
   return (
@@ -682,14 +982,38 @@ export default function LoginActive() {
                 Live sessions across internal hierarchy levels.
               </p>
             </div>
-            <div className="psl-header-actions">
+            <div className="psl-header-actions" style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               <button
                 type="button"
                 className="psl-btn-primary"
-                onClick={exportCSV}
+                onClick={exportDocument}
                 disabled={filtered.length === 0}
+                title="Download formatted Word Document (.doc)"
               >
-                <DownloadIcon size={15} color="#FFFFFF" /> Download Report
+                <DownloadIcon size={15} color="#FFFFFF" /> Download Document
+              </button>
+              <button
+                type="button"
+                onClick={printDocument}
+                disabled={filtered.length === 0}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "0 16px",
+                  height: "40px",
+                  borderRadius: "10px",
+                  border: "1.5px solid #073B3F",
+                  background: "#FFFFFF",
+                  color: "#073B3F",
+                  fontWeight: 700,
+                  fontSize: "12.5px",
+                  cursor: "pointer",
+                  transition: "all 150ms ease",
+                }}
+                title="Print or Save as PDF Document"
+              >
+                🖨️ Print / PDF
               </button>
             </div>
           </div>

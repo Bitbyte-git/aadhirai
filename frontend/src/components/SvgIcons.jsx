@@ -2,7 +2,7 @@ export function CoinIcon({ size = 18, color = "currentColor", style }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
       <circle cx="12" cy="12" r="9" />
-      <path d="M12 6v12M15 9.5a2.5 2.5 0 0 0-2.5-2.5H10a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4h-4.5A2.5 2.5 0 0 1 7 12.5" />
+      <circle cx="12" cy="12" r="5" strokeWidth="1.5" />
     </svg>
   );
 }

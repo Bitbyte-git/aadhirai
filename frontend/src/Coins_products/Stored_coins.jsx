@@ -103,10 +103,10 @@ const COIN_METAL_LABELS_TEXT = {
 
 const ROLE_BADGE_CONFIG = {
   super_admin: { bg: "#EFF6F6", color: "#073B3F", border: "#D6E2E1", label: "Super Admin" },
-  admin: { bg: "#F3E8FF", color: "#6B21A8", border: "#E9D5FF", label: "Admin" },
-  dealer: { bg: "#E0F2FE", color: "#0369A1", border: "#BAE6FD", label: "Dealer" },
-  sub_dealer: { bg: "#ECFDF5", color: "#047857", border: "#A7F3D0", label: "Sub Dealer" },
-  promotor: { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", label: "Promotor" },
+  admin: { bg: "#F3E8FF", color: "#6B21A8", border: "#E9D5FF", label: "Super Stockist" },
+  dealer: { bg: "#E0F2FE", color: "#0369A1", border: "#BAE6FD", label: "Distributor" },
+  sub_dealer: { bg: "#ECFDF5", color: "#047857", border: "#A7F3D0", label: "Wholesale Dealer" },
+  promotor: { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", label: "Retailer" },
 };
 
 export default function StoredCoins() {
@@ -232,6 +232,10 @@ export default function StoredCoins() {
 
   const filteredHierarchy = hierarchyStock.filter((member) => {
     if (roleFilter !== "all" && member.role !== roleFilter) return false;
+    if (selectedMetalFilter !== "all") {
+      const hasMetal = member.items?.some((it) => it.metal_type === selectedMetalFilter && (Number(it.qty) || 0) > 0);
+      if (!hasMetal) return false;
+    }
     if (!searchTerm.trim()) return true;
     const q = searchTerm.toLowerCase();
     const matchesName = member.name?.toLowerCase().includes(q);
@@ -1047,13 +1051,6 @@ export default function StoredCoins() {
       `}</style>
 
       <div className="sc-shell">
-        {/* Topbar */}
-        <div className="sc-topbar">
-          <button className="sc-back-btn" onClick={() => navigate(-1)}>
-            <ArrowLeftIcon size={14} color="#073B3F" /> Back
-          </button>
-        </div>
-
         {/* 4 Tabs Matching Navigation */}
         <CoinTabs activeTab="Available Coins" />
 
@@ -1068,7 +1065,7 @@ export default function StoredCoins() {
             </h1>
             <p className="sc-header-sub">
               {isSuperAdmin && scope === "hierarchy"
-                ? "Oversee live coin holdings across all downline admins, dealers, and promotors."
+                ? "Oversee live coin holdings across all downline super stockists, distributors, wholesale dealers, and retailers."
                 : "Vault coin stock across purity and denomination weights."}
             </p>
           </div>
@@ -1334,58 +1331,132 @@ export default function StoredCoins() {
           <>
             {/* 4 Stat Cards for Hierarchy Holdings (Gold 22k, Gold 24k, Silver 999 weights & pieces) */}
             <div className="sc-stats-grid">
-              <div className="sc-stat-card" style={{ borderLeft: "4px solid #073B3F" }}>
+              <div
+                className="sc-stat-card"
+                onClick={() => setSelectedMetalFilter("all")}
+                style={{
+                  cursor: "pointer",
+                  borderLeft: "4px solid #073B3F",
+                  borderColor: selectedMetalFilter === "all" ? "#073B3F" : "#E2E8F0",
+                  background: selectedMetalFilter === "all" ? "#F4F9F9" : "#FFFFFF",
+                  boxShadow: selectedMetalFilter === "all" ? "0 8px 24px rgba(7, 59, 63, 0.12)" : "0 4px 14px rgba(7, 59, 63, 0.04)",
+                  transform: selectedMetalFilter === "all" ? "translateY(-2px)" : "none",
+                }}
+                title="Click to show all member coin holdings"
+              >
                 <div className="sc-stat-header">
-                  <span className="sc-stat-label">Circulation Coins</span>
-                  <div className="sc-stat-icon" style={{ background: "#EFF6F6", color: "#073B3F" }}>
-                    <CoinIcon size={18} color="#073B3F" />
+                  <span className="sc-stat-label" style={{ color: selectedMetalFilter === "all" ? "#073B3F" : "#5C706E" }}>
+                    All Coins
+                  </span>
+                  <div className="sc-stat-icon" style={{ background: selectedMetalFilter === "all" ? "#073B3F" : "#EFF6F6", color: selectedMetalFilter === "all" ? "#FFFFFF" : "#073B3F" }}>
+                    <CoinIcon size={18} color={selectedMetalFilter === "all" ? "#FFFFFF" : "#073B3F"} />
                   </div>
                 </div>
                 <div className="sc-stat-value">
                   {hierarchyLoading ? <SkeletonText width="60px" height="30px" /> : hierarchyTotalCoins.toLocaleString()}
                 </div>
-                <div className="sc-stat-sub">
-                  {hierarchyStock.length} members · {formatWeight(hierarchyTotalGrams)} total
+                <div className="sc-stat-sub" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>{hierarchyStock.length} members · {formatWeight(hierarchyTotalGrams)} total</span>
+                  {selectedMetalFilter === "all" && (
+                    <span style={{ fontSize: "10px", fontWeight: 800, color: "#073B3F", background: "#D1DFDE", padding: "1px 6px", borderRadius: "4px" }}>ALL</span>
+                  )}
                 </div>
               </div>
 
-              <div className="sc-stat-card" style={{ borderLeft: "4px solid #073B3F" }}>
+              <div
+                className="sc-stat-card"
+                onClick={() => setSelectedMetalFilter(selectedMetalFilter === "gold_22k" ? "all" : "gold_22k")}
+                style={{
+                  cursor: "pointer",
+                  borderLeft: "4px solid #073B3F",
+                  borderColor: selectedMetalFilter === "gold_22k" ? "#073B3F" : "#E2E8F0",
+                  background: selectedMetalFilter === "gold_22k" ? "#F4F9F9" : "#FFFFFF",
+                  boxShadow: selectedMetalFilter === "gold_22k" ? "0 8px 24px rgba(7, 59, 63, 0.12)" : "0 4px 14px rgba(7, 59, 63, 0.04)",
+                  transform: selectedMetalFilter === "gold_22k" ? "translateY(-2px)" : "none",
+                }}
+                title="Click to filter members holding Gold 22K (916) coins"
+              >
                 <div className="sc-stat-header">
-                  <span className="sc-stat-label">Gold 22K (916)</span>
-                  <div className="sc-stat-icon" style={{ background: "#EFF6F6", color: "#073B3F" }}>
-                    <GoldIngotIcon size={18} color="#073B3F" />
+                  <span className="sc-stat-label" style={{ color: selectedMetalFilter === "gold_22k" ? "#073B3F" : "#5C706E" }}>
+                    Gold 22K (916)
+                  </span>
+                  <div className="sc-stat-icon" style={{ background: selectedMetalFilter === "gold_22k" ? "#073B3F" : "#EFF6F6", color: selectedMetalFilter === "gold_22k" ? "#FFFFFF" : "#073B3F" }}>
+                    <GoldIngotIcon size={18} color={selectedMetalFilter === "gold_22k" ? "#FFFFFF" : "#073B3F"} />
                   </div>
                 </div>
                 <div className="sc-stat-value">
                   {hierarchyLoading ? <SkeletonText width="60px" height="30px" /> : hierarchyGold22kPieces.toLocaleString()}
                 </div>
-                <div className="sc-stat-sub">{formatWeight(hierarchyGold22kGrams)} gross weight</div>
+                <div className="sc-stat-sub" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>{formatWeight(hierarchyGold22kGrams)} gross weight</span>
+                  {selectedMetalFilter === "gold_22k" && (
+                    <span style={{ fontSize: "10px", fontWeight: 800, color: "#073B3F", background: "#D1DFDE", padding: "1px 6px", borderRadius: "4px" }}>SELECTED</span>
+                  )}
+                </div>
               </div>
 
-              <div className="sc-stat-card" style={{ borderLeft: "4px solid #0A5C63" }}>
+              <div
+                className="sc-stat-card"
+                onClick={() => setSelectedMetalFilter(selectedMetalFilter === "gold_24k" ? "all" : "gold_24k")}
+                style={{
+                  cursor: "pointer",
+                  borderLeft: "4px solid #0A5C63",
+                  borderColor: selectedMetalFilter === "gold_24k" ? "#073B3F" : "#E2E8F0",
+                  background: selectedMetalFilter === "gold_24k" ? "#F4F9F9" : "#FFFFFF",
+                  boxShadow: selectedMetalFilter === "gold_24k" ? "0 8px 24px rgba(7, 59, 63, 0.12)" : "0 4px 14px rgba(7, 59, 63, 0.04)",
+                  transform: selectedMetalFilter === "gold_24k" ? "translateY(-2px)" : "none",
+                }}
+                title="Click to filter members holding Gold 24K (999) coins"
+              >
                 <div className="sc-stat-header">
-                  <span className="sc-stat-label">Gold 24K (999)</span>
-                  <div className="sc-stat-icon" style={{ background: "#E6F2F2", color: "#0A5C63" }}>
-                    <GoldPurityIcon size={18} color="#0A5C63" />
+                  <span className="sc-stat-label" style={{ color: selectedMetalFilter === "gold_24k" ? "#073B3F" : "#5C706E" }}>
+                    Gold 24K (999)
+                  </span>
+                  <div className="sc-stat-icon" style={{ background: selectedMetalFilter === "gold_24k" ? "#073B3F" : "#E6F2F2", color: selectedMetalFilter === "gold_24k" ? "#FFFFFF" : "#0A5C63" }}>
+                    <GoldPurityIcon size={18} color={selectedMetalFilter === "gold_24k" ? "#FFFFFF" : "#0A5C63"} />
                   </div>
                 </div>
                 <div className="sc-stat-value">
                   {hierarchyLoading ? <SkeletonText width="60px" height="30px" /> : hierarchyGold24kPieces.toLocaleString()}
                 </div>
-                <div className="sc-stat-sub">{formatWeight(hierarchyGold24kGrams)} pure bullion</div>
+                <div className="sc-stat-sub" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>{formatWeight(hierarchyGold24kGrams)} pure bullion</span>
+                  {selectedMetalFilter === "gold_24k" && (
+                    <span style={{ fontSize: "10px", fontWeight: 800, color: "#073B3F", background: "#D1DFDE", padding: "1px 6px", borderRadius: "4px" }}>SELECTED</span>
+                  )}
+                </div>
               </div>
 
-              <div className="sc-stat-card" style={{ borderLeft: "4px solid #64748B" }}>
+              <div
+                className="sc-stat-card"
+                onClick={() => setSelectedMetalFilter(selectedMetalFilter === "silver_999" ? "all" : "silver_999")}
+                style={{
+                  cursor: "pointer",
+                  borderLeft: "4px solid #64748B",
+                  borderColor: selectedMetalFilter === "silver_999" ? "#073B3F" : "#E2E8F0",
+                  background: selectedMetalFilter === "silver_999" ? "#F4F9F9" : "#FFFFFF",
+                  boxShadow: selectedMetalFilter === "silver_999" ? "0 8px 24px rgba(7, 59, 63, 0.12)" : "0 4px 14px rgba(7, 59, 63, 0.04)",
+                  transform: selectedMetalFilter === "silver_999" ? "translateY(-2px)" : "none",
+                }}
+                title="Click to filter members holding Silver 999 coins"
+              >
                 <div className="sc-stat-header">
-                  <span className="sc-stat-label">Silver 999</span>
-                  <div className="sc-stat-icon" style={{ background: "#F1F5F9", color: "#475569" }}>
-                    <SilverBarIcon size={18} color="#475569" />
+                  <span className="sc-stat-label" style={{ color: selectedMetalFilter === "silver_999" ? "#073B3F" : "#5C706E" }}>
+                    Silver 999
+                  </span>
+                  <div className="sc-stat-icon" style={{ background: selectedMetalFilter === "silver_999" ? "#073B3F" : "#F1F5F9", color: selectedMetalFilter === "silver_999" ? "#FFFFFF" : "#475569" }}>
+                    <SilverBarIcon size={18} color={selectedMetalFilter === "silver_999" ? "#FFFFFF" : "#475569"} />
                   </div>
                 </div>
                 <div className="sc-stat-value">
                   {hierarchyLoading ? <SkeletonText width="60px" height="30px" /> : hierarchySilverPieces.toLocaleString()}
                 </div>
-                <div className="sc-stat-sub">{formatWeight(hierarchySilverGrams)} fine silver</div>
+                <div className="sc-stat-sub" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>{formatWeight(hierarchySilverGrams)} fine silver</span>
+                  {selectedMetalFilter === "silver_999" && (
+                    <span style={{ fontSize: "10px", fontWeight: 800, color: "#073B3F", background: "#D1DFDE", padding: "1px 6px", borderRadius: "4px" }}>SELECTED</span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1415,25 +1486,25 @@ export default function StoredCoins() {
                   className={`sc-filter-pill ${roleFilter === "admin" ? "active" : ""}`}
                   onClick={() => setRoleFilter("admin")}
                 >
-                  Admins ({roleCounts.admin})
+                  Super Stockists ({roleCounts.admin})
                 </button>
                 <button
                   className={`sc-filter-pill ${roleFilter === "dealer" ? "active" : ""}`}
                   onClick={() => setRoleFilter("dealer")}
                 >
-                  Dealers ({roleCounts.dealer})
+                  Distributors ({roleCounts.dealer})
                 </button>
                 <button
                   className={`sc-filter-pill ${roleFilter === "sub_dealer" ? "active" : ""}`}
                   onClick={() => setRoleFilter("sub_dealer")}
                 >
-                  Sub Dealers ({roleCounts.sub_dealer})
+                  Wholesale Dealers ({roleCounts.sub_dealer})
                 </button>
                 <button
                   className={`sc-filter-pill ${roleFilter === "promotor" ? "active" : ""}`}
                   onClick={() => setRoleFilter("promotor")}
                 >
-                  Promotors ({roleCounts.promotor})
+                  Retailers ({roleCounts.promotor})
                 </button>
               </div>
             </div>

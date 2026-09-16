@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "../api";
 import CoinTabs from "./CoinTabs";
@@ -14,25 +14,37 @@ import {
   LockIcon,
   EyeIcon,
   EyeOffIcon,
-  PhoneIcon,
-  MailIcon,
   CalendarIcon,
   PlusIcon,
   ClockIcon,
+  UsersIcon,
+  CoinIcon,
+  HistoryIcon,
 } from "../components/SvgIcons";
 
 const ROLE_BADGE_CONFIG = {
-  super_admin: { bg: "#FEF3C7", color: "#92400E", border: "#FDE68A", label: "Super Admin" },
-  admin: { bg: "#F3E8FF", color: "#6B21A8", border: "#E9D5FF", label: "Admin" },
-  dealer: { bg: "#E0F2FE", color: "#0369A1", border: "#BAE6FD", label: "Dealer" },
-  sub_dealer: { bg: "#ECFDF5", color: "#047857", border: "#A7F3D0", label: "Sub Dealer" },
-  promotor: { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", label: "Promotor" },
+  super_admin: { bg: "#EFF6F6", color: "#073B3F", border: "#CEE3E1", label: "Super Admin" },
+  admin: { bg: "#F3E8FF", color: "#6B21A8", border: "#E9D5FF", label: "Super Stockist" },
+  dealer: { bg: "#E0F2FE", color: "#0369A1", border: "#BAE6FD", label: "Distributor" },
+  sub_dealer: { bg: "#ECFDF5", color: "#047857", border: "#A7F3D0", label: "Wholesale Dealer" },
+  promotor: { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", label: "Retailer" },
 };
+
+const PERIOD_OPTIONS = [
+  { key: "today", label: "Today" },
+  { key: "week", label: "This Week" },
+  { key: "month", label: "This Month" },
+  { key: "year", label: "This Year" },
+  { key: "all", label: "All Time" },
+];
 
 export default function JewelleryRequests() {
   const navigate = useNavigate();
   const location = useLocation();
+
   const role = localStorage.getItem("role") || "";
+  const currentUserId = Number(localStorage.getItem("user_id") || localStorage.getItem("id") || 0);
+  const currentUserEmail = localStorage.getItem("email") || "";
   const isSuperAdmin = role === "super_admin";
 
   const [requests, setRequests] = useState([]);
@@ -41,11 +53,11 @@ export default function JewelleryRequests() {
   const [toast, setToast] = useState("");
   const [previewProduct, setPreviewProduct] = useState(null);
   const [visibleLimit, setVisibleLimit] = useState(100);
-  const [successModal, setSuccessModal] = useState(null); // { title, message, details, type }
-  const [boxTab, setBoxTab] = useState(
-    location.state?.initialTab || (role === "promotor" ? "sent" : "received")
-  ); // "received" | "sent"
-  const [statusFilter, setStatusFilter] = useState("all"); // "all" | "pending" | "sent" | "rejected"
+  const [successModal, setSuccessModal] = useState(null);
+
+  // Period filter & 5 Interactive Cards state
+  const [period, setPeriod] = useState("today");
+  const [activeCard, setActiveCard] = useState("my_requests");
 
   // Create Request Modal state
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -112,11 +124,7 @@ export default function JewelleryRequests() {
     setLoading(true);
     setError("");
     try {
-      const params = { box: boxTab };
-      if (statusFilter && statusFilter !== "all") {
-        params.status = statusFilter;
-      }
-      const res = await api.get("/jewelry-requests/", { params });
+      const res = await api.get("/jewelry-requests/?box=all");
       setRequests(Array.isArray(res.data) ? res.data : res.data.items || []);
     } catch {
       setError("Failed to load jewellery requests.");
@@ -124,53 +132,56 @@ export default function JewelleryRequests() {
     setLoading(false);
   };
 
-  const fetchAvailableProducts = async () => {
+  const fetchAvailableProductsForBuy = async () => {
     try {
-      const res = await api.get("/jewelry-products/?internal=true");
-      setAvailableProducts(res.data || []);
-      if (res.data?.length > 0) {
-        setSelectedProductId(res.data[0].id);
-      }
-    } catch {
-      // ignore
+      const res = await api.get("/jewelry-products/");
+      const prods = (Array.isArray(res.data) ? res.data : []).filter(
+        (p) => Number(p.stock_quantity) > 0
+      );
+      setAvailableProducts(prods);
+      if (prods.length > 0) setSelectedProductId(String(prods[0].id));
+    } catch (err) {
+      console.error("Failed to load available catalog products for request:", err);
     }
   };
 
   useEffect(() => {
-    setVisibleLimit(100);
     fetchRequests();
-  }, [boxTab, statusFilter]);
-
-  useEffect(() => {
-    fetchAvailableProducts();
+    if (!isSuperAdmin) {
+      fetchAvailableProductsForBuy();
+    }
   }, []);
 
   const handleCreateRequest = async (e) => {
     e.preventDefault();
-    if (!selectedProductId) return;
+    if (!selectedProductId || Number(requestQty) <= 0) {
+      showToast("Please pick a product and enter a valid quantity.");
+      return;
+    }
     setSubmittingReq(true);
     try {
       await api.post("/jewelry-requests/", {
-        items: [{ product_id: selectedProductId, qty: parseInt(requestQty, 10) || 1 }],
+        items: [{ product_id: Number(selectedProductId), qty: Number(requestQty) }],
       });
       showToast("Jewellery request submitted successfully!");
-      const chosenProd = availableProducts.find((p) => p.id === parseInt(selectedProductId, 10));
       setSuccessModal({
-        title: "Jewellery Request Sent!",
-        message: `Your piece request has been routed to your upstream authority for authorization.`,
+        title: "Request Submitted!",
+        message: "Your jewellery allocation request has been forwarded to your direct upstream leader for review.",
         details: [
-          { label: "Design", value: chosenProd?.name || "Jewellery Piece" },
-          { label: "Pieces Requested", value: `${requestQty} pcs`, highlight: true },
+          { label: "Design ID", value: `#${selectedProductId}`, isMonospace: true },
+          { label: "Quantity", value: `${requestQty} piece(s)` },
+          { label: "Status", value: "Pending Leader Review", highlight: true },
         ],
         type: "success",
       });
       setCreateModalOpen(false);
-      setBoxTab("sent");
+      setRequestQty("1");
       fetchRequests();
     } catch (err) {
-      showToast(err.response?.data?.error || "Failed to create request.");
+      showToast(err.response?.data?.error || "Failed to submit request.");
+    } finally {
+      setSubmittingReq(false);
     }
-    setSubmittingReq(false);
   };
 
   const openAuthModal = (type, reqId) => {
@@ -182,102 +193,286 @@ export default function JewelleryRequests() {
 
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
-    if (isSuperAdmin && !adminPassword.trim()) {
-      setPwdError("Please enter your Super Admin password.");
+    if (!adminPassword.trim()) {
+      setPwdError("Super Admin password is required.");
       return;
     }
-
     setSubmittingPwd(true);
     setPwdError("");
     try {
-      const { type, reqId } = pwdAction;
       const endpoint =
-        type === "approve"
-          ? `/jewelry-requests/${reqId}/approve/`
-          : `/jewelry-requests/${reqId}/reject/`;
-      const payload = isSuperAdmin ? { password: adminPassword.trim() } : {};
-      if (type === "reject") payload.message = "Declined by approver";
-
+        pwdAction.type === "approve"
+          ? `/jewelry-requests/${pwdAction.reqId}/approve/`
+          : `/jewelry-requests/${pwdAction.reqId}/reject/`;
+      const payload = {
+        password: adminPassword.trim(),
+        message: pwdAction.type === "reject" ? "Declined by Super Admin" : undefined,
+      };
       await api.post(endpoint, payload);
-      showToast(
-        type === "approve"
-          ? "Jewellery request approved and stock transferred!"
-          : "Jewellery request rejected."
-      );
-      if (type === "approve") {
+      setPwdModalOpen(false);
+      setAdminPassword("");
+      showToast(`Request #${pwdAction.reqId} ${pwdAction.type === "approve" ? "approved" : "rejected"} successfully.`);
+      if (pwdAction.type === "approve") {
         setSuccessModal({
-          title: "Request Approved & Stock Disbursed!",
-          message: `Jewellery allocation request #${reqId} has been authorized and stock disbursed to requester custody.`,
+          title: "Request Approved & Disbursed!",
+          message: `Jewellery pieces for Request #${pwdAction.reqId} have been deducted from company stock and transferred.`,
           details: [
-            { label: "Request ID", value: `#${reqId}`, isMonospace: true },
-            { label: "Resolution", value: "Approved & Transferred", highlight: true },
+            { label: "Request ID", value: `#${pwdAction.reqId}`, isMonospace: true },
+            { label: "Authorized by", value: "Super Admin", highlight: true },
+            { label: "Timestamp", value: new Date().toLocaleTimeString("en-IN") },
           ],
           type: "success",
         });
       } else {
         setSuccessModal({
           title: "Request Declined",
-          message: `Jewellery allocation request #${reqId} has been declined.`,
+          message: `Jewellery allocation request #${pwdAction.reqId} has been declined.`,
           details: [
-            { label: "Request ID", value: `#${reqId}`, isMonospace: true },
+            { label: "Request ID", value: `#${pwdAction.reqId}`, isMonospace: true },
             { label: "Status", value: "Declined" },
           ],
           type: "danger",
         });
       }
-      setPwdModalOpen(false);
       fetchRequests();
     } catch (err) {
-      setPwdError(err.response?.data?.error || "Action failed.");
+      setPwdError(err.response?.data?.error || "Password verification failed.");
+    } finally {
+      setSubmittingPwd(false);
     }
-    setSubmittingPwd(false);
   };
+
+  // Date helper
+  const isDateInPeriod = (dateStr, periodKey) => {
+    if (!dateStr || periodKey === "all") return true;
+    const d = new Date(dateStr);
+    const now = new Date();
+    if (isNaN(d.getTime())) return true;
+
+    if (periodKey === "today") {
+      return (
+        d.getDate() === now.getDate() &&
+        d.getMonth() === now.getMonth() &&
+        d.getFullYear() === now.getFullYear()
+      );
+    } else if (periodKey === "week") {
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), diff);
+      startOfWeek.setHours(0, 0, 0, 0);
+      return d >= startOfWeek;
+    } else if (periodKey === "month") {
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    } else if (periodKey === "year") {
+      return d.getFullYear() === now.getFullYear();
+    }
+    return true;
+  };
+
+  // 1. Requests filtered by selected period
+  const periodFilteredAll = useMemo(() => {
+    return requests.filter((r) => isDateInPeriod(r.created_at, period));
+  }, [requests, period]);
+
+  // 2. Count metrics for the 5 cards for the current period
+  const counts = useMemo(() => {
+    let myReq = 0;
+    let myApp = 0;
+    let myPend = 0;
+    let ldrApp = 0;
+    let ldrPend = 0;
+
+    periodFilteredAll.forEach((r) => {
+      const isTargetMe = isSuperAdmin || r.requested_to === currentUserId || r.requested_to_email === currentUserEmail;
+      const isOriginMe = !isSuperAdmin && (r.requested_by === currentUserId || r.requested_by_email === currentUserEmail);
+
+      // Incoming / My Requests
+      if (isTargetMe) {
+        myReq++;
+        if (r.status === "sent") myApp++;
+        if (r.status === "pending") myPend++;
+      }
+
+      // Leader Requests
+      if (isSuperAdmin) {
+        if (r.requested_to_role !== "super_admin") {
+          if (r.status === "sent") ldrApp++;
+          if (r.status === "pending") ldrPend++;
+        }
+      } else {
+        if (isOriginMe) {
+          if (r.status === "sent") ldrApp++;
+          if (r.status === "pending") ldrPend++;
+        }
+      }
+    });
+
+    return {
+      myRequests: myReq,
+      myApproved: myApp,
+      myPending: myPend,
+      leaderApproved: ldrApp,
+      leaderPending: ldrPend,
+    };
+  }, [periodFilteredAll, isSuperAdmin, currentUserId, currentUserEmail]);
+
+  // 3. Card specifications
+  const cardList = [
+    {
+      id: "my_requests",
+      label: isSuperAdmin ? "Requests" : "My Requests",
+      sub: isSuperAdmin ? "All received requests" : "Received from downline",
+      val: counts.myRequests,
+      border: "#073B3F",
+      iconBg: "#EFF6F6",
+      iconColor: "#073B3F",
+      IconComponent: InboxIcon,
+    },
+    {
+      id: "my_approved",
+      label: "My Approved Requests",
+      sub: isSuperAdmin ? "All approved requests" : "Approved by me",
+      val: counts.myApproved,
+      border: "#166534",
+      iconBg: "#E6F4EA",
+      iconColor: "#166534",
+      IconComponent: CheckIcon,
+    },
+    {
+      id: "my_pending",
+      label: "My Pending Requests",
+      sub: isSuperAdmin ? "Awaiting approval" : "Awaiting my approval",
+      val: counts.myPending,
+      border: "#0A5C63",
+      iconBg: "#E6F4F2",
+      iconColor: "#0A5C63",
+      IconComponent: JewelryIcon,
+    },
+    {
+      id: "leader_approved",
+      label: "Leader Approved Requests",
+      sub: isSuperAdmin ? "Team leader approved" : "Approved by my leader",
+      val: counts.leaderApproved,
+      border: "#2563EB",
+      iconBg: "#EFF6FF",
+      iconColor: "#2563EB",
+      IconComponent: UsersIcon,
+    },
+    {
+      id: "leader_pending",
+      label: "Leader Pending Requests",
+      sub: isSuperAdmin ? "Pending with team leaders" : "Pending with my leader",
+      val: counts.leaderPending,
+      border: "#7C3AED",
+      iconBg: "#F5F3FF",
+      iconColor: "#7C3AED",
+      IconComponent: HistoryIcon,
+    },
+  ];
+
+  // 4. Requests currently matching both the Period and the Active Card
+  const filteredRequests = useMemo(() => {
+    return periodFilteredAll.filter((r) => {
+      const isTargetMe = isSuperAdmin || r.requested_to === currentUserId || r.requested_to_email === currentUserEmail;
+      const isOriginMe = !isSuperAdmin && (r.requested_by === currentUserId || r.requested_by_email === currentUserEmail);
+
+      if (activeCard === "my_requests") {
+        return isTargetMe;
+      }
+      if (activeCard === "my_approved") {
+        return isTargetMe && r.status === "sent";
+      }
+      if (activeCard === "my_pending") {
+        return isTargetMe && r.status === "pending";
+      }
+      if (activeCard === "leader_approved") {
+        if (isSuperAdmin) {
+          return r.status === "sent" && r.requested_to_role !== "super_admin";
+        }
+        return isOriginMe && r.status === "sent";
+      }
+      if (activeCard === "leader_pending") {
+        if (isSuperAdmin) {
+          return r.status === "pending" && r.requested_to_role !== "super_admin";
+        }
+        return isOriginMe && r.status === "pending";
+      }
+      return true;
+    });
+  }, [periodFilteredAll, activeCard, isSuperAdmin, currentUserId, currentUserEmail]);
+
+  const currentCardMeta = cardList.find((c) => c.id === activeCard) || cardList[0];
 
   return (
     <div className="jr-page">
       <style>{`
         .jr-page {
           min-height: 100vh;
-          background: #F4F8F8;
-          padding: 24px 32px 60px;
+          background: #F8FAF9;
+          background-image: 
+            radial-gradient(at 0% 0%, rgba(7, 59, 63, 0.05) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(204, 168, 129, 0.06) 0px, transparent 50%);
+          padding: 24px 32px 64px;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           color: #111817;
+          box-sizing: border-box;
         }
 
         .jr-container {
           width: 100%;
-          max-width: 100%;
-          margin: 0;
+          max-width: 1440px;
+          margin: 0 auto;
         }
 
-        .jr-header {
+        .jr-header-card {
+          background: #FFFFFF;
+          border: 1px solid #E1EBEA;
+          border-radius: 20px;
+          padding: 22px 28px;
+          box-shadow: 0 4px 20px rgba(7, 59, 63, 0.04);
+          margin-bottom: 22px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 24px;
+          gap: 20px;
           flex-wrap: wrap;
-          gap: 16px;
         }
 
-        .jr-header-left h1 {
-          font-size: 26px;
+        .jr-header-info h1 {
+          margin: 0;
+          font-size: 24px;
           font-weight: 800;
           color: #073B3F;
-          margin: 0 0 6px;
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 12px;
+          flex-wrap: wrap;
         }
 
-        .jr-header-left p {
-          font-size: 14px;
+        .jr-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: #EFF6F6;
+          color: #073B3F;
+          border: 1px solid #CEE3E1;
+          padding: 4px 12px;
+          border-radius: 999px;
+          font-size: 11.5px;
+          font-weight: 700;
+        }
+
+        .jr-header-sub {
+          margin: 4px 0 0;
           color: #5C706E;
-          margin: 0;
+          font-size: 13px;
         }
 
         .jr-header-actions {
           display: flex;
+          align-items: center;
           gap: 10px;
+          flex-wrap: wrap;
         }
 
         .jr-btn-create {
@@ -285,42 +480,135 @@ export default function JewelleryRequests() {
           align-items: center;
           gap: 8px;
           padding: 10px 18px;
-          background: linear-gradient(135deg, #073B3F 0%, #0C4E53 100%);
+          background: #073B3F;
           border: none;
           border-radius: 12px;
           color: #FFFFFF;
-          font-size: 13.5px;
-          font-weight: 700;
-          cursor: pointer;
-          box-shadow: 0 4px 14px rgba(7, 59, 63, 0.2);
-        }
-
-        /* Tabs bar: Received vs Sent */
-        .jr-box-tabs {
-          display: flex;
-          gap: 8px;
-          background: #FFFFFF;
-          border: 1px solid #E1EBEA;
-          border-radius: 14px;
-          padding: 5px;
-          margin-bottom: 22px;
-          width: fit-content;
-        }
-
-        .jr-box-btn {
-          padding: 8px 18px;
-          border-radius: 10px;
-          border: none;
-          background: transparent;
-          color: #5C706E;
           font-size: 13px;
           font-weight: 700;
           cursor: pointer;
+          box-shadow: 0 4px 14px rgba(7, 59, 63, 0.2);
+          transition: all 180ms ease;
         }
 
-        .jr-box-btn.active {
+        .jr-btn-create:hover {
+          background: #0C4E53;
+          transform: translateY(-1px);
+        }
+
+        /* Period Filter Bar */
+        .jr-period-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: #FFFFFF;
+          border: 1px solid #E1EBEA;
+          border-radius: 16px;
+          padding: 10px 18px;
+          margin-bottom: 20px;
+          gap: 14px;
+          flex-wrap: wrap;
+          box-shadow: 0 2px 10px rgba(7, 59, 63, 0.02);
+        }
+
+        .jr-period-pills {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .jr-period-pill {
+          padding: 7px 16px;
+          border-radius: 999px;
+          font-size: 12.5px;
+          font-weight: 700;
+          border: 1px solid #D6E2E1;
+          background: #FFFFFF;
+          color: #5C706E;
+          cursor: pointer;
+          transition: all 150ms ease;
+        }
+
+        .jr-period-pill:hover {
+          border-color: #073B3F;
+          color: #073B3F;
+        }
+
+        .jr-period-pill.active {
           background: #073B3F;
           color: #FFFFFF;
+          border-color: #073B3F;
+          box-shadow: 0 3px 10px rgba(7, 59, 63, 0.18);
+        }
+
+        /* 5 Responsive Interactive Cards */
+        .jr-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 16px;
+          margin-bottom: 24px;
+        }
+
+        .jr-stat-card {
+          background: #FFFFFF;
+          border: 1.5px solid #E1EBEA;
+          border-radius: 18px;
+          padding: 18px 20px;
+          box-shadow: 0 4px 16px rgba(7, 59, 63, 0.03);
+          transition: all 180ms ease;
+          cursor: pointer;
+          position: relative;
+          user-select: none;
+        }
+
+        .jr-stat-card:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 8px 24px rgba(7, 59, 63, 0.09);
+        }
+
+        .jr-stat-card.active {
+          border-color: #073B3F !important;
+          box-shadow: 0 8px 24px rgba(7, 59, 63, 0.14);
+          background: #F8FBFB;
+        }
+
+        .jr-stat-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 8px;
+        }
+
+        .jr-stat-label {
+          font-size: 11px;
+          font-weight: 800;
+          color: #5C706E;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .jr-stat-icon {
+          width: 34px;
+          height: 34px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .jr-stat-value {
+          font-size: 28px;
+          font-weight: 800;
+          color: #073B3F;
+          line-height: 1;
+          margin-bottom: 4px;
+        }
+
+        .jr-stat-sub {
+          font-size: 11.5px;
+          color: #7A8987;
+          font-weight: 600;
         }
 
         /* Requests List Cards */
@@ -339,6 +627,12 @@ export default function JewelleryRequests() {
           display: flex;
           flex-direction: column;
           gap: 14px;
+          transition: all 180ms ease;
+        }
+
+        .jr-req-card:hover {
+          border-color: #073B3F;
+          box-shadow: 0 6px 24px rgba(7, 59, 63, 0.08);
         }
 
         .jr-req-header {
@@ -410,24 +704,43 @@ export default function JewelleryRequests() {
 
         .jr-btn-approve {
           padding: 9px 18px;
-          background: #166534;
+          background: #073B3F;
           color: #FFFFFF;
           border: none;
           border-radius: 10px;
           font-size: 13px;
           font-weight: 700;
           cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 0 4px 12px rgba(7, 59, 63, 0.15);
+          transition: all 180ms ease;
+        }
+
+        .jr-btn-approve:hover {
+          background: #0C4E53;
+          transform: translateY(-1px);
         }
 
         .jr-btn-reject {
-          padding: 9px 18px;
-          background: #FEF2F2;
+          padding: 8px 16px;
+          background: #FFF5F5;
           color: #DC2626;
-          border: 1px solid #FCA5A5;
+          border: 1px solid #FECACA;
           border-radius: 10px;
           font-size: 13px;
           font-weight: 700;
           cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          transition: all 180ms ease;
+        }
+
+        .jr-btn-reject:hover {
+          background: #DC2626;
+          color: #FFFFFF;
         }
 
         /* Modals */
@@ -464,42 +777,38 @@ export default function JewelleryRequests() {
           font-weight: 700;
           z-index: 9999;
         }
+
+        @media (max-width: 900px) {
+          .jr-page {
+            padding: 16px 16px 48px;
+          }
+          .jr-stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
       `}</style>
 
       <div className="jr-container">
+        {/* Navigation Tabs Switcher */}
         <CoinTabs activeTab="Requests Jewellery" />
 
-        <div className="jr-header">
-          <div className="jr-header-left">
+        {/* Executive Header Card */}
+        <div className="jr-header-card">
+          <div className="jr-header-info">
             <h1>
-              <InboxIcon size={26} color="#073B3F" /> Jewellery Requests Inbox
+              <span>Jewellery Requests Inbox</span>
+              <span className="jr-badge">
+                {requests.filter((r) => r.status === "pending" && (isSuperAdmin || r.requested_to === currentUserId || r.requested_to_email === currentUserEmail)).length} Pending Review
+              </span>
             </h1>
-            <p>
-              Direct upstream allocation requests between Promotors, Sub Dealers, Dealers, Admins, and Super Admin.
+            <p className="jr-header-sub">
+              {isSuperAdmin
+                ? "Direct upstream jewellery allocation requests across the hierarchy."
+                : "Manage incoming jewellery requests from downline and track requests sent to your leader."}
             </p>
           </div>
 
           <div className="jr-header-actions">
-            <button
-              type="button"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "10px 18px",
-                background: "#FFFFFF",
-                border: "1px solid #D6E2E1",
-                borderRadius: "12px",
-                color: "#073B3F",
-                fontSize: "13px",
-                fontWeight: 750,
-                cursor: "pointer",
-                boxShadow: "0 2px 8px rgba(7, 59, 63, 0.04)",
-              }}
-              onClick={() => navigate("/jewellery-transactions")}
-            >
-              <ClockIcon size={16} color="#073B3F" /> View Transactions History
-            </button>
             {!isSuperAdmin && (
               <button
                 type="button"
@@ -512,107 +821,95 @@ export default function JewelleryRequests() {
           </div>
         </div>
 
-        {/* Filter Controls: Received vs Sent + Status Filter */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: "12px",
-            marginBottom: "22px",
-          }}
-        >
-          {/* Received vs Sent Toggle */}
-          <div className="jr-box-tabs" style={{ marginBottom: 0 }}>
-            {role !== "promotor" && (
-              <button
-                type="button"
-                className={`jr-box-btn ${boxTab === "received" ? "active" : ""}`}
-                onClick={() => setBoxTab("received")}
-              >
-                {isSuperAdmin ? "Company Incoming Requests" : "Received Requests"} {boxTab === "received" ? `(${requests.length})` : ""}
-              </button>
-            )}
-            {!isSuperAdmin && (
-              <button
-                type="button"
-                className={`jr-box-btn ${boxTab === "sent" ? "active" : ""}`}
-                onClick={() => setBoxTab("sent")}
-              >
-                My Sent Requests {boxTab === "sent" ? `(${requests.length})` : ""}
-              </button>
-            )}
+        {/* Period Filter Bar */}
+        <div className="jr-period-bar">
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <CalendarIcon size={16} color="#073B3F" />
+            <span style={{ fontSize: "13px", fontWeight: 700, color: "#073B3F" }}>Filter by Period:</span>
           </div>
-
-          {/* Status Filter Pills */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              background: "#FFFFFF",
-              border: "1px solid #E1EBEA",
-              borderRadius: "12px",
-              padding: "4px",
-            }}
-          >
-            {[
-              { key: "all", label: "All Statuses" },
-              { key: "pending", label: "Pending" },
-              { key: "sent", label: "Approved" },
-              { key: "rejected", label: "Declined" },
-            ].map((st) => (
+          <div className="jr-period-pills">
+            {PERIOD_OPTIONS.map((p) => (
               <button
-                key={st.key}
+                key={p.key}
                 type="button"
-                onClick={() => setStatusFilter(st.key)}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: "8px",
-                  border: "none",
-                  fontSize: "12.5px",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  background: statusFilter === st.key ? "#073B3F" : "transparent",
-                  color: statusFilter === st.key ? "#FFFFFF" : "#5C706E",
-                  transition: "all 150ms ease",
-                }}
+                className={`jr-period-pill ${period === p.key ? "active" : ""}`}
+                onClick={() => setPeriod(p.key)}
               >
-                {st.label}
+                {p.label}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* 5 Filterable Interactive Stat Cards */}
+        <div className="jr-stats-grid">
+          {cardList.map((card) => {
+            const isSelected = activeCard === card.id;
+            const Icon = card.IconComponent;
+            return (
+              <div
+                key={card.id}
+                className={`jr-stat-card ${isSelected ? "active" : ""}`}
+                style={{
+                  borderLeft: `4px solid ${card.border}`,
+                  borderColor: isSelected ? "#073B3F" : undefined,
+                  background: isSelected ? "#F8FBFB" : "#FFFFFF",
+                }}
+                onClick={() => setActiveCard(card.id)}
+                title={`Click to view ${card.label}`}
+              >
+                <div className="jr-stat-header">
+                  <span className="jr-stat-label">{card.label}</span>
+                  <div className="jr-stat-icon" style={{ background: card.iconBg, color: card.iconColor }}>
+                    <Icon size={17} color={card.iconColor} />
+                  </div>
+                </div>
+                <div className="jr-stat-value">
+                  {loading ? <SkeletonText width="45px" height="28px" /> : card.val}
+                </div>
+                <div className="jr-stat-sub">{card.sub}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Section Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px", flexWrap: "wrap", gap: "10px" }}>
+          <div>
+            <h3 style={{ margin: "0", fontSize: "17px", fontWeight: 800, color: "#073B3F" }}>
+              {currentCardMeta.label}
+            </h3>
+            <span style={{ fontSize: "12.5px", color: "#5C706E" }}>
+              Showing {filteredRequests.length} matching requests ({PERIOD_OPTIONS.find((p) => p.key === period)?.label})
+            </span>
           </div>
         </div>
 
         {/* Requests List */}
         {loading ? (
           <JewelleryRequestSkeletonList count={4} />
-        ) : requests.length === 0 ? (
+        ) : filteredRequests.length === 0 ? (
           <div
             style={{
               textAlign: "center",
-              padding: "60px 20px",
+              padding: "50px 20px",
               background: "#FFFFFF",
-              borderRadius: "16px",
+              borderRadius: "18px",
               border: "1px dashed #D6E2E1",
-              color: "#5C706E",
+              color: "#7A8987",
             }}
           >
             <JewelryIcon size={40} color="#B4CECC" style={{ marginBottom: "12px" }} />
-            <div style={{ fontSize: "16px", fontWeight: 700, color: "#073B3F" }}>
-              No {boxTab} jewellery requests found
+            <div style={{ fontSize: "16px", fontWeight: 800, color: "#073B3F" }}>
+              No Requests in {currentCardMeta.label}
             </div>
             <p style={{ margin: "6px 0 0", fontSize: "13.5px" }}>
-              {boxTab === "received"
-                ? "No pending allocation requests are awaiting your review."
-                : "You haven't submitted any jewellery piece requests yet."}
+              Zero jewellery requests found for {PERIOD_OPTIONS.find((p) => p.key === period)?.label}. Click another card or time period.
             </p>
           </div>
         ) : (
-          <>
-            <div className="jr-list">
-            {requests.slice(0, visibleLimit).map((req) => {
+          <div className="jr-list">
+            {filteredRequests.slice(0, visibleLimit).map((req) => {
               const reqRoleBadge = ROLE_BADGE_CONFIG[req.requested_by_role] || {
                 bg: "#F1F5F9",
                 color: "#334155",
@@ -620,6 +917,7 @@ export default function JewelleryRequests() {
                 label: req.requested_by_role,
               };
               const isPending = req.status === "pending";
+              const canApproveThis = isPending && (isSuperAdmin || req.requested_to === currentUserId || req.requested_to_email === currentUserEmail);
 
               return (
                 <div key={req.id} className="jr-req-card">
@@ -628,12 +926,13 @@ export default function JewelleryRequests() {
                       <span>Request #{req.id}</span>
                       <span
                         style={{
-                          fontSize: "11.5px",
-                          fontWeight: 700,
-                          padding: "2px 8px",
-                          borderRadius: "6px",
-                          background: isPending ? "#FEF3C7" : req.status === "sent" ? "#E6F4EA" : "#FEF2F2",
-                          color: isPending ? "#B45309" : req.status === "sent" ? "#166534" : "#DC2626",
+                          fontSize: "11px",
+                          fontWeight: 800,
+                          padding: "3px 10px",
+                          borderRadius: "999px",
+                          background: isPending ? "#EFF6F6" : req.status === "sent" ? "#E6F4EA" : "#FEF2F2",
+                          color: isPending ? "#073B3F" : req.status === "sent" ? "#166534" : "#DC2626",
+                          border: isPending ? "1px solid #CEE3E1" : req.status === "sent" ? "1px solid #BBF7D0" : "1px solid #FECACA",
                         }}
                       >
                         {isPending ? "Pending Review" : req.status === "sent" ? "Approved" : "Declined"}
@@ -674,7 +973,21 @@ export default function JewelleryRequests() {
                     {req.requested_to_name && (
                       <div className="jr-party-box">
                         <span style={{ fontWeight: 700, color: "#5C706E" }}>Target:</span>
-                        <span>{req.requested_to_name}</span>
+                        <span style={{ fontWeight: 600 }}>{req.requested_to_name}</span>
+                        {req.requested_to_role && (
+                          <span
+                            style={{
+                              fontSize: "10.5px",
+                              fontWeight: 700,
+                              background: "#F1F5F9",
+                              color: "#475569",
+                              padding: "2px 6px",
+                              borderRadius: "4px",
+                            }}
+                          >
+                            {ROLE_BADGE_CONFIG[req.requested_to_role]?.label || req.requested_to_role}
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -733,62 +1046,76 @@ export default function JewelleryRequests() {
                     })}
                   </div>
 
-                  {/* Actions for Received / Super Admin */}
-                  {boxTab === "received" && isPending && (
-                    <div className="jr-req-footer">
-                      <div style={{ fontSize: "12px", color: "#5C706E" }}>
-                        Approving will deduct piece(s) from your stock and disburse to requester.
-                      </div>
+                  {/* Footer actions / status message */}
+                  <div className="jr-req-footer">
+                    {canApproveThis ? (
+                      <>
+                        <div style={{ fontSize: "12px", color: "#5C706E" }}>
+                          Approving will deduct piece(s) from your stock and disburse to requester.
+                        </div>
 
-                      <div style={{ display: "flex", gap: "10px" }}>
-                        <button
-                          type="button"
-                          className="jr-btn-approve"
-                          onClick={() => {
-                            if (isSuperAdmin) {
-                              openAuthModal("approve", req.id);
-                            } else {
-                              if (window.confirm(`Approve request #${req.id} and disburse jewellery pieces to ${req.requested_by_name || "requester"}?`)) {
-                                handleDirectResolve("approve", req.id);
+                        <div style={{ display: "flex", gap: "10px" }}>
+                          <button
+                            type="button"
+                            className="jr-btn-approve"
+                            onClick={() => {
+                              if (isSuperAdmin) {
+                                openAuthModal("approve", req.id);
+                              } else {
+                                if (window.confirm(`Approve request #${req.id} and disburse jewellery pieces to ${req.requested_by_name || "requester"}?`)) {
+                                  handleDirectResolve("approve", req.id);
+                                }
                               }
-                            }
-                          }}
-                        >
-                          <CheckIcon size={14} color="#FFFFFF" /> Approve & Disburse
-                        </button>
-                        <button
-                          type="button"
-                          className="jr-btn-reject"
-                          onClick={() => {
-                            if (isSuperAdmin) {
-                              openAuthModal("reject", req.id);
-                            } else {
-                              const reason = window.prompt("Please enter rejection reason:", "Stock unavailable or pending verification");
-                              if (reason && reason.trim()) {
-                                handleDirectResolve("reject", req.id, reason.trim());
+                            }}
+                          >
+                            <CheckIcon size={14} color="#FFFFFF" /> Approve & Disburse
+                          </button>
+                          <button
+                            type="button"
+                            className="jr-btn-reject"
+                            onClick={() => {
+                              if (isSuperAdmin) {
+                                openAuthModal("reject", req.id);
+                              } else {
+                                const reason = window.prompt("Please enter rejection reason:", "Stock unavailable or pending verification");
+                                if (reason && reason.trim()) {
+                                  handleDirectResolve("reject", req.id, reason.trim());
+                                }
                               }
-                            }
-                          }}
-                        >
-                          <CloseIcon size={14} color="#DC2626" /> Decline
-                        </button>
+                            }}
+                          >
+                            <CloseIcon size={14} color="#DC2626" /> Decline
+                          </button>
+                        </div>
+                      </>
+                    ) : req.status === "sent" ? (
+                      <div style={{ fontSize: "12px", color: "#166534", fontWeight: 700, padding: "6px 12px", background: "#F0FDF4", borderRadius: "8px", border: "1px solid #DCFCE7" }}>
+                        Disbursed & added to requester stock
                       </div>
-                    </div>
-                  )}
+                    ) : req.status === "rejected" ? (
+                      <div style={{ fontSize: "12px", color: "#991B1B", fontWeight: 600, padding: "6px 12px", background: "#FEF2F2", borderRadius: "8px", border: "1px solid #FEE2E2" }}>
+                        Reason: {req.reject_reason || "Declined by approver"}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: "12px", color: "#5C706E", fontWeight: 600, padding: "6px 12px", background: "#F8FAFA", borderRadius: "8px", border: "1px solid #EAEFEF" }}>
+                        Awaiting Leader Approval
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
           </div>
+        )}
 
-          {/* Progressive Load More Batch Control */}
+        {filteredRequests.length > visibleLimit && (
           <LoadMoreControl
             currentVisible={visibleLimit}
-            totalCount={requests.length}
+            totalCount={filteredRequests.length}
             onLoadMore={(step) => setVisibleLimit((v) => v + step)}
             itemName="jewellery requests"
           />
-        </>
-      )}
+        )}
       </div>
 
       {/* Modal: Create Request */}
@@ -849,14 +1176,14 @@ export default function JewelleryRequests() {
                 <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "10px" }}>
                   <button
                     type="button"
-                    style={{ padding: "8px 16px", borderRadius: "10px", border: "1px solid #D6E2E1", background: "#FFFFFF" }}
+                    style={{ padding: "8px 16px", borderRadius: "10px", border: "1px solid #D6E2E1", background: "#FFFFFF", cursor: "pointer" }}
                     onClick={() => setCreateModalOpen(false)}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    style={{ padding: "8px 18px", borderRadius: "10px", border: "none", background: "#073B3F", color: "#FFFFFF", fontWeight: 700 }}
+                    style={{ padding: "8px 18px", borderRadius: "10px", border: "none", background: "#073B3F", color: "#FFFFFF", fontWeight: 700, cursor: "pointer" }}
                     disabled={submittingReq}
                   >
                     {submittingReq ? "Sending..." : "Submit Request"}
@@ -913,14 +1240,14 @@ export default function JewelleryRequests() {
               <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "18px" }}>
                 <button
                   type="button"
-                  style={{ padding: "9px 16px", borderRadius: "10px", border: "1px solid #D6E2E1", background: "#FFFFFF" }}
+                  style={{ padding: "9px 16px", borderRadius: "10px", border: "1px solid #D6E2E1", background: "#FFFFFF", cursor: "pointer" }}
                   onClick={() => setPwdModalOpen(false)}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  style={{ padding: "9px 18px", borderRadius: "10px", border: "none", background: "#073B3F", color: "#FFFFFF", fontWeight: 700 }}
+                  style={{ padding: "9px 18px", borderRadius: "10px", border: "none", background: "#073B3F", color: "#FFFFFF", fontWeight: 700, cursor: "pointer" }}
                   disabled={submittingPwd}
                 >
                   {submittingPwd ? "Verifying..." : "Confirm Action"}

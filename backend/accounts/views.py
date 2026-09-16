@@ -163,6 +163,34 @@ def get_user_profile_id(user):
         pass
     return None
 
+
+def _bulk_profile_id_map(users):
+    """Same lookup as get_user_profile_id, but ONE query per role instead of
+    one query per user — get_user_profile_id(user) inside a per-row loop over
+    a large queryset (CSV/PDF report exports covering thousands of orders) is
+    a real N+1 query bug: each call hits `user.<role>_profile`, a reverse
+    OneToOne accessor, which is a separate DB round-trip when not prefetched.
+    Measured ~270ms/row against the remote DB — 7000 rows that way is 30+
+    minutes and blows Render's 120s gunicorn timeout. Returns {user_id: id_string}."""
+    role_profile_map = {
+        'admin': (AdminProfile, 'admin_id'), 'dealer': (DealerProfile, 'dealer_id'),
+        'sub_dealer': (SubDealerProfile, 'sub_dealer_id'), 'promotor': (PromotorProfile, 'promotor_id'),
+        'customer': (CustomerProfile, 'customer_id'),
+    }
+    ids_by_role = {}
+    for u in users:
+        ids_by_role.setdefault(u.role, set()).add(u.id)
+
+    result = {}
+    for role, user_ids in ids_by_role.items():
+        cfg = role_profile_map.get(role)
+        if not cfg:
+            continue
+        model, id_field = cfg
+        for row in model.objects.filter(user_id__in=user_ids).values('user_id', id_field):
+            result[row['user_id']] = row[id_field]
+    return result
+
 def is_user_mentioned_in_title(title, user):
     """Check if user's ID appears in the announcement title."""
     user_id = get_user_profile_id(user)
@@ -4961,7 +4989,14 @@ class CoinRequestView(APIView):
                 },
             })
 
-        if box == 'sent':
+        if box == 'all':
+            if role == 'super_admin':
+                reqs = CoinRequest.objects.all()
+            else:
+                reqs = CoinRequest.objects.filter(
+                    Q(requested_to=request.user) | Q(requested_by=request.user)
+                )
+        elif box == 'sent':
             reqs = CoinRequest.objects.filter(requested_by=request.user)
         elif box == 'received':
             if role == 'super_admin':
@@ -6014,7 +6049,14 @@ class JewelryRequestView(APIView):
             })
 
         status_param = request.query_params.get('status')
-        if box == 'sent':
+        if box == 'all':
+            if role == 'super_admin':
+                reqs = JewelryRequest.objects.all()
+            else:
+                reqs = JewelryRequest.objects.filter(Q(requested_to=request.user) | Q(requested_by=request.user))
+            if status_param and status_param != 'all':
+                reqs = reqs.filter(status=status_param)
+        elif box == 'sent':
             reqs = JewelryRequest.objects.filter(requested_by=request.user)
             if status_param and status_param != 'all':
                 reqs = reqs.filter(status=status_param)
@@ -7394,6 +7436,142 @@ def _check_icon(size=12, color=None):
     return d
 
 
+def _inr_fmt(n):
+    """Rs. amount with real Indian lakh/crore comma grouping (matches the
+    frontend's toLocaleString('en-IN')) — used in the PDF reports below."""
+    n = float(n or 0)
+    neg = n < 0
+    n = abs(n)
+    whole = int(n)
+    frac = round((n - whole) * 100)
+    s = str(whole)
+    if len(s) > 3:
+        last3 = s[-3:]
+        rest = s[:-3]
+        parts = []
+        while len(rest) > 2:
+            parts.insert(0, rest[-2:])
+            rest = rest[:-2]
+        if rest:
+            parts.insert(0, rest)
+        s = ','.join(parts) + ',' + last3
+    return f"Rs. {'-' if neg else ''}{s}.{frac:02d}"
+
+
+def _build_report_pdf(title, subtitle, period_label, stats, columns, rows, col_widths=None, total_rows=None):
+    """Shared Athirai-branded PDF report builder — every 'Download Report'
+    button across the 6 Payment pages (All Sales / Athirai Revenue / General
+    Customer Revenue / Super Admin Commission / My Commission / Commissions)
+    calls this, so they all look consistent and only need to hand over their
+    own stats/columns/rows.
+    stats: list of (label, value) tuples shown as summary boxes at the top.
+    columns: list of column header strings. rows: list of row-value-lists —
+    kept as PLAIN strings/numbers (not Paragraph objects): for a large period
+    (Month/Year) this can be thousands of rows, and reportlab laying out a
+    Paragraph per cell is what actually blows past Render's 120s gunicorn
+    timeout — plain-string cells use Table's fast built-in text drawing
+    instead. Callers already slice their queryset to REPORT_MAX_ROWS before
+    building `rows` (also avoids fetching profile data for rows that would
+    just get discarded here) — pass the TRUE total via total_rows so the
+    truncation note below is accurate."""
+    truncated_by = max(0, (total_rows or len(rows)) - len(rows))
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=30, bottomMargin=34, leftMargin=32, rightMargin=32)
+    styles = getSampleStyleSheet()
+    content_width = doc.width
+    elements = []
+
+    brand_style = ParagraphStyle('RBrand', parent=styles['Title'], textColor=colors.HexColor('#BB8958'),
+                                  fontSize=20, leading=22, alignment=TA_CENTER, spaceAfter=0)
+    tagline_style = ParagraphStyle('RTagline', parent=styles['Normal'], textColor=colors.HexColor('#E0F2F1'),
+                                    fontSize=8.5, alignment=TA_CENTER, backColor=colors.HexColor('#073B3F'))
+    title_style = ParagraphStyle('RTitle', parent=styles['Title'], textColor=colors.HexColor('#073B3F'),
+                                  fontSize=15, alignment=TA_CENTER, spaceBefore=14, spaceAfter=2)
+    subtitle_style = ParagraphStyle('RSubtitle', parent=styles['Normal'], textColor=colors.HexColor('#7A8987'),
+                                     fontSize=8.5, alignment=TA_CENTER, spaceAfter=2, leading=11)
+    meta_style = ParagraphStyle('RMeta', parent=styles['Normal'], textColor=colors.HexColor('#7A8987'),
+                                 fontSize=8, alignment=TA_CENTER, spaceAfter=14)
+    stat_label_style = ParagraphStyle('RStatLabel', parent=styles['Normal'], textColor=colors.HexColor('#7A8987'),
+                                       fontName='Helvetica-Bold', fontSize=7, alignment=TA_CENTER)
+    stat_value_style = ParagraphStyle('RStatValue', parent=styles['Normal'], textColor=colors.HexColor('#073B3F'),
+                                       fontName='Helvetica-Bold', fontSize=12, alignment=TA_CENTER, spaceBefore=3)
+    note_style = ParagraphStyle('RNote', parent=styles['Normal'], textColor=colors.HexColor('#7A8987'),
+                                 fontSize=8, alignment=TA_CENTER, spaceBefore=10)
+
+    logo_path = settings.BASE_DIR / 'accounts' / 'assets' / 'athirai_logo.png'
+    try:
+        logo_mark = RLImage(str(logo_path), width=40, height=40)
+    except Exception:
+        logo_mark = _gem_icon(24)
+    logo_col_w = 50
+    brand_row = Table([[logo_mark, Paragraph('ATHIRAI', brand_style), '']],
+                       colWidths=[logo_col_w, content_width - 2 * logo_col_w, logo_col_w])
+    brand_row.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    brand_row.hAlign = 'CENTER'
+    header_table = Table([[brand_row], [Paragraph('FINE JEWELLERY &bull; MANAGEMENT REPORT', tagline_style)]], colWidths=[content_width])
+    header_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#073B3F')),
+        ('TOPPADDING', (0, 0), (0, 0), 12), ('BOTTOMPADDING', (0, 0), (0, 0), 4),
+        ('TOPPADDING', (0, 1), (0, 1), 0), ('BOTTOMPADDING', (0, 1), (0, 1), 12),
+    ]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 14))
+
+    elements.append(Paragraph(title, title_style))
+    if subtitle:
+        elements.append(Paragraph(subtitle, subtitle_style))
+    elements.append(Paragraph(
+        f"{period_label} &middot; Generated on {timezone.now().strftime('%d %b %Y, %I:%M %p')}", meta_style
+    ))
+
+    if stats:
+        stat_cells = [[Paragraph(label.upper(), stat_label_style), Paragraph(str(value), stat_value_style)] for label, value in stats]
+        stat_row = Table([stat_cells], colWidths=[content_width / len(stats)] * len(stats))
+        stat_row.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F5F8F8')),
+            ('BOX', (0, 0), (-1, -1), 0.75, colors.HexColor('#D1DFDE')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D1DFDE')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 10), ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ]))
+        elements.append(stat_row)
+        elements.append(Spacer(1, 16))
+
+    body_rows = [[str(c) for c in row] for row in rows] if rows else [['-'] * len(columns)]
+    table_data = [list(columns)] + body_rows
+    col_count = len(columns)
+    widths = col_widths or [content_width / col_count] * col_count
+    table = Table(table_data, colWidths=widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#073B3F')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D1DFDE')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAF9')]),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5), ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+    ]))
+    elements.append(table)
+
+    if truncated_by > 0:
+        elements.append(Paragraph(
+            f'Showing the latest {len(rows):,} of {total_rows:,} rows — narrow the date range for a complete listing.',
+            note_style
+        ))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
 class OrderReceiptPDFView(APIView):
     """Athirai-branded PDF receipt for a single order — used by the 'Download Receipt'
     button on the order-confirmed screen and the order-history list."""
@@ -7888,7 +8066,18 @@ def _apply_period_filter(qs, period, start_date, end_date, date_field='created_a
     elif period == 'custom' and start_date and end_date:
         qs = qs.filter(**{f'{f}__gte': start_date, f'{f}__lte': end_date})
 
-    return qs        
+    return qs
+
+
+REPORT_MAX_ROWS = 1000   # PDF export row cap — see _bulk_profile_id_map's docstring for why
+
+
+def _period_label(period, start_date, end_date):
+    """Human-readable period text for the PDF report header."""
+    labels = {'today': 'Today', 'week': 'This Week', 'month': 'This Month', '6month': 'Last 6 Months', 'year': 'This Year'}
+    if period == 'custom' and start_date and end_date:
+        return f'{start_date} to {end_date}'
+    return labels.get(period, period.title())
 
 
 class PaymentsSummaryView(APIView):
@@ -7906,7 +8095,10 @@ class PaymentsSummaryView(APIView):
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         view = request.query_params.get('view', 'super_admin_commission')   # ── NEW: all_sales | super_admin_commission | my_commission
-        export_csv = request.query_params.get('format') == 'csv'
+        # ── 'format' is DRF's reserved URL_FORMAT_OVERRIDE query param — format=csv
+        # isn't a registered renderer, so DRF 404s before this view even runs.
+        # Use a differently-named param instead. ──
+        export_csv = request.query_params.get('export') == 'csv'
 
         if view == 'all_sales':
             # ── Full order value, commission edhுவும் illama ──
@@ -7941,13 +8133,18 @@ class PaymentsSummaryView(APIView):
             txn_qs = period_qs.select_related('user').order_by('-created_at')
 
             if export_csv:
-                response = HttpResponse(content_type='text/csv')
-                response['Content-Disposition'] = 'attachment; filename="all-sales-report.csv"'
-                writer = csv.writer(response)
-                writer.writerow(['Order ID', 'Buyer', 'Amount (Rs.)', 'Payment Method', 'Date'])
-                for o in txn_qs:
-                    writer.writerow([o.order_id, get_user_profile_id(o.user) or o.user.email, float(o.total_price), o.payment_method, o.created_at.strftime('%d-%b-%Y %H:%M')])
-                return response
+                export_orders = list(txn_qs[:REPORT_MAX_ROWS])
+                profile_map = _bulk_profile_id_map([o.user for o in export_orders])
+                buffer = _build_report_pdf(
+                    title='All Sales Report',
+                    subtitle='Full order value across the entire platform — no commission or any deduction.',
+                    period_label=_period_label(period, start_date, end_date),
+                    stats=[('Total Order Value', _inr_fmt(total_revenue)), ('AUG Coins Used', f'{total_coins_sold:,}'), ('Transactions', total_transactions)],
+                    columns=['Order ID', 'Buyer', 'Amount', 'Payment Method', 'Date'],
+                    rows=[[o.order_id, profile_map.get(o.user_id) or o.user.email, _inr_fmt(o.total_price), o.payment_method, o.created_at.strftime('%d-%b-%Y %H:%M')] for o in export_orders],
+                    total_rows=total_transactions,
+                )
+                return FileResponse(buffer, as_attachment=True, filename=f'all-sales-report-{period}.pdf', content_type='application/pdf')
 
             start = (page - 1) * page_size
             page_txns = txn_qs[start:start + page_size]
@@ -8011,13 +8208,18 @@ class PaymentsSummaryView(APIView):
             txn_qs = period_qs.select_related('user').order_by('-created_at')
 
             if export_csv:
-                response = HttpResponse(content_type='text/csv')
-                response['Content-Disposition'] = 'attachment; filename="general-customer-revenue-report.csv"'
-                writer = csv.writer(response)
-                writer.writerow(['Order ID', 'Buyer', 'Amount (Rs.)', 'Payment Method', 'Date'])
-                for o in txn_qs:
-                    writer.writerow([o.order_id, get_user_profile_id(o.user) or o.user.email, float(o.total_price), o.payment_method, o.created_at.strftime('%d-%b-%Y %H:%M')])
-                return response
+                export_orders = list(txn_qs[:REPORT_MAX_ROWS])
+                profile_map = _bulk_profile_id_map([o.user for o in export_orders])
+                buffer = _build_report_pdf(
+                    title='General Customer Revenue Report',
+                    subtitle='Orders from customers who signed up directly, with no referral — no chain commission on these.',
+                    period_label=_period_label(period, start_date, end_date),
+                    stats=[('General Customer Sales', _inr_fmt(total_revenue)), ('AUG Coins Used', f'{total_coins_sold:,}'), ('Transactions', total_transactions)],
+                    columns=['Order ID', 'Buyer', 'Amount', 'Payment Method', 'Date'],
+                    rows=[[o.order_id, profile_map.get(o.user_id) or o.user.email, _inr_fmt(o.total_price), o.payment_method, o.created_at.strftime('%d-%b-%Y %H:%M')] for o in export_orders],
+                    total_rows=total_transactions,
+                )
+                return FileResponse(buffer, as_attachment=True, filename=f'general-customer-revenue-report-{period}.pdf', content_type='application/pdf')
 
             start = (page - 1) * page_size
             page_txns = txn_qs[start:start + page_size]
@@ -8085,14 +8287,23 @@ class PaymentsSummaryView(APIView):
             txn_qs = period_qs.select_related('user').order_by('-created_at')
 
             if export_csv:
-                response = HttpResponse(content_type='text/csv')
-                response['Content-Disposition'] = 'attachment; filename="athirai-revenue-report.csv"'
-                writer = csv.writer(response)
-                writer.writerow(['Order ID', 'Buyer', 'Order Total (Rs.)', 'Athirai Revenue 73% (Rs.)', 'Payment Method', 'Date'])
-                for o in txn_qs:
-                    share = (Decimal(str(o.total_price)) * company_share_pct / Decimal('100')).quantize(Decimal('0.01'))
-                    writer.writerow([o.order_id, get_user_profile_id(o.user) or o.user.email, float(o.total_price), float(share), o.payment_method, o.created_at.strftime('%d-%b-%Y %H:%M')])
-                return response
+                export_orders = list(txn_qs[:REPORT_MAX_ROWS])
+                profile_map = _bulk_profile_id_map([o.user for o in export_orders])
+                buffer = _build_report_pdf(
+                    title='Athirai Revenue Report',
+                    subtitle='73% of every order value — Athirai’s real net revenue after the 27% commission pool.',
+                    period_label=_period_label(period, start_date, end_date),
+                    stats=[('Athirai Net Revenue (73%)', _inr_fmt(total_revenue)), ('AUG Coins Used', f'{total_coins_sold:,}'), ('Transactions', total_transactions)],
+                    columns=['Order ID', 'Buyer', 'Order Total', 'Athirai Revenue', 'Payment Method', 'Date'],
+                    rows=[
+                        [o.order_id, profile_map.get(o.user_id) or o.user.email, _inr_fmt(o.total_price),
+                         _inr_fmt((Decimal(str(o.total_price)) * company_share_pct / Decimal('100')).quantize(Decimal('0.01'))),
+                         o.payment_method, o.created_at.strftime('%d-%b-%Y %H:%M')]
+                        for o in export_orders
+                    ],
+                    total_rows=total_transactions,
+                )
+                return FileResponse(buffer, as_attachment=True, filename=f'athirai-revenue-report-{period}.pdf', content_type='application/pdf')
 
             start = (page - 1) * page_size
             page_txns = txn_qs[start:start + page_size]
@@ -8148,20 +8359,34 @@ class PaymentsSummaryView(APIView):
             total_transactions = txn_qs.count()
 
             if export_csv:
-                response = HttpResponse(content_type='text/csv')
-                fname = 'super-admin-commission-report.csv' if view == 'super_admin_commission' else 'my-commission-report.csv'
-                response['Content-Disposition'] = f'attachment; filename="{fname}"'
-                writer = csv.writer(response)
-                writer.writerow(['Order ID', 'Buyer', 'Amount (Rs.)', 'Coins Credited', '% of Order', 'Payment Method', 'Date'])
-                for r in txn_qs:
-                    pct = round(float(r.amount_paid) / float(r.related_order.total_price) * 100, 2) if r.related_order and r.related_order.total_price else ''
-                    writer.writerow([
+                fname = 'super-admin-commission-report' if view == 'super_admin_commission' else 'my-commission-report'
+                report_title = 'Super Admin Commission Report' if view == 'super_admin_commission' else 'My Commission Report'
+                report_note = (
+                    'Leftover unallocated commission balance from the payout pool.'
+                    if view == 'super_admin_commission' else
+                    'Your own fixed 1% share, credited on every successful recharge.'
+                )
+                export_entries = list(txn_qs[:REPORT_MAX_ROWS])
+                profile_map = _bulk_profile_id_map([r.related_order.user for r in export_entries if r.related_order])
+                report_rows = []
+                for r in export_entries:
+                    pct = f"{round(float(r.amount_paid) / float(r.related_order.total_price) * 100, 2)}%" if r.related_order and r.related_order.total_price else '—'
+                    report_rows.append([
                         r.related_order.order_id if r.related_order else (r.transaction_id or '—'),
-                        get_user_profile_id(r.related_order.user) if r.related_order else '—',
-                        float(r.amount_paid), r.coins_credited, pct, r.payment_method,
+                        profile_map.get(r.related_order.user_id) if r.related_order else '—',
+                        _inr_fmt(r.amount_paid), f'{r.coins_credited:,}', pct, r.payment_method,
                         r.created_at.strftime('%d-%b-%Y %H:%M'),
                     ])
-                return response
+                buffer = _build_report_pdf(
+                    title=report_title,
+                    subtitle=report_note,
+                    period_label=_period_label(period, start_date, end_date),
+                    stats=[('Total', _inr_fmt(total_revenue)), ('AUG Coins Credited', f'{total_coins_sold:,}'), ('Transactions', total_transactions)],
+                    columns=['Order ID', 'Buyer', 'Amount', 'Coins', '% of Order', 'Payment Method', 'Date'],
+                    rows=report_rows,
+                    total_rows=total_transactions,
+                )
+                return FileResponse(buffer, as_attachment=True, filename=f'{fname}-{period}.pdf', content_type='application/pdf')
 
             start = (page - 1) * page_size
             page_txns = txn_qs[start:start + page_size]
@@ -8267,7 +8492,7 @@ class TierCommissionView(APIView):
         end_date = request.query_params.get('end_date')
         page = max(int(request.query_params.get('page', 1)), 1)
         page_size = 15
-        export_csv = request.query_params.get('format') == 'csv'
+        export_csv = request.query_params.get('export') == 'csv'
         user_id = request.query_params.get('user_id')
 
         base_qs = CoinRecharge.objects.filter(
@@ -8344,13 +8569,20 @@ class TierCommissionView(APIView):
             })
 
         if export_csv:
-            response = HttpResponse(content_type='text/csv')
-            response['Content-Disposition'] = f'attachment; filename="{role}-commission-leaderboard.csv"'
-            writer = csv.writer(response)
-            writer.writerow([f'{role_label} ID', 'First Name', 'Last Name', 'City', 'Mobile', 'Transactions', 'Total Commission (Rs.)', 'Coins Credited'])
-            for r in leaderboard:
-                writer.writerow([r[id_field], r['first_name'], r['last_name'], r['city_name'] or '', r['mobile_number'] or '', r['txn_count'], r['total_commission'], r['coins']])
-            return response
+            export_leaders = leaderboard[:REPORT_MAX_ROWS]
+            buffer = _build_report_pdf(
+                title=f'{role_label} Commission Leaderboard',
+                subtitle=f"Every {role_label.lower()}'s commission earnings for the selected period, ranked highest first.",
+                period_label=_period_label(period, start_date, end_date),
+                stats=[('Total Commission', _inr_fmt(total_commission)), ('Coins Credited', f'{total_coins:,}'), ('Earners', total_earners), ('Transactions', total_transactions)],
+                columns=['#', f'{role_label} ID', 'Name', 'City', 'Mobile', 'Txns', 'Commission'],
+                rows=[
+                    [i + 1, r[id_field] or '—', f"{r['first_name']} {r['last_name'] or ''}".strip(), r['city_name'] or '—', r['mobile_number'] or '—', r['txn_count'], _inr_fmt(r['total_commission'])]
+                    for i, r in enumerate(export_leaders)
+                ],
+                total_rows=len(leaderboard),
+            )
+            return FileResponse(buffer, as_attachment=True, filename=f'{role}-commission-leaderboard-{period}.pdf', content_type='application/pdf')
 
         total_leaders = len(leaderboard)
         start = (page - 1) * page_size

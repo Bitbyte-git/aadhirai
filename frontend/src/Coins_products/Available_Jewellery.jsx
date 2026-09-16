@@ -20,11 +20,11 @@ import {
 } from "../components/SvgIcons";
 
 const ROLE_BADGE_CONFIG = {
-  super_admin: { bg: "#FEF3C7", color: "#92400E", border: "#FDE68A", label: "Super Admin" },
-  admin: { bg: "#F3E8FF", color: "#6B21A8", border: "#E9D5FF", label: "Admin" },
-  dealer: { bg: "#E0F2FE", color: "#0369A1", border: "#BAE6FD", label: "Dealer" },
-  sub_dealer: { bg: "#ECFDF5", color: "#047857", border: "#A7F3D0", label: "Sub Dealer" },
-  promotor: { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", label: "Promotor" },
+  super_admin: { bg: "#EFF6F6", color: "#073B3F", border: "#CEE3E1", label: "Super Admin" },
+  admin: { bg: "#F3E8FF", color: "#6B21A8", border: "#E9D5FF", label: "Super Stockist" },
+  dealer: { bg: "#E0F2FE", color: "#0369A1", border: "#BAE6FD", label: "Distributor" },
+  sub_dealer: { bg: "#ECFDF5", color: "#047857", border: "#A7F3D0", label: "Wholesale Dealer" },
+  promotor: { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", label: "Retailer" },
 };
 
 export default function AvailableJewellery() {
@@ -614,15 +614,15 @@ export default function AvailableJewellery() {
         }
 
         .pill-gold-22k {
-          background: #FEF3C7;
-          color: #92400E;
-          border: 1px solid #FDE68A;
+          background: #EFF6F6;
+          color: #073B3F;
+          border: 1px solid #CEE3E1;
         }
 
         .pill-gold-24k {
-          background: #FEF9C3;
-          color: #854D0E;
-          border: 1px solid #FEF08A;
+          background: #E6F2F2;
+          color: #0A5C63;
+          border: 1px solid #C4DADA;
         }
 
         .pill-silver {
@@ -722,34 +722,6 @@ export default function AvailableJewellery() {
                 : "Your current in-hand available jewellery stock and custody holding."}
             </p>
           </div>
-          <div className="aj-header-actions">
-            <button
-              type="button"
-              className="aj-btn-add"
-              onClick={() => navigate("/add-jewellery")}
-            >
-              <PlusIcon size={16} color="#FFFFFF" /> {isSuperAdmin ? "Add Jewellery" : "Buy Jewellery"}
-            </button>
-            <button
-              type="button"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "10px 16px",
-                background: "#FFFFFF",
-                border: "1px solid #D6E2E1",
-                borderRadius: "12px",
-                color: "#073B3F",
-                fontSize: "13.5px",
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-              onClick={() => navigate("/jewellery-requests")}
-            >
-              <InboxIcon size={16} color="#073B3F" /> Requests Jewellery
-            </button>
-          </div>
         </div>
 
         {/* Super Admin Scope Toggle: Vault vs Hierarchy */}
@@ -791,7 +763,7 @@ export default function AvailableJewellery() {
 
             <div
               className={`aj-stat-card ${hierarchyPurityFilter === "gold_22k" ? "active" : ""}`}
-              style={{ borderLeft: "4px solid #D97706" }}
+              style={{ borderLeft: "4px solid #0A5C63" }}
               onClick={() => setHierarchyPurityFilter(hierarchyPurityFilter === "gold_22k" ? "all" : "gold_22k")}
               title="Click to filter only Gold 22K holdings"
             >
@@ -805,7 +777,7 @@ export default function AvailableJewellery() {
 
             <div
               className={`aj-stat-card ${hierarchyPurityFilter === "gold_24k" ? "active" : ""}`}
-              style={{ borderLeft: "4px solid #EAB308" }}
+              style={{ borderLeft: "4px solid #0E7490" }}
               onClick={() => setHierarchyPurityFilter(hierarchyPurityFilter === "gold_24k" ? "all" : "gold_24k")}
               title="Click to filter only Gold 24K holdings"
             >
@@ -851,7 +823,7 @@ export default function AvailableJewellery() {
 
             <div
               className={`aj-stat-card ${metalFilter === "gold" ? "active" : ""}`}
-              style={{ borderLeft: "4px solid #D97706" }}
+              style={{ borderLeft: "4px solid #0A5C63" }}
               onClick={() => setMetalFilter(metalFilter === "gold" ? "all" : "gold")}
               title="Click to filter Gold designs"
             >
@@ -923,10 +895,10 @@ export default function AvailableJewellery() {
             >
               <option value="all">All Roles</option>
               <option value="super_admin">Super Admin</option>
-              <option value="admin">Admins</option>
-              <option value="dealer">Dealers</option>
-              <option value="sub_dealer">Sub Dealers</option>
-              <option value="promotor">Promotors</option>
+              <option value="admin">Super Stockists</option>
+              <option value="dealer">Distributors</option>
+              <option value="sub_dealer">Wholesale Dealers</option>
+              <option value="promotor">Retailers</option>
             </select>
           ) : (
             <select
@@ -1240,8 +1212,9 @@ export default function AvailableJewellery() {
                             fontWeight: 800,
                             padding: "2px 8px",
                             borderRadius: "6px",
-                            background: isGold ? "#FEF3C7" : "#F1F5F9",
-                            color: isGold ? "#92400E" : "#334155",
+                            background: isGold ? "#EFF6F6" : "#F1F5F9",
+                            color: isGold ? "#073B3F" : "#334155",
+                            border: isGold ? "1px solid #CEE3E1" : "1px solid #CBD5E1",
                           }}
                         >
                           {p.grade?.toUpperCase() || p.metal?.toUpperCase()}

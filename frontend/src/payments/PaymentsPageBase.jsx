@@ -166,23 +166,26 @@ export default function PaymentsPageBase({ view, kicker, title, note, revenueLab
   }
 
   const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState(false)
   const downloadReport = async () => {
     setDownloading(true)
+    setDownloadError(false)
     try {
       const { default: api } = await import('../api')
-      let url = `/superadmin/payments/?period=${activeFilter}&view=${view}&format=csv`
+      let url = `/superadmin/payments/?period=${activeFilter}&view=${view}&export=csv`
       if (activeFilter === 'custom' && customFrom && customTo) url += `&start_date=${customFrom}&end_date=${customTo}`
       const res = await api.get(url, { responseType: 'blob' })
-      const blob = new Blob([res.data], { type: 'text/csv' })
+      const blob = new Blob([res.data], { type: 'application/pdf' })
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
-      link.download = `${title.replace(/\s+/g, '-').toLowerCase()}-report.csv`
+      link.download = `${title.replace(/\s+/g, '-').toLowerCase()}-report.pdf`
       document.body.appendChild(link)
       link.click()
       link.remove()
       URL.revokeObjectURL(link.href)
     } catch {
-      // silent — user can just retry the click
+      setDownloadError(true)
+      setTimeout(() => setDownloadError(false), 4000)
     }
     setDownloading(false)
   }
@@ -204,10 +207,13 @@ export default function PaymentsPageBase({ view, kicker, title, note, revenueLab
             <h1 className="pgb-title">{title}</h1>
             {note && <p className="pgb-note">{note}</p>}
           </div>
-          <button className="pgb-download-btn" onClick={downloadReport} disabled={downloading || loading}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-            {downloading ? 'Preparing...' : 'Download Report'}
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+            <button className="pgb-download-btn" onClick={downloadReport} disabled={downloading || loading}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+              {downloading ? 'Preparing...' : 'Download Report'}
+            </button>
+            {downloadError && <span style={{ fontSize: 11, color: '#C92035', fontWeight: 700 }}>Download failed — try again</span>}
+          </div>
         </div>
 
         <div className="pgb-filter-row">

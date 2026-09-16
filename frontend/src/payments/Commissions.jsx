@@ -126,6 +126,7 @@ export default function Commissions() {
   const [historyByUser, setHistoryByUser] = useState({})
   const [historyLoading, setHistoryLoading] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState(false)
 
   const fetchIdRef = useRef(0)
 
@@ -233,21 +234,23 @@ export default function Commissions() {
 
   const downloadReport = async () => {
     setDownloading(true)
+    setDownloadError(false)
     try {
       const { default: api } = await import('../api')
-      let url = `/superadmin/tier-commission/?role=${role}&period=${activeFilter}&format=csv`
+      let url = `/superadmin/tier-commission/?role=${role}&period=${activeFilter}&export=csv`
       if (activeFilter === 'custom' && customFrom && customTo) url += `&start_date=${customFrom}&end_date=${customTo}`
       const res = await api.get(url, { responseType: 'blob' })
-      const blob = new Blob([res.data], { type: 'text/csv' })
+      const blob = new Blob([res.data], { type: 'application/pdf' })
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
-      link.download = `${role}-commission-leaderboard.csv`
+      link.download = `${role}-commission-leaderboard.pdf`
       document.body.appendChild(link)
       link.click()
       link.remove()
       URL.revokeObjectURL(link.href)
     } catch {
-      // silent — user can retry the click
+      setDownloadError(true)
+      setTimeout(() => setDownloadError(false), 4000)
     }
     setDownloading(false)
   }
@@ -268,10 +271,13 @@ export default function Commissions() {
             <h1 className="cms-title">Commissions</h1>
             <p className="cms-note">Every tier's commission earnings, broken down by who actually earned it — pick a tier below, then click a row to see that person's own commission history.</p>
           </div>
-          <button className="cms-download-btn" onClick={downloadReport} disabled={downloading || loading}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-            {downloading ? 'Preparing...' : 'Download Report'}
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+            <button className="cms-download-btn" onClick={downloadReport} disabled={downloading || loading}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+              {downloading ? 'Preparing...' : 'Download Report'}
+            </button>
+            {downloadError && <span style={{ fontSize: 11, color: '#C92035', fontWeight: 700 }}>Download failed — try again</span>}
+          </div>
         </div>
 
         <div className="cms-role-row">

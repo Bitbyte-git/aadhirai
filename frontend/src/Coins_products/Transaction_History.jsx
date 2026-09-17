@@ -93,6 +93,9 @@ export default function TransactionHistory() {
       return { pending: 0, sent: 0, rejected: 0, total: 0, disbursed_pieces: 0, pending_pieces: 0 };
     }
   });
+  // Backend-computed, full-dataset (not just the currently loaded page) headline counts
+  const [myTxCount, setMyTxCount] = useState(0);
+  const [leaderTxCount, setLeaderTxCount] = useState(0);
 
   const showToast = (text) => {
     setToast(text);
@@ -121,6 +124,8 @@ export default function TransactionHistory() {
       setRequests(res.data.items || []);
       setTotalCount(res.data.total_count || 0);
       setStatusCounts(res.data.status_counts || { pending: 0, sent: 0, rejected: 0, total: 0, disbursed_pieces: 0, pending_pieces: 0 });
+      setMyTxCount(res.data.my_count || 0);
+      setLeaderTxCount(res.data.leader_count || 0);
       try {
         sessionStorage.setItem(STATS_CACHE_KEY, JSON.stringify(res.data.status_counts));
       } catch {
@@ -233,13 +238,8 @@ export default function TransactionHistory() {
     );
   };
 
-  const myTxCount = useMemo(() => {
-    return requests.filter(isMyTransaction).length;
-  }, [requests, isSuperAdmin, currentUserId, myEmail]);
-
-  const leaderTxCount = useMemo(() => {
-    return requests.filter(isLeaderTransaction).length;
-  }, [requests, isSuperAdmin, currentUserId, myEmail]);
+  // myTxCount / leaderTxCount now come from the backend (full-dataset DB counts, see fetchHistory)
+  // instead of being derived by filtering the client-side, paginated `requests` array.
 
   const getLeaderRoleCount = (roleKey) => {
     const baseList = requests.filter(isLeaderTransaction);

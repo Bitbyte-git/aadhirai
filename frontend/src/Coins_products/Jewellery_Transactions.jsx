@@ -69,6 +69,9 @@ export default function JewelleryTransactions() {
     disbursed_pieces: 0,
     pending_pieces: 0,
   });
+  // Backend-computed, full-dataset (not just the currently loaded page) headline counts
+  const [myTxCount, setMyTxCount] = useState(0);
+  const [leaderTxCount, setLeaderTxCount] = useState(0);
 
   const handleCopy = (text, id) => {
     if (!text) return;
@@ -99,6 +102,8 @@ export default function JewelleryTransactions() {
         disbursed_pieces: 0,
         pending_pieces: 0,
       });
+      setMyTxCount(res.data.my_count || 0);
+      setLeaderTxCount(res.data.leader_count || 0);
     } catch {
       setError("Failed to load jewellery transaction history.");
     }
@@ -170,13 +175,8 @@ export default function JewelleryTransactions() {
     );
   };
 
-  const myTxCount = useMemo(() => {
-    return requests.filter(isMyTransaction).length;
-  }, [requests, isSuperAdmin, currentUserId, myEmail]);
-
-  const leaderTxCount = useMemo(() => {
-    return requests.filter(isLeaderTransaction).length;
-  }, [requests, isSuperAdmin, currentUserId, myEmail]);
+  // myTxCount / leaderTxCount now come from the backend (full-dataset DB counts, see fetchHistory)
+  // instead of being derived by filtering the client-side, paginated `requests` array.
 
   const getLeaderRoleCount = (roleKey) => {
     const baseList = requests.filter(isLeaderTransaction);

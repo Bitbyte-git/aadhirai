@@ -5015,6 +5015,28 @@ class CoinRequestView(APIView):
             total_disbursed_pieces = CoinRequestItem.objects.filter(request__in=base_qs.filter(status='sent')).aggregate(s=Sum('qty'))['s'] or 0
             total_pending_pieces = CoinRequestItem.objects.filter(request__in=base_qs.filter(status='pending')).aggregate(s=Sum('qty'))['s'] or 0
 
+            # ── My Transactions vs Leader Transactions — DB-level split over the FULL base_qs
+            # (mirrors isMyTransaction in Transaction_History.jsx, not just the loaded/paginated page) ──
+            if request.user.role == 'super_admin':
+                my_q = (
+                    Q(reject_reason='MASTER_MINT') |
+                    Q(requested_by__role='super_admin') |
+                    Q(requested_to__role='super_admin') |
+                    Q(approved_by__role='super_admin') |
+                    Q(requested_by=request.user) |
+                    Q(requested_to=request.user) |
+                    Q(approved_by=request.user)
+                )
+            else:
+                my_q = (
+                    Q(requested_by=request.user) |
+                    Q(requested_to=request.user) |
+                    Q(approved_by=request.user)
+                )
+            total_all_count = base_qs.count()
+            my_count = base_qs.filter(my_q).distinct().count()
+            leader_count = total_all_count - my_count
+
             status_filter = request.query_params.get('status')
             if status_filter and status_filter != 'all':
                 base_qs = base_qs.filter(status=status_filter)
@@ -5028,6 +5050,8 @@ class CoinRequestView(APIView):
             return Response({
                 'items': serializer.data,
                 'total_count': total_count,
+                'my_count': my_count,
+                'leader_count': leader_count,
                 'status_counts': {
                     'pending': status_counts.get('pending', 0),
                     'sent': status_counts.get('sent', 0),
@@ -6068,6 +6092,29 @@ class JewelryRequestView(APIView):
             status_counts = dict(
                 base_qs.values('status').annotate(c=Count('id')).values_list('status', 'c')
             )
+
+            # ── My Transactions vs Leader Transactions — DB-level split over the FULL base_qs
+            # (mirrors isMyTransaction in Jewellery_Transactions.jsx, not just the loaded/paginated page) ──
+            if role == 'super_admin':
+                my_q = (
+                    Q(reject_reason='MASTER_MINT') |
+                    Q(requested_by__role='super_admin') |
+                    Q(requested_to__role='super_admin') |
+                    Q(approved_by__role='super_admin') |
+                    Q(requested_by=request.user) |
+                    Q(requested_to=request.user) |
+                    Q(approved_by=request.user)
+                )
+            else:
+                my_q = (
+                    Q(requested_by=request.user) |
+                    Q(requested_to=request.user) |
+                    Q(approved_by=request.user)
+                )
+            total_all_count = base_qs.count()
+            my_count = base_qs.filter(my_q).distinct().count()
+            leader_count = total_all_count - my_count
+
             total_mint_pieces = JewelryRequestItem.objects.filter(
                 request__in=base_qs.filter(reject_reason='MASTER_MINT')
             ).aggregate(s=Sum('qty'))['s'] or 0
@@ -6106,6 +6153,8 @@ class JewelryRequestView(APIView):
             return Response({
                 'items': serializer.data,
                 'total_count': total_count,
+                'my_count': my_count,
+                'leader_count': leader_count,
                 'status_counts': {
                     'pending': status_counts.get('pending', 0),
                     'sent': status_counts.get('sent', 0),

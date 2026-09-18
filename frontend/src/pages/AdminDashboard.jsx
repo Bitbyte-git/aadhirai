@@ -79,10 +79,7 @@ const emptyForm = {
   occupation: '', occupation_detail: '', annual_salary: ''
 }
 
-const PARTICLES = Array.from({ length: 15 }, (_, i) => ({
-  id: i, size: Math.random() * 60 + 10, x: Math.random() * 100,
-  delay: Math.random() * 8, duration: Math.random() * 12 + 15, opacity: Math.random() * 0.2 + 0.05,
-}))
+
 
 const DEALER_COLORS = ['#0C4044', '#BDCFCE', '#CCA881', '#C92035']
 
@@ -605,6 +602,15 @@ function createDealerPopup(d, i, anchorEl, dark, subtext, text, currentAdmin) {
   _dpopupEl = el
 }
 
+const emptyCustomerForm = {
+  initial: '', first_name: '', last_name: '', mobile_number: '',
+  gender: 'male', dob: '', married_status: 'single', anniversary_date: '',
+  email: '', password: '',
+  door_no: '', street_name: '', town_name: '', city_name: '', pincode: '',
+  district: '', state: '', aadhaar_no: '', pan_no: '',
+  occupation: '', occupation_detail: '', annual_salary: ''
+}
+
 export default function AdminDashboard() {
   const navigate = useNavigate()
   const [dark, setDark] = useState(false)
@@ -629,7 +635,6 @@ export default function AdminDashboard() {
   const [showProfileEdit, setShowProfileEdit] = useState(false)
   const [announcements, setAnnouncements] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
-  // ── ADD after existing useState declarations ──
   const [myAdminId, setMyAdminId] = useState(null)
   const [metalPrices, setMetalPrices] = useState({ gold24k: null, gold22k: null, silver: null })
   const [metalLoading, setMetalLoading] = useState(false)
@@ -644,6 +649,16 @@ export default function AdminDashboard() {
   const [replyPopupAnnId, setReplyPopupAnnId] = useState(null)
   const [replyPopupPos, setReplyPopupPos] = useState({ top: 0, left: 0 })
   const wishTimerRef = useRef(null)
+
+  // Create Customer states
+  const [showCreateCustomer, setShowCreateCustomer] = useState(false)
+  const [customerForm, setCustomerForm] = useState(emptyCustomerForm)
+  const [customerConfirmPassword, setCustomerConfirmPassword] = useState('')
+  const [customerPasswordError, setCustomerPasswordError] = useState('')
+  const [customerPincodeLookupMsg, setCustomerPincodeLookupMsg] = useState('')
+  const [customerMsg, setCustomerMsg] = useState('')
+  const [customerMsgType, setCustomerMsgType] = useState('success')
+  const [customerSubmitting, setCustomerSubmitting] = useState(false)
 
   const [showRequestCoin, setShowRequestCoin] = useState(false)
 const [coinRequests, setCoinRequests] = useState([])
@@ -672,7 +687,6 @@ const [coinStockLoading, setCoinStockLoading] = useState(false)
 
 
 
-  const canvasRef = useRef(null)
 
   // Luxiva customer theme palette
   const bg = dark ? '#073B3F' : '#FDFDFC'
@@ -688,173 +702,8 @@ const [coinStockLoading, setCoinStockLoading] = useState(false)
   const optionBg = dark ? '#073B3F' : '#F3F3F0'
   const selectInput = { width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box', cursor: 'pointer' }
 
-  useEffect(() => {
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
-    let animationFrameId, particlesArray = []
-    const mouse = { x: null, y: null, radius: 150 }
-    const handleResize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight }
-    const handleMouseMove = (e) => { mouse.x = e.x; mouse.y = e.y }
-    window.addEventListener('resize', handleResize)
-    window.addEventListener('mousemove', handleMouseMove)
-    handleResize()
-    class Particle {
-      constructor() {
-        this.x = Math.random() * canvas.width
-        this.y = Math.random() * canvas.height
-        this.size = Math.random() * 4 + 2
-        this.speedX = (Math.random() - 0.5) * 0.3
-        this.speedY = (Math.random() - 0.5) * 0.3
-      }
+  // Canvas animations removed for performance
 
-      update() {
-        this.x += this.speedX
-        this.y += this.speedY
-        if (this.x > canvas.width || this.x < 0) this.speedX *= -1
-        if (this.y > canvas.height || this.y < 0) this.speedY *= -1
-
-        if (mouse.x !== null && mouse.y !== null) {
-          let dx = mouse.x - this.x
-          let dy = mouse.y - this.y
-          let distance = Math.sqrt(dx * dx + dy * dy)
-          if (distance < mouse.radius) {
-            const forceDirectionX = dx / distance
-            const forceDirectionY = dy / distance
-            const force = (mouse.radius - distance) / mouse.radius
-            this.x += forceDirectionX * force * 2
-            this.y += forceDirectionY * force * 2
-          }
-        }
-      }
-      
-      // ← update() ends here
-
-      draw() {
-        ctx.fillStyle = dark ? 'rgba(189, 207, 206, 0.9)' : 'rgba(12, 64, 68, 0.8)'
-        ctx.save()
-        ctx.translate(this.x, this.y)
-        ctx.beginPath()
-
-        const spikes = 5
-        const outerRadius = this.size * 1
-        const innerRadius = this.size * 0.4
-
-        for (let i = 0; i < spikes * 2; i++) {
-          const radius = i % 2 === 0 ? outerRadius : innerRadius
-          const angle = (i * Math.PI) / spikes - Math.PI / 2
-          if (i === 0) ctx.moveTo(Math.cos(angle) * radius, Math.sin(angle) * radius)
-          else ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius)
-        }
-
-        ctx.closePath()
-        ctx.fill()
-        ctx.restore()
-      }
-
-    }
-    function init() { particlesArray = []; for (let i = 0; i < 60; i++)particlesArray.push(new Particle()) }
-    function connect() {
-      for (let a = 0; a < particlesArray.length; a++) for (let b = a; b < particlesArray.length; b++) {
-        let dx = particlesArray[a].x - particlesArray[b].x, dy = particlesArray[a].y - particlesArray[b].y, d = Math.sqrt(dx * dx + dy * dy)
-        if (d < 150) { ctx.strokeStyle = dark ? `rgba(189,207,206,${1 - d / 150})` : `rgba(12,64,68,${0.5 - d / 300})`; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(particlesArray[a].x, particlesArray[a].y); ctx.lineTo(particlesArray[b].x, particlesArray[b].y); ctx.stroke() }
-      }
-    }
-    function animate() { ctx.clearRect(0, 0, canvas.width, canvas.height); particlesArray.forEach(p => { p.update(); p.draw() }); connect(); animationFrameId = requestAnimationFrame(animate) }
-    init(); animate()
-
- init(); animate()
-
-    // ── PLANETS & COMETS ──────────────────────────────────────────
-    let planets = [], comets2 = [], planetAnimId
-
-    class Planet {
-      constructor(index, total) {
-        this.distFactor = 0.12 + (index / total) * 0.75
-        this.radius = 12 + Math.random() * 25
-        this.speed = (0.003 / (index + 1)) * 0.35
-        this.angle = Math.random() * Math.PI * 2
-        const hues = [200, 30, 180, 5, 280, 150, 45, 210, 330, 20]
-        this.color = `hsl(${hues[index % hues.length]}, 70%, 60%)`
-      }
-      update(c2, x2) {
-        this.angle += this.speed
-        const centerX = c2.width / 2
-        const centerY = c2.height / 2
-        const maxDim = Math.max(c2.width, c2.height)
-        const orbitRadius = maxDim * this.distFactor
-        const x = centerX + Math.cos(this.angle) * orbitRadius
-        const y = centerY + Math.sin(this.angle) * orbitRadius
-        x2.strokeStyle = dark ? 'rgba(253,253,252,0.04)' : 'rgba(17,24,23,0.04)'
-        x2.lineWidth = 1
-        x2.beginPath()
-        x2.arc(centerX, centerY, orbitRadius, 0, Math.PI * 2)
-        x2.stroke()
-        x2.shadowBlur = dark ? 20 : 5
-        x2.shadowColor = this.color
-        x2.fillStyle = this.color
-        x2.beginPath()
-        x2.arc(x, y, this.radius, 0, Math.PI * 2)
-        x2.fill()
-        x2.shadowBlur = 0
-      }
-    }
-
-    const canvas2 = document.createElement('canvas')
-    canvas2.style.cssText = 'position:fixed;top:0;left:0;pointer-events:none;z-index:2;opacity:0.5;'
-    canvas2.width = window.innerWidth
-    canvas2.height = window.innerHeight
-    document.body.appendChild(canvas2)
-    const ctx2 = canvas2.getContext('2d')
-
-    function createComet2() {
-      const sides = ['top', 'bottom', 'left', 'right']
-      const side = sides[Math.floor(Math.random() * 4)]
-      let x, y, vx, vy
-      const speed = 0.4 + Math.random() * 0.3
-      if (side === 'top')         { x = Math.random() * canvas2.width;  y = -100;                vx = 0.1;  vy = speed  }
-      else if (side === 'bottom') { x = Math.random() * canvas2.width;  y = canvas2.height + 100; vx = -0.1; vy = -speed }
-      else if (side === 'left')   { x = -100;               y = Math.random() * canvas2.height;  vx = speed; vy = 0.1  }
-      else                        { x = canvas2.width + 100; y = Math.random() * canvas2.height;  vx = -speed; vy = -0.1 }
-      return { x, y, vx, vy, history: [], tailLength: 130 }
-    }
-
-    planets = Array.from({ length: 10 }, (_, i) => new Planet(i, 10))
-    comets2 = Array.from({ length: 3 }, createComet2)
-
-    function drawPlanets() {
-      ctx2.clearRect(0, 0, canvas2.width, canvas2.height)
-      const colorAccent = dark ? '76, 201, 240' : '0, 95, 115'
-      planets.forEach(p => p.update(canvas2, ctx2))
-      comets2.forEach((c, i) => {
-        c.x += c.vx; c.y += c.vy
-        c.history.push({ x: c.x, y: c.y })
-        if (c.history.length > c.tailLength) c.history.shift()
-        if (c.x < -200 || c.x > canvas2.width + 200 || c.y < -200 || c.y > canvas2.height + 200)
-          comets2[i] = createComet2()
-        c.history.forEach((h, idx) => {
-          ctx2.fillStyle = `rgba(${colorAccent}, ${(idx / c.history.length) * 0.3})`
-          ctx2.beginPath()
-          ctx2.arc(h.x, h.y, (idx / c.history.length) * 3, 0, Math.PI * 2)
-          ctx2.fill()
-        })
-      })
-      planetAnimId = requestAnimationFrame(drawPlanets)
-    }
-
-    const handleResize2 = () => { canvas2.width = window.innerWidth; canvas2.height = window.innerHeight }
-    window.addEventListener('resize', handleResize2)
-    drawPlanets()
-    // ── END PLANETS & COMETS ──────────────────────────────────────
-
-    return () => {
-      window.removeEventListener('resize', handleResize)
-      window.removeEventListener('mousemove', handleMouseMove)
-      window.removeEventListener('resize', handleResize2)
-      cancelAnimationFrame(animationFrameId)
-      cancelAnimationFrame(planetAnimId)
-      canvas2.remove()
-    }
-  }, [dark])
 
   const fetchDealers = async () => {
     try {
@@ -1191,6 +1040,69 @@ const handleSubmit = async e => {
     setMsg('❌ Error: ' + JSON.stringify(err.response?.data)); setMsgType('error')
   }
 }
+
+  const handleCustomerChange = e => {
+    const { name, value } = e.target
+    if (name === 'married_status' && value !== 'married') {
+      setCustomerForm({ ...customerForm, married_status: value, anniversary_date: '' })
+      return
+    }
+    setCustomerForm({ ...customerForm, [name]: value })
+  }
+
+  const handleCustomerPincodeChange = async e => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 6)
+    setCustomerForm(prev => ({ ...prev, pincode: value }))
+    setCustomerPincodeLookupMsg('')
+    if (value.length === 6) {
+      setCustomerPincodeLookupMsg('Fetching location details...')
+      try {
+        const res = await fetch(`https://api.postalpincode.in/pincode/${value}`)
+        const data = await res.json()
+        if (data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
+          const po = data[0].PostOffice[0]
+          setCustomerForm(prev => ({
+            ...prev,
+            city_name: po.District || prev.city_name,
+            district: po.District || prev.district,
+            state: po.State || prev.state,
+          }))
+          setCustomerPincodeLookupMsg('Location details auto-filled')
+        } else {
+          setCustomerPincodeLookupMsg('Pincode not found — please enter manually')
+        }
+      } catch {
+        setCustomerPincodeLookupMsg('Unable to fetch location — please enter manually')
+      }
+    }
+  }
+
+  const handleCustomerSubmit = async e => {
+    e.preventDefault()
+    if (customerForm.married_status === 'married' && !customerForm.anniversary_date) {
+      setCustomerMsg('❌ Please enter Anniversary Date!'); setCustomerMsgType('error')
+      return
+    }
+    if (customerForm.password !== customerConfirmPassword) {
+      setCustomerPasswordError('❌ Passwords do not match')
+      return
+    }
+    setCustomerSubmitting(true)
+    try {
+      const payload = { ...customerForm }
+      if (!payload.dob) delete payload.dob
+      if (payload.married_status !== 'married') delete payload.anniversary_date
+      await api.post('/customers/', payload)
+      setCustomerMsg('✅ Customer created successfully!'); setCustomerMsgType('success')
+      setCustomerForm(emptyCustomerForm)
+      setCustomerConfirmPassword(''); setCustomerPasswordError('')
+      setTimeout(() => { setShowCreateCustomer(false); setCustomerMsg('') }, 2000)
+    } catch (err) {
+      setCustomerMsg('❌ Error: ' + JSON.stringify(err.response?.data)); setCustomerMsgType('error')
+    }
+    setCustomerSubmitting(false)
+  }
+
   const card = {
     background: cardBg,
     border: cardBorder,
@@ -1209,8 +1121,6 @@ const handleSubmit = async e => {
   return (
     <div style={{ minHeight: '100vh', background: dark ? bg : 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)', color: text, transition: 'background 0.8s ease, color 0.4s ease', fontFamily: '"Inter",system-ui,sans-serif', position: 'relative', overflow: 'hidden' }}>
       <style>{`
-        @keyframes float-orb{0%{transform:translate(0,0) scale(1)}33%{transform:translate(30px,-50px) scale(1.1)}66%{transform:translate(-20px,20px) scale(0.9)}100%{transform:translate(0,0) scale(1)}}
-        @keyframes antigravity{0%{transform:translateY(110vh) rotate(0deg);opacity:0}10%{opacity:var(--op)}90%{opacity:var(--op)}100%{transform:translateY(-20vh) rotate(360deg);opacity:0}}
         @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
         .ad-inp:focus,.sa-inp:focus{border-color:#0C4044 !important;box-shadow:0 0 0 4px rgba(12,64,68,0.08) !important}
         .ad-grad-btn{position:relative;overflow:hidden}
@@ -1227,15 +1137,15 @@ const handleSubmit = async e => {
 #ad-wish-popup::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#0C4044,#BDCFCE);border-radius:10px}
 #ad-wish-popup{scrollbar-color:rgba(12,64,68,0.5) rgba(12,64,68,0.03)}
 @keyframes adWishIn{from{opacity:0;transform:translate(-50%,calc(-100% + 8px)) scale(0.95)}to{opacity:1;transform:translate(-50%,calc(-100% - 10px)) scale(1)}}
+@media(max-width:768px){
+  .d-card{min-width:120px;padding:10px 14px;}
+  .ad-tr td{padding:10px 12px;font-size:13px;}
+}
+@media(max-width:480px){
+  .d-card{min-width:100px;padding:8px 10px;}
+  .ad-tr td{padding:8px 10px;font-size:12px;}
+}
       `}</style>
-
-      <canvas ref={canvasRef} style={{ position: 'fixed', top: 0, left: 0, pointerEvents: 'none', zIndex: 1, opacity: dark ? 0.2 : 0.08 }} />
-      <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(82px)', animation: 'float-orb 20s infinite ease-in-out', zIndex: 0, top: '8%', left: '8%', width: '380px', height: '380px', background: dark ? 'rgba(204,168,129,0.1)' : 'rgba(209,223,222,0.42)' }} />
-      <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(86px)', animation: 'float-orb 20s infinite ease-in-out', zIndex: 0, bottom: '10%', right: '4%', width: '460px', height: '460px', background: dark ? 'rgba(189,207,206,0.08)' : 'rgba(243,232,222,0.56)', animationDelay: '-5s' }} />
-
-      {PARTICLES.map(p => (
-        <div key={p.id} style={{ position: 'absolute', left: `${p.x}%`, bottom: '-100px', width: p.size, height: p.size, borderRadius: '40% 60% 60% 40% / 40% 40% 60% 60%', border: `1px solid ${accent}44`, opacity: p.opacity, animation: `antigravity ${p.duration}s ${p.delay}s infinite linear`, '--op': p.opacity, pointerEvents: 'none', zIndex: 0 }} />
-      ))}
 
       <InternalRoleNavbar
         roleTitle="ADMIN"
@@ -1244,6 +1154,7 @@ const handleSubmit = async e => {
           { label: 'Dashboard', path: '/admin' },
           { label: 'Dealer Hierarchy', path: '/admin-hierarchy' },
           { label: 'Create Dealer', action: () => setShowForm(true) },
+          { label: 'Create Customer', action: () => setShowCreateCustomer(true) },
           { label: 'Requests', action: () => setShowRequests(true) },
         ]}
         celebrationItems={[
@@ -1313,6 +1224,10 @@ const handleSubmit = async e => {
             <button onClick={() => setShowForm(!showForm)} className="ad-grad-btn"
               style={{ padding: '12px 28px', background: '#073B3F', border: 'none', borderRadius: '999px', fontWeight: 900, color: '#FDFDFC', fontSize: '14px', cursor: 'pointer', boxShadow: '0 16px 34px rgba(7,59,63,0.18)' }}>
               {showForm ? 'Cancel' : '+ Create Dealer'}
+            </button>
+            <button onClick={() => setShowCreateCustomer(!showCreateCustomer)} className="ad-grad-btn"
+              style={{ padding: '12px 28px', background: 'linear-gradient(90deg,#C92035,#BB8958)', border: 'none', borderRadius: '999px', fontWeight: 900, color: '#FDFDFC', fontSize: '14px', cursor: 'pointer', boxShadow: '0 16px 34px rgba(201,32,53,0.18)' }}>
+              {showCreateCustomer ? 'Cancel' : '+ Create Customer'}
             </button>
           </div>
         </div>
@@ -2242,6 +2157,125 @@ const handleSubmit = async e => {
                   Create Dealer
                 </button>
                 <button type="button" onClick={() => setShowForm(false)}
+                  style={{ padding: '12px 24px', background: inpBg, border: `1px solid ${border}`, borderRadius: '12px', color: subtext, fontSize: '14px', cursor: 'pointer' }}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* ── CREATE CUSTOMER FORM ── */}
+        {showCreateCustomer && (
+          <div style={card}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <p style={secHead('#C92035')}>👤 Create New Customer</p>
+              <button type="button" onClick={() => { setShowCreateCustomer(false); setCustomerMsg('') }}
+                style={{ background: 'rgba(201,32,53,0.1)', border: '1px solid rgba(201,32,53,0.3)', color: '#C92035', borderRadius: '8px', padding: '6px 14px', cursor: 'pointer', fontSize: '12px' }}>
+                ✕ Close
+              </button>
+            </div>
+            {customerMsg && (
+              <div style={{ background: customerMsgType === 'success' ? 'rgba(12,64,68,0.1)' : 'rgba(201,32,53,0.1)', border: `1px solid ${customerMsgType === 'success' ? 'rgba(12,64,68,0.25)' : 'rgba(201,32,53,0.3)'}`, color: customerMsgType === 'success' ? '#0C4044' : '#C92035', borderRadius: '12px', padding: '14px 20px', fontSize: '14px', marginBottom: '16px' }}>
+                {customerMsg}
+              </div>
+            )}
+            <form onSubmit={handleCustomerSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={sectionCard}>
+                <SectionHeader icon="user" label="Personal Info" />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: '16px' }}>
+                  <div><label style={lbl}>Initial</label><input name="initial" maxLength={5} value={customerForm.initial} onChange={handleCustomerChange} className="ad-inp" style={inp} /></div>
+                  <div><label style={lbl}>First Name *</label><input name="first_name" maxLength={100} value={customerForm.first_name} onChange={handleCustomerChange} required className="ad-inp" style={inp} /></div>
+                  <div><label style={lbl}>Last Name *</label><input name="last_name" maxLength={100} value={customerForm.last_name} onChange={handleCustomerChange} required className="ad-inp" style={inp} /></div>
+                  <div><label style={lbl}>Mobile *</label><input name="mobile_number" maxLength={10} value={customerForm.mobile_number} onChange={handleCustomerChange} required placeholder="10-digit" className="ad-inp" style={inp} /></div>
+                  <div><label style={lbl}>Gender *</label>
+                    <select name="gender" value={customerForm.gender} onChange={handleCustomerChange} required className="ad-inp" style={selectInput}>
+                      <option value="male" style={{ background: optionBg, color: text }}>Male</option>
+                      <option value="female" style={{ background: optionBg, color: text }}>Female</option>
+                      <option value="transgender" style={{ background: optionBg, color: text }}>Transgender</option>
+                    </select>
+                  </div>
+                  <div><label style={lbl}>DOB *</label><input type="date" name="dob" value={customerForm.dob} onChange={handleCustomerChange} required className="ad-inp" style={inp} /></div>
+                  <div><label style={lbl}>Married Status</label>
+                    <select name="married_status" value={customerForm.married_status} onChange={handleCustomerChange} className="ad-inp" style={selectInput}>
+                      <option value="single" style={{ background: optionBg, color: text }}>Single</option>
+                      <option value="married" style={{ background: optionBg, color: text }}>Married</option>
+                      <option value="divorced" style={{ background: optionBg, color: text }}>Divorced</option>
+                    </select>
+                  </div>
+                  {customerForm.married_status === 'married' && (
+                    <div><label style={lbl}>Anniversary Date</label><input type="date" name="anniversary_date" value={customerForm.anniversary_date} onChange={handleCustomerChange} className="ad-inp" style={inp} /></div>
+                  )}
+                </div>
+              </div>
+
+              <div style={sectionCard}>
+                <SectionHeader icon="lock" label="Account Info" />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: '16px' }}>
+                  <div><label style={lbl}>Email *</label><input type="email" name="email" value={customerForm.email} onChange={handleCustomerChange} required placeholder="email@example.com" className="ad-inp" style={inp} /></div>
+                  <div><label style={lbl}>Password *</label>
+                    <input type="password" name="password" value={customerForm.password} onChange={handleCustomerChange} required className="ad-inp" style={inp} />
+                    {customerForm.password && (
+                      <div style={{ marginTop: '6px' }}>
+                        <div style={{ height: '4px', borderRadius: '4px', background: 'rgba(189,207,206,0.4)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: getPasswordStrength(customerForm.password).width, background: getPasswordStrength(customerForm.password).color, transition: 'all 0.3s ease' }} />
+                        </div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: getPasswordStrength(customerForm.password).color, marginTop: '4px' }}>{getPasswordStrength(customerForm.password).label}</div>
+                      </div>
+                    )}
+                  </div>
+                  <div><label style={lbl}>Confirm Password *</label>
+                    <input type="password" value={customerConfirmPassword} onChange={e => { setCustomerConfirmPassword(e.target.value); setCustomerPasswordError('') }} required className="ad-inp" style={{ ...inp, border: `1px solid ${customerPasswordError ? '#C92035' : inpBorder}` }} />
+                    {customerPasswordError && <div style={{ color: '#C92035', fontSize: '12px', marginTop: '6px' }}>{customerPasswordError}</div>}
+                  </div>
+                </div>
+              </div>
+
+              <div style={sectionCard}>
+                <SectionHeader icon="pin" label="Address" />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: '16px' }}>
+                  <div><label style={lbl}>Door No *</label><input name="door_no" value={customerForm.door_no} onChange={handleCustomerChange} required maxLength={25} className="ad-inp" style={inp} /></div>
+                  <div><label style={lbl}>Street Name *</label><input name="street_name" value={customerForm.street_name} onChange={handleCustomerChange} required maxLength={100} className="ad-inp" style={inp} /></div>
+                  <div>
+                    <label style={lbl}>Pincode *</label>
+                    <input name="pincode" value={customerForm.pincode} onChange={handleCustomerPincodeChange} required maxLength={6} inputMode="numeric" className="ad-inp" style={inp} />
+                    {customerPincodeLookupMsg && <div style={{ fontSize: '11px', fontWeight: 700, marginTop: '4px', color: customerPincodeLookupMsg.includes('auto-filled') ? '#0C4044' : '#C92035' }}>{customerPincodeLookupMsg}</div>}
+                  </div>
+                  <div><label style={lbl}>Town</label><input name="town_name" value={customerForm.town_name} onChange={handleCustomerChange} maxLength={100} className="ad-inp" style={inp} /></div>
+                  <div><label style={lbl}>City</label><input name="city_name" value={customerForm.city_name} onChange={handleCustomerChange} maxLength={25} className="ad-inp" style={inp} /></div>
+                  <div><label style={lbl}>District *</label><input name="district" value={customerForm.district} onChange={handleCustomerChange} required maxLength={25} className="ad-inp" style={inp} /></div>
+                  <div><label style={lbl}>State *</label><input name="state" value={customerForm.state} onChange={handleCustomerChange} required maxLength={25} className="ad-inp" style={inp} /></div>
+                </div>
+              </div>
+
+              <div style={sectionCard}>
+                <SectionHeader icon="id" label="Identity" />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: '16px' }}>
+                  <div><label style={lbl}>Aadhaar No</label><input name="aadhaar_no" value={customerForm.aadhaar_no} onChange={handleCustomerChange} maxLength={12} placeholder="12-digit" className="ad-inp" style={inp} /></div>
+                  <div><label style={lbl}>PAN No</label><input name="pan_no" value={customerForm.pan_no} onChange={handleCustomerChange} maxLength={10} placeholder="ABCDE1234F" className="ad-inp" style={inp} /></div>
+                </div>
+              </div>
+
+              <div style={sectionCard}>
+                <SectionHeader icon="briefcase" label="Occupation" />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: '16px' }}>
+                  <div><label style={lbl}>Occupation</label>
+                    <select name="occupation" value={customerForm.occupation} onChange={handleCustomerChange} className="ad-inp" style={{ ...inp, cursor: 'pointer' }}>
+                      <option value="" style={{ background: '#F3F3F0' }}>Select</option>
+                      {OCCUPATIONS.map(o => <option key={o} value={o} style={{ background: '#F3F3F0' }}>{o.charAt(0).toUpperCase() + o.slice(1)}</option>)}
+                    </select>
+                  </div>
+                  <div><label style={lbl}>Detail</label><input name="occupation_detail" value={customerForm.occupation_detail} onChange={handleCustomerChange} maxLength={25} className="ad-inp" style={inp} /></div>
+                  <div><label style={lbl}>Annual Salary</label><input name="annual_salary" value={customerForm.annual_salary} onChange={handleCustomerChange} maxLength={10} placeholder="e.g. 500000" className="ad-inp" style={inp} /></div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '6px', flexWrap: 'wrap' }}>
+                <button type="submit" disabled={customerSubmitting} className="ad-grad-btn"
+                  style={{ padding: '12px 28px', background: customerSubmitting ? 'rgba(201,32,53,0.4)' : 'linear-gradient(90deg,#C92035,#BB8958)', border: 'none', borderRadius: '12px', fontWeight: 800, color: '#FDFDFC', fontSize: '14px', cursor: customerSubmitting ? 'not-allowed' : 'pointer' }}>
+                  {customerSubmitting ? '⏳ Creating...' : '👤 Create Customer'}
+                </button>
+                <button type="button" onClick={() => { setShowCreateCustomer(false); setCustomerForm(emptyCustomerForm); setCustomerMsg('') }}
                   style={{ padding: '12px 24px', background: inpBg, border: `1px solid ${border}`, borderRadius: '12px', color: subtext, fontSize: '14px', cursor: 'pointer' }}>
                   Cancel
                 </button>

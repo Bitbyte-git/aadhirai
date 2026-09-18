@@ -381,6 +381,7 @@ export default function SuperAdminNavbar({
     ['Requests', () => { setShowRequests(true); setRequestMsg(''); fetchProfileRequests() }],
     ['Hierarchy Grid', () => navigate('/superadmin-hierarchy-grid')],
     ['Hierarchy Tree', () => navigate('/superadmin-hierarchy')],
+    ['Shop Hierarchy', () => navigate('/shop-hierarchy-grid')],
     ['Super Stockists', () => navigate('/superadmin/manage-users/super-stockist')],
     ['Distributors', () => navigate('/superadmin/manage-users/distributor')],
     ['Wholesale Dealers', () => navigate('/superadmin/manage-users/wholesale-dealer')],

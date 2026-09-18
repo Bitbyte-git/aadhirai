@@ -813,7 +813,7 @@ export default function Admin_Hierarchy_grid() {
 
   return (
     <>
-    <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at 20% 0%, #0b1a2e 0%, #020617 55%)', color: text, fontFamily: '"Inter",system-ui,sans-serif', padding: '28px 32px' }}>
+    <div style={{ minHeight: '100vh', background: '#020617', color: text, fontFamily: '"Inter",system-ui,sans-serif', padding: 'clamp(16px,3vw,28px) clamp(12px,4vw,32px)' }}>
       <style>{`
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         .gcard{ background:linear-gradient(160deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015)); border:1.5px solid var(--nc); border-radius:16px; padding:14px 18px; min-width:172px; max-width:210px; cursor:pointer; position:relative; transition:opacity .2s ease, transform .2s cubic-bezier(0.22,1,0.36,1), box-shadow .2s ease; flex-shrink:0; }
@@ -848,6 +848,18 @@ export default function Admin_Hierarchy_grid() {
         .glane-empty{ font-size:12px; padding:14px 4px; display:flex; align-items:center; gap:8px; opacity:0.75; }
         .glane-divider{ height:3px; border-radius:3px; margin:0 4px 4px 4px; opacity:0.55; }
         .gsa-card{ display:inline-flex; align-items:center; gap:10px; border-radius:12px; padding:10px 18px; margin-bottom:22px; border-width:1.5px; border-style:solid; }
+        @media(max-width:768px){
+          .glane-track{ gap:10px; padding:4px 2px 12px 2px; }
+          .gcard{ min-width:130px; padding:10px 12px; }
+          .gcard-name{ font-size:12px; }
+          .glane-role{ font-size:12px; }
+          .gsa-card{ padding:8px 12px; }
+        }
+        @media(max-width:480px){
+          .gcard{ min-width:110px; padding:8px 10px; }
+          .gcard-actions{ flex-direction:column; gap:4px; }
+          .gcard-btn{ padding:4px 0; }
+        }
       `}</style>
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
@@ -875,7 +887,7 @@ export default function Admin_Hierarchy_grid() {
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <div style={{ position: 'relative' }}>
             <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
               <IconSearch color={subtext} />
@@ -884,7 +896,7 @@ export default function Admin_Hierarchy_grid() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search ID, Name, Phone..."
-              style={{ width: '240px', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '20px', padding: '9px 14px 9px 34px', color: text, fontSize: '13px', outline: 'none', boxSizing: 'border-box', transition: 'border-color .15s ease, box-shadow .15s ease' }}
+              style={{ width: 'clamp(160px,25vw,240px)', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '20px', padding: '9px 14px 9px 34px', color: text, fontSize: '13px', outline: 'none', boxSizing: 'border-box', transition: 'border-color .15s ease, box-shadow .15s ease' }}
               onFocus={e => { e.target.style.borderColor = '#22c55e'; e.target.style.boxShadow = '0 0 0 3px rgba(34,197,94,0.15)' }}
               onBlur={e => { e.target.style.borderColor = inpBorder; e.target.style.boxShadow = 'none' }}
             />

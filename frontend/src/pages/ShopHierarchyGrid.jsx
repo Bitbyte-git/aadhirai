@@ -305,12 +305,12 @@ function ShopCard({ node, depth, active, onSelect, chainNodes, onOpenChain }) {
 // LEVEL ROW — one horizontal level: label on the left, cards scroll
 // right, colored divider underneath linking it to the next level.
 // ══════════════════════════════════════════════════════════════════
-function LevelRow({ depth, items, ancestors, activeId, onSelect, onOpenChain }) {
+function LevelRow({ depth, labelDepth, items, ancestors, activeId, onSelect, onOpenChain }) {
   const color = levelColor(depth)
   return (
     <div className="shg-lane" id={`shg-lane-${depth}`}>
       <div className="shg-lane-label">
-        <span style={{ color, fontSize: 11, fontWeight: 900, letterSpacing: 1.4 }}>LEVEL {depth}</span>
+        <span style={{ color, fontSize: 11, fontWeight: 900, letterSpacing: 1.4 }}>LEVEL {labelDepth ?? depth}</span>
         <span style={{ fontSize: 15, fontWeight: 900, letterSpacing: 0.6 }}>SUB-SHOPS</span>
         <span style={{ color: '#53615F', fontSize: 13, fontWeight: 700 }}>{items.length}</span>
       </div>
@@ -337,6 +337,8 @@ function LevelRow({ depth, items, ancestors, activeId, onSelect, onOpenChain }) 
 // ══════════════════════════════════════════════════════════════════
 export default function ShopHierarchyGrid() {
   const navigate = useNavigate()
+  const role = localStorage.getItem('role')
+  const isSuperAdmin = role === 'super_admin'
   const [tree, setTree] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -393,7 +395,7 @@ export default function ShopHierarchyGrid() {
     } catch { /* ignore */ }
   }
 
-  useEffect(() => { fetchAnnouncements() }, [])
+  useEffect(() => { if (!isSuperAdmin) fetchAnnouncements() }, [])
 
   const openAnnouncements = () => {
     setShowAnnouncements(true)
@@ -460,29 +462,31 @@ export default function ShopHierarchyGrid() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)', color: '#111817', fontFamily: '"Inter",system-ui,sans-serif' }}>
-      <InternalRoleNavbar
-        roleTitle="SHOP"
-        homePath="/shop-dashboard"
-        managementItems={[
-          { label: 'Dashboard', path: '/shop-dashboard' },
-          { label: 'My Profile', action: () => { setShowProfile(true); fetchShopProfile() } },
-          { label: 'Create Shop', path: '/add-shop' },
-          { label: 'My Network', path: '/shop-hierarchy-grid' },
-        ]}
-        celebrationItems={[]}
-        announcementItems={[
-          { label: 'View Announcements', action: openAnnouncements, badge: unreadCount },
-        ]}
-        coinItems={[]}
-        reportItems={[]}
-        actionItems={[
-          { label: 'Profile', icon: 'user', action: () => { setShowProfile(true); fetchShopProfile() } },
-          { label: 'Create Shop', icon: 'rate', action: () => navigate('/add-shop') },
-          { label: 'My Network', icon: 'user', action: () => navigate('/shop-hierarchy-grid') },
-          { label: 'Announcements', icon: 'bell', action: openAnnouncements, badge: unreadCount },
-          { label: 'Logout', icon: 'logout', variant: 'danger', action: handleLogout },
-        ]}
-      />
+      {!isSuperAdmin && (
+        <InternalRoleNavbar
+          roleTitle="SHOP"
+          homePath="/shop-dashboard"
+          managementItems={[
+            { label: 'Dashboard', path: '/shop-dashboard' },
+            { label: 'My Profile', action: () => { setShowProfile(true); fetchShopProfile() } },
+            { label: 'Create Shop', path: '/add-shop' },
+            { label: 'My Network', path: '/shop-hierarchy-grid' },
+          ]}
+          celebrationItems={[]}
+          announcementItems={[
+            { label: 'View Announcements', action: openAnnouncements, badge: unreadCount },
+          ]}
+          coinItems={[]}
+          reportItems={[]}
+          actionItems={[
+            { label: 'Profile', icon: 'user', action: () => { setShowProfile(true); fetchShopProfile() } },
+            { label: 'Create Shop', icon: 'rate', action: () => navigate('/add-shop') },
+            { label: 'My Network', icon: 'user', action: () => navigate('/shop-hierarchy-grid') },
+            { label: 'Announcements', icon: 'bell', action: openAnnouncements, badge: unreadCount },
+            { label: 'Logout', icon: 'logout', variant: 'danger', action: handleLogout },
+          ]}
+        />
+      )}
 
       <style>{`
         @keyframes shgGlow{0%,100%{box-shadow:0 0 0px rgba(34,197,94,0)}50%{box-shadow:0 0 20px rgba(34,197,94,0.22)}}
@@ -579,9 +583,13 @@ export default function ShopHierarchyGrid() {
         <div style={{ marginBottom: '26px' }}>
           <div style={{ color: '#BB8958', fontSize: '12px', fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '8px' }}>Shop Panel</div>
           <h2 style={{ fontSize: 'clamp(28px,4vw,44px)', lineHeight: 0.95, fontFamily: 'Georgia, serif', color: '#0C4044', fontWeight: 500, margin: 0 }}>
-            My Network
+            {isSuperAdmin ? 'Shop Hierarchy' : 'My Network'}
           </h2>
-          <p style={{ color: '#7A8987', fontSize: 13, marginTop: 10 }}>Every shop created under you, and everyone they've created — Physical or Virtual, clearly marked.</p>
+          <p style={{ color: '#7A8987', fontSize: 13, marginTop: 10 }}>
+            {isSuperAdmin
+              ? 'Every shop in the system, and everyone they\'ve created — Physical or Virtual, clearly marked.'
+              : "Every shop created under you, and everyone they've created — Physical or Virtual, clearly marked."}
+          </p>
 
           {networkStats && (
             <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
@@ -612,11 +620,11 @@ export default function ShopHierarchyGrid() {
             <div className="shg-root-card">
               <IconShield color="#0C4044" size={18} />
               <div>
-                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.4, color: '#0C4044' }}>LEVEL 1 · ROOT SHOP</div>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.4, color: '#0C4044' }}>{tree.shop_id ? 'LEVEL 1 · ROOT SHOP' : 'ALL ROOT SHOPS'}</div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: '#111817', marginTop: 2 }}>{tree.shop_name}</div>
-                <div style={{ fontSize: 11, color: '#5C706E', marginTop: 1 }}>{tree.owner_name} · {tree.shop_id}</div>
+                {tree.shop_id && <div style={{ fontSize: 11, color: '#5C706E', marginTop: 1 }}>{tree.owner_name} · {tree.shop_id}</div>}
               </div>
-              <ShopTypeBadge type={tree.shop_type} />
+              {tree.shop_id && <ShopTypeBadge type={tree.shop_type} />}
               {tree.children && tree.children.length > 0 && (
                 <button
                   className="shg-root-chevron"
@@ -635,6 +643,7 @@ export default function ShopHierarchyGrid() {
                   <LevelRow
                     key={lvl.depth}
                     depth={lvl.depth}
+                    labelDepth={isSuperAdmin ? lvl.depth - 1 : lvl.depth}
                     items={lvl.items}
                     ancestors={lvl.ancestors}
                     activeId={selectedPath[lvl.depth - 2]}

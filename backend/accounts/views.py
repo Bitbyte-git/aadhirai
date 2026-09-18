@@ -436,17 +436,38 @@ class ShopHierarchyView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        all_shops = list(ShopProfile.objects.all().select_related('user'))
+        children_by_creator = {}
+        for shop in all_shops:
+            children_by_creator.setdefault(shop.created_by_id, []).append(shop)
+
+        if request.user.role == 'super_admin':
+            # Whole-forest view: every shop whose creator isn't itself a shop
+            # (created directly by Super Admin, or a pre-existing shop with no
+            # recorded creator) is treated as a top-level root.
+            shop_user_ids = {s.user_id for s in all_shops}
+            root_shops = [s for s in all_shops if s.created_by_id not in shop_user_ids]
+            child_nodes = [_build_shop_node(s, children_by_creator) for s in root_shops]
+            descendant_count = len(child_nodes) + sum(c['descendant_count'] for c in child_nodes)
+            tree = {
+                'shop_id': None,
+                'shop_name': 'All Shops',
+                'owner_name': '',
+                'shop_type': None,
+                'mobile_number': '',
+                'city': '',
+                'created_at': None,
+                'descendant_count': descendant_count,
+                'children': child_nodes,
+            }
+            return Response(tree)
+
         if request.user.role != 'shop':
             return Response({'error': 'Permission denied'}, status=403)
         try:
             root = request.user.shop_profile
         except ShopProfile.DoesNotExist:
             return Response({'error': 'Shop profile not found'}, status=404)
-
-        all_shops = list(ShopProfile.objects.all().select_related('user'))
-        children_by_creator = {}
-        for shop in all_shops:
-            children_by_creator.setdefault(shop.created_by_id, []).append(shop)
 
         tree = _build_shop_node(root, children_by_creator)
         return Response(tree)

@@ -675,7 +675,7 @@ const fetchHierarchy = async () => {
   ] : []
 
   return (
-    <div style={{ minHeight: '100vh', background: '#020617', color: text, fontFamily: '"Inter",system-ui,sans-serif', padding: '28px 32px' }}>
+    <div style={{ minHeight: '100vh', background: '#020617', color: text, fontFamily: '"Inter",system-ui,sans-serif', padding: 'clamp(16px,3vw,28px) clamp(12px,4vw,32px)' }}>
       <style>{`
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
@@ -708,6 +708,20 @@ const fetchHierarchy = async () => {
         .otree-children-root::before{ display:none; }
         .otree-children-root > .otree-item::before,
         .otree-children-root > .otree-item::after{ display:none; }
+        @media(max-width:768px){
+          .otree-card{ min-width:140px; max-width:180px; padding:10px 12px; }
+          .otree-name{ font-size:12px; }
+          .otree-sub{ font-size:10px; }
+          .otree-item{ padding:20px 6px 0 6px; }
+          .otree-children{ padding-top:20px; }
+          .otree-children::before{ height:20px; }
+        }
+        @media(max-width:480px){
+          .otree-card{ min-width:110px; max-width:150px; padding:8px 10px; }
+          .otree-badge{ font-size:8px; padding:2px 6px; }
+          .otree-actions{ flex-direction:column; gap:3px; }
+          .otree-btn{ padding:3px 0; }
+        }
       `}</style>
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>

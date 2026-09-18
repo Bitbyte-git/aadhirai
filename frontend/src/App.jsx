@@ -250,7 +250,7 @@ export default function App() {
           <Route path="/promotor-hierarchy-grid" element={<ProtectedRoute role="promotor"><WithInternalRoleNavbar><PromotorHierarchyGrid /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/customer" element={<WithCustomerNavbar><CustomerDashboard /></WithCustomerNavbar>} />
           <Route path="/shop-dashboard" element={<ProtectedRoute role="shop"><ShopDashboard /></ProtectedRoute>} />
-          <Route path="/shop-hierarchy-grid" element={<ProtectedRoute role="shop"><ShopHierarchyGrid /></ProtectedRoute>} />
+          <Route path="/shop-hierarchy-grid" element={<ProtectedRoute role={["shop", "super_admin"]}><WithSuperAdminNavbar><ShopHierarchyGrid /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/add-shop" element={<WithSuperAdminNavbar><AddShop /></WithSuperAdminNavbar>} />
           <Route path="/contact" element={<Navigate to="/register" replace />} />
           <Route path="/profile" element={<WithCustomerNavbar><Profile /></WithCustomerNavbar>} />

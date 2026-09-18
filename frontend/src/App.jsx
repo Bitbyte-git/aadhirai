@@ -147,6 +147,13 @@ function WithCustomerNavbar({ children }) {
   return <><CustomerNavbar />{children}</>
 }
 
+function RegisterRouter() {
+  const hasRef = new URLSearchParams(window.location.search).get('ref')
+  // Copy-URL referral links (/register?ref=...) go to RegisterPage (shows who referred them).
+  // Direct signups (no ref) go to the full Register page.
+  return hasRef ? <RegisterPage /> : <WithCustomerNavbar><Register /></WithCustomerNavbar>
+}
+
 function WithSuperAdminNavbar({ children }) {
   const role = localStorage.getItem('role')
   if (role !== 'super_admin') return children
@@ -232,7 +239,7 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/superadmin" element={<Navigate to="/super-admin" replace />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<WithCustomerNavbar><Register /></WithCustomerNavbar>} />
+          <Route path="/register" element={<RegisterRouter />} />
           <Route path="/super-admin" element={<ProtectedRoute role="super_admin"><SuperAdminDashboard /></ProtectedRoute>} />
           <Route path="/superadmin-hierarchy" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><SuperadminHierarchy /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/superadmin-hierarchy-grid" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><SuperadminHierarchyGrid /></WithSuperAdminNavbar></ProtectedRoute>} />

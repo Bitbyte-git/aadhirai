@@ -54,6 +54,27 @@ export default function Register() {
   const [pincodeLoading, setPincodeLoading] = useState(false);
   const [pincodeStatus, setPincodeStatus] = useState("");
 
+  // Referral link preview: show whose link this is, or flag it as invalid/used
+  const [referrerId, setReferrerId] = useState("");
+  const [referrerError, setReferrerError] = useState("");
+  const [referrerLoading, setReferrerLoading] = useState(false);
+
+  useEffect(() => {
+    if (!ref) return;
+    setReferrerLoading(true);
+    api
+      .get(`/referrer-info/?ref=${ref}`)
+      .then((res) => setReferrerId(res.data.id))
+      .catch((err) => {
+        setReferrerError(
+          err.response?.status === 410
+            ? "This referral link has already been used."
+            : "This referral link is invalid."
+        );
+      })
+      .finally(() => setReferrerLoading(false));
+  }, [ref]);
+
   // OTP State
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otpDigits, setOtpDigits] = useState(["", "", "", "", "", ""]);
@@ -625,6 +646,22 @@ export default function Register() {
           border-radius: 24px;
           padding: 34px 38px;
           box-shadow: 0 16px 48px rgba(7, 59, 63, 0.07);
+        }
+        .ath-reg-referrer-banner {
+          margin-top: 16px;
+          padding: 10px 16px;
+          border-radius: 12px;
+          font-size: 13px;
+          font-weight: 700;
+          background: rgba(12, 64, 68, 0.08);
+          border: 1px solid rgba(12, 64, 68, 0.24);
+          color: #0C4044;
+          display: inline-block;
+        }
+        .ath-reg-referrer-banner.error {
+          background: rgba(201, 32, 53, 0.08);
+          border: 1px solid rgba(201, 32, 53, 0.24);
+          color: #C92035;
         }
         .ath-reg-alert {
           border-radius: 12px;
@@ -1352,6 +1389,17 @@ export default function Register() {
               <p className="ath-reg-subtitle">
                 Fill in your details below to activate verified user privileges and enjoy direct purchasing, orders, and exclusive jewellery collections.
               </p>
+              {ref && (
+                <div className={`ath-reg-referrer-banner ${referrerError ? "error" : ""}`}>
+                  {referrerLoading ? (
+                    "Checking referral link..."
+                  ) : referrerError ? (
+                    referrerError
+                  ) : referrerId ? (
+                    <>Referred by <strong>{referrerId}</strong></>
+                  ) : null}
+                </div>
+              )}
             </header>
 
         {globalMsg.text && (

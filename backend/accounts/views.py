@@ -1504,8 +1504,14 @@ class ReferralCustomerListView(APIView):
         search = request.query_params.get('search', '').strip()
         referrer_role = request.query_params.get('role', '').strip().lower()
 
-        # Strictly filter referred customers
-        qs = CustomerProfile.objects.filter(created_by__isnull=False).select_related(
+        # Strictly filter to customers who ACTUALLY self-registered via a
+        # shared Referral URL (ReferralLink.used_by) — NOT customers a
+        # promotor/admin manually typed in on their behalf via "Create
+        # Customer" (those also get created_by set, but never consumed a link).
+        referred_user_ids = ReferralLink.objects.filter(
+            used=True, used_by__isnull=False
+        ).values_list('used_by_id', flat=True)
+        qs = CustomerProfile.objects.filter(user_id__in=referred_user_ids).select_related(
             'user', 'created_by', 'assigned_promotor'
         ).order_by('-created_at')
 
@@ -1534,12 +1540,12 @@ class ReferralCustomerListView(APIView):
 
         # Stats across all referred customers
         referred_order_stats = JewelryOrder.objects.filter(
-            user__customer_profile__created_by__isnull=False
+            user_id__in=referred_user_ids
         ).aggregate(
             total_orders=Count('id'),
             total_spent=Sum('total_price')
         )
-        active_count = CustomerProfile.objects.filter(created_by__isnull=False, user__is_active=True).count()
+        active_count = CustomerProfile.objects.filter(user_id__in=referred_user_ids, user__is_active=True).count()
         direct_count = CustomerProfile.objects.filter(created_by__isnull=True).count()
 
         page = qs[offset:offset + limit]

@@ -87,6 +87,14 @@ export default function ReferralCustomer() {
   return (
     <main className="rc-page-root">
       <style>{`
+        @keyframes rcSkelShimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        .rc-skel-line {
+          height: 13px;
+          border-radius: 4px;
+          background: linear-gradient(90deg, #E7EDEC 25%, #F3F3F0 50%, #E7EDEC 75%);
+          background-size: 200% 100%;
+          animation: rcSkelShimmer 1.4s ease-in-out infinite;
+        }
         .rc-page-root {
           min-height: 100vh;
           background: #F8FAF9;
@@ -725,16 +733,36 @@ export default function ReferralCustomer() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr>
-                    <td colSpan="9" style={{ textAlign: 'center', padding: '60px 0', color: '#6e817e' }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="ath-spin">
-                          <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
-                        </svg>
-                        Loading referral customers...
-                      </div>
-                    </td>
-                  </tr>
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <tr key={i}>
+                      <td><div className="rc-skel-line" style={{ width: '110px' }} /></td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div className="rc-skel-line" style={{ width: '34px', height: '34px', borderRadius: '50%' }} />
+                          <div style={{ flex: 1 }}>
+                            <div className="rc-skel-line" style={{ width: '120px', marginBottom: '6px' }} />
+                            <div className="rc-skel-line" style={{ width: '90px', height: '10px' }} />
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="rc-skel-line" style={{ width: '130px', marginBottom: '6px' }} />
+                        <div className="rc-skel-line" style={{ width: '90px', height: '10px' }} />
+                      </td>
+                      <td>
+                        <div className="rc-skel-line" style={{ width: '110px', marginBottom: '6px' }} />
+                        <div className="rc-skel-line" style={{ width: '80px', height: '10px' }} />
+                      </td>
+                      <td>
+                        <div className="rc-skel-line" style={{ width: '100px', marginBottom: '6px' }} />
+                        <div className="rc-skel-line" style={{ width: '70px', height: '10px' }} />
+                      </td>
+                      <td><div className="rc-skel-line" style={{ width: '80px' }} /></td>
+                      <td><div className="rc-skel-line" style={{ width: '70px' }} /></td>
+                      <td><div className="rc-skel-line" style={{ width: '60px' }} /></td>
+                      <td><div className="rc-skel-line" style={{ width: '50px' }} /></td>
+                    </tr>
+                  ))
                 ) : rows.length === 0 ? (
                   <tr>
                     <td colSpan="9" style={{ textAlign: 'center', padding: '60px 0', color: '#6e817e' }}>

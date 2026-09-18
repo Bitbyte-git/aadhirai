@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import api from "../api";
+import ActionSuccessModal from "../Coins_products/ActionSuccessModal";
 
 const OCCUPATIONS = ["employee", "business", "others"];
 
@@ -61,6 +62,7 @@ export default function RegisterPage() {
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState("success");
   const [submitting, setSubmitting] = useState(false);
+  const [regSuccessModal, setRegSuccessModal] = useState(false);
 
   const [referrer, setReferrer] = useState(null);
   const [referrerLoading, setReferrerLoading] = useState(true);
@@ -148,11 +150,7 @@ export default function RegisterPage() {
 
       await api.post("/public-register-customer/", payload);
 
-      setMsg("Registration successful! You can now sign in.");
-      setMsgType("success");
-      setForm(emptyForm);
-      setConfirmPassword("");
-      setPasswordError("");
+      setRegSuccessModal(true);
     } catch (err) {
       const status = err.response?.status;
       const backendMsg = err.response?.data?.error;
@@ -443,6 +441,24 @@ export default function RegisterPage() {
           </>
         )}
       </div>
+
+      <ActionSuccessModal
+        isOpen={regSuccessModal}
+        onClose={() => {
+          setRegSuccessModal(false);
+          navigate("/login", { replace: true });
+        }}
+        type="success"
+        title="Registration Successful!"
+        message={`Welcome to Athirai, ${form.first_name || "User"}! Your account has been registered successfully.`}
+        details={[
+          { label: "User Name", value: `${form.first_name} ${form.last_name}`.trim() || form.first_name },
+          { label: "Mobile Number", value: form.mobile_number },
+          { label: "Email Address", value: form.email },
+          { label: "Referred By", value: referrer?.id || "—", highlight: true },
+        ]}
+        buttonText="Continue to Sign In"
+      />
     </div>
   );
 }

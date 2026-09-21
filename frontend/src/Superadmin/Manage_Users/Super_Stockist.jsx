@@ -317,6 +317,26 @@ export default function SuperStockist() {
           border-color: #073B3F;
         }
 
+        .mu-export-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 18px;
+          border-radius: 12px;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 140ms ease;
+          background: #073B3F;
+          border: 1px solid #073B3F;
+          color: #FFFFFF;
+        }
+
+        .mu-export-btn:hover {
+          background: #0C5258;
+          transform: translateY(-1px);
+        }
+
         .mu-stats-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);

@@ -77,6 +77,11 @@ const IconSwitchView = ({ color, size = 18 }) => (
     <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
   </svg>
 )
+const IconChevronDown = ({ color, size = 10 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="6 9 12 15 18 9"/>
+  </svg>
+)
 
 const ROLE_CFG = {
   promotor: { color: '#CA8A04', Icon: IconStar, label: 'RETAILER', idKey: 'promotor_id' },
@@ -530,11 +535,18 @@ function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, promo
   el.addEventListener('mouseleave', () => scheduleHideChainPopup())
 }
 
-function TreeNode({ node, role, depth = 0, dark, text, subtext, ancestors = [], promotorInfo = {}, flatMode = false, onPrint = () => {} }) {
+function TreeNode({ node, role, depth = 0, dark, text, subtext, ancestors = [], promotorInfo = {}, flatMode = false, parentKey = null, openMap = {}, onToggle = () => {}, onPrint = () => {}, childrenCache = {}, loadingNode = null }) {
   const navigate = useNavigate()
   const cfg = ROLE_CFG[role]
   const c = cfg.color
   const Icon = cfg.Icon
+  const childRole = CHILD_ROLE[role]
+  const cachedChildren = childRole ? childrenCache[`${role}_${node.id}`] : null
+  const children = cachedChildren !== undefined ? cachedChildren : (childRole ? (node[CHILD_KEY[role]] || []) : [])
+  const childCount = node.child_count !== undefined ? node.child_count : children.length
+  const hasChildren = !flatMode && !!childRole && (childCount > 0 || children.length > 0)
+  const isOpen = openMap[parentKey] === node.id
+  const isLoadingChildren = loadingNode === `${role}_${node.id}`
 
   return (
     <div className="otree-node-wrap">
@@ -542,6 +554,7 @@ function TreeNode({ node, role, depth = 0, dark, text, subtext, ancestors = [], 
         className="otree-card"
         data-role={role}
         style={{ '--nc': c }}
+        onClick={() => hasChildren && onToggle(parentKey, node.id, role)}
         onMouseEnter={e => showChainPopup(e.currentTarget, ancestors, { node, role }, dark, text, subtext, promotorInfo)}
         onMouseLeave={() => scheduleHideChainPopup()}
       >
@@ -581,7 +594,50 @@ function TreeNode({ node, role, depth = 0, dark, text, subtext, ancestors = [], 
             <IconChart color="#0284C7" /> SALES ({node.order_count ?? 0})
           </button>
         </div>
+
+        {hasChildren && (
+          <div className="otree-toggle" style={{ color: c, transform: isOpen ? 'rotate(0deg)' : 'rotate(180deg)' }}>
+            <IconChevronDown color={c} />
+          </div>
+        )}
+        {hasChildren && (
+          <div className="otree-count" style={{ background: c }}>
+            {childCount} {childRole.replace('_', ' ')}
+          </div>
+        )}
       </div>
+
+      {hasChildren && isOpen && (
+        <div className="otree-children" style={{ '--lc': ROLE_CFG[childRole].color }}>
+          {isLoadingChildren ? (
+            <div style={{ display: 'flex', gap: '14px', padding: '14px' }}>
+              <SkeletonCard color={ROLE_CFG[childRole].color} />
+              <SkeletonCard color={ROLE_CFG[childRole].color} />
+            </div>
+          ) : children.length === 0 ? (
+            <div style={{ color: subtext, padding: '12px 20px', fontSize: '13px' }}>
+              No {ROLE_CFG[childRole].label.toLowerCase()} found.
+            </div>
+          ) : (
+            children.map(child => (
+              <div className="otree-item" key={child.id}>
+                <TreeNode
+                  node={child} role={childRole} depth={depth + 1}
+                  dark={dark} text={text} subtext={subtext}
+                  ancestors={[...ancestors, { node, role }]}
+                  promotorInfo={promotorInfo}
+                  parentKey={`${role}_${node.id}`}
+                  openMap={openMap}
+                  onToggle={onToggle}
+                  onPrint={onPrint}
+                  childrenCache={childrenCache}
+                  loadingNode={loadingNode}
+                />
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -698,43 +754,45 @@ export default function PromotorHierarchy() {
     return () => clearTimeout(t)
   }, [search])
 
+  const [openMap, setOpenMap] = useState({})
+  const [childrenCache, setChildrenCache] = useState({})
+  const [loadingNode, setLoadingNode] = useState(null)
+
+  const handleToggle = async (parentKey, nodeId, role) => {
+    const isCurrentlyOpen = openMap[parentKey] === nodeId
+    if (isCurrentlyOpen) {
+      setOpenMap(prev => ({ ...prev, [parentKey]: null }))
+      return
+    }
+    setOpenMap(prev => ({ ...prev, [parentKey]: nodeId }))
+    const cacheKey = `${role}_${nodeId}`
+    if (!childrenCache[cacheKey]) {
+      setLoadingNode(cacheKey)
+      try {
+        const res = await api.get(`/hierarchy/children/?role=${role}&id=${nodeId}`)
+        setChildrenCache(prev => ({ ...prev, [cacheKey]: res.data.items || [] }))
+      } catch (err) {
+        console.error(err)
+      }
+      setLoadingNode(null)
+    }
+  }
+
   const fetchHierarchy = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/hierarchy/full/')
-      const myEmail = localStorage.getItem('email')
-
-      let myPromotor = null
-      outer:
-      for (const admin of res.data.admins || []) {
-        for (const dealer of admin.dealers || []) {
-          for (const sd of dealer.sub_dealers || []) {
-            const found = (sd.promotors || []).find(pr => pr.email === myEmail)
-            if (found) { myPromotor = found; break outer }
-          }
-        }
-      }
-      if (!myPromotor) {
-        outer2:
-        for (const admin of res.data.admins || []) {
-          for (const dealer of admin.dealers || []) {
-            for (const sd of dealer.sub_dealers || []) {
-              if ((sd.promotors || []).length > 0) { myPromotor = sd.promotors[0]; break outer2 }
-            }
-          }
-        }
-      }
-
-      if (myPromotor) {
+      const res = await api.get('/my-hierarchy/')
+      if (res.data?.root) {
         setPromotorInfo({
-          promotor_id: myPromotor.promotor_id,
-          first_name: myPromotor.first_name,
-          last_name: myPromotor.last_name,
-          mobile_number: myPromotor.mobile_number,
-          email: myPromotor.email,
+          promotor_id: res.data.root.promotor_id,
+          first_name: res.data.root.first_name,
+          last_name: res.data.root.last_name,
+          mobile_number: res.data.root.mobile_number,
+          email: res.data.root.email,
         })
-        const cusList = myPromotor.customers || []
+        const cusList = res.data.items || res.data.root.customers || []
         setCustomers(cusList)
+        setOpenMap({})
       }
     } catch (err) { console.error(err) }
     setLoading(false)
@@ -791,9 +849,19 @@ export default function PromotorHierarchy() {
         .otree-actions{ margin-top:8px; display:flex; gap:6px; }
         .otree-btn{ flex:1; display:flex; align-items:center; justify-content:center; gap:4px; padding:5px 0; font-size:10px; font-weight:800; background:#FFFFFF; border:1.5px solid var(--nc); border-radius:8px; color:var(--nc); cursor:pointer; }
         .otree-btn-sales{ border-color:#0284C7; color:#0284C7; }
+        .otree-toggle{ position:absolute; top:8px; right:10px; transition:transform .25s ease; }
+        .otree-count{ position:absolute; bottom:-10px; left:50%; transform:translateX(-50%); color:#FFFFFF; font-size:10px; font-weight:900; padding:2px 8px; border-radius:20px; white-space:nowrap; text-shadow:0 1px 1px rgba(0,0,0,0.18); }
 
         .otree-children{ display:flex; justify-content:center; align-items:flex-start; position:relative; padding-top:28px; }
+        .otree-children::before{ content:''; position:absolute; top:0; left:50%; border-left:2px solid var(--lc); width:0; height:28px; }
         .otree-item{ position:relative; padding:28px 10px 0 10px; }
+        .otree-item::before, .otree-item::after{ content:''; position:absolute; top:0; right:50%; border-top:2px solid var(--lc); width:50%; height:28px; }
+        .otree-item::after{ right:auto; left:50%; border-left:2px solid var(--lc); }
+        .otree-item:only-child::before, .otree-item:only-child::after{ display:none; }
+        .otree-item:only-child{ padding-top:0; }
+        .otree-item:first-child::before, .otree-item:last-child::after{ border:0 none; }
+        .otree-item:last-child::before{ border-right:2px solid var(--lc); border-radius:0 20px 0 0; }
+        .otree-item:first-child::after{ border-radius:20px 0 0 0; }
         .otree-children-root::before{ display:none; }
         .otree-children-root > .otree-item::before,
         .otree-children-root > .otree-item::after{ display:none; }
@@ -965,7 +1033,12 @@ export default function PromotorHierarchy() {
                       <TreeNode
                         node={cus} role="customer" depth={0} dark={dark} text={text} subtext={subtext}
                         ancestors={[]} promotorInfo={promotorInfo}
+                        parentKey="root"
+                        openMap={openMap}
+                        onToggle={handleToggle}
                         onPrint={openPrintPopup}
+                        childrenCache={childrenCache}
+                        loadingNode={loadingNode}
                       />
                     </div>
                   ))}

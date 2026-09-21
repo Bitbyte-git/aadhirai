@@ -746,10 +746,14 @@ export default function Dealer_Hierarchy_grid() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
+  const [subDealers, setSubDealers] = useState([])
   const [selSubDealer, setSelSubDealer] = useState(null)
   const [selPromotor, setSelPromotor] = useState(null)
   const [customerChain, setCustomerChain] = useState([])
+
+  const [promotorCache, setPromotorCache] = useState({})
   const [customerCache, setCustomerCache] = useState({})
+  const [loadingChildren, setLoadingChildren] = useState(null)
 
   const [activeStatusFilter, setActiveStatusFilter] = useState(null)
 
@@ -803,19 +807,25 @@ export default function Dealer_Hierarchy_grid() {
     setMessageSending(false)
   }
 
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search.trim()), 120)
-    return () => clearTimeout(t)
-  }, [search])
+  const fetchChildren = async (role, parentId, cacheKey, setCache) => {
+    setLoadingChildren(`${role}_${parentId}`)
+    try {
+      const res = await api.get(`/hierarchy/children/?role=${role}&id=${parentId}`)
+      setCache(prev => ({ ...prev, [cacheKey]: res.data.items || [] }))
+    } catch (err) { console.error(err) }
+    setLoadingChildren(null)
+  }
 
   const fetchHierarchy = async () => {
     setLoading(true)
     try {
       const res = await api.get('/my-hierarchy/')
       setRoot(res.data.root)
-      if (res.data.root?.sub_dealers?.length > 0) {
-        setSelSubDealer(res.data.root.sub_dealers[0].id)
-      }
+      const sdList = res.data.items || res.data.root?.sub_dealers || []
+      setSubDealers(sdList)
+      setSelSubDealer(null)
+      setSelPromotor(null)
+      setCustomerChain([])
     } catch (err) { console.error(err) }
     setLoading(false)
   }
@@ -829,19 +839,18 @@ export default function Dealer_Hierarchy_grid() {
     }
   }, [])
 
-  const subDealers = root?.sub_dealers || []
   const currentSubDealer = useMemo(() => {
-    if (!selSubDealer) return subDealers[0] || null
-    return subDealers.find(sd => sd.id === selSubDealer) || subDealers[0] || null
+    if (!selSubDealer) return null
+    return subDealers.find(sd => sd.id === selSubDealer) || null
   }, [subDealers, selSubDealer])
 
-  const promotors = currentSubDealer?.promotors || []
+  const promotors = currentSubDealer ? (promotorCache[currentSubDealer.id] || []) : []
   const currentPromotor = useMemo(() => {
-    if (!selPromotor) return promotors[0] || null
-    return promotors.find(p => p.id === selPromotor) || promotors[0] || null
+    if (!selPromotor) return null
+    return promotors.find(p => p.id === selPromotor) || null
   }, [promotors, selPromotor])
 
-  const customers = currentPromotor?.customers || []
+  const customers = currentPromotor ? (customerCache[`p_${currentPromotor.id}`] || []) : []
 
   const filteredSubDealers = useMemo(() => {
     if (activeStatusFilter && activeStatusFilter.role === 'dealer' && activeStatusFilter.nodeId === root?.id) {
@@ -868,21 +877,20 @@ export default function Dealer_Hierarchy_grid() {
   const promotorAncestors = currentSubDealer ? [...subDealerAncestors, { node: currentSubDealer, role: 'sub_dealer' }] : subDealerAncestors
   const customerAncestors = currentPromotor ? [...promotorAncestors, { node: currentPromotor, role: 'promotor' }] : promotorAncestors
 
-  const selectSubDealer = (node) => { setSelSubDealer(node.id); setSelPromotor(null); setCustomerChain([]); setActiveStatusFilter(null) }
-  const selectPromotor = (node) => { setSelPromotor(node.id); setCustomerChain([]); setActiveStatusFilter(null) }
+  const selectSubDealer = (node) => {
+    setSelSubDealer(node.id); setSelPromotor(null); setCustomerChain([])
+    setActiveStatusFilter(null)
+    if (!promotorCache[node.id]) fetchChildren('sub_dealer', node.id, node.id, setPromotorCache)
+  }
+  const selectPromotor = (node) => {
+    setSelPromotor(node.id); setCustomerChain([])
+    setActiveStatusFilter(null)
+    if (!customerCache[`p_${node.id}`]) fetchChildren('promotor', node.id, `p_${node.id}`, setCustomerCache)
+  }
 
   const selectCustomerAtDepth = (depth, node) => {
-    setCustomerChain(prev => {
-      if (prev[depth] === node.id) {
-        return prev.slice(0, depth)
-      }
-      return [...prev.slice(0, depth), node.id]
-    })
-    if ((!node.customers || node.customers.length === 0) && !customerCache[`c_${node.id}`]) {
-      api.get(`/hierarchy/children/?role=customer&id=${node.id}`)
-        .then(res => setCustomerCache(prev => ({ ...prev, [`c_${node.id}`]: res.data.items || [] })))
-        .catch(err => console.error(err))
-    }
+    setCustomerChain(prev => [...prev.slice(0, depth), node.id])
+    if (!customerCache[`c_${node.id}`]) fetchChildren('customer', node.id, `c_${node.id}`, setCustomerCache)
   }
 
   const customerLanes = useMemo(() => {
@@ -1179,15 +1187,16 @@ export default function Dealer_Hierarchy_grid() {
                 <IconChevronDown color={subtext} />
               </div>
 
-              <LaneRow role="sub_dealer" items={filteredSubDealers} activeId={currentSubDealer?.id} onSelect={selectSubDealer}
+              <LaneRow role="sub_dealer" items={filteredSubDealers} activeId={selSubDealer} onSelect={selectSubDealer}
                 ancestors={subDealerAncestors} dark={dark} text={text} subtext={subtext}
                 emptyText="No wholesale dealers under you yet." onMessage={openMessagePopup} onPrint={openPrintPopup}
                 activeStatusFilter={activeStatusFilter} onToggleStatusFilter={toggleStatusFilter} />
 
               {currentSubDealer && (
-                <LaneRow role="promotor" items={filteredPromotors} activeId={currentPromotor?.id} onSelect={selectPromotor}
-                  ancestors={promotorAncestors} dark={dark} text={text} subtext={subtext}
-                  emptyText={`No retailers match this filter under ${currentSubDealer.first_name}.`} onMessage={openMessagePopup} onPrint={openPrintPopup}
+                <LaneRow role="promotor" items={filteredPromotors} activeId={selPromotor} onSelect={selectPromotor}
+                  ancestors={promotorAncestors} isLoading={loadingChildren === `sub_dealer_${currentSubDealer.id}`}
+                  dark={dark} text={text} subtext={subtext}
+                  emptyText={`No retailers under ${currentSubDealer.first_name}.`} onMessage={openMessagePopup} onPrint={openPrintPopup}
                   activeStatusFilter={activeStatusFilter} onToggleStatusFilter={toggleStatusFilter} />
               )}
 
@@ -1199,9 +1208,12 @@ export default function Dealer_Hierarchy_grid() {
                   activeId={lane.activeId}
                   onSelect={(node) => selectCustomerAtDepth(lane.depth, node)}
                   ancestors={lane.ancestors}
+                  isLoading={lane.depth === 0
+                    ? loadingChildren === `promotor_${currentPromotor.id}`
+                    : loadingChildren === `customer_${customerChain[lane.depth - 1]}`}
                   dark={dark} text={text} subtext={subtext}
                   emptyText={idx === 0
-                    ? `No customers match this filter under ${currentPromotor.first_name}.`
+                    ? `No customers under ${currentPromotor.first_name}.`
                     : `No referred customers under ${lane.parentCustomer?.first_name || 'this customer'}.`}
                   onMessage={openMessagePopup}
                   onPrint={openPrintPopup}

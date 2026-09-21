@@ -58,16 +58,17 @@ export function SkeletonBox({ width = '100%', height = '180px', borderRadius = '
   )
 }
 
-// ── Chart Loading Skeleton ──
-export function SkeletonChart({ height = '200px' }) {
+// ── Chart Loading Skeleton (SuperAdmin Style Dark Shimmer) ──
+export function SkeletonChart({ height = '100%' }) {
   return (
-    <div style={{ width: '100%', height, display: 'flex', alignItems: 'flex-end', gap: '12px', padding: '14px 20px', boxSizing: 'border-box' }}>
-      {[40, 65, 30, 85, 55, 90, 70, 45, 80].map((h, i) => (
-        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
-          <div className="skel-line" style={{ width: '100%', maxWidth: '32px', height: `${h}%`, borderRadius: '6px 6px 0 0', margin: 0 }} />
-          <div className="skel-line" style={{ width: '60%', height: '8px', marginTop: '8px', marginBottom: 0 }} />
+    <div className="sa-chart-skel-wrap" style={{ height }}>
+      {[4, 3, 2, 1, 0].map(n => (
+        <div className="sa-chart-skel-row" key={n}>
+          <div className="sa-chart-skel-axis" />
+          <div className="sa-chart-skel-line" />
         </div>
       ))}
+      <div className="sa-chart-skel-curve" />
     </div>
   )
 }

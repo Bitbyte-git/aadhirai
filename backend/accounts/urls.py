@@ -6,7 +6,7 @@ from .views import (
     CreateSubDealerView, CreatePromotorView, CreateCustomerView, GeneralCustomerListView, ReferralCustomerListView,
     DashboardView, AdminListForAdminView, DealerListForDealerView,
     SubDealerListForView, PromotorListForView,  FullHierarchyView, AnnouncementView, AnnouncementReplyView, DashboardQuickStatsView,ProfileUpdateRequestView, ProfileUpdateApproveView,MetalRateView,MetalOrderView, MetalOrderSummaryView, JewelryProductView, JewelryProductDetailView, SoldOutProductsView,StockNotifyRequestView, JewelryProductImageDeleteView, HomeBannerView, HomeBannerDetailView, CartView, CartItemQtyView, WishlistView, JewelryOrderView, create_razorpay_order, verify_payment, ping,
-HierarchySubtreeOrdersView, HierarchyAdminsView, HierarchyChildrenView, SalesReportView, OrderTimeSeriesView, TodayLoginStatusView,OrderTimeSeriesView, CoinRequestView, CoinRequestApproveView, CoinRequestRejectView, CoinRequestApproveAllView, CoinStockView, SuperAdminAddCoinsView, CoinStockForUserView, MyHierarchyView, TodayRewardsView, LoginRewardTransactionView, MyBasicInfoView,
+HierarchySubtreeOrdersView, HierarchyAdminsView, HierarchyChildrenView, SalesReportView, OrderTimeSeriesView, TodayLoginStatusView,OrderTimeSeriesView, CoinRequestView, CoinRequestApproveView, CoinRequestRejectView, CoinRequestApproveAllView, CoinStockView, SuperAdminAddCoinsView, CoinStockForUserView, MyHierarchyView, TodayRewardsView, LoginRewardTransactionView, MyBasicInfoView, RoleDistributionCountsView,
  RetailerPromotionListView, RetailerPromotionActionView, WholesaleDealerPromotionListView, WholesaleDealerPromotionActionView, DistributorPromotionListView, DistributorPromotionActionView, SuperStockistPromotionListView, SuperStockistPromotionActionView, PromotionCustomerListView, PromotionCustomerListView, PromotionNodeListView,
  ReferrerInfoView, PublicCustomerRegisterView, RegisterSendOTPView, RegisterVerifyOTPView, GenerateReferralLinkView, RechargeCreateOrderView, RechargeVerifyPaymentView, WalletView, RechargeHistoryView, RechargeStatementView, PayWithCoinsView, PaymentsSummaryView, TierCommissionView, UserLookupView, SendCoinsView, AdminUserHistoryView, AdminSentHistoryView, AutoPayCreateView, AutoPayConfirmView, AutoPayStatusView, AutoPayToggleView, autopay_webhook,AutoPayMandateListView, AffordableProductsView,
  HierarchyPersonSearchView, SalesSummaryView, SalesTrendView, HierarchyNodeOrdersView, HierarchyNodeInfoView, HierarchyPathToNodeView, 
@@ -36,6 +36,7 @@ urlpatterns = [
     path('referral-customers/', ReferralCustomerListView.as_view(), name='referral-customers'),
     path('my-info/', MyBasicInfoView.as_view()),          # NEW
     path('hierarchy/full/', FullHierarchyView.as_view()),  # ✅ correct
+    path('role-distribution-counts/', RoleDistributionCountsView.as_view()),
     path('hierarchy/subtree-orders/', HierarchySubtreeOrdersView.as_view()),  # ← NEW
     path('hierarchy/admins/', HierarchyAdminsView.as_view()),
     path('hierarchy/tier-directory/', HierarchyTierDirectoryView.as_view()),

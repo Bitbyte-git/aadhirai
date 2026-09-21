@@ -139,8 +139,22 @@ function IrdOrderTrendPanel({ title = 'Order Volume', endpoint = '/order-timeser
   )
 }
 
-function IrdDonutPanel({ title, totalLabel, data, login, onSliceClick }) {
+function IrdDonutPanel({ title, totalLabel, data, login, onSliceClick, loading }) {
   const colors = [irdPalette.dusty, irdPalette.teal, irdPalette.antique, irdPalette.gold, irdPalette.red, irdPalette.grey]
+  if (loading) {
+    return (
+      <section className="ird-pie">
+        <SkeletonText width="140px" height="19px" style={{ marginBottom: 8 }} />
+        <SkeletonText width="180px" height="42px" style={{ marginBottom: 30 }} />
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <SkeletonBox width="260px" height="260px" borderRadius="50%" />
+        </div>
+        <div className="ird-legend">
+          {[0, 1, 2].map(i => <SkeletonText key={i} width="90px" height="15px" />)}
+        </div>
+      </section>
+    )
+  }
   return <section className="ird-pie"><h3>{title}</h3><strong>{totalLabel}</strong><ResponsiveContainer width="100%" height={260}><PieChart><Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={58} outerRadius={102} paddingAngle={2} onClick={onSliceClick} style={onSliceClick ? { cursor: 'pointer' } : undefined}>{data.map((item, idx) => <Cell key={item.name} fill={item.color || colors[idx % colors.length]} />)}</Pie><Tooltip contentStyle={{ background: irdPalette.white, border: `1px solid ${irdPalette.dusty}`, borderRadius: 10, fontSize: 12, color: irdPalette.black }}/></PieChart></ResponsiveContainer><div className="ird-legend">{data.map((item, idx) => <button key={item.name} onClick={() => onSliceClick?.(item)}><i style={{ background: item.color || colors[idx % colors.length] }}/><span className={login ? 'big' : ''}>{item.name} {item.value}</span></button>)}</div></section>
 }
 
@@ -148,7 +162,15 @@ function DealerDashboardFrame({ roleName, roleDistribution = [], quickActions = 
   const navigate = useNavigate()
   const [orderCount, setOrderCount] = useState(0)
   const [loginCounts, setLoginCounts] = useState({ active: 0, inactive: 0 })
-  const totalNetwork = roleDistribution.reduce((sum, item) => sum + Number(item.value || 0), 0)
+  const [loginLoading, setLoginLoading] = useState(true)
+  const [fastCounts, setFastCounts] = useState(null)
+  const [countsLoading, setCountsLoading] = useState(true)
+  const fastRoleDistribution = fastCounts ? [
+    { name: 'Wholesale Dealer', value: fastCounts.sub_dealers || 0, color: '#BB8958' },
+    { name: 'Retailer', value: fastCounts.promotors || 0, color: '#CCA881' },
+    { name: 'Customer', value: fastCounts.customers || 0, color: '#C92035' },
+  ] : []
+  const totalNetwork = fastRoleDistribution.reduce((sum, item) => sum + Number(item.value || 0), 0)
   const loginData = [
     { name: 'Active', value: loginCounts.active, color: irdPalette.teal },
     { name: 'Inactive', value: loginCounts.inactive, color: irdPalette.red },
@@ -165,6 +187,11 @@ function DealerDashboardFrame({ roleName, roleDistribution = [], quickActions = 
         setLoginCounts({ active: Number(res.data?.total_count || 0), inactive: Number(res.data?.other_count || 0) })
       })
       .catch(() => current && setLoginCounts({ active: 0, inactive: 0 }))
+      .finally(() => current && setLoginLoading(false))
+    api.get('/role-distribution-counts/')
+      .then(res => { if (current) setFastCounts(res.data) })
+      .catch(() => {})
+      .finally(() => current && setCountsLoading(false))
     return () => { current = false }
   }, [])
 
@@ -182,8 +209,8 @@ function DealerDashboardFrame({ roleName, roleDistribution = [], quickActions = 
       <div className="ird-grid">
         <IrdOrderTrendPanel title={`${roleName} Order Volume`} endpoint={endpoint} requestParams={requestParams} onSummaryChange={setOrderCount} />
         <div className="ird-side">
-          <IrdDonutPanel title="Role Distribution" totalLabel={`${totalNetwork} total`} data={roleDistribution.filter(item => Number(item.value || 0) > 0)} />
-          <IrdDonutPanel title="Today's Login Status" totalLabel={`${loginCounts.active + loginCounts.inactive} total users`} data={loginData} login onSliceClick={(entry) => entry.name === 'Active' ? navigate('/login-active') : navigate('/login-inactive')} />
+          <IrdDonutPanel title="Role Distribution" totalLabel={`${totalNetwork} total`} data={fastRoleDistribution.filter(item => Number(item.value || 0) > 0)} loading={countsLoading} />
+          <IrdDonutPanel title="Today's Login Status" totalLabel={`${loginCounts.active + loginCounts.inactive} total users`} data={loginData} login onSliceClick={(entry) => entry.name === 'Active' ? navigate('/login-active') : navigate('/login-inactive')} loading={loginLoading} />
         </div>
       </div>
       <section className="ird-actions">
@@ -223,16 +250,27 @@ function DealerQuickStats() {
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: '14px', margin: '42px 46px 0', maxWidth: '1500px', marginLeft: 'auto', marginRight: 'auto' }} className="dl-qstats">
-      {cards.map(kpi => (
-        <div key={kpi.label} style={{ background: '#FDFDFC', border: '1px solid rgba(189,207,206,.78)', borderRadius: '14px', padding: '20px 22px', minHeight: '130px', boxShadow: '0 18px 46px rgba(7,59,63,.07)' }}>
-          <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: kpi.bg, color: kpi.color, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '14px' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 6h15l-2 9H8L6 3H3" /><circle cx="9" cy="20" r="1.5" /><circle cx="18" cy="20" r="1.5" /></svg>
+      {loading ? (
+        Array.from({ length: 4 }).map((_, i) => (
+          <div key={`skel-${i}`} style={{ background: '#FDFDFC', border: '1px solid rgba(189,207,206,.78)', borderRadius: '14px', padding: '20px 22px', minHeight: '130px', boxShadow: '0 18px 46px rgba(7,59,63,.07)' }}>
+            <div className="sa-kpi-skel-icon" style={{ width: '44px', height: '44px', borderRadius: '10px', marginBottom: '14px' }} />
+            <div className="sa-kpi-skel-line" style={{ width: '65%', height: '11px', marginBottom: '12px' }} />
+            <div className="sa-kpi-skel-line" style={{ width: '40%', height: '26px', marginBottom: '12px' }} />
+            <div className="sa-kpi-skel-line" style={{ width: '55%', height: '11px' }} />
           </div>
-          <div style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.06em', color: '#0C4044', marginBottom: '8px' }}>{kpi.label}</div>
-          <div><span style={{ fontSize: '26px', fontWeight: 900, color: '#00152a' }}>{loading ? '—' : kpi.value}</span>{kpi.sub ? <span style={{ marginLeft: '8px', fontSize: '15px', color: '#111817' }}>{kpi.sub}</span> : null}</div>
-          <div style={{ fontSize: '12px', color: '#009957', marginTop: '8px' }}>{kpi.note}</div>
-        </div>
-      ))}
+        ))
+      ) : (
+        cards.map(kpi => (
+          <div key={kpi.label} style={{ background: '#FDFDFC', border: '1px solid rgba(189,207,206,.78)', borderRadius: '14px', padding: '20px 22px', minHeight: '130px', boxShadow: '0 18px 46px rgba(7,59,63,.07)' }}>
+            <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: kpi.bg, color: kpi.color, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '14px' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 6h15l-2 9H8L6 3H3" /><circle cx="9" cy="20" r="1.5" /><circle cx="18" cy="20" r="1.5" /></svg>
+            </div>
+            <div style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.06em', color: '#0C4044', marginBottom: '8px' }}>{kpi.label}</div>
+            <div><span style={{ fontSize: '26px', fontWeight: 900, color: '#00152a' }}>{kpi.value}</span>{kpi.sub ? <span style={{ marginLeft: '8px', fontSize: '15px', color: '#111817' }}>{kpi.sub}</span> : null}</div>
+            <div style={{ fontSize: '12px', color: '#009957', marginTop: '8px' }}>{kpi.note}</div>
+          </div>
+        ))
+      )}
       <style>{`@media(max-width:1180px){.dl-qstats{grid-template-columns:repeat(2,minmax(0,1fr))!important}}@media(max-width:760px){.dl-qstats{grid-template-columns:1fr!important;margin-left:14px!important;margin-right:14px!important}}`}</style>
     </div>
   )
@@ -799,6 +837,7 @@ export default function DealerDashboard() {
   const navigate = useNavigate()
   const [dark, setDark] = useState(false)
   const [subDealers, setSubDealers] = useState([])
+  const [subDealersLoading, setSubDealersLoading] = useState(true)
   const [dealers, setDealers] = useState([])
   const [myProfile, setMyProfile] = useState(null)       // ← current dealer's full profile
   const [selectedDealer, setSelectedDealer] = useState(null)
@@ -1029,7 +1068,7 @@ const submitProfileUpdate = async e => {
     }))
 
     setSubDealers(enriched)
-  } catch(err) { console.error(err) }
+  } catch(err) { console.error(err) } finally { setSubDealersLoading(false) }
 }
 
    const fetchDealers = async () => {

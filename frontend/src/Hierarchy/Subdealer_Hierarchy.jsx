@@ -543,15 +543,18 @@ function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, subDe
   el.addEventListener('mouseleave', () => scheduleHideChainPopup())
 }
 
-function TreeNode({ node, role, depth = 0, dark, text, subtext, ancestors = [], subDealerInfo = {}, flatMode = false, parentKey = null, openMap = {}, onToggle = () => {}, onPrint = () => {} }) {
+function TreeNode({ node, role, depth = 0, dark, text, subtext, ancestors = [], subDealerInfo = {}, flatMode = false, parentKey = null, openMap = {}, onToggle = () => {}, onPrint = () => {}, childrenCache = {}, loadingNode = null }) {
   const navigate = useNavigate()
   const cfg = ROLE_CFG[role]
   const c = cfg.color
   const Icon = cfg.Icon
   const childRole = CHILD_ROLE[role]
-  const children = childRole ? (node[CHILD_KEY[role]] || []) : []
-  const hasChildren = !flatMode && !!childRole && children.length > 0
+  const cachedChildren = childRole ? childrenCache[`${role}_${node.id}`] : null
+  const children = cachedChildren !== undefined ? cachedChildren : (childRole ? (node[CHILD_KEY[role]] || []) : [])
+  const childCount = node.child_count !== undefined ? node.child_count : children.length
+  const hasChildren = !flatMode && !!childRole && (childCount > 0 || children.length > 0)
   const isOpen = openMap[parentKey] === node.id
+  const isLoadingChildren = loadingNode === `${role}_${node.id}`
 
   return (
     <div className="otree-node-wrap">
@@ -559,7 +562,7 @@ function TreeNode({ node, role, depth = 0, dark, text, subtext, ancestors = [], 
         className="otree-card"
         data-role={role}
         style={{ '--nc': c }}
-        onClick={() => hasChildren && onToggle(parentKey, node.id)}
+        onClick={() => hasChildren && onToggle(parentKey, node.id, role)}
         onMouseEnter={e => showChainPopup(e.currentTarget, ancestors, { node, role }, dark, text, subtext, subDealerInfo)}
         onMouseLeave={() => scheduleHideChainPopup()}
       >
@@ -611,27 +614,40 @@ function TreeNode({ node, role, depth = 0, dark, text, subtext, ancestors = [], 
         )}
         {hasChildren && (
           <div className="otree-count" style={{ background: c }}>
-            {children.length} {childRole.replace('_', ' ')}
+            {childCount} {childRole.replace('_', ' ')}
           </div>
         )}
       </div>
 
       {hasChildren && isOpen && (
         <div className="otree-children" style={{ '--lc': ROLE_CFG[childRole].color }}>
-          {children.map(child => (
-            <div className="otree-item" key={child.id}>
-              <TreeNode
-                node={child} role={childRole} depth={depth + 1}
-                dark={dark} text={text} subtext={subtext}
-                ancestors={[...ancestors, { node, role }]}
-                subDealerInfo={subDealerInfo}
-                parentKey={`${role}_${node.id}`}
-                openMap={openMap}
-                onToggle={onToggle}
-                onPrint={onPrint}
-              />
+          {isLoadingChildren ? (
+            <div style={{ display: 'flex', gap: '14px', padding: '14px' }}>
+              <SkeletonCard color={ROLE_CFG[childRole].color} />
+              <SkeletonCard color={ROLE_CFG[childRole].color} />
             </div>
-          ))}
+          ) : children.length === 0 ? (
+            <div style={{ color: subtext, padding: '12px 20px', fontSize: '13px' }}>
+              No {ROLE_CFG[childRole].label.toLowerCase()} found.
+            </div>
+          ) : (
+            children.map(child => (
+              <div className="otree-item" key={child.id}>
+                <TreeNode
+                  node={child} role={childRole} depth={depth + 1}
+                  dark={dark} text={text} subtext={subtext}
+                  ancestors={[...ancestors, { node, role }]}
+                  subDealerInfo={subDealerInfo}
+                  parentKey={`${role}_${node.id}`}
+                  openMap={openMap}
+                  onToggle={onToggle}
+                  onPrint={onPrint}
+                  childrenCache={childrenCache}
+                  loadingNode={loadingNode}
+                />
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>
@@ -649,11 +665,27 @@ export default function SubdealerHierarchy() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
   const [openMap, setOpenMap] = useState({})
-  const handleToggle = (parentKey, nodeId) => {
-    setOpenMap(prev => ({
-      ...prev,
-      [parentKey]: prev[parentKey] === nodeId ? null : nodeId,
-    }))
+  const [childrenCache, setChildrenCache] = useState({})
+  const [loadingNode, setLoadingNode] = useState(null)
+
+  const handleToggle = async (parentKey, nodeId, role) => {
+    const isCurrentlyOpen = openMap[parentKey] === nodeId
+    if (isCurrentlyOpen) {
+      setOpenMap(prev => ({ ...prev, [parentKey]: null }))
+      return
+    }
+    setOpenMap(prev => ({ ...prev, [parentKey]: nodeId }))
+    const cacheKey = `${role}_${nodeId}`
+    if (!childrenCache[cacheKey]) {
+      setLoadingNode(cacheKey)
+      try {
+        const res = await api.get(`/hierarchy/children/?role=${role}&id=${nodeId}`)
+        setChildrenCache(prev => ({ ...prev, [cacheKey]: res.data.items || [] }))
+      } catch (err) {
+        console.error(err)
+      }
+      setLoadingNode(null)
+    }
   }
 
   // Zoom controls
@@ -762,39 +794,18 @@ export default function SubdealerHierarchy() {
   const fetchHierarchy = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/hierarchy/full/')
-      const myEmail = localStorage.getItem('email')
-
-      let mySubDealer = null
-      outer:
-      for (const admin of res.data.admins || []) {
-        for (const dealer of admin.dealers || []) {
-          const found = (dealer.sub_dealers || []).find(sd => sd.email === myEmail)
-          if (found) { mySubDealer = found; break outer }
-        }
-      }
-      if (!mySubDealer) {
-        outer2:
-        for (const admin of res.data.admins || []) {
-          for (const dealer of admin.dealers || []) {
-            if ((dealer.sub_dealers || []).length > 0) { mySubDealer = dealer.sub_dealers[0]; break outer2 }
-          }
-        }
-      }
-
-      if (mySubDealer) {
+      const res = await api.get('/my-hierarchy/')
+      if (res.data?.root) {
         setSubDealerInfo({
-          sub_dealer_id: mySubDealer.sub_dealer_id,
-          first_name: mySubDealer.first_name,
-          last_name: mySubDealer.last_name,
-          mobile_number: mySubDealer.mobile_number,
-          email: mySubDealer.email,
+          sub_dealer_id: res.data.root.sub_dealer_id,
+          first_name: res.data.root.first_name,
+          last_name: res.data.root.last_name,
+          mobile_number: res.data.root.mobile_number,
+          email: res.data.root.email,
         })
-        const prList = mySubDealer.promotors || []
+        const prList = res.data.items || res.data.root.promotors || []
         setPromotors(prList)
-        if (prList.length > 0) {
-          setOpenMap({ root: prList[0].id })
-        }
+        setOpenMap({})
       }
     } catch (err) { console.error(err) }
     setLoading(false)
@@ -1101,6 +1112,8 @@ export default function SubdealerHierarchy() {
                         openMap={openMap}
                         onToggle={handleToggle}
                         onPrint={openPrintPopup}
+                        childrenCache={childrenCache}
+                        loadingNode={loadingNode}
                       />
                     </div>
                   ))}

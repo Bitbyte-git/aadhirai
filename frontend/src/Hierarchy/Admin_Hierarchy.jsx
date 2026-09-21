@@ -556,15 +556,18 @@ function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, admin
   el.addEventListener('mouseleave', () => scheduleHideChainPopup())
 }
 
-function TreeNode({ node, role, depth = 0, dark, text, subtext, ancestors = [], adminInfo = {}, flatMode = false, parentKey = null, openMap = {}, onToggle = () => {}, onPrint = () => {} }) {
+function TreeNode({ node, role, depth = 0, dark, text, subtext, ancestors = [], adminInfo = {}, flatMode = false, parentKey = null, openMap = {}, onToggle = () => {}, onPrint = () => {}, childrenCache = {}, loadingNode = null }) {
   const navigate = useNavigate()
   const cfg = ROLE_CFG[role]
   const c = cfg.color
   const Icon = cfg.Icon
   const childRole = CHILD_ROLE[role]
-  const children = childRole ? (node[CHILD_KEY[role]] || []) : []
-  const hasChildren = !flatMode && !!childRole && children.length > 0
+  const cachedChildren = childRole ? childrenCache[`${role}_${node.id}`] : null
+  const children = cachedChildren !== undefined ? cachedChildren : (childRole ? (node[CHILD_KEY[role]] || []) : [])
+  const childCount = node.child_count !== undefined ? node.child_count : children.length
+  const hasChildren = !flatMode && !!childRole && (childCount > 0 || children.length > 0)
   const isOpen = openMap[parentKey] === node.id
+  const isLoadingChildren = loadingNode === `${role}_${node.id}`
 
   return (
     <div className="otree-node-wrap">
@@ -572,7 +575,7 @@ function TreeNode({ node, role, depth = 0, dark, text, subtext, ancestors = [], 
         className="otree-card"
         data-role={role}
         style={{ '--nc': c }}
-        onClick={() => hasChildren && onToggle(parentKey, node.id)}
+        onClick={() => hasChildren && onToggle(parentKey, node.id, role)}
         onMouseEnter={e => showChainPopup(e.currentTarget, ancestors, { node, role }, dark, text, subtext, adminInfo)}
         onMouseLeave={() => scheduleHideChainPopup()}
       >
@@ -624,27 +627,40 @@ function TreeNode({ node, role, depth = 0, dark, text, subtext, ancestors = [], 
         )}
         {hasChildren && (
           <div className="otree-count" style={{ background: c }}>
-            {children.length} {childRole.replace('_', ' ')}
+            {childCount} {childRole.replace('_', ' ')}
           </div>
         )}
       </div>
 
       {hasChildren && isOpen && (
         <div className="otree-children" style={{ '--lc': ROLE_CFG[childRole].color }}>
-          {children.map(child => (
-            <div className="otree-item" key={child.id}>
-              <TreeNode
-                node={child} role={childRole} depth={depth + 1}
-                dark={dark} text={text} subtext={subtext}
-                ancestors={[...ancestors, { node, role }]}
-                adminInfo={adminInfo}
-                parentKey={`${role}_${node.id}`}
-                openMap={openMap}
-                onToggle={onToggle}
-                onPrint={onPrint}
-              />
+          {isLoadingChildren ? (
+            <div style={{ display: 'flex', gap: '14px', padding: '14px' }}>
+              <SkeletonCard color={ROLE_CFG[childRole].color} />
+              <SkeletonCard color={ROLE_CFG[childRole].color} />
             </div>
-          ))}
+          ) : children.length === 0 ? (
+            <div style={{ color: subtext, padding: '12px 20px', fontSize: '13px' }}>
+              No {ROLE_CFG[childRole].label.toLowerCase()} found.
+            </div>
+          ) : (
+            children.map(child => (
+              <div className="otree-item" key={child.id}>
+                <TreeNode
+                  node={child} role={childRole} depth={depth + 1}
+                  dark={dark} text={text} subtext={subtext}
+                  ancestors={[...ancestors, { node, role }]}
+                  adminInfo={adminInfo}
+                  parentKey={`${role}_${node.id}`}
+                  openMap={openMap}
+                  onToggle={onToggle}
+                  onPrint={onPrint}
+                  childrenCache={childrenCache}
+                  loadingNode={loadingNode}
+                />
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>
@@ -662,11 +678,27 @@ export default function AdminHierarchy() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
   const [openMap, setOpenMap] = useState({})
-  const handleToggle = (parentKey, nodeId) => {
-    setOpenMap(prev => ({
-      ...prev,
-      [parentKey]: prev[parentKey] === nodeId ? null : nodeId,
-    }))
+  const [childrenCache, setChildrenCache] = useState({})
+  const [loadingNode, setLoadingNode] = useState(null)
+
+  const handleToggle = async (parentKey, nodeId, role) => {
+    const isCurrentlyOpen = openMap[parentKey] === nodeId
+    if (isCurrentlyOpen) {
+      setOpenMap(prev => ({ ...prev, [parentKey]: null }))
+      return
+    }
+    setOpenMap(prev => ({ ...prev, [parentKey]: nodeId }))
+    const cacheKey = `${role}_${nodeId}`
+    if (!childrenCache[cacheKey]) {
+      setLoadingNode(cacheKey)
+      try {
+        const res = await api.get(`/hierarchy/children/?role=${role}&id=${nodeId}`)
+        setChildrenCache(prev => ({ ...prev, [cacheKey]: res.data.items || [] }))
+      } catch (err) {
+        console.error(err)
+      }
+      setLoadingNode(null)
+    }
   }
 
   // Zoom controls
@@ -775,23 +807,18 @@ export default function AdminHierarchy() {
   const fetchHierarchy = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/hierarchy/full/')
-      const myEmail = localStorage.getItem('email')
-      const myAdmin = res.data.admins?.find(a => a.email === myEmail) || res.data.admins?.[0] || null
-
-      if (myAdmin) {
+      const res = await api.get('/my-hierarchy/')
+      if (res.data?.root) {
         setAdminInfo({
-          admin_id: myAdmin.admin_id,
-          first_name: myAdmin.first_name,
-          last_name: myAdmin.last_name,
-          mobile_number: myAdmin.mobile_number,
-          email: myAdmin.email,
+          admin_id: res.data.root.admin_id,
+          first_name: res.data.root.first_name,
+          last_name: res.data.root.last_name,
+          mobile_number: res.data.root.mobile_number,
+          email: res.data.root.email,
         })
-        const dList = myAdmin.dealers || []
+        const dList = res.data.items || res.data.root.dealers || []
         setDealers(dList)
-        if (dList.length > 0) {
-          setOpenMap({ root: dList[0].id })
-        }
+        setOpenMap({})
       }
     } catch (err) { console.error(err) }
     setLoading(false)
@@ -1116,6 +1143,8 @@ export default function AdminHierarchy() {
                         openMap={openMap}
                         onToggle={handleToggle}
                         onPrint={openPrintPopup}
+                        childrenCache={childrenCache}
+                        loadingNode={loadingNode}
                       />
                     </div>
                   ))}

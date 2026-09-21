@@ -1,4 +1,5 @@
 @keyframes skelShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes skelShimmerDark{0%{background-position:-200% 0}100%{background-position:200% 0}}
 
 .gcard-skeleton{ cursor:default; }
 .gcard-skeleton:hover{ transform:none; box-shadow:none; }
@@ -9,3 +10,14 @@
 .skel-btn{ flex:1; height:24px; border-radius:20px; background:linear-gradient(90deg,#E7EDEC 25%,#F3F3F0 50%,#E7EDEC 75%); background-size:200% 100%; animation:skelShimmer 1.4s ease-in-out infinite; }
 
 .skel-row{ display:flex; gap:16px; padding:12px 16px; align-items:center; }
+
+/* KPI Card Skeletons */
+.sa-kpi-skel-icon{ width:54px; height:54px; border-radius:10px; flex:0 0 auto; background:linear-gradient(90deg,#E7EDEC 25%,#F3F3F0 50%,#E7EDEC 75%); background-size:200% 100%; animation:skelShimmer 1.4s ease-in-out infinite; }
+.sa-kpi-skel-line{ border-radius:4px; background:linear-gradient(90deg,#E7EDEC 25%,#F3F3F0 50%,#E7EDEC 75%); background-size:200% 100%; animation:skelShimmer 1.4s ease-in-out infinite; }
+
+/* Dark Chart Skeletons matching SuperAdmin */
+.sa-chart-skel-wrap{ display:flex; flex-direction:column; justify-content:space-between; height:100%; width:100%; padding:6px 4px; box-sizing:border-box; }
+.sa-chart-skel-row{ display:flex; align-items:center; gap:14px; }
+.sa-chart-skel-axis{ width:20px; height:9px; border-radius:3px; flex:0 0 auto; background:linear-gradient(90deg,rgba(255,255,255,0.06) 25%,rgba(255,255,255,0.14) 50%,rgba(255,255,255,0.06) 75%); background-size:200% 100%; animation:skelShimmerDark 1.5s ease-in-out infinite; }
+.sa-chart-skel-line{ flex:1; height:1px; background:repeating-linear-gradient(90deg,rgba(255,255,255,0.08) 0 6px,transparent 6px 12px); }
+.sa-chart-skel-curve{ position:relative; flex:1; margin:8px 4px 0; border-radius:12px; overflow:hidden; background:linear-gradient(90deg,rgba(226,188,132,0.05) 25%,rgba(226,188,132,0.14) 50%,rgba(226,188,132,0.05) 75%); background-size:200% 100%; animation:skelShimmerDark 1.6s ease-in-out infinite; }

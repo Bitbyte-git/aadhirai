@@ -767,11 +767,19 @@ export default function Promotor_Hierarchy_grid() {
     return () => clearTimeout(t)
   }, [search])
 
+  const [directCustomers, setDirectCustomers] = useState([])
+  const [customerChain, setCustomerChain] = useState([])
+  const [customerCache, setCustomerCache] = useState({})
+  const [customerLoadingDepth, setCustomerLoadingDepth] = useState(null)
+
   const fetchHierarchy = async () => {
     setLoading(true)
     try {
       const res = await api.get('/my-hierarchy/')
       setRoot(res.data.root)
+      const directCusts = res.data.items || res.data.root?.customers || []
+      setDirectCustomers(directCusts)
+      setCustomerChain([])
     } catch (err) { console.error(err) }
     setLoading(false)
   }
@@ -785,11 +793,7 @@ export default function Promotor_Hierarchy_grid() {
     }
   }, [])
 
-  const [customerChain, setCustomerChain] = useState([])
-  const [customerCache, setCustomerCache] = useState({})
-  const [customerLoadingDepth, setCustomerLoadingDepth] = useState(null)
-
-  const customers = root?.customers || []
+  const customers = directCustomers.length > 0 ? directCustomers : (root?.customers || [])
   const customerAncestors = root ? [{ node: root, role: 'promotor' }] : []
 
   const selectCustomerAtDepth = async (node, depth) => {
@@ -802,16 +806,13 @@ export default function Promotor_Hierarchy_grid() {
     nextChain.push(node)
     setCustomerChain(nextChain)
 
-    const rawKids = node.customers || []
-    if (rawKids.length === 0 && !customerCache[node.id]) {
+    if (!customerCache[node.id]) {
       setCustomerLoadingDepth(depth)
       try {
-        const res = await api.get(`/hierarchy-subtree-orders/?role=customer&id=${node.id}`)
-        if (res.data?.customers) {
-          setCustomerCache(prev => ({ ...prev, [node.id]: res.data.customers }))
-        }
+        const res = await api.get(`/hierarchy/children/?role=customer&id=${node.id}`)
+        setCustomerCache(prev => ({ ...prev, [node.id]: res.data?.items || [] }))
       } catch (err) {
-        console.error('Failed to fetch customer subtree', err)
+        console.error('Failed to fetch customer children', err)
       } finally {
         setCustomerLoadingDepth(null)
       }
@@ -821,7 +822,7 @@ export default function Promotor_Hierarchy_grid() {
   const customerLanes = useMemo(() => {
     if (!root) return []
     const lanes = []
-    const rootCustomers = root.customers || []
+    const rootCustomers = customers
     const filteredL0 = statusFilter
       ? rootCustomers.filter(c => c.status === statusFilter.status)
       : rootCustomers
@@ -856,7 +857,7 @@ export default function Promotor_Hierarchy_grid() {
     })
 
     return lanes
-  }, [root, statusFilter, customerAncestors, customerChain, customerCache, customerLoadingDepth])
+  }, [root, customers, statusFilter, customerAncestors, customerChain, customerCache, customerLoadingDepth])
 
   const searchOwnHierarchy = (query) => {
     if (!root || !query.trim()) return []
@@ -879,7 +880,7 @@ export default function Promotor_Hierarchy_grid() {
       })
     }
 
-    ;(root.customers || []).forEach(cus => {
+    ;(customers || []).forEach(cus => {
       collectCustomerResults(cus, [{ node: root, role: 'promotor' }])
     })
     return result

@@ -1846,6 +1846,45 @@ class FullHierarchyView(APIView):
         return Response({'super_admin_email': request.user.email, 'admins': tree})
 
 
+class RoleDistributionCountsView(APIView):
+    """Fast, count-only version of the downline breakdown used by the
+    'Role Distribution' pie chart on Admin/Dealer/SubDealer/Promotor dashboards.
+    Ella level layume simple indexed .count() queries mattum — FullHierarchyView
+    madhiri full nested tree Python-la build pannathu, adhanala romba fast.
+    NOTE: 'customers' count here DIRECT-ah assigned customers mattum (referral
+    chain via created_by NOT included) — FullHierarchyView/hierarchy grid pages
+    andha full recursive count kaattுm, idhு dashboard summary ku mattum."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        role = request.user.role
+        if role == 'admin':
+            data = {
+                'dealers': DealerProfile.objects.filter(assigned_admin__user=request.user).count(),
+                'sub_dealers': SubDealerProfile.objects.filter(assigned_dealer__assigned_admin__user=request.user).count(),
+                'promotors': PromotorProfile.objects.filter(assigned_sub_dealer__assigned_dealer__assigned_admin__user=request.user).count(),
+                'customers': CustomerProfile.objects.filter(assigned_promotor__assigned_sub_dealer__assigned_dealer__assigned_admin__user=request.user).count(),
+            }
+        elif role == 'dealer':
+            data = {
+                'sub_dealers': SubDealerProfile.objects.filter(assigned_dealer__user=request.user).count(),
+                'promotors': PromotorProfile.objects.filter(assigned_sub_dealer__assigned_dealer__user=request.user).count(),
+                'customers': CustomerProfile.objects.filter(assigned_promotor__assigned_sub_dealer__assigned_dealer__user=request.user).count(),
+            }
+        elif role == 'sub_dealer':
+            data = {
+                'promotors': PromotorProfile.objects.filter(assigned_sub_dealer__user=request.user).count(),
+                'customers': CustomerProfile.objects.filter(assigned_promotor__assigned_sub_dealer__user=request.user).count(),
+            }
+        elif role == 'promotor':
+            data = {
+                'customers': CustomerProfile.objects.filter(assigned_promotor__user=request.user).count(),
+            }
+        else:
+            return Response({'error': 'Permission denied'}, status=403)
+
+        return Response(data)
+
 
 class AnnouncementView(APIView):
     permission_classes = [IsAuthenticated]
@@ -3735,96 +3774,13 @@ class HierarchyTierDirectoryView(APIView):
         })
 
 
-# ── NEW: Generic — ஒரு node-oda DIRECT children mattum. role+id vachi call pண்ணுவாங்க ──
-class HierarchyChildrenView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    ROLE_CONFIG = {
-        'admin':      {'model': DealerProfile,   'filter': 'assigned_admin_id',      'id_field': 'dealer_id',      'child_role': 'dealer'},
-        'dealer':     {'model': SubDealerProfile,'filter': 'assigned_dealer_id',     'id_field': 'sub_dealer_id',  'child_role': 'sub_dealer'},
-        'sub_dealer': {'model': PromotorProfile, 'filter': 'assigned_sub_dealer_id', 'id_field': 'promotor_id',    'child_role': 'promotor'},
-        'promotor':   {'model': CustomerProfile, 'filter': 'assigned_promotor_id',   'id_field': 'customer_id',    'child_role': 'customer'},
-    }
-
-    def get(self, request):
-        role = request.query_params.get('role')
-        node_id = request.query_params.get('id')
-        if role == 'customer':
-            return self._customer_children(request)
-
-        cfg = self.ROLE_CONFIG.get(role)
-        if not cfg or not node_id:
-            return Response({'error': 'invalid role/id'}, status=400)
-
-        children = cfg['model'].objects.filter(**{cfg['filter']: node_id}).only(
-            'id', 'user_id', cfg['id_field'], 'first_name', 'last_name', 'mobile_number', 'city_name'
-        )
-        child_ids = [c.user_id for c in children]
-
-        grandchild_counts = {}
-        child_status_breakdown = {}   # ── NEW: parent_id -> {red,orange,yellow,green} ──
-        rollup_counts = _month_rollup_counts()
-        status_map = _month_status_map()
-
-        # ── FIX: role == 'promotor' na, child_role == 'customer' — customer chain
-        # ROLE_CONFIG la illa (assigned_promotor_id illama, created_by_id vachi
-        # chain pogum), so idha separate ah handle pannanum. Illana andha customer
-        # kila innum customer irundhalum, toggle arrow kaamikkathu. ──
-        if cfg['child_role'] == 'customer':
-            gc = dict(
-                CustomerProfile.objects.filter(created_by_id__in=child_ids)
-                .values('created_by_id').annotate(c=Count('id')).values_list('created_by_id', 'c')
-            )
-            grandchild_counts = gc  # ── key = user_id (created_by_id), not profile id ──
-
-            # ── NEW: nested customer-to-customer status breakdown ──
-            nested_customers = list(
-                CustomerProfile.objects.filter(created_by_id__in=child_ids).values('user_id', 'created_by_id')
-            )
-            for nc in nested_customers:
-                parent_uid = nc['created_by_id']
-                st = status_map.get(('customer', nc['user_id']), 'red')
-                bucket = child_status_breakdown.setdefault(parent_uid, {'red': 0, 'orange': 0, 'yellow': 0, 'green': 0})
-                bucket[st] += 1
-        else:
-            next_cfg = self.ROLE_CONFIG.get(cfg['child_role'])
-            if next_cfg:
-                grandchildren = list(
-                    next_cfg['model'].objects.filter(**{f"{next_cfg['filter'].replace('_id','')}__id__in": [c.id for c in children]})
-                    .values('id', next_cfg['filter'])
-                )
-                gc = {}
-                for g in grandchildren:
-                    parent_id = g[next_cfg['filter']]
-                    gc[parent_id] = gc.get(parent_id, 0) + 1
-                    st = status_map.get((next_cfg['child_role'], g['id']), 'red')
-                    bucket = child_status_breakdown.setdefault(parent_id, {'red': 0, 'orange': 0, 'yellow': 0, 'green': 0})
-                    bucket[st] += 1
-                grandchild_counts = gc
-
-        count_key_attr = 'user_id' if cfg['child_role'] == 'customer' else 'id'
-
-        results = []
-        for c in children:
-            key_val = c.user_id if cfg['child_role'] == 'customer' else c.id
-            oc = rollup_counts.get((cfg['child_role'], key_val), 0)
-            status = status_map.get((cfg['child_role'], key_val), 'red')
-            results.append({
-                'id': c.id, 'user_id': c.user_id, cfg['id_field']: getattr(c, cfg['id_field']),
-                'first_name': c.first_name, 'last_name': c.last_name,
-                'mobile_number': c.mobile_number, 'city_name': c.city_name,
-                'child_count': grandchild_counts.get(getattr(c, count_key_attr), 0),
-                'order_count': oc, 'status': status,
-                'child_status_counts': child_status_breakdown.get(getattr(c, count_key_attr), {'red': 0, 'orange': 0, 'yellow': 0, 'green': 0}),
-            })
-        return Response({'role': cfg['child_role'], 'items': results})
-
-    def _customer_children(self, request):
-        node_id = request.query_params.get('id')
+# ── Helper: get DIRECT children for a given role and node_id (shallow, fast) ──
+def get_hierarchy_children_data(role, node_id):
+    if role == 'customer':
         try:
             parent = CustomerProfile.objects.get(id=node_id)
         except CustomerProfile.DoesNotExist:
-            return Response({'error': 'not found'}, status=404)
+            return None
 
         children = CustomerProfile.objects.filter(created_by_id=parent.user_id).only(
             'id', 'user_id', 'customer_id', 'first_name', 'last_name', 'mobile_number', 'city_name'
@@ -3837,7 +3793,6 @@ class HierarchyChildrenView(APIView):
         rollup_counts = _month_rollup_counts()
         status_map = _month_status_map()
 
-        # ── NEW: grandchild (nested customer) status breakdown ──
         grandchildren = list(
             CustomerProfile.objects.filter(created_by_id__in=child_ids).values('user_id', 'created_by_id')
         )
@@ -3860,7 +3815,90 @@ class HierarchyChildrenView(APIView):
                 'order_count': oc, 'status': status,
                 'child_status_counts': child_status_breakdown.get(c.user_id, {'red': 0, 'orange': 0, 'yellow': 0, 'green': 0}),
             })
-        return Response({'role': 'customer', 'items': results})        
+        return {'role': 'customer', 'items': results}
+
+    ROLE_CONFIG = {
+        'admin':      {'model': DealerProfile,   'filter': 'assigned_admin_id',      'id_field': 'dealer_id',      'child_role': 'dealer'},
+        'dealer':     {'model': SubDealerProfile,'filter': 'assigned_dealer_id',     'id_field': 'sub_dealer_id',  'child_role': 'sub_dealer'},
+        'sub_dealer': {'model': PromotorProfile, 'filter': 'assigned_sub_dealer_id', 'id_field': 'promotor_id',    'child_role': 'promotor'},
+        'promotor':   {'model': CustomerProfile, 'filter': 'assigned_promotor_id',   'id_field': 'customer_id',    'child_role': 'customer'},
+    }
+    cfg = ROLE_CONFIG.get(role)
+    if not cfg:
+        return None
+
+    children = cfg['model'].objects.filter(**{cfg['filter']: node_id}).only(
+        'id', 'user_id', cfg['id_field'], 'first_name', 'last_name', 'mobile_number', 'city_name'
+    )
+    child_ids = [c.user_id for c in children]
+
+    grandchild_counts = {}
+    child_status_breakdown = {}
+    rollup_counts = _month_rollup_counts()
+    status_map = _month_status_map()
+
+    if cfg['child_role'] == 'customer':
+        gc = dict(
+            CustomerProfile.objects.filter(created_by_id__in=child_ids)
+            .values('created_by_id').annotate(c=Count('id')).values_list('created_by_id', 'c')
+        )
+        grandchild_counts = gc
+
+        nested_customers = list(
+            CustomerProfile.objects.filter(created_by_id__in=child_ids).values('user_id', 'created_by_id')
+        )
+        for nc in nested_customers:
+            parent_uid = nc['created_by_id']
+            st = status_map.get(('customer', nc['user_id']), 'red')
+            bucket = child_status_breakdown.setdefault(parent_uid, {'red': 0, 'orange': 0, 'yellow': 0, 'green': 0})
+            bucket[st] += 1
+    else:
+        next_cfg = ROLE_CONFIG.get(cfg['child_role'])
+        if next_cfg:
+            grandchildren = list(
+                next_cfg['model'].objects.filter(**{f"{next_cfg['filter'].replace('_id','')}__id__in": [c.id for c in children]})
+                .values('id', next_cfg['filter'])
+            )
+            gc = {}
+            for g in grandchildren:
+                parent_id = g[next_cfg['filter']]
+                gc[parent_id] = gc.get(parent_id, 0) + 1
+                st = status_map.get((next_cfg['child_role'], g['id']), 'red')
+                bucket = child_status_breakdown.setdefault(parent_id, {'red': 0, 'orange': 0, 'yellow': 0, 'green': 0})
+                bucket[st] += 1
+            grandchild_counts = gc
+
+    count_key_attr = 'user_id' if cfg['child_role'] == 'customer' else 'id'
+
+    results = []
+    for c in children:
+        key_val = c.user_id if cfg['child_role'] == 'customer' else c.id
+        oc = rollup_counts.get((cfg['child_role'], key_val), 0)
+        status = status_map.get((cfg['child_role'], key_val), 'red')
+        results.append({
+            'id': c.id, 'user_id': c.user_id, cfg['id_field']: getattr(c, cfg['id_field']),
+            'first_name': c.first_name, 'last_name': c.last_name,
+            'mobile_number': c.mobile_number, 'city_name': c.city_name,
+            'child_count': grandchild_counts.get(getattr(c, count_key_attr), 0),
+            'order_count': oc, 'status': status,
+            'child_status_counts': child_status_breakdown.get(getattr(c, count_key_attr), {'red': 0, 'orange': 0, 'yellow': 0, 'green': 0}),
+        })
+    return {'role': cfg['child_role'], 'items': results}
+
+
+# ── NEW: Generic — ஒரு node-oda DIRECT children mattum. role+id vachi call pண்ணுவாங்க ──
+class HierarchyChildrenView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        role = request.query_params.get('role')
+        node_id = request.query_params.get('id')
+        if not role or not node_id:
+            return Response({'error': 'invalid role/id'}, status=400)
+        data = get_hierarchy_children_data(role, node_id)
+        if data is None:
+            return Response({'error': 'not found or invalid role'}, status=404)
+        return Response(data)
 
 
 # ── NEW: single node basic info fetch pannும் — root node load pannும்போது use aagும் ──
@@ -4004,49 +4042,67 @@ class MyHierarchyView(APIView):
             return Response({'error': 'Use /hierarchy/full/ for your role'}, status=403)
 
         try:
-            children_by_creator = _get_children_by_creator()
+            super_admin_email = User.objects.filter(role='super_admin').first().email if User.objects.filter(role='super_admin').exists() else ''
+            now = timezone.now()
+            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            order_count = JewelryOrder.objects.filter(user_id=user.id, created_at__gte=month_start).count()
+
             if role == 'admin':
-                node = AdminProfile.objects.prefetch_related(
-                    'assigned_dealers__assigned_sub_dealers__assigned_promotors__assigned_customers'
-                ).get(user=user)
-                orders_by_user = _bulk_orders_for_admin(node)
-                user_ids = _collect_user_ids_admin(node)
-                all_ids = set(user_ids)
-                for uid in user_ids:
-                    all_ids.update(_collect_nested_customer_ids(uid, children_by_creator))
-                monthly_counts = _monthly_order_counts_map(list(all_ids))
-                root = _build_admin(node, orders_by_user, monthly_counts, children_by_creator)
+                node = AdminProfile.objects.get(user=user)
+                children_res = get_hierarchy_children_data('admin', node.id)
+                direct_items = children_res.get('items', []) if children_res else []
+                root = {
+                    'type': 'admin', 'id': node.id, 'admin_id': node.admin_id, 'user_id': node.user_id,
+                    'first_name': node.first_name, 'last_name': node.last_name,
+                    'mobile_number': node.mobile_number, 'city_name': getattr(node, 'city_name', None),
+                    'dealers': direct_items,
+                    'items': direct_items,
+                    'child_count': len(direct_items),
+                    'order_count': order_count,
+                    'status': 'green',
+                }
             elif role == 'dealer':
-                node = DealerProfile.objects.prefetch_related(
-                    'assigned_sub_dealers__assigned_promotors__assigned_customers'
-                ).get(user=user)
-                orders_by_user = _bulk_orders_for_dealer(node)
-                user_ids = _collect_user_ids_dealer(node) + [node.user_id]
-                all_ids = set(user_ids)
-                for uid in user_ids:
-                    all_ids.update(_collect_nested_customer_ids(uid, children_by_creator))
-                monthly_counts = _monthly_order_counts_map(list(all_ids))
-                root = _build_dealer(node, orders_by_user, monthly_counts, children_by_creator)
+                node = DealerProfile.objects.get(user=user)
+                children_res = get_hierarchy_children_data('dealer', node.id)
+                direct_items = children_res.get('items', []) if children_res else []
+                root = {
+                    'type': 'dealer', 'id': node.id, 'dealer_id': node.dealer_id, 'user_id': node.user_id,
+                    'first_name': node.first_name, 'last_name': node.last_name,
+                    'mobile_number': node.mobile_number, 'city_name': getattr(node, 'city_name', None),
+                    'sub_dealers': direct_items,
+                    'items': direct_items,
+                    'child_count': len(direct_items),
+                    'order_count': order_count,
+                    'status': 'green',
+                }
             elif role == 'sub_dealer':
-                node = SubDealerProfile.objects.prefetch_related(
-                    'assigned_promotors__assigned_customers'
-                ).get(user=user)
-                orders_by_user = _bulk_orders_for_sub_dealer(node)
-                user_ids = _collect_user_ids_sub_dealer(node) + [node.user_id]
-                all_ids = set(user_ids)
-                for uid in user_ids:
-                    all_ids.update(_collect_nested_customer_ids(uid, children_by_creator))
-                monthly_counts = _monthly_order_counts_map(list(all_ids))
-                root = _build_sub_dealer(node, orders_by_user, monthly_counts, children_by_creator)
+                node = SubDealerProfile.objects.get(user=user)
+                children_res = get_hierarchy_children_data('sub_dealer', node.id)
+                direct_items = children_res.get('items', []) if children_res else []
+                root = {
+                    'type': 'sub_dealer', 'id': node.id, 'sub_dealer_id': node.sub_dealer_id, 'user_id': node.user_id,
+                    'first_name': node.first_name, 'last_name': node.last_name,
+                    'mobile_number': node.mobile_number, 'city_name': getattr(node, 'city_name', None),
+                    'promotors': direct_items,
+                    'items': direct_items,
+                    'child_count': len(direct_items),
+                    'order_count': order_count,
+                    'status': 'green',
+                }
             elif role == 'promotor':
-                node = PromotorProfile.objects.prefetch_related('assigned_customers').get(user=user)
-                orders_by_user = _bulk_orders_for_promotor(node)
-                user_ids = [c.user_id for c in node.assigned_customers.all()] + [node.user_id]
-                all_ids = set(user_ids)
-                for uid in user_ids:
-                    all_ids.update(_collect_nested_customer_ids(uid, children_by_creator))
-                monthly_counts = _monthly_order_counts_map(list(all_ids))
-                root = _build_promotor(node, orders_by_user, monthly_counts, children_by_creator)
+                node = PromotorProfile.objects.get(user=user)
+                children_res = get_hierarchy_children_data('promotor', node.id)
+                direct_items = children_res.get('items', []) if children_res else []
+                root = {
+                    'type': 'promotor', 'id': node.id, 'promotor_id': node.promotor_id, 'user_id': node.user_id,
+                    'first_name': node.first_name, 'last_name': node.last_name,
+                    'mobile_number': node.mobile_number, 'city_name': getattr(node, 'city_name', None),
+                    'customers': direct_items,
+                    'items': direct_items,
+                    'child_count': len(direct_items),
+                    'order_count': order_count,
+                    'status': 'green',
+                }
         except Exception as e:
             return Response({'error': str(e)}, status=404)
 

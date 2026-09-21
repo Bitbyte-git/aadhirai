@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
+import { SkeletonCard } from '../components/Skeleton'
+import '../components/skeleton.css'
 
 // ── SVG ICONS ──
 const IconShield = ({ color, size = 14 }) => (
@@ -104,8 +106,8 @@ const ROLE_CFG = {
   promotor: { color: '#CA8A04', Icon: IconStar, label: 'RETAILER', idKey: 'promotor_id' },
   customer: { color: '#DB2777', Icon: IconUser, label: 'CUSTOMER', idKey: 'customer_id' },
 }
-const CHILD_ROLE = { dealer: 'sub_dealer', sub_dealer: 'promotor', promotor: 'customer' }
-const CHILD_KEY = { dealer: 'sub_dealers', sub_dealer: 'promotors', promotor: 'customers' }
+const CHILD_ROLE = { dealer: 'sub_dealer', sub_dealer: 'promotor', promotor: 'customer', customer: 'customer' }
+const CHILD_KEY = { dealer: 'sub_dealers', sub_dealer: 'promotors', promotor: 'customers', customer: 'customers' }
 
 function iconSvg(paths, color, size = 14) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`
@@ -1060,9 +1062,10 @@ export default function DealerHierarchy() {
         })()}
 
         {loading && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 0', gap: '16px' }}>
-            <div style={{ width: 32, height: 32, border: '3px solid rgba(2,132,199,0.2)', borderTop: '3px solid #0284C7', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-            <span style={{ color: subtext, fontSize: '14px' }}>Loading hierarchy...</span>
+          <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '10px' }}>
+            <SkeletonCard color={ROLE_CFG.sub_dealer.color} />
+            <SkeletonCard color={ROLE_CFG.sub_dealer.color} />
+            <SkeletonCard color={ROLE_CFG.sub_dealer.color} />
           </div>
         )}
 

@@ -7,6 +7,8 @@ import InternalRoleNavbar from '../collection/InternalRoleNavbar'
 import CopyUrlButton from '../collection/CopyUrlButton'
 import goldCoin from '../assets/gold-coin-transparent.png'
 import silverCoin from '../assets/silver-coin.png'
+import { SkeletonChart, SkeletonText, SkeletonRow, SkeletonBox } from '../components/Skeleton'
+import '../components/skeleton.css'
 
 const OCCUPATIONS = ['employee', 'business', 'others']
 const emptyForm = {
@@ -141,7 +143,7 @@ function IrdOrderTrendPanel({ title = 'Order Volume', endpoint = '/order-timeser
         <span>Viewing {selectedPeriodLabel}</span>
       </div>
       <div className="ird-chart-box">
-        {loading ? <div className="ird-empty">Loading...</div> : data.length === 0 ? <div className="ird-empty">No orders in this period</div> : (
+        {loading ? <SkeletonChart height="100%" /> : data.length === 0 ? <div className="ird-empty">No orders in this period</div> : (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 18, right: 22, left: 4, bottom: 8 }}>
               <defs>
@@ -1044,7 +1046,7 @@ const handleSubmit = async e => {
   const superAdminEmail = localStorage.getItem('superAdminEmail') || ''
 
   return (
-    <div style={{ minHeight:'100vh', background: dark ? bg : 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)', color: text, transition:'background 0.8s ease, color 0.4s ease', fontFamily:'"Inter",system-ui,sans-serif', position:'relative', overflow:'hidden' }}>
+    <div style={{ minHeight:'100vh', background: dark ? bg : 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)', color: text, transition:'background 0.8s ease, color 0.4s ease', fontFamily:'"Inter",system-ui,sans-serif', position:'relative' }}>
       <style>{`
         @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
         @keyframes prPopupIn{from{opacity:0;transform:translateY(8px) scale(0.97);}to{opacity:1;transform:translateY(0) scale(1);}}
@@ -1106,6 +1108,8 @@ const handleSubmit = async e => {
           { label: 'Sales Report', path: '/sales-report' },
           { label: 'Login Active', path: '/login-active' },
           { label: 'Login Inactive', path: '/login-inactive' },
+          { label: 'My Login Rewards', path: '/internal-my-login-rewards' },
+          { label: 'Team Login Rewards', path: '/internal-team-login-rewards' },
         ]}
         commissionItems={[
           { label: 'My Commission', path: '/internal-my-commission' },
@@ -1331,7 +1335,10 @@ const handleSubmit = async e => {
       {/* Scrollable Content */}
       <div style={{ flex:1, overflowY:'auto', padding:'24px 28px', display:'flex', flexDirection:'column', gap:'20px', scrollbarWidth:'thin', scrollbarColor:'rgba(201,32,53,0.4) transparent' }}>
         {!promotorInfo ? (
-          <div style={{ textAlign:'center', color:subtext, padding:'60px 0' }}>Loading...</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '16px 0' }}>
+            <SkeletonBox height="140px" borderRadius="16px" />
+            <SkeletonBox height="180px" borderRadius="16px" />
+          </div>
         ) : (
           <>
             {/* Account Info */}
@@ -1545,7 +1552,9 @@ const handleSubmit = async e => {
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 26px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {coinStockLoading ? (
-            <div style={{ textAlign: 'center', color: subtext, padding: '40px 0' }}>Loading...</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {[0, 1, 2].map(i => <SkeletonBox key={i} height="52px" borderRadius="12px" />)}
+            </div>
           ) : coinStock.length === 0 ? (
             <div style={{ textAlign: 'center', color: subtext, padding: '40px 0' }}>Stock illa — Buy Coin request pannunga</div>
           ) : coinStock.map(s => (
@@ -1589,7 +1598,9 @@ const handleSubmit = async e => {
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 26px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {myRequestsLoading ? (
-            <div style={{ textAlign: 'center', color: subtext, padding: '40px 0' }}>Loading...</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {[0, 1, 2].map(i => <SkeletonBox key={i} height="76px" borderRadius="14px" />)}
+            </div>
           ) : myCoinRequests.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', color: subtext, padding: '40px 0' }}>
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={subtext} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

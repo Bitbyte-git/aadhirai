@@ -3339,39 +3339,40 @@ class HierarchySubtreeOrdersView(APIView):
             return Response({'error': 'role and id required'}, status=400)
 
         try:
+            children_by_creator = _get_children_by_creator()
             if role == 'admin':
                 node = AdminProfile.objects.prefetch_related(
                     'assigned_dealers__assigned_sub_dealers__assigned_promotors__assigned_customers'
                 ).get(id=node_id)
                 orders_by_user = _bulk_orders_for_admin(node)
                 monthly_counts = _monthly_order_counts_map(_collect_user_ids_admin(node))
-                root = _build_admin(node, orders_by_user, monthly_counts)
+                root = _build_admin(node, orders_by_user, monthly_counts, children_by_creator)
             elif role == 'dealer':
                 node = DealerProfile.objects.prefetch_related(
                     'assigned_sub_dealers__assigned_promotors__assigned_customers'
                 ).get(id=node_id)
                 orders_by_user = _bulk_orders_for_dealer(node)
                 monthly_counts = _monthly_order_counts_map(_collect_user_ids_dealer(node))
-                root = _build_dealer(node, orders_by_user, monthly_counts)
+                root = _build_dealer(node, orders_by_user, monthly_counts, children_by_creator)
             elif role == 'sub_dealer':
                 node = SubDealerProfile.objects.prefetch_related(
                     'assigned_promotors__assigned_customers'
                 ).get(id=node_id)
                 orders_by_user = _bulk_orders_for_sub_dealer(node)
                 monthly_counts = _monthly_order_counts_map(_collect_user_ids_sub_dealer(node))
-                root = _build_sub_dealer(node, orders_by_user, monthly_counts)
+                root = _build_sub_dealer(node, orders_by_user, monthly_counts, children_by_creator)
             elif role == 'promotor':
                 node = PromotorProfile.objects.prefetch_related('assigned_customers').get(id=node_id)
                 orders_by_user = _bulk_orders_for_promotor(node)
                 monthly_counts = _monthly_order_counts_map(
                     [c.user_id for c in node.assigned_customers.all()]
                 )
-                root = _build_promotor(node, orders_by_user, monthly_counts)
+                root = _build_promotor(node, orders_by_user, monthly_counts, children_by_creator)
             elif role == 'customer':
                 node = CustomerProfile.objects.get(id=node_id)
                 orders_by_user = _orders_by_user_map([node.user_id])
                 monthly_counts = _monthly_order_counts_map([node.user_id])
-                root = _build_customer(node, orders_by_user, monthly_counts)
+                root = _build_customer(node, orders_by_user, monthly_counts, children_by_creator)
             else:
                 return Response({'error': 'invalid role'}, status=400)
         except Exception as e:
@@ -6469,8 +6470,15 @@ class LoginRewardTransactionView(APIView):
         'promotor': 'Retailer', 'customer': 'Customer',
     }
 
+    INTERNAL_ROLES = {'admin', 'dealer', 'sub_dealer', 'promotor'}
+
     def get(self, request):
-        if request.user.role != 'super_admin':
+        scope = request.query_params.get('scope')  # 'my' | 'team' — internal roles ku mattum
+        if request.user.role == 'super_admin':
+            pass
+        elif request.user.role in self.INTERNAL_ROLES and scope in ('my', 'team'):
+            pass
+        else:
             return Response({'error': 'Not authorized'}, status=403)
 
         role = request.query_params.get('role', 'all')
@@ -6505,7 +6513,14 @@ class LoginRewardTransactionView(APIView):
             created_at__date__gte=range_start, created_at__date__lte=range_end,
         ).select_related('user')
 
-        if role != 'all':
+        if scope == 'my':
+            reward_qs = reward_qs.filter(user=request.user)
+            credit_qs = credit_qs.filter(user=request.user)
+        elif scope == 'team':
+            downline_ids = _collect_full_downline_user_ids(request.user)
+            reward_qs = reward_qs.filter(user_id__in=downline_ids)
+            credit_qs = credit_qs.filter(user_id__in=downline_ids)
+        elif role != 'all':
             if role not in self.ROLE_LABELS:
                 return Response({'error': 'invalid role'}, status=400)
             reward_qs = reward_qs.filter(user__role=role)

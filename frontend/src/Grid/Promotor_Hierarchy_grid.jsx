@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
+import { SkeletonCard } from '../components/Skeleton'
+import '../components/skeleton.css'
 
 // ══════════════════════════════════════════════════════════════════
 // ICONS
@@ -78,8 +80,8 @@ const ROLE_CFG = {
   promotor: { color: '#CA8A04', Icon: IconStar, label: 'RETAILER', idKey: 'promotor_id' },
   customer: { color: '#DB2777', Icon: IconUser, label: 'CUSTOMER', idKey: 'customer_id' },
 }
-const CHILD_ROLE = { promotor: 'customer' }
-const CHILD_KEY = { promotor: 'customers' }
+const CHILD_ROLE = { promotor: 'customer', customer: 'customer' }
+const CHILD_KEY = { promotor: 'customers', customer: 'customers' }
 const LEVEL_NUM = { promotor: 1, customer: 2 }
 const STATUS_COLOR = { red: '#ef4444', orange: '#f97316', yellow: '#eab308', green: '#22c55e' }
 
@@ -514,6 +516,7 @@ function LaneCard({ node, role, active, onClick, ancestors, text, subtext, onMes
   const c = sc
   const Icon = cfg.Icon
   const childRole = CHILD_ROLE[role]
+  const childCount = childRole ? (node[CHILD_KEY[role]] || []).length : null
 
   const childStatusCounts = childRole
     ? (() => {
@@ -624,6 +627,12 @@ function LaneCard({ node, role, active, onClick, ancestors, text, subtext, onMes
           })}
         </div>
       )}
+
+      {childCount !== null && (role !== 'customer' || childCount > 0) && (
+        <div className="gcard-count" style={{ background: c }}>
+          {childCount} {childRole.replace('_', ' ')}
+        </div>
+      )}
     </div>
   )
 }
@@ -631,17 +640,21 @@ function LaneCard({ node, role, active, onClick, ancestors, text, subtext, onMes
 // ══════════════════════════════════════════════════════════════════
 // LANE ROW
 // ══════════════════════════════════════════════════════════════════
-function LaneRow({ role, items, ancestors, text, subtext, emptyText, onMessage, onPrint, activeStatusFilter, onToggleStatusFilter }) {
+function LaneRow({ role, items, activeId, onSelect, ancestors, text, subtext, emptyText, onMessage, onPrint, activeStatusFilter, onToggleStatusFilter, levelNum = LEVEL_NUM[role], isLoading = false }) {
   const cfg = ROLE_CFG[role]
   return (
     <div className="glane">
       <div className="glane-label" style={{ '--nc': cfg.color }}>
-        <span className="glane-level">LEVEL {LEVEL_NUM[role]}</span>
+        <span className="glane-level">LEVEL {levelNum}</span>
         <span className="glane-role" style={{ color: cfg.color }}>{cfg.label}</span>
-        <span className="glane-total" style={{ color: subtext }}>{items.length}</span>
+        <span className="glane-total" style={{ color: subtext }}>{isLoading ? '...' : items.length}</span>
       </div>
       <div className="glane-track" style={{ '--nc': cfg.color, scrollbarColor: `${cfg.color} rgba(12,64,68,0.06)` }}>
-        {items.length === 0 ? (
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, idx) => (
+            <SkeletonCard key={idx} color={cfg.color} />
+          ))
+        ) : items.length === 0 ? (
           <div className="glane-empty" style={{ color: subtext }}>{emptyText}</div>
         ) : (
           items.map(item => (
@@ -649,7 +662,8 @@ function LaneRow({ role, items, ancestors, text, subtext, emptyText, onMessage, 
               key={item.id}
               node={item}
               role={role}
-              active={true}
+              active={item.id === activeId}
+              onClick={() => onSelect && onSelect(item)}
               ancestors={ancestors}
               text={text} subtext={subtext}
               onMessage={onMessage}
@@ -771,8 +785,78 @@ export default function Promotor_Hierarchy_grid() {
     }
   }, [])
 
+  const [customerChain, setCustomerChain] = useState([])
+  const [customerCache, setCustomerCache] = useState({})
+  const [customerLoadingDepth, setCustomerLoadingDepth] = useState(null)
+
   const customers = root?.customers || []
   const customerAncestors = root ? [{ node: root, role: 'promotor' }] : []
+
+  const selectCustomerAtDepth = async (node, depth) => {
+    setStatusFilter(null)
+    const nextChain = customerChain.slice(0, depth)
+    if (customerChain[depth]?.id === node.id) {
+      setCustomerChain(nextChain)
+      return
+    }
+    nextChain.push(node)
+    setCustomerChain(nextChain)
+
+    const rawKids = node.customers || []
+    if (rawKids.length === 0 && !customerCache[node.id]) {
+      setCustomerLoadingDepth(depth)
+      try {
+        const res = await api.get(`/hierarchy-subtree-orders/?role=customer&id=${node.id}`)
+        if (res.data?.customers) {
+          setCustomerCache(prev => ({ ...prev, [node.id]: res.data.customers }))
+        }
+      } catch (err) {
+        console.error('Failed to fetch customer subtree', err)
+      } finally {
+        setCustomerLoadingDepth(null)
+      }
+    }
+  }
+
+  const customerLanes = useMemo(() => {
+    if (!root) return []
+    const lanes = []
+    const rootCustomers = root.customers || []
+    const filteredL0 = statusFilter
+      ? rootCustomers.filter(c => c.status === statusFilter.status)
+      : rootCustomers
+
+    lanes.push({
+      depth: 0,
+      parent: root,
+      role: 'customer',
+      levelNum: 2,
+      items: filteredL0,
+      activeId: customerChain[0]?.id || null,
+      ancestors: customerAncestors,
+      emptyText: "No customers under you yet.",
+      isLoading: false
+    })
+
+    customerChain.forEach((parentCust, idx) => {
+      const cached = customerCache[parentCust.id]
+      const kids = cached || parentCust.customers || []
+      const ancestorsSoFar = [...customerAncestors, ...customerChain.slice(0, idx + 1).map(c => ({ node: c, role: 'customer' }))]
+      lanes.push({
+        depth: idx + 1,
+        parent: parentCust,
+        role: 'customer',
+        levelNum: 2 + idx + 1,
+        items: kids,
+        activeId: customerChain[idx + 1]?.id || null,
+        ancestors: ancestorsSoFar,
+        emptyText: `No referred customers under ${parentCust.first_name}.`,
+        isLoading: customerLoadingDepth === idx
+      })
+    })
+
+    return lanes
+  }, [root, statusFilter, customerAncestors, customerChain, customerCache, customerLoadingDepth])
 
   const searchOwnHierarchy = (query) => {
     if (!root || !query.trim()) return []
@@ -784,8 +868,19 @@ export default function Promotor_Hierarchy_grid() {
       const phoneVal = (node.mobile_number || '').toString().toLowerCase()
       return idVal.includes(q) || nameVal.includes(q) || phoneVal.includes(q)
     }
+
+    const collectCustomerResults = (customerNode, ancestorsSoFar) => {
+      if (checkMatch(customerNode, 'customer_id')) {
+        result.push({ node: customerNode, role: 'customer', ancestors: ancestorsSoFar })
+      }
+      const kids = customerCache[customerNode.id] || customerNode.customers || []
+      kids.forEach(kid => {
+        collectCustomerResults(kid, [...ancestorsSoFar, { node: customerNode, role: 'customer' }])
+      })
+    }
+
     ;(root.customers || []).forEach(cus => {
-      if (checkMatch(cus, 'customer_id')) result.push({ node: cus, role: 'customer', ancestors: [{ node: root, role: 'promotor' }] })
+      collectCustomerResults(cus, [{ node: root, role: 'promotor' }])
     })
     return result
   }
@@ -793,7 +888,24 @@ export default function Promotor_Hierarchy_grid() {
   const searchResults = useMemo(() => {
     if (!debouncedSearch) return []
     return searchOwnHierarchy(debouncedSearch)
-  }, [debouncedSearch, root])
+  }, [debouncedSearch, root, customerCache])
+
+  const jumpToSearchResult = (item) => {
+    const custPath = []
+    item.ancestors.forEach(a => {
+      if (a.role === 'customer') custPath.push(a.node)
+    })
+    if (item.role === 'customer') {
+      custPath.push(item.node)
+    }
+    if (custPath.length > 0) {
+      setCustomerChain(custPath)
+    } else {
+      setCustomerChain([])
+    }
+    setStatusFilter(null)
+    setSearch('')
+  }
 
   const totalCounts = { customer: customers.length }
   const statPills = [
@@ -1110,9 +1222,10 @@ export default function Promotor_Hierarchy_grid() {
         <div style={{ background: '#FFFFFF', border: '1.5px solid rgba(12,64,68,0.18)', borderRadius: '20px', padding: '24px 28px', minHeight: '70vh', boxShadow: '0 18px 42px rgba(7,59,63,0.08)' }}>
 
           {loading && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 0', gap: '16px' }}>
-              <div style={{ width: 32, height: 32, border: '3px solid rgba(12,64,68,0.2)', borderTop: '3px solid #0C4044', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-              <span style={{ color: subtext, fontSize: '14px', fontWeight: 500 }}>Hold on, pulling up team hierarchy...</span>
+            <div style={{ display: 'flex', gap: '14px', overflowX: 'auto', paddingBottom: '10px' }}>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <SkeletonCard key={i} color={ROLE_CFG.promotor.color} />
+              ))}
             </div>
           )}
 
@@ -1131,6 +1244,7 @@ export default function Promotor_Hierarchy_grid() {
                     node={item.node}
                     role={item.role}
                     active={true}
+                    onClick={() => jumpToSearchResult(item)}
                     ancestors={item.ancestors}
                     text={text} subtext={subtext}
                     onMessage={openMessagePopup}
@@ -1159,19 +1273,26 @@ export default function Promotor_Hierarchy_grid() {
                 <IconChevronDown color={subtext} />
               </div>
 
-              {/* ── Customers ── */}
-              <LaneRow
-                role="customer"
-                items={customers}
-                ancestors={customerAncestors}
-                text={text}
-                subtext={subtext}
-                emptyText="No customers under you yet."
-                onMessage={openMessagePopup}
-                onPrint={openPrintChoiceModal}
-                activeStatusFilter={statusFilter}
-                onToggleStatusFilter={handleToggleStatusFilter}
-              />
+              {/* ── Customers & Referred Customers Lanes ── */}
+              {customerLanes.map(lane => (
+                <LaneRow
+                  key={`customer-depth-${lane.depth}`}
+                  role="customer"
+                  levelNum={lane.levelNum}
+                  items={lane.items}
+                  activeId={lane.activeId}
+                  onSelect={(cust) => selectCustomerAtDepth(cust, lane.depth)}
+                  ancestors={lane.ancestors}
+                  text={text}
+                  subtext={subtext}
+                  emptyText={lane.emptyText}
+                  onMessage={openMessagePopup}
+                  onPrint={openPrintChoiceModal}
+                  activeStatusFilter={statusFilter}
+                  onToggleStatusFilter={handleToggleStatusFilter}
+                  isLoading={lane.isLoading}
+                />
+              ))}
             </>
           )}
         </div>

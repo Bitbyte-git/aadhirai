@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
+import { SkeletonCard } from '../components/Skeleton'
+import '../components/skeleton.css'
 
 // ══════════════════════════════════════════════════════════════════
 // ICONS
@@ -85,8 +87,8 @@ const ROLE_CFG = {
   promotor: { color: '#CA8A04', Icon: IconStar, label: 'RETAILER', idKey: 'promotor_id' },
   customer: { color: '#DB2777', Icon: IconUser, label: 'CUSTOMER', idKey: 'customer_id' },
 }
-const CHILD_ROLE = { sub_dealer: 'promotor', promotor: 'customer' }
-const CHILD_KEY = { sub_dealer: 'promotors', promotor: 'customers' }
+const CHILD_ROLE = { sub_dealer: 'promotor', promotor: 'customer', customer: 'customer' }
+const CHILD_KEY = { sub_dealer: 'promotors', promotor: 'customers', customer: 'customers' }
 const LEVEL_NUM = { sub_dealer: 1, promotor: 2, customer: 3 }
 const STATUS_COLOR = { red: '#ef4444', orange: '#f97316', yellow: '#eab308', green: '#22c55e' }
 
@@ -667,7 +669,7 @@ function LaneCard({ node, role, active, onClick, ancestors, dark, text, subtext,
         </div>
       )}
 
-      {childCount !== null && (
+      {childCount !== null && (role !== 'customer' || childCount > 0) && (
         <div className="gcard-count" style={{ background: c }}>
           {childCount} {childRole.replace('_', ' ')}
         </div>
@@ -679,17 +681,21 @@ function LaneCard({ node, role, active, onClick, ancestors, dark, text, subtext,
 // ══════════════════════════════════════════════════════════════════
 // LANE ROW
 // ══════════════════════════════════════════════════════════════════
-function LaneRow({ role, items, activeId, onSelect, ancestors, dark, text, subtext, emptyText, onMessage, onPrint, activeStatusFilter, onToggleStatusFilter }) {
+function LaneRow({ role, items, activeId, onSelect, ancestors, dark, text, subtext, emptyText, onMessage, onPrint, activeStatusFilter, onToggleStatusFilter, levelNum = LEVEL_NUM[role], isLoading = false }) {
   const cfg = ROLE_CFG[role]
   return (
     <div className="glane">
       <div className="glane-label" style={{ '--nc': cfg.color }}>
-        <span className="glane-level">LEVEL {LEVEL_NUM[role]}</span>
+        <span className="glane-level">LEVEL {levelNum}</span>
         <span className="glane-role" style={{ color: cfg.color }}>{cfg.label}</span>
-        <span className="glane-total" style={{ color: subtext }}>{items.length}</span>
+        <span className="glane-total" style={{ color: subtext }}>{isLoading ? '...' : items.length}</span>
       </div>
       <div className="glane-track" style={{ '--nc': cfg.color, scrollbarColor: `${cfg.color} rgba(231,237,236,0.62)` }}>
-        {items.length === 0 ? (
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, idx) => (
+            <SkeletonCard key={idx} color={cfg.color} />
+          ))
+        ) : items.length === 0 ? (
           <div className="glane-empty-pro" style={{ '--nc': cfg.color }}>
             <span style={{ color: subtext }}>{emptyText}</span>
           </div>
@@ -834,10 +840,84 @@ export default function Subdealer_Hierarchy_grid() {
     return customers
   }, [customers, activeStatusFilter, currentPromotor])
 
+  const [customerChain, setCustomerChain] = useState([])
+  const [customerCache, setCustomerCache] = useState({})
+  const [customerLoadingDepth, setCustomerLoadingDepth] = useState(null)
+
   const promotorAncestors = root ? [{ node: root, role: 'sub_dealer' }] : []
   const customerAncestors = currentPromotor ? [...promotorAncestors, { node: currentPromotor, role: 'promotor' }] : promotorAncestors
 
-  const selectPromotor = (node) => { setSelPromotor(node.id); setActiveStatusFilter(null) }
+  const selectPromotor = (node) => {
+    setSelPromotor(node.id)
+    setActiveStatusFilter(null)
+    setCustomerChain([])
+  }
+
+  const selectCustomerAtDepth = async (node, depth) => {
+    setActiveStatusFilter(null)
+    const nextChain = customerChain.slice(0, depth)
+    if (customerChain[depth]?.id === node.id) {
+      setCustomerChain(nextChain)
+      return
+    }
+    nextChain.push(node)
+    setCustomerChain(nextChain)
+
+    const rawKids = node.customers || []
+    if (rawKids.length === 0 && !customerCache[node.id]) {
+      setCustomerLoadingDepth(depth)
+      try {
+        const res = await api.get(`/hierarchy-subtree-orders/?role=customer&id=${node.id}`)
+        if (res.data?.customers) {
+          setCustomerCache(prev => ({ ...prev, [node.id]: res.data.customers }))
+        }
+      } catch (err) {
+        console.error('Failed to fetch customer subtree', err)
+      } finally {
+        setCustomerLoadingDepth(null)
+      }
+    }
+  }
+
+  const customerLanes = useMemo(() => {
+    if (!currentPromotor) return []
+    const lanes = []
+    const rootCustomers = currentPromotor.customers || []
+    const filteredL0 = (activeStatusFilter && activeStatusFilter.role === 'promotor' && activeStatusFilter.nodeId === currentPromotor.id)
+      ? rootCustomers.filter(c => c.status === activeStatusFilter.status)
+      : rootCustomers
+
+    lanes.push({
+      depth: 0,
+      parent: currentPromotor,
+      role: 'customer',
+      levelNum: 2,
+      items: filteredL0,
+      activeId: customerChain[0]?.id || null,
+      ancestors: customerAncestors,
+      emptyText: `No customers match this filter under ${currentPromotor.first_name}.`,
+      isLoading: false
+    })
+
+    customerChain.forEach((parentCust, idx) => {
+      const cached = customerCache[parentCust.id]
+      const kids = cached || parentCust.customers || []
+      const ancestorsSoFar = [...customerAncestors, ...customerChain.slice(0, idx + 1).map(c => ({ node: c, role: 'customer' }))]
+      lanes.push({
+        depth: idx + 1,
+        parent: parentCust,
+        role: 'customer',
+        levelNum: 2 + idx + 1,
+        items: kids,
+        activeId: customerChain[idx + 1]?.id || null,
+        ancestors: ancestorsSoFar,
+        emptyText: `No referred customers under ${parentCust.first_name}.`,
+        isLoading: customerLoadingDepth === idx
+      })
+    })
+
+    return lanes
+  }, [currentPromotor, activeStatusFilter, customerAncestors, customerChain, customerCache, customerLoadingDepth])
 
   const selectFns = { sub_dealer: () => {}, promotor: selectPromotor }
   const currentSelIds = { sub_dealer: root?.id, promotor: selPromotor }
@@ -858,10 +938,22 @@ export default function Subdealer_Hierarchy_grid() {
       const phoneVal = (node.mobile_number || '').toString().toLowerCase()
       return idVal.includes(q) || nameVal.includes(q) || phoneVal.includes(q)
     }
+
+    const collectCustomerResults = (customerNode, ancestorsSoFar) => {
+      if (checkMatch(customerNode, 'customer_id')) {
+        result.push({ node: customerNode, role: 'customer', ancestors: ancestorsSoFar })
+      }
+      const kids = customerCache[customerNode.id] || customerNode.customers || []
+      kids.forEach(kid => {
+        collectCustomerResults(kid, [...ancestorsSoFar, { node: customerNode, role: 'customer' }])
+      })
+    }
+
     ;(root.promotors || []).forEach(pr => {
-      if (checkMatch(pr, 'promotor_id')) result.push({ node: pr, role: 'promotor', ancestors: [{ node: root, role: 'sub_dealer' }] })
+      const prAncestors = [{ node: root, role: 'sub_dealer' }]
+      if (checkMatch(pr, 'promotor_id')) result.push({ node: pr, role: 'promotor', ancestors: prAncestors })
       ;(pr.customers || []).forEach(cus => {
-        if (checkMatch(cus, 'customer_id')) result.push({ node: cus, role: 'customer', ancestors: [{ node: root, role: 'sub_dealer' }, { node: pr, role: 'promotor' }] })
+        collectCustomerResults(cus, [...prAncestors, { node: pr, role: 'promotor' }])
       })
     })
     return result
@@ -870,13 +962,24 @@ export default function Subdealer_Hierarchy_grid() {
   const searchResults = useMemo(() => {
     if (!debouncedSearch) return []
     return searchOwnHierarchy(debouncedSearch)
-  }, [debouncedSearch, root])
+  }, [debouncedSearch, root, customerCache])
 
   const jumpToSearchResult = (item) => {
     const map = {}
-    item.ancestors.forEach(a => { if (a.role !== 'sub_dealer') map[a.role] = a.node.id })
-    map[item.role] = item.node.id
+    const custPath = []
+    item.ancestors.forEach(a => {
+      if (a.role === 'customer') custPath.push(a.node)
+      else map[a.role] = a.node.id
+    })
+    if (item.role === 'customer') {
+      custPath.push(item.node)
+    }
     setSelPromotor(map.promotor ?? null)
+    if (custPath.length > 0) {
+      setCustomerChain(custPath)
+    } else {
+      setCustomerChain([])
+    }
     setActiveStatusFilter(null)
     setSearch('')
   }
@@ -1033,9 +1136,10 @@ export default function Subdealer_Hierarchy_grid() {
         {/* ── CANVAS CONTAINER ── */}
         <div style={{ background: '#FFFFFF', border: '1.5px solid rgba(12,64,68,0.18)', borderRadius: '20px', padding: '24px 28px', minHeight: '70vh', boxShadow: '0 18px 42px rgba(7,59,63,0.08)' }}>
           {loading && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 0', gap: '16px' }}>
-              <div style={{ width: 32, height: 32, border: '3px solid rgba(220,38,38,0.2)', borderTop: '3px solid #DC2626', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-              <span style={{ color: subtext, fontSize: '14px' }}>Loading sub dealer hierarchy...</span>
+            <div style={{ display: 'flex', gap: '14px', overflowX: 'auto', paddingBottom: '10px' }}>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <SkeletonCard key={i} color={ROLE_CFG.sub_dealer.color} />
+              ))}
             </div>
           )}
 
@@ -1086,12 +1190,26 @@ export default function Subdealer_Hierarchy_grid() {
                 emptyText="No retailers under you yet." onMessage={openMessagePopup} onPrint={openPrintPopup}
                 activeStatusFilter={activeStatusFilter} onToggleStatusFilter={toggleStatusFilter} />
 
-              {currentPromotor && (
-                <LaneRow role="customer" items={filteredCustomers} activeId={null} onSelect={() => {}}
-                  ancestors={customerAncestors} dark={dark} text={text} subtext={subtext}
-                  emptyText={`No customers match this filter under ${currentPromotor.first_name}.`} onMessage={openMessagePopup} onPrint={openPrintPopup}
-                  activeStatusFilter={activeStatusFilter} onToggleStatusFilter={toggleStatusFilter} />
-              )}
+              {customerLanes.map(lane => (
+                <LaneRow
+                  key={`customer-depth-${lane.depth}`}
+                  role="customer"
+                  levelNum={lane.levelNum}
+                  items={lane.items}
+                  activeId={lane.activeId}
+                  onSelect={(cust) => selectCustomerAtDepth(cust, lane.depth)}
+                  ancestors={lane.ancestors}
+                  dark={dark}
+                  text={text}
+                  subtext={subtext}
+                  emptyText={lane.emptyText}
+                  onMessage={openMessagePopup}
+                  onPrint={openPrintPopup}
+                  activeStatusFilter={activeStatusFilter}
+                  onToggleStatusFilter={toggleStatusFilter}
+                  isLoading={lane.isLoading}
+                />
+              ))}
             </>
           )}
         </div>

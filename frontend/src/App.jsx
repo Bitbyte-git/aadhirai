@@ -61,6 +61,8 @@ const ResidualCommission = lazy(() => import('./payments/ResidualCommission'))
 const MyCommission = lazy(() => import('./payments/MyCommission'))
 const InternalMyCommission = lazy(() => import('./payments/InternalMyCommission'))
 const TeamCommission = lazy(() => import('./payments/TeamCommission'))
+const InternalMyLoginRewards = lazy(() => import('./LoginRewardManagement/InternalMyLoginRewards'))
+const InternalTeamLoginRewards = lazy(() => import('./LoginRewardManagement/InternalTeamLoginRewards'))
 const Commissions = lazy(() => import('./payments/Commissions'))
 const SuperAdminSendCoins = lazy(() => import('./payments/SuperAdminSendCoins'))
 const SuperStockist = lazy(() => import('./Superadmin/Manage_Users/Super_Stockist'))
@@ -186,18 +188,10 @@ function WithInternalRoleNavbar({ children }) {
         roleTitle={cfg.title}
         homePath={cfg.home}
         managementItems={[{ label: 'Dashboard', path: cfg.home }, { label: cfg.hierarchyLabel, path: cfg.hierarchy }, { label: cfg.createLabel, path: cfg.home }]}
-        celebrationItems={[{ label: "Today's Birthdays", path: cfg.home }, { label: "Today's Anniversaries", path: cfg.home }, { label: 'Work Anniversaries', path: cfg.home }]}
-        announcementItems={[{ label: 'Announcements', path: cfg.home }]}
         coinItems={[{ label: 'Buy Coin', path: '/buy-coin' }, { label: 'Available Coins', path: '/available-coins' }, { label: role === 'promotor' ? 'My Requests' : 'Coin Requests', path: '/coin-requests-page' }, { label: 'Coin Transactions', path: '/coin-transactions' }]}
-        jewelleryItems={[
-          { label: role === 'super_admin' ? 'Add Jewellery' : 'Buy Jewellery', path: '/add-jewellery' },
-          { label: 'Available Jewellery', path: '/available-jewellery' },
-          { label: role === 'promotor' ? 'My Requests' : 'Jewellery Requests', path: '/jewellery-requests' },
-          { label: role === 'super_admin' ? 'Jewellery Transactions' : 'My Transactions', path: '/jewellery-transactions' },
-        ]}
-        reportItems={[{ label: 'Hierarchy Report', path: cfg.hierarchy }, { label: 'Sales Report', path: '/sales-report' }, { label: 'Login Active', path: '/login-active' }, { label: 'Login Inactive', path: '/login-inactive' }]}
+        reportItems={[{ label: 'Hierarchy Report', path: cfg.hierarchy }, { label: 'Sales Report', path: '/sales-report' }, { label: 'Login Active', path: '/login-active' }, { label: 'Login Inactive', path: '/login-inactive' }, { label: 'My Login Rewards', path: '/internal-my-login-rewards' }, { label: 'Team Login Rewards', path: '/internal-team-login-rewards' }]}
         commissionItems={[{ label: 'My Commission', path: '/internal-my-commission' }, { label: 'Team Commission', path: '/internal-team-commission' }]}
-        actionItems={[{ label: 'Dashboard', icon: 'user', path: cfg.home }, { label: 'Logout', icon: 'logout', variant: 'danger', action: () => { localStorage.clear(); window.location.href = '/login' } }]}
+        actionItems={[{ label: 'Profile', icon: 'user', path: cfg.home }, { label: 'Announcements', icon: 'bell', path: cfg.home }, { label: 'Logout', icon: 'logout', variant: 'danger', action: () => { localStorage.clear(); window.location.href = '/login' } }]}
       />
       {children}
     </>
@@ -382,6 +376,8 @@ export default function App() {
           <Route path="/my-commission" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><MyCommission /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/internal-my-commission" element={<ProtectedRoute role={["admin", "dealer", "sub_dealer", "promotor"]}><WithInternalRoleNavbar><InternalMyCommission /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/internal-team-commission" element={<ProtectedRoute role={["admin", "dealer", "sub_dealer", "promotor"]}><WithInternalRoleNavbar><TeamCommission /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/internal-my-login-rewards" element={<ProtectedRoute role={["admin", "dealer", "sub_dealer", "promotor"]}><WithInternalRoleNavbar><InternalMyLoginRewards /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/internal-team-login-rewards" element={<ProtectedRoute role={["admin", "dealer", "sub_dealer", "promotor"]}><WithInternalRoleNavbar><InternalTeamLoginRewards /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/commissions" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><Commissions /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/superadmin-send-coins" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><SuperAdminSendCoins /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/superadmin-autopay-list" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><SuperAdminAutopayList /></WithSuperAdminNavbar></ProtectedRoute>} />

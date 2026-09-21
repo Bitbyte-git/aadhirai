@@ -37,7 +37,38 @@ export function SkeletonRow() {
 }
 
 // ── Simple text line skeleton — any small loading spot ku ──
-export function SkeletonText({ width = '100%', height = '12px' }) {
-  return <div className="skel-line" style={{ width, height }} />
-}   
+export function SkeletonText({ width = '100%', height = '12px', style = {} }) {
+  return <div className="skel-line" style={{ width, height, ...style }} />
+}
+
+// ── Generic Box Skeleton (cards, containers) ──
+export function SkeletonBox({ width = '100%', height = '180px', borderRadius = '16px', style = {} }) {
+  return (
+    <div
+      className="skel-line"
+      style={{
+        width,
+        height,
+        borderRadius,
+        margin: 0,
+        boxSizing: 'border-box',
+        ...style,
+      }}
+    />
+  )
+}
+
+// ── Chart Loading Skeleton ──
+export function SkeletonChart({ height = '200px' }) {
+  return (
+    <div style={{ width: '100%', height, display: 'flex', alignItems: 'flex-end', gap: '12px', padding: '14px 20px', boxSizing: 'border-box' }}>
+      {[40, 65, 30, 85, 55, 90, 70, 45, 80].map((h, i) => (
+        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+          <div className="skel-line" style={{ width: '100%', maxWidth: '32px', height: `${h}%`, borderRadius: '6px 6px 0 0', margin: 0 }} />
+          <div className="skel-line" style={{ width: '60%', height: '8px', marginTop: '8px', marginBottom: 0 }} />
+        </div>
+      ))}
+    </div>
+  )
+}
 

@@ -43,10 +43,10 @@ const ROLE_ICONS = {
 
 const ROLE_CFG = {
   super_admin: { label: 'Super Admin', color: '#0E5A57' },
-  admin: { label: 'Admin', color: '#0E5A57' },
-  dealer: { label: 'Dealer', color: '#2C4D4B' },
-  sub_dealer: { label: 'Sub Dealer', color: '#C99A3A' },
-  promotor: { label: 'Promotor', color: '#7BA7A3' },
+  admin: { label: 'Super Stockist', color: '#0E5A57' },
+  dealer: { label: 'Distributor', color: '#2C4D4B' },
+  sub_dealer: { label: 'Wholesale Dealer', color: '#C99A3A' },
+  promotor: { label: 'Retailer', color: '#7BA7A3' },
 }
 
 // â”€â”€ NEW: same status colors as the hierarchy grid â€” customer order_count base
@@ -55,10 +55,10 @@ const STATUS_COLOR = { red: '#B86F74', orange: '#C99A3A', yellow: '#D6B45F', gre
 
 // â”€â”€ Column labels shown in the breakdown table, based on root type â”€â”€
 const COLUMN_MAP = {
-  super_admin_view: ['Admin', 'Dealer', 'Sub Dealer', 'Promotor', 'Customer'],
-  admin: ['Dealer', 'Sub Dealer', 'Promotor', 'Customer'],
-  dealer: ['Sub Dealer', 'Promotor', 'Customer'],
-  sub_dealer: ['Promotor', 'Customer'],
+  super_admin_view: ['Super Stockist', 'Distributor', 'Wholesale Dealer', 'Retailer', 'Customer'],
+  admin: ['Distributor', 'Wholesale Dealer', 'Retailer', 'Customer'],
+  dealer: ['Wholesale Dealer', 'Retailer', 'Customer'],
+  sub_dealer: ['Retailer', 'Customer'],
   promotor: ['Customer'],
 }
 
@@ -72,10 +72,10 @@ const DRILL_LEVELS = {
 
 const LEVEL_LABELS = {
   own: 'My full network',
-  admin: 'Admin',
-  dealer: 'Dealer',
-  sub_dealer: 'Sub Dealer',
-  promotor: 'Promotor',
+  admin: 'Super Stockist',
+  dealer: 'Distributor',
+  sub_dealer: 'Wholesale Dealer',
+  promotor: 'Retailer',
   customer: 'Customer',
 }
 
@@ -1026,8 +1026,8 @@ export default function Report() {
           .report-lane-card{min-width:148px!important;max-width:170px!important;padding:11px 13px!important}
           .report-lane-card div[style*="font-size: 13px"]{font-size:12px!important}
         }
-        .report-topbar{ position: relative !important; z-index: 100 !important; }
-        .sr-actions-wrap{ position: relative !important; z-index: 100 !important; }
+        .report-topbar{ position: relative !important; z-index: 5 !important; }
+        .sr-actions-wrap{ position: relative !important; z-index: 5 !important; }
         .print-container{ position: relative !important; z-index: 1 !important; }
         .sr-lane-arrow{
           width:26px;height:26px;border-radius:50%;
@@ -1039,7 +1039,7 @@ export default function Report() {
         .sr-lane-arrow:hover,.sr-lane-arrow:active{background:var(--nc);color:#FFFFFF;}
       `}</style>
       {/* Page toolbar — plain content, not a sticky navbar bar */}
-      <div className="no-print report-topbar sr-topbar" style={{ padding: '24px 40px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', maxWidth: '1500px', margin: '0 auto', position: 'relative', zIndex: 100 }}>
+      <div className="no-print report-topbar sr-topbar" style={{ padding: '24px 40px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', maxWidth: '1500px', margin: '0 auto', position: 'relative', zIndex: 5 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button
             onClick={() => { setGridSelectedNode(null); setSelectedLevel('own'); setSelectedNodeId('') }}
@@ -1055,7 +1055,7 @@ export default function Report() {
         </div>
 
         {/* Export buttons */}
-        <div className="sr-actions-wrap" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', position: 'relative', zIndex: 100 }}>
+        <div className="sr-actions-wrap" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', position: 'relative', zIndex: 5 }}>
 
           <button onClick={handleExportExcel}
             style={{ background: 'linear-gradient(145deg,rgba(14,90,87,0.12),rgba(230,241,239,0.74))', border: '1px solid rgba(14,90,87,0.28)', color: '#0E5A57', borderRadius: '10px', padding: '8px 16px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>

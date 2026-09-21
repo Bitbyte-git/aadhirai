@@ -387,7 +387,7 @@ export default function SuperAdminNavbar({
     ['Wholesale Dealers', () => navigate('/superadmin/manage-users/wholesale-dealer')],
     ['Retailers', () => navigate('/superadmin/manage-users/retailer')],
     ['Customers', () => navigate('/superadmin/manage-users/customer')],
-    ['Create Admin', () => navigate('/create-admin')],
+    ['Create Super Stockist', () => navigate('/create-super-stockist')],
     ['General Customer', () => navigate('/general-customers')],
     ['Referral Customer', () => navigate('/referral-customers')],
     ['Create Customer', () => navigate('/create-customer')],

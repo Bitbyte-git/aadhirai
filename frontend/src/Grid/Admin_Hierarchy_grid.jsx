@@ -92,10 +92,10 @@ const IconMessage = ({ color, size = 13 }) => (
 // ROLE CONFIG — Identical to Superadmin Hierarchy Theme
 // ══════════════════════════════════════════════════════════════════
 const ROLE_CFG = {
-  admin: { color: '#16A34A', Icon: IconShield, label: 'ADMIN', idKey: 'admin_id' },
-  dealer: { color: '#0284C7', Icon: IconStore, label: 'DEALER', idKey: 'dealer_id' },
-  sub_dealer: { color: '#DC2626', Icon: IconLink, label: 'SUB DEALER', idKey: 'sub_dealer_id' },
-  promotor: { color: '#CA8A04', Icon: IconStar, label: 'PROMOTOR', idKey: 'promotor_id' },
+  admin: { color: '#16A34A', Icon: IconShield, label: 'SUPER STOCKIST', idKey: 'admin_id' },
+  dealer: { color: '#0284C7', Icon: IconStore, label: 'DISTRIBUTOR', idKey: 'dealer_id' },
+  sub_dealer: { color: '#DC2626', Icon: IconLink, label: 'WHOLESALE DEALER', idKey: 'sub_dealer_id' },
+  promotor: { color: '#CA8A04', Icon: IconStar, label: 'RETAILER', idKey: 'promotor_id' },
   customer: { color: '#DB2777', Icon: IconUser, label: 'CUSTOMER', idKey: 'customer_id' },
 }
 const CHILD_ROLE = { admin: 'dealer', dealer: 'sub_dealer', sub_dealer: 'promotor', promotor: 'customer' }
@@ -938,9 +938,9 @@ export default function Admin_Hierarchy_grid() {
 
   const totalCounts = root ? countDescendants(root, 'admin') : {}
   const statPills = [
-    { label: 'Dealers', roleKey: 'dealer', count: totalCounts.dealer || 0 },
-    { label: 'Sub Dealers', roleKey: 'sub_dealer', count: totalCounts.sub_dealer || 0 },
-    { label: 'Promotors', roleKey: 'promotor', count: totalCounts.promotor || 0 },
+    { label: 'Distributors', roleKey: 'dealer', count: totalCounts.dealer || 0 },
+    { label: 'Wholesale Dealers', roleKey: 'sub_dealer', count: totalCounts.sub_dealer || 0 },
+    { label: 'Retailers', roleKey: 'promotor', count: totalCounts.promotor || 0 },
     { label: 'Customers', roleKey: 'customer', count: totalCounts.customer || 0 },
   ]
 
@@ -1040,14 +1040,14 @@ export default function Admin_Hierarchy_grid() {
                 <IconSwitchView color="#0C4044" />
               </button>
               <span style={{ color: '#0C4044', fontSize: '16px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Admin Hierarchy Grid
+                Distributor Hierarchy Grid
               </span>
             </div>
             {root && (
               <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: `${ROLE_CFG.admin.color}22`, border: `1px solid ${ROLE_CFG.admin.color}55`, borderRadius: '20px', padding: '4px 14px' }}>
                   <span style={{ color: ROLE_CFG.admin.color, fontWeight: 800, fontSize: '13px' }}>1</span>
-                  <span style={{ color: subtext, fontSize: '12px', fontWeight: 650 }}>Admin</span>
+                  <span style={{ color: subtext, fontSize: '12px', fontWeight: 650 }}>Super Stockist</span>
                 </div>
                 {statPills.map(s => {
                   const color = ROLE_CFG[s.roleKey].color
@@ -1127,7 +1127,7 @@ export default function Admin_Hierarchy_grid() {
                 <IconShield color={ROLE_CFG.admin.color} size={18} />
                 <div>
                   <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.4, color: ROLE_CFG.admin.color }}>
-                    LEVEL 1 · ADMIN
+                    LEVEL 1 · SUPER STOCKIST
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: text, marginTop: 2 }}>
                     {root.first_name} {root.last_name || ''} ({root.admin_id})
@@ -1140,20 +1140,20 @@ export default function Admin_Hierarchy_grid() {
 
               <LaneRow role="dealer" items={filteredDealers} activeId={currentDealer?.id} onSelect={selectDealer}
                 ancestors={dealerAncestors} dark={dark} text={text} subtext={subtext}
-                emptyText="No dealers under you yet." onMessage={openMessagePopup} onPrint={openPrintPopup}
+                emptyText="No distributors under you yet." onMessage={openMessagePopup} onPrint={openPrintPopup}
                 activeStatusFilter={activeStatusFilter} onToggleStatusFilter={toggleStatusFilter} />
 
               {currentDealer && (
                 <LaneRow role="sub_dealer" items={filteredSubDealers} activeId={currentSubDealer?.id} onSelect={selectSubDealer}
                   ancestors={subDealerAncestors} dark={dark} text={text} subtext={subtext}
-                  emptyText={`No sub dealers match this filter under ${currentDealer.first_name}.`} onMessage={openMessagePopup} onPrint={openPrintPopup}
+                  emptyText={`No wholesale dealers match this filter under ${currentDealer.first_name}.`} onMessage={openMessagePopup} onPrint={openPrintPopup}
                   activeStatusFilter={activeStatusFilter} onToggleStatusFilter={toggleStatusFilter} />
               )}
 
               {currentSubDealer && (
                 <LaneRow role="promotor" items={filteredPromotors} activeId={currentPromotor?.id} onSelect={selectPromotor}
                   ancestors={promotorAncestors} dark={dark} text={text} subtext={subtext}
-                  emptyText={`No promotors match this filter under ${currentSubDealer.first_name}.`} onMessage={openMessagePopup} onPrint={openPrintPopup}
+                  emptyText={`No retailers match this filter under ${currentSubDealer.first_name}.`} onMessage={openMessagePopup} onPrint={openPrintPopup}
                   activeStatusFilter={activeStatusFilter} onToggleStatusFilter={toggleStatusFilter} />
               )}
 

@@ -320,8 +320,8 @@ function showPRChainPopup(anchorEl, customer, dark, text, subtext, superAdminEma
 
   const CHAIN_CFG = {
     super_admin: { emoji: '🛡️', label: 'SUPER ADMIN', color: '#CCA881', idKey: null },
-    sub_dealer:  { emoji: '🔗', label: 'SUB DEALER',  color: '#BB8958', idKey: 'sub_dealer_id' },
-    promotor:    { emoji: '🌟', label: 'PROMOTOR',    color: '#CCA881', idKey: 'promotor_id' },
+    sub_dealer:  { emoji: '🔗', label: 'WHOLESALE DEALER',  color: '#BB8958', idKey: 'sub_dealer_id' },
+    promotor:    { emoji: '🌟', label: 'RETAILER',    color: '#CCA881', idKey: 'promotor_id' },
     customer:    { emoji: '👤', label: 'CUSTOMER',    color: '#C92035', idKey: 'customer_id' },
   }
 
@@ -518,10 +518,10 @@ function printCustomerCard(node, color, superAdminEmail, promotorInfo) {
   const chain = [
     { type:'super_admin', label:'SUPER ADMIN', emoji:'🛡️', data:{ email: superAdminEmail } },
     ...(promotorInfo?.sub_dealer_id ? [{
-      type:'sub_dealer', label:'SUB DEALER', emoji:'🔗',
+      type:'sub_dealer', label:'WHOLESALE DEALER', emoji:'🔗',
       data:{ sub_dealer_id: promotorInfo.sub_dealer_id, first_name: promotorInfo.sub_dealer_name, mobile_number: promotorInfo.sub_dealer_contact_no }
     }] : []),
-    { type:'promotor', label:'PROMOTOR', emoji:'🌟', data: promotorInfo || {} },
+    { type:'promotor', label:'RETAILER', emoji:'🌟', data: promotorInfo || {} },
     { type:'customer', label:'CUSTOMER', emoji:'👤', data: node },
   ]
 
@@ -737,9 +737,9 @@ const PROFILE_FIELDS = [
   ['occupation', 'Type'],
   ['occupation_detail', 'Detail'],
   ['annual_salary', 'Annual Salary'],
-  ['promotor_id', 'Promotor ID'],
-  ['sub_dealer_id', 'Sub Dealer ID'],
-  ['sub_dealer_name', 'Sub Dealer Name'],
+  ['promotor_id', 'Retailer ID'],
+  ['sub_dealer_id', 'Wholesale Dealer ID'],
+  ['sub_dealer_name', 'Wholesale Dealer Name'],
   ['sub_dealer_contact_no', 'Contact No'],
 ]
 
@@ -1119,7 +1119,7 @@ const handleSubmit = async e => {
       />
       <PromotorQuickStats />
       <PromotorDashboardFrame
-        roleName="Promoter"
+        roleName="Retailer"
         focusLabel="Customers"
         focusCount={customers.length}
         roleDistribution={[
@@ -1342,7 +1342,7 @@ const handleSubmit = async e => {
               </div>
               <div className="profile-grid-2">
                 {[
-                  { label:'Promotor ID', value:promotorInfo.promotor_id, mono:true, color:'#C92035' },
+                  { label:'Retailer ID', value:promotorInfo.promotor_id, mono:true, color:'#C92035' },
                   { label:'Initial',     value:promotorInfo.initial },
                   { label:'First Name',  value:promotorInfo.first_name },
                   { label:'Last Name',   value:promotorInfo.last_name },
@@ -1425,16 +1425,16 @@ const handleSubmit = async e => {
               </div>
             </div>
 
-            {/* Sub Dealer Info */}
+            {/* Wholesale Dealer Info */}
             <div style={{ background: dark ? 'rgba(201,32,53,0.06)' : 'rgba(201,32,53,0.04)', border:'1.5px solid rgba(201,32,53,0.35)', borderRadius:'16px', padding:'18px 20px' }}>
               <div style={{ color:'#C92035', fontSize:'10px', fontWeight:800, letterSpacing:'1.5px', marginBottom:'14px', display:'flex', alignItems:'center', gap:'8px' }}>
                 <span style={{ width:6, height:6, borderRadius:'50%', background:'#C92035', display:'inline-block', boxShadow:'0 0 6px #C92035' }} />
-                SUB DEALER INFO
+                WHOLESALE DEALER INFO
               </div>
               <div className="profile-grid-2">
                 {[
-                  { label:'Sub Dealer ID',      value:promotorInfo.sub_dealer_id,      mono:true, color:'#C92035' },
-                  { label:'Sub Dealer Name',     value:promotorInfo.sub_dealer_name },
+                  { label:'Wholesale Dealer ID',      value:promotorInfo.sub_dealer_id,      mono:true, color:'#C92035' },
+                  { label:'Wholesale Dealer Name',     value:promotorInfo.sub_dealer_name },
                   { label:'Contact No',          value:promotorInfo.sub_dealer_contact_no },
                   { label:'Member Since',        value:promotorInfo.created_at ? new Date(promotorInfo.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'}) : '—' },
                 ].map(f => (
@@ -1778,189 +1778,6 @@ const handleSubmit = async e => {
 
        
 
-               {/* ── CREATE FORM ── */}
-{showForm && (
-  <div style={card}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-      <p style={secHead('#F3E8DE')}>Create New Customer</p>
-      <CopyUrlButton />
-    </div>
-    <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:'20px' }}>
-
-      <div style={sectionCard}>
-        <SectionHeader icon="user" label="Personal Info" />
-        <div className="form-grid-3">
-          <div><label style={lbl}>Initial</label>
-            <input name="initial" value={form.initial} onChange={handleChange} maxLength={5} className="pr-inp" style={inp}/>
-          </div>
-          <div><label style={lbl}>First Name *</label>
-            <input name="first_name" value={form.first_name} onChange={handleChange} required maxLength={100} className="pr-inp" style={inp}/>
-          </div>
-          <div><label style={lbl}>Last Name *</label>
-            <input name="last_name" value={form.last_name} onChange={handleChange} required maxLength={100} className="pr-inp" style={inp}/>
-          </div>
-          <div><label style={lbl}>Mobile *</label>
-            <input name="mobile_number" maxLength={10} value={form.mobile_number} onChange={handleChange} required className="pr-inp" style={inp}/>
-          </div>
-          <div>
-            <label style={lbl}>Gender *</label>
-            <select name="gender" value={form.gender} onChange={handleChange} required className="pr-inp" style={selectInput}>
-              <option value="male"   style={{ background: optionBg, color: text }}>Male</option>
-              <option value="female" style={{ background: optionBg, color: text }}>Female</option>
-              <option value="transgender" style={{ background: optionBg, color: text }}>Transgender</option>
-            </select>
-          </div>
-          <div>
-            <label style={lbl}>DOB</label>
-            <input type="date" name="dob" value={form.dob} onChange={handleChange} className="pr-inp" style={inp}/>
-          </div>
-          <div>
-            <label style={lbl}>Married Status</label>
-            <select name="married_status" value={form.married_status} onChange={handleChange} className="pr-inp" style={selectInput}>
-              <option value="single"  style={{ background: optionBg, color: text }}>Single</option>
-              <option value="married" style={{ background: optionBg, color: text }}>Married</option>
-              <option value="divorced" style={{ background: optionBg, color: text }}>Divorced</option>
-            </select>
-          </div>
-          {form.married_status === 'married' && (
-            <div>
-              <label style={lbl}>Anniversary Date</label>
-              <input type="date" name="anniversary_date" value={form.anniversary_date} onChange={handleChange} className="pr-inp" style={inp}/>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div style={sectionCard}>
-        <SectionHeader icon="lock" label="Account Info" />
-        <div className="form-grid-3">
-          <div><label style={lbl}>Email *</label>
-            <input type="email" name="email" value={form.email} onChange={handleChange} required className="pr-inp" style={inp}/>
-          </div>
-          <div>
-            <label style={lbl}>Password *</label>
-            <input type="password" name="password" value={form.password} onChange={handleChange} required className="pr-inp" style={inp}/>
-            {form.password && (
-              <div style={{ marginTop: '6px' }}>
-                <div style={{ height: '4px', borderRadius: '4px', background: 'rgba(201,32,53,0.15)', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: getPasswordStrength(form.password).width, background: getPasswordStrength(form.password).color, transition: 'all 0.3s ease' }} />
-                </div>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: getPasswordStrength(form.password).color, marginTop: '4px' }}>
-                  {getPasswordStrength(form.password).label}
-                </div>
-              </div>
-            )}
-          </div>
-          <div>
-            <label style={lbl}>Confirm Password *</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={e => { setConfirmPassword(e.target.value); setPasswordError('') }}
-              required
-              className="pr-inp"
-              style={{ ...inp, border: `1px solid ${passwordError ? '#C92035' : inpBorder}` }}
-            />
-            {passwordError && (
-              <div style={{ color: '#C92035', fontSize: '12px', marginTop: '6px' }}>{passwordError}</div>
-            )}
-            {confirmPassword && !passwordError && (
-              <div style={{ fontSize: '11px', fontWeight: 700, color: confirmPassword === form.password ? '#0C4044' : '#C92035', marginTop: '6px' }}>
-                {confirmPassword === form.password ? 'Passwords match' : 'Passwords do not match'}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div style={sectionCard}>
-        <SectionHeader icon="pin" label="Address" />
-        <div className="form-grid-3">
-          <div><label style={lbl}>Door No *</label><input name="door_no" value={form.door_no} onChange={handleChange} required className="pr-inp" style={inp}/></div>
-          <div><label style={lbl}>Street Name *</label><input name="street_name" value={form.street_name} onChange={handleChange} required className="pr-inp" style={inp}/></div>
-          <div>
-            <label style={lbl}>Pincode *</label>
-            <input name="pincode" value={form.pincode} onChange={handlePincodeChange} required maxLength={6} inputMode="numeric" className="pr-inp" style={inp}/>
-            {pincodeLookupMsg && (
-              <div style={{ fontSize: '11px', fontWeight: 700, marginTop: '4px', color: pincodeLookupMsg.includes('auto-filled') ? '#0C4044' : pincodeLookupMsg.includes('not found') || pincodeLookupMsg.includes('Unable') ? '#C92035' : subtext }}>
-                {pincodeLookupMsg}
-              </div>
-            )}
-          </div>
-          <div><label style={lbl}>Town *</label><input name="town_name" value={form.town_name} onChange={handleChange} required className="pr-inp" style={inp}/></div>
-          <div><label style={lbl}>City *</label><input name="city_name" value={form.city_name} onChange={handleChange} required className="pr-inp" style={inp}/></div>
-          <div><label style={lbl}>District *</label><input name="district" value={form.district} onChange={handleChange} required className="pr-inp" style={inp}/></div>
-          <div><label style={lbl}>State *</label><input name="state" value={form.state} onChange={handleChange} required className="pr-inp" style={inp}/></div>
-        </div>
-      </div>
-
-      <div style={sectionCard}>
-        <SectionHeader icon="id" label="Identity" />
-        <div className="form-grid-2">
-          <div><label style={lbl}>Aadhaar No *</label><input name="aadhaar_no" value={form.aadhaar_no} onChange={handleChange} required maxLength={12} className="pr-inp" style={inp}/></div>
-          <div><label style={lbl}>PAN No *</label><input name="pan_no" value={form.pan_no} onChange={handleChange} required maxLength={10} className="pr-inp" style={inp}/></div>
-        </div>
-      </div>
-
-            <div style={sectionCard}>
-        <SectionHeader icon="briefcase" label="Occupation" />
-        <div className="form-grid-3">
-          <div><label style={lbl}>Occupation</label>
-            <select name="occupation" value={form.occupation} onChange={handleChange} className="pr-inp" style={{ ...inp, cursor:'pointer' }}>
-              <option value="" style={{ background: optionBg }}>Select</option>
-              {OCCUPATIONS.map(o => <option key={o} value={o} style={{ background: optionBg }}>{o.charAt(0).toUpperCase()+o.slice(1)}</option>)}
-            </select>
-          </div>
-          <div><label style={lbl}>Detail</label>
-            <input name="occupation_detail" value={form.occupation_detail} onChange={handleChange} className="pr-inp" style={inp}/>
-          </div>
-          <div><label style={lbl}>Annual Salary</label>
-            <input name="annual_salary" value={form.annual_salary} onChange={handleChange} className="pr-inp" style={inp}/>
-          </div>
-        </div>
-      </div>
-
-      <div style={sectionCard}>
-        <SectionHeader icon="briefcase" label="Promotor Info" />
-        <div className="form-grid-3">
-          <div><label style={lbl}>Promotor ID *</label>
-            <select
-              value={form.assigned_promotor_id || ''}
-              onChange={handlePromotorChange}
-              className="pr-inp"
-              style={{ ...inp, cursor:'pointer' }}
-            >
-              <option value="" style={{ background: optionBg }}>Select Promotor ID</option>
-              {allPromotors.map((p, idx) => (
-                <option key={p.promotor_id || p.id || idx} value={p.id} style={{ background: optionBg }}>
-                  {p.promotor_id}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div><label style={lbl}>Promotor Name</label>
-            <input value={selectedPromotor?.first_name || ''} readOnly placeholder="Auto fetch" style={{ ...inp, opacity:0.5, cursor:'not-allowed' }}/>
-          </div>
-          <div><label style={lbl}>Promotor Contact</label>
-            <input value={selectedPromotor?.mobile_number || ''} readOnly placeholder="Auto fetch" style={{ ...inp, opacity:0.5, cursor:'not-allowed' }}/>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display:'flex', gap:'12px', marginTop:'6px' }}>
-        <button type="submit" className="pr-grad-btn"
-          style={{ padding:'12px 28px', background:'#073B3F', border:'none', borderRadius:'12px', fontWeight:800, color:'#3b0024', fontSize:'14px', cursor:'pointer' }}>
-          Create Customer
-        </button>
-        <button type="button" onClick={() => setShowForm(false)}
-          style={{ padding:'12px 24px', background: inpBg, border:`1px solid ${border}`, borderRadius:'12px', color: subtext, fontSize:'14px', cursor:'pointer' }}>
-          Cancel
-        </button>
-      </div>
-
-    </form>
-  </div>
-)}
 
       </div>
     </div>

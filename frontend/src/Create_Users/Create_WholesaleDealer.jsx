@@ -28,7 +28,7 @@ const emptyForm = {
   annual_salary: "",
 };
 
-export default function CreateSubdealer() {
+export default function CreateWholesaleDealer() {
   const [form, setForm] = useState(emptyForm);
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -115,7 +115,7 @@ export default function CreateSubdealer() {
       const createdName = `${form.first_name} ${form.last_name}`.trim();
 
       setSuccessPopup({
-        title: "Sub Dealer Created Successfully!",
+        title: "Wholesale Dealer Created Successfully!",
         name: createdName,
         email: form.email,
         mobile: form.mobile_number,
@@ -127,7 +127,7 @@ export default function CreateSubdealer() {
       setConfirmPassword("");
       setPasswordError("");
     } catch (err) {
-      setErrorPopup({ title: "Failed to Create Sub Dealer", errors: parseErrorDetails(err) });
+      setErrorPopup({ title: "Failed to Create Wholesale Dealer", errors: parseErrorDetails(err) });
     } finally {
       setSubmitting(false);
     }
@@ -178,13 +178,13 @@ export default function CreateSubdealer() {
       <div className="csd-shell">
         <div className="csd-header">
           <span className="csd-kicker">Network Operations</span>
-          <h1>Create Sub Dealer</h1>
-          <p>Fill in the details below to register a new sub dealer under you.</p>
+          <h1>Create Wholesale Dealer</h1>
+          <p>Fill in the details below to register a new wholesale dealer under you.</p>
         </div>
 
         <div className="csd-card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-            <h2 className="csd-section-title">New Sub Dealer Details</h2>
+            <h2 className="csd-section-title">New Wholesale Dealer Details</h2>
             <CopyUrlButton />
           </div>
 
@@ -271,7 +271,7 @@ export default function CreateSubdealer() {
             </div>
 
             <div className="csd-actions">
-              <button type="submit" className="csd-btn-primary" disabled={submitting}>{submitting ? "Creating Sub Dealer..." : "Create Sub Dealer"}</button>
+              <button type="submit" className="csd-btn-primary" disabled={submitting}>{submitting ? "Creating Wholesale Dealer..." : "Create Wholesale Dealer"}</button>
               <button type="button" className="csd-btn-secondary" onClick={() => { setForm(emptyForm); setConfirmPassword(""); setPasswordError(""); }}>Reset</button>
             </div>
           </form>
@@ -285,7 +285,7 @@ export default function CreateSubdealer() {
               <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
                 <div style={{ width: "44px", height: "44px", borderRadius: "14px", background: "rgba(16, 185, 129, 0.2)", border: "1px solid rgba(16, 185, 129, 0.4)", color: "#34D399", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", fontWeight: 900 }}>✓</div>
                 <div>
-                  <span style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#E1C497", display: "block", marginBottom: "2px" }}>SUB DEALER CREATION SUCCESS</span>
+                  <span style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#E1C497", display: "block", marginBottom: "2px" }}>WHOLESALE DEALER CREATION SUCCESS</span>
                   <h3 style={{ margin: 0, fontSize: "19px", fontWeight: 800 }}>{successPopup.title}</h3>
                 </div>
               </div>
@@ -294,7 +294,7 @@ export default function CreateSubdealer() {
             <div style={{ padding: "24px 28px" }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", marginBottom: "20px" }}>
                 <div style={{ padding: "12px 14px", background: "#F8FAF9", borderRadius: "12px", border: "1px solid #E8EFEF" }}>
-                  <small style={{ display: "block", fontSize: "10px", fontWeight: 800, textTransform: "uppercase", color: "#728A87", marginBottom: "2px" }}>Sub Dealer Name</small>
+                  <small style={{ display: "block", fontSize: "10px", fontWeight: 800, textTransform: "uppercase", color: "#728A87", marginBottom: "2px" }}>Wholesale Dealer Name</small>
                   <strong style={{ color: "#073B3F", fontSize: "13.5px" }}>{successPopup.name || "—"}</strong>
                 </div>
                 <div style={{ padding: "12px 14px", background: "#F8FAF9", borderRadius: "12px", border: "1px solid #E8EFEF" }}>

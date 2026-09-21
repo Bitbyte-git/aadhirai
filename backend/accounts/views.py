@@ -4003,34 +4003,49 @@ class MyHierarchyView(APIView):
             return Response({'error': 'Use /hierarchy/full/ for your role'}, status=403)
 
         try:
+            children_by_creator = _get_children_by_creator()
             if role == 'admin':
                 node = AdminProfile.objects.prefetch_related(
                     'assigned_dealers__assigned_sub_dealers__assigned_promotors__assigned_customers'
                 ).get(user=user)
                 orders_by_user = _bulk_orders_for_admin(node)
-                monthly_counts = _monthly_order_counts_map(_collect_user_ids_admin(node))
-                root = _build_admin(node, orders_by_user, monthly_counts)
+                user_ids = _collect_user_ids_admin(node)
+                all_ids = set(user_ids)
+                for uid in user_ids:
+                    all_ids.update(_collect_nested_customer_ids(uid, children_by_creator))
+                monthly_counts = _monthly_order_counts_map(list(all_ids))
+                root = _build_admin(node, orders_by_user, monthly_counts, children_by_creator)
             elif role == 'dealer':
                 node = DealerProfile.objects.prefetch_related(
                     'assigned_sub_dealers__assigned_promotors__assigned_customers'
                 ).get(user=user)
                 orders_by_user = _bulk_orders_for_dealer(node)
-                monthly_counts = _monthly_order_counts_map(_collect_user_ids_dealer(node) + [node.user_id])
-                root = _build_dealer(node, orders_by_user, monthly_counts)
+                user_ids = _collect_user_ids_dealer(node) + [node.user_id]
+                all_ids = set(user_ids)
+                for uid in user_ids:
+                    all_ids.update(_collect_nested_customer_ids(uid, children_by_creator))
+                monthly_counts = _monthly_order_counts_map(list(all_ids))
+                root = _build_dealer(node, orders_by_user, monthly_counts, children_by_creator)
             elif role == 'sub_dealer':
                 node = SubDealerProfile.objects.prefetch_related(
                     'assigned_promotors__assigned_customers'
                 ).get(user=user)
                 orders_by_user = _bulk_orders_for_sub_dealer(node)
-                monthly_counts = _monthly_order_counts_map(_collect_user_ids_sub_dealer(node) + [node.user_id])
-                root = _build_sub_dealer(node, orders_by_user, monthly_counts)
+                user_ids = _collect_user_ids_sub_dealer(node) + [node.user_id]
+                all_ids = set(user_ids)
+                for uid in user_ids:
+                    all_ids.update(_collect_nested_customer_ids(uid, children_by_creator))
+                monthly_counts = _monthly_order_counts_map(list(all_ids))
+                root = _build_sub_dealer(node, orders_by_user, monthly_counts, children_by_creator)
             elif role == 'promotor':
                 node = PromotorProfile.objects.prefetch_related('assigned_customers').get(user=user)
                 orders_by_user = _bulk_orders_for_promotor(node)
-                monthly_counts = _monthly_order_counts_map(
-                    [c.user_id for c in node.assigned_customers.all()] + [node.user_id]
-                )
-                root = _build_promotor(node, orders_by_user, monthly_counts)
+                user_ids = [c.user_id for c in node.assigned_customers.all()] + [node.user_id]
+                all_ids = set(user_ids)
+                for uid in user_ids:
+                    all_ids.update(_collect_nested_customer_ids(uid, children_by_creator))
+                monthly_counts = _monthly_order_counts_map(list(all_ids))
+                root = _build_promotor(node, orders_by_user, monthly_counts, children_by_creator)
         except Exception as e:
             return Response({'error': str(e)}, status=404)
 

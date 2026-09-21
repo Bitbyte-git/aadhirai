@@ -111,7 +111,7 @@ function createPromotorPopup(p, i, anchorEl, dark, subtextColor, textColor, hier
     ${arrow('#CCA881')}
 
     ${tierBox(
-    '🛡️ ADMIN',
+    '🛡️ SUPER STOCKIST',
     '#0C4044', 'rgba(12,64,68,0.05)', 'rgba(12,64,68,0.2)',
     admin?.admin_id || '—',
     admin?.first_name || admin?.admin_name || '—',
@@ -122,7 +122,7 @@ function createPromotorPopup(p, i, anchorEl, dark, subtextColor, textColor, hier
     ${arrow('#0C4044')}
 
     ${tierBox(
-    '🏪 DEALER',
+    '🏪 DISTRIBUTOR',
     '#BDCFCE', 'rgba(189,207,206,0.04)', 'rgba(189,207,206,0.18)',
     dealer?.dealer_id || '—',
     dealer?.first_name || '—',
@@ -133,7 +133,7 @@ function createPromotorPopup(p, i, anchorEl, dark, subtextColor, textColor, hier
     ${arrow('#BDCFCE')}
 
     ${tierBox(
-    '💎 SUB DEALER',
+    '💎 WHOLESALE DEALER',
     '#BB8958', 'rgba(187,137,88,0.05)', 'rgba(187,137,88,0.2)',
     subDealer?.sub_dealer_id || '—',
     subDealer?.first_name || '—',
@@ -145,7 +145,7 @@ function createPromotorPopup(p, i, anchorEl, dark, subtextColor, textColor, hier
 
     <div style="background:rgba(204,168,129,0.05);border:1px solid rgba(204,168,129,0.2);border-radius:10px;padding:10px;">
       <div style="display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;
-        background:rgba(204,168,129,0.12);color:${c};border:1px solid rgba(204,168,129,0.25);margin-bottom:6px;">🌟 PROMOTOR</div>
+        background:rgba(204,168,129,0.12);color:${c};border:1px solid rgba(204,168,129,0.25);margin-bottom:6px;">🌟 RETAILER</div>
       <div style="font-size:10px;color:${c};font-family:monospace;margin-bottom:3px;">${p.promotor_id || '—'}</div>
       <div style="font-size:14px;font-weight:700;color:${text2};margin-bottom:6px;">${p.first_name || ''}</div>
       <div style="font-size:11px;color:${subtext2};margin-bottom:2px;">📞 ${p.mobile_number || '—'}</div>
@@ -176,14 +176,14 @@ function createPromotorPopup(p, i, anchorEl, dark, subtextColor, textColor, hier
 const SD_TREE_COLORS = ['#BB8958', '#CCA881', '#C92035', '#BDCFCE', '#0C4044', '#BDCFCE']
 
 const SD_ROLE_CFG = {
-  sub_dealer: { color: '#BB8958', label: '🔗 SUB DEALER', idKey: 'sub_dealer_id' },
-  promotor: { color: '#CCA881', label: '🌟 PROMOTOR', idKey: 'promotor_id' },
+  sub_dealer: { color: '#BB8958', label: '🔗 WHOLESALE DEALER', idKey: 'sub_dealer_id' },
+  promotor: { color: '#CCA881', label: '🌟 RETAILER', idKey: 'promotor_id' },
   customer: { color: '#C92035', label: '👤 CUSTOMER', idKey: 'customer_id' },
 }
 
 const SD_ROLE_LABELS = {
-  sub_dealer: { emoji: '🔗', label: 'SUB DEALER', color: '#BB8958', idKey: 'sub_dealer_id' },
-  promotor: { emoji: '🌟', label: 'PROMOTOR', color: '#CCA881', idKey: 'promotor_id' },
+  sub_dealer: { emoji: '🔗', label: 'WHOLESALE DEALER', color: '#BB8958', idKey: 'sub_dealer_id' },
+  promotor: { emoji: '🌟', label: 'RETAILER', color: '#CCA881', idKey: 'promotor_id' },
   customer: { emoji: '👤', label: 'CUSTOMER', color: '#C92035', idKey: 'customer_id' },
 }
 
@@ -489,10 +489,10 @@ function showSDChainPopup(anchorEl, ancestors, current, dark, text, subtext, sup
 
   const CHAIN_LABELS = {
     super_admin: { emoji: '🛡️', label: 'SUPER ADMIN', color: '#CCA881', idKey: null },
-    admin: { emoji: '🛡️', label: 'ADMIN', color: '#0C4044', idKey: 'admin_id' },
-    dealer: { emoji: '🏪', label: 'DEALER', color: '#BDCFCE', idKey: 'dealer_id' },
-    sub_dealer: { emoji: '🔗', label: 'SUB DEALER', color: '#BB8958', idKey: 'sub_dealer_id' },
-    promotor: { emoji: '🌟', label: 'PROMOTOR', color: '#CCA881', idKey: 'promotor_id' },
+    admin: { emoji: '🛡️', label: 'SUPER STOCKIST', color: '#0C4044', idKey: 'admin_id' },
+    dealer: { emoji: '🏪', label: 'DISTRIBUTOR', color: '#BDCFCE', idKey: 'dealer_id' },
+    sub_dealer: { emoji: '🔗', label: 'WHOLESALE DEALER', color: '#BB8958', idKey: 'sub_dealer_id' },
+    promotor: { emoji: '🌟', label: 'RETAILER', color: '#CCA881', idKey: 'promotor_id' },
     customer: { emoji: '👤', label: 'CUSTOMER', color: '#C92035', idKey: 'customer_id' },
   }
 
@@ -682,8 +682,8 @@ function showSDChainPopup(anchorEl, ancestors, current, dark, text, subtext, sup
 
 function printSDPersonCard(node, role, color, ancestors, superAdminEmail, dealerData, adminData) {
   const ROLE_PRINT = {
-    sub_dealer: { label: 'SUB DEALER', emoji: '🔗', idKey: 'sub_dealer_id' },
-    promotor: { label: 'PROMOTOR', emoji: '🌟', idKey: 'promotor_id' },
+    sub_dealer: { label: 'WHOLESALE DEALER', emoji: '🔗', idKey: 'sub_dealer_id' },
+    promotor: { label: 'RETAILER', emoji: '🌟', idKey: 'promotor_id' },
     customer: { label: 'CUSTOMER', emoji: '👤', idKey: 'customer_id' },
   }
 
@@ -697,10 +697,10 @@ function printSDPersonCard(node, role, color, ancestors, superAdminEmail, dealer
 
   const PRINT_LABELS = {
     super_admin: { label: 'SUPER ADMIN', emoji: '🛡️', idKey: null },
-    admin: { label: 'ADMIN', emoji: '🛡️', idKey: 'admin_id' },
-    dealer: { label: 'DEALER', emoji: '🏪', idKey: 'dealer_id' },
-    sub_dealer: { label: 'SUB DEALER', emoji: '🔗', idKey: 'sub_dealer_id' },
-    promotor: { label: 'PROMOTOR', emoji: '🌟', idKey: 'promotor_id' },
+    admin: { label: 'SUPER STOCKIST', emoji: '🛡️', idKey: 'admin_id' },
+    dealer: { label: 'DISTRIBUTOR', emoji: '🏪', idKey: 'dealer_id' },
+    sub_dealer: { label: 'WHOLESALE DEALER', emoji: '🔗', idKey: 'sub_dealer_id' },
+    promotor: { label: 'RETAILER', emoji: '🌟', idKey: 'promotor_id' },
     customer: { label: 'CUSTOMER', emoji: '👤', idKey: 'customer_id' },
   }
 
@@ -1046,9 +1046,9 @@ const allSDList = allSDRes.status === 'fulfilled' ? allSDRes.value.data : []
     ['occupation', 'Type'],
     ['occupation_detail', 'Detail'],
     ['annual_salary', 'Annual Salary'],
-    ['sub_dealer_id', 'Sub Dealer ID'],
-    ['dealer_id', 'Dealer ID'],
-    ['dealer_name', 'Dealer Name'],
+    ['sub_dealer_id', 'Wholesale Dealer ID'],
+    ['dealer_id', 'Distributor ID'],
+    ['dealer_name', 'Distributor Name'],
     ['dealer_contact_no', 'Contact No'],
   ]
 
@@ -1466,8 +1466,8 @@ const handleSubmit = async e => {
         homePath="/sub-dealer"
         managementItems={[
           { label: 'Dashboard', path: '/sub-dealer' },
-          { label: 'Promoter Hierarchy', path: '/subdealer-hierarchy' },
-          { label: 'Create Promoter', path: '/create-promotor' },
+          { label: 'Retailer Hierarchy', path: '/subdealer-hierarchy' },
+          { label: 'Create Retailer', path: '/create-retailer' },
           { label: 'Create Customer', path: '/create-customer' },
           { label: 'Requests', action: () => setShowRequests(true) },
         ]}
@@ -1478,8 +1478,8 @@ const handleSubmit = async e => {
           { label: 'Coin Transactions', path: '/coin-transactions' },
         ]}
         reportItems={[
-          { label: 'Promoter Hierarchy Tree', path: '/subdealer-hierarchy' },
-          { label: 'Promoter Hierarchy Grid', path: '/subdealer-hierarchy-grid' },
+          { label: 'Retailer Hierarchy Tree', path: '/subdealer-hierarchy' },
+          { label: 'Retailer Hierarchy Grid', path: '/subdealer-hierarchy-grid' },
           { label: 'Sales Report', path: '/sales-report' },
           { label: 'Login Active', path: '/login-active' },
           { label: 'Login Inactive', path: '/login-inactive' },
@@ -1496,17 +1496,17 @@ const handleSubmit = async e => {
       />
       <SubDealerQuickStats />
       <SubDealerDashboardFrame
-        roleName="Sub Dealer"
+        roleName="Wholesale Dealer"
         focusLabel="Promoters"
         focusCount={promotors.length}
         roleDistribution={[
-          { name: 'Promoter', value: promotors.length, color: '#CCA881' },
+          { name: 'Retailer', value: promotors.length, color: '#CCA881' },
           { name: 'Customer', value: promotors.reduce((sum, promotor) => sum + (promotor.customers?.length || 0), 0), color: '#C92035' },
         ]}
         quickActions={[
-          { label: 'Promoter Hierarchy Grid', icon: 'store', onClick: () => navigate('/subdealer-hierarchy-grid') },
+          { label: 'Retailer Hierarchy Grid', icon: 'store', onClick: () => navigate('/subdealer-hierarchy-grid') },
           { label: 'Sales Report', icon: 'report', onClick: () => navigate('/sales-report') },
-          { label: 'Create Promoter', icon: 'users', onClick: () => navigate('/create-promotor') },
+          { label: 'Create Retailer', icon: 'users', onClick: () => navigate('/create-retailer') },
         ]}
       />      <div className="sd-management-shell" style={{ position: 'relative', zIndex: (showProfile || showProfileEdit) ? 100 : 10 }}>
         {msg && (
@@ -1568,7 +1568,7 @@ const handleSubmit = async e => {
                     {[
                       {
                         title: 'ACCOUNT INFO', color: '#CCA881', fields: [
-                          { label: 'Sub Dealer ID', value: myDashData.sub_dealer_id, mono: true, color: '#CCA881' },
+                          { label: 'Wholesale Dealer ID', value: myDashData.sub_dealer_id, mono: true, color: '#CCA881' },
                           { label: 'Initial', value: myDashData.initial },
                           { label: 'First Name', value: myDashData.first_name },
                           { label: 'Last Name', value: myDashData.last_name },
@@ -1606,10 +1606,10 @@ const handleSubmit = async e => {
                         ]
                       },
                       {
-                        title: 'DEALER INFO', color: '#BB8958', fields: [
-                          { label: 'Dealer ID', value: myDashData.dealer_id, mono: true, color: '#BB8958' },
-                          { label: 'Dealer Name', value: myDashData.dealer_name },
-                          { label: 'Dealer Contact', value: myDashData.dealer_contact_no },
+                        title: 'DISTRIBUTOR INFO', color: '#BB8958', fields: [
+                          { label: 'Distributor ID', value: myDashData.dealer_id, mono: true, color: '#BB8958' },
+                          { label: 'Distributor Name', value: myDashData.dealer_name },
+                          { label: 'Distributor Contact', value: myDashData.dealer_contact_no },
                           { label: 'Member Since', value: myDashData.created_at ? new Date(myDashData.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : '—' },
                         ]
                       },
@@ -2262,178 +2262,6 @@ const handleSubmit = async e => {
   </div>
 )}
 
-
-                {/* Create Form */}
-        {showForm && (
-          <div style={card}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-              <p style={secHead('#F3E8DE')}>Create New Promotor</p>
-              <CopyUrlButton />
-            </div>
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-              <div style={sectionCard}>
-                <SectionHeader icon="user" label="Personal Info" />
-                <div className="form-grid-3">
-                  <div><label style={lbl}>Initial</label>
-                    <input name="initial" maxLength={5} value={form.initial} onChange={handleChange} className="sd-inp" style={inp} />
-                  </div>
-                  <div><label style={lbl}>First Name *</label>
-                    <input name="first_name" maxLength={100} value={form.first_name} onChange={handleChange} required className="sd-inp" style={inp} />
-                  </div>
-                  <div><label style={lbl}>Last Name *</label>
-                    <input name="last_name" maxLength={100} value={form.last_name} onChange={handleChange} required className="sd-inp" style={inp} />
-                  </div>
-                  <div><label style={lbl}>Mobile *</label>
-                    <input name="mobile_number" maxLength={10} value={form.mobile_number} onChange={handleChange} required className="sd-inp" style={inp} />
-                  </div>
-                                   <div>
-                    <label style={lbl}>Gender *</label>
-                    <select name="gender" value={form.gender} onChange={handleChange} required className="sd-inp" style={selectInput}>
-                      <option value="male" style={{ background: optionBg, color: text }}>Male</option>
-                      <option value="female" style={{ background: optionBg, color: text }}>Female</option>
-                      <option value="transgender" style={{ background: optionBg, color: text }}>Transgender</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style={lbl}>DOB</label>
-                    <input type="date" name="dob" value={form.dob} onChange={handleChange} className="sd-inp" style={inp} />
-                  </div>
-                  <div>
-                    <label style={lbl}>Married Status</label>
-                    <select name="married_status" value={form.married_status} onChange={handleChange} className="sd-inp" style={selectInput}>
-                      <option value="single" style={{ background: optionBg, color: text }}>Single</option>
-                      <option value="married" style={{ background: optionBg, color: text }}>Married</option>
-                      <option value="divorced" style={{ background: optionBg, color: text }}>Divorced</option>
-                    </select>
-                  </div>
-                  {form.married_status === 'married' && (
-                    <div>
-                      <label style={lbl}>Anniversary Date</label>
-                      <input type="date" name="anniversary_date" value={form.anniversary_date} onChange={handleChange} className="sd-inp" style={inp} />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div style={sectionCard}>
-                <SectionHeader icon="lock" label="Account Info" />
-                <div className="form-grid-3">
-                  <div><label style={lbl}>Email *</label>
-                    <input type="email" name="email" value={form.email} onChange={handleChange} required className="sd-inp" style={inp} />
-                  </div>
-                  <div>
-                    <label style={lbl}>Password *</label>
-                    <input type="password" name="password" value={form.password} onChange={handleChange} required className="sd-inp" style={inp} />
-                    {form.password && (
-                      <div style={{ marginTop: '6px' }}>
-                        <div style={{ height: '4px', borderRadius: '4px', background: 'rgba(204,168,129,0.25)', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: getPasswordStrength(form.password).width, background: getPasswordStrength(form.password).color, transition: 'all 0.3s ease' }} />
-                        </div>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: getPasswordStrength(form.password).color, marginTop: '4px' }}>
-                          {getPasswordStrength(form.password).label}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <label style={lbl}>Confirm Password *</label>
-                    <input
-                      type="password"
-                      value={confirmPassword}
-                      onChange={e => { setConfirmPassword(e.target.value); setPasswordError('') }}
-                      required
-                      className="sd-inp"
-                      style={{ ...inp, border: `1px solid ${passwordError ? '#C92035' : inpBorder}` }}
-                    />
-                    {passwordError && (
-                      <div style={{ color: '#C92035', fontSize: '12px', marginTop: '6px' }}>{passwordError}</div>
-                    )}
-                    {confirmPassword && !passwordError && (
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: confirmPassword === form.password ? '#0C4044' : '#C92035', marginTop: '6px' }}>
-                        {confirmPassword === form.password ? 'Passwords match' : 'Passwords do not match'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div style={sectionCard}>
-                <SectionHeader icon="pin" label="Address" />
-                <div className="form-grid-3">
-                  <div><label style={lbl}>Door No *</label><input name="door_no" value={form.door_no} onChange={handleChange} required maxLength={25} className="sd-inp" style={inp} /></div>
-                  <div><label style={lbl}>Street Name *</label><input name="street_name" value={form.street_name} onChange={handleChange} required maxLength={100} className="sd-inp" style={inp} /></div>
-                  <div>
-                    <label style={lbl}>Pincode *</label>
-                    <input name="pincode" value={form.pincode} onChange={handlePincodeChange} required maxLength={6} inputMode="numeric" className="sd-inp" style={inp} />
-                    {pincodeLookupMsg && (
-                      <div style={{ fontSize: '11px', fontWeight: 700, marginTop: '4px', color: pincodeLookupMsg.includes('auto-filled') ? '#0C4044' : pincodeLookupMsg.includes('not found') || pincodeLookupMsg.includes('Unable') ? '#C92035' : subtext }}>
-                        {pincodeLookupMsg}
-                      </div>
-                    )}
-                  </div>
-                  <div><label style={lbl}>Town *</label><input name="town_name" value={form.town_name} onChange={handleChange} required maxLength={100} className="sd-inp" style={inp} /></div>
-                  <div><label style={lbl}>City *</label><input name="city_name" value={form.city_name} onChange={handleChange} required maxLength={25} className="sd-inp" style={inp} /></div>
-                  <div><label style={lbl}>District *</label><input name="district" value={form.district} onChange={handleChange} required maxLength={25} className="sd-inp" style={inp} /></div>
-                  <div><label style={lbl}>State *</label><input name="state" value={form.state} onChange={handleChange} required maxLength={25} className="sd-inp" style={inp} /></div>
-                </div>
-              </div>
-
-              <div style={sectionCard}>
-                <SectionHeader icon="id" label="Identity" />
-                <div className="form-grid-2">
-                  <div><label style={lbl}>Aadhaar No *</label><input name="aadhaar_no" value={form.aadhaar_no} onChange={handleChange} required maxLength={12} className="sd-inp" style={inp} /></div>
-                  <div><label style={lbl}>PAN No *</label><input name="pan_no" value={form.pan_no} onChange={handleChange} required maxLength={10} className="sd-inp" style={inp} /></div>
-                </div>
-              </div>
-
-              <div style={sectionCard}>
-                <SectionHeader icon="briefcase" label="Occupation" />
-                <div className="form-grid-3">
-                  <div><label style={lbl}>Occupation *</label>
-                    <select name="occupation" value={form.occupation} onChange={handleChange} required className="sd-inp" style={{ ...inp, cursor: 'pointer' }}>
-                      <option value="" style={{ background: optionBg }}>Select</option>
-                      {OCCUPATIONS.map(o => <option key={o} value={o} style={{ background: optionBg }}>{o.charAt(0).toUpperCase() + o.slice(1)}</option>)}
-                    </select>
-                  </div>
-                  <div><label style={lbl}>Detail</label><input name="occupation_detail" value={form.occupation_detail} onChange={handleChange} maxLength={25} className="sd-inp" style={inp} /></div>
-                  <div><label style={lbl}>Annual Salary *</label><input name="annual_salary" value={form.annual_salary} onChange={handleChange} required maxLength={10} className="sd-inp" style={inp} /></div>
-                </div>
-              </div>
-
-              <div style={sectionCard}>
-                <SectionHeader icon="briefcase" label="Sub Dealer Info" />
-                <div className="form-grid-3">
-                                  <div><label style={lbl}>Sub Dealer ID</label>
-                    <div style={{ ...inp, opacity: 0.55, cursor: 'not-allowed', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: '#BB8958', fontFamily: 'monospace', fontSize: '13px' }}>
-                        {selectedSubDealer?.sub_dealer_id || '—'}
-                      </span>
-                      <span style={{ color: subtext, fontSize: '12px' }}>&lt;auto-assigned&gt;</span>
-                    </div>
-                  </div>
-                  <div><label style={lbl}>Sub Dealer Name</label>
-                    <input value={selectedSubDealer?.first_name || ''} readOnly placeholder="Auto fetch" style={{ ...inp, opacity: 0.5, cursor: 'not-allowed' }} />
-                  </div>
-                  <div><label style={lbl}>Sub Dealer Contact</label>
-                    <input value={selectedSubDealer?.mobile_number || ''} readOnly placeholder="Auto fetch" style={{ ...inp, opacity: 0.5, cursor: 'not-allowed' }} />
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
-                <button type="submit" className="sd-grad-btn"
-                  style={{ padding: '12px 28px', background: 'linear-gradient(90deg,#CCA881,#BDCFCE)', border: 'none', borderRadius: '12px', fontWeight: 800, color: '#FDFDFC', fontSize: '14px', cursor: 'pointer' }}>
-                  Create Promotor
-                </button>
-                <button type="button" onClick={() => setShowForm(false)}
-                  style={{ padding: '12px 24px', background: inpBg, border: `1px solid ${border}`, borderRadius: '12px', color: subtext, fontSize: '14px', cursor: 'pointer' }}>
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
 
       </div>
     </div>

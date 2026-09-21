@@ -85,7 +85,7 @@ function SectionHeader({ icon, label, sublabel }) {
   )
 }
 
-export default function CreateAdmin() {
+export default function CreateSuperStockist() {
   const navigate = useNavigate()
   const [form, setForm] = useState(emptyForm)
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -181,7 +181,7 @@ export default function CreateAdmin() {
       })
       return msgs.length > 0 ? msgs : ['Validation failed. Please verify form details.']
     }
-    return ['An unexpected error occurred while creating admin.']
+    return ['An unexpected error occurred while creating the Super Stockist.']
   }
 
   const handleSubmit = async (e) => {
@@ -217,7 +217,7 @@ export default function CreateAdmin() {
       const adminName = `${form.first_name} ${form.last_name}`.trim()
 
       setSuccessPopup({
-        title: 'Admin Created Successfully!',
+        title: 'Super Stockist Created Successfully!',
         admin_id: newAdminId,
         name: adminName,
         email: form.email,
@@ -232,7 +232,7 @@ export default function CreateAdmin() {
     } catch (err) {
       const errors = parseErrors(err)
       setErrorPopup({
-        title: 'Failed to Create Admin',
+        title: 'Failed to Create Super Stockist',
         errors,
       })
     } finally {
@@ -467,10 +467,10 @@ export default function CreateAdmin() {
         {/* Hero header */}
         <div className="ca-hero">
           <div>
-            <div className="ca-kicker">ATHIRAI ADMINISTRATION PORTAL</div>
-            <h1 className="ca-title">Create New Admin</h1>
+            <div className="ca-kicker">ATHIRAI SUPER STOCKIST PORTAL</div>
+            <h1 className="ca-title">Create New Super Stockist</h1>
             <p style={{ margin: '4px 0 0', fontSize: '13.5px', color: '#53615F' }}>
-              Register a new administrative authority with full credentials, address, and profile access.
+              Register a new Super Stockist authority with full credentials, address, and profile access.
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -586,7 +586,7 @@ export default function CreateAdmin() {
               )}
 
               <div className="ca-field">
-                <label className="ca-label">Admin ID</label>
+                <label className="ca-label">Super Stockist ID</label>
                 <div className="ca-readonly-badge">
                   <span>BBADM{new Date().getFullYear()}</span>
                   <span style={{ fontSize: '11px', color: '#7A8987' }}>&lt;auto-generated&gt;</span>
@@ -836,7 +836,7 @@ export default function CreateAdmin() {
               {submitting ? (
                 <>
                   <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTop: '2px solid #FFFFFF', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                  Creating Admin...
+                  Creating Super Stockist...
                 </>
               ) : (
                 <>
@@ -846,7 +846,7 @@ export default function CreateAdmin() {
                     <line x1="19" y1="8" x2="19" y2="14" />
                     <line x1="22" y1="11" x2="16" y2="11" />
                   </svg>
-                  Create Admin
+                  Create Super Stockist
                 </>
               )}
             </button>
@@ -876,13 +876,13 @@ export default function CreateAdmin() {
               {successPopup.title}
             </h3>
             <p style={{ margin: '0 0 20px', fontSize: '13.5px', color: '#53615F' }}>
-              New administrator registered with full operational credentials.
+              New Super Stockist registered with full operational credentials.
             </p>
 
             {successPopup.admin_id && (
               <div style={{ background: '#F8F7F4', border: '1px solid rgba(204,168,129,0.4)', borderRadius: '14px', padding: '14px 18px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <div style={{ fontSize: '10.5px', fontWeight: 800, color: '#CCA881', letterSpacing: '0.1em', textTransform: 'uppercase' }}>ADMIN ID</div>
+                  <div style={{ fontSize: '10.5px', fontWeight: 800, color: '#CCA881', letterSpacing: '0.1em', textTransform: 'uppercase' }}>SUPER STOCKIST ID</div>
                   <div style={{ fontSize: '18px', fontWeight: 900, fontFamily: 'monospace', color: '#073B3F', marginTop: '2px' }}>
                     {successPopup.admin_id}
                   </div>
@@ -899,7 +899,7 @@ export default function CreateAdmin() {
 
             <div style={{ textAlign: 'left', background: '#FAFBFB', border: '1px solid #EDF2F1', borderRadius: '12px', padding: '12px 16px', marginBottom: '24px', fontSize: '13px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #F0F4F3' }}>
-                <span style={{ color: '#7A8987' }}>Admin Name:</span>
+                <span style={{ color: '#7A8987' }}>Super Stockist Name:</span>
                 <strong style={{ color: '#073B3F' }}>{successPopup.name}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #F0F4F3' }}>

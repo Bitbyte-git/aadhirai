@@ -31,12 +31,12 @@ const ShopHierarchyGrid = lazy(() => import('./pages/ShopHierarchyGrid'))
 const AddShop = lazy(() => import('./Superadmin/AddShop'))
 const Profile = lazy(() => import('./collection/profile'))
 const CreateCustomer = lazy(() => import('./Create_Users/create_customer'))
-const CreateDealer = lazy(() => import('./Create_Users/Create_Dealer'))
-const CreateSubdealer = lazy(() => import('./Create_Users/Create_Subdealer'))
-const CreatePromotor = lazy(() => import('./Create_Users/Create_Promotor'))
+const CreateDistributor = lazy(() => import('./Create_Users/Create_Distributor'))
+const CreateWholesaleDealer = lazy(() => import('./Create_Users/Create_WholesaleDealer'))
+const CreateRetailer = lazy(() => import('./Create_Users/Create_Retailer'))
 const GeneralCustomer = lazy(() => import('./Superadmin/Manage_Users/GeneralCustomer'))
 const ReferralCustomer = lazy(() => import('./Superadmin/Manage_Users/ReferralCustomer'))
-const CreateAdmin = lazy(() => import('./Create_Users/CreateAdmin'))
+const CreateSuperStockist = lazy(() => import('./Create_Users/Create_SuperStockist'))
 const CoinsCollection = lazy(() => import('./collection/coins_collection'))
 const AllCollection = lazy(() => import('./collection/all_collection'))
 const ProductDisplay = lazy(() => import('./collection/product_display'))
@@ -268,12 +268,12 @@ export default function App() {
           <Route path="/contact" element={<Navigate to="/register" replace />} />
           <Route path="/profile" element={<WithCustomerNavbar><Profile /></WithCustomerNavbar>} />
           <Route path="/create-customer" element={<ProtectedRoute role={["customer", "promotor", "sub_dealer", "dealer", "admin", "super_admin"]}><WithAnyNavbar><CreateCustomer /></WithAnyNavbar></ProtectedRoute>} />
-          <Route path="/create-dealer" element={<ProtectedRoute role="admin"><WithInternalRoleNavbar><CreateDealer /></WithInternalRoleNavbar></ProtectedRoute>} />
-          <Route path="/create-sub-dealer" element={<ProtectedRoute role="dealer"><WithInternalRoleNavbar><CreateSubdealer /></WithInternalRoleNavbar></ProtectedRoute>} />
-          <Route path="/create-promotor" element={<ProtectedRoute role="sub_dealer"><WithInternalRoleNavbar><CreatePromotor /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/create-distributor" element={<ProtectedRoute role="admin"><WithInternalRoleNavbar><CreateDistributor /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/create-wholesale-dealer" element={<ProtectedRoute role="dealer"><WithInternalRoleNavbar><CreateWholesaleDealer /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/create-retailer" element={<ProtectedRoute role="sub_dealer"><WithInternalRoleNavbar><CreateRetailer /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/general-customers" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><GeneralCustomer /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/referral-customers" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><ReferralCustomer /></WithSuperAdminNavbar></ProtectedRoute>} />
-          <Route path="/create-admin" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><CreateAdmin /></WithSuperAdminNavbar></ProtectedRoute>} />
+          <Route path="/create-super-stockist" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><CreateSuperStockist /></WithSuperAdminNavbar></ProtectedRoute>} />
 
           {/* hide for daimond and platinim  */}
           {/* <Route path="/collection/rings" element={<Navigate to={collectionPath('rings')} replace />} />

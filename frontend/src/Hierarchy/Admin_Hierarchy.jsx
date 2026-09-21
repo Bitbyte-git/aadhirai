@@ -99,10 +99,10 @@ const IconChevronDown = ({ color, size = 10 }) => (
 )
 
 const ROLE_CFG = {
-  admin: { color: '#16A34A', Icon: IconShield, label: 'ADMIN', idKey: 'admin_id' },
-  dealer: { color: '#0284C7', Icon: IconStore, label: 'DEALER', idKey: 'dealer_id' },
-  sub_dealer: { color: '#DC2626', Icon: IconLink, label: 'SUB DEALER', idKey: 'sub_dealer_id' },
-  promotor: { color: '#CA8A04', Icon: IconStar, label: 'PROMOTOR', idKey: 'promotor_id' },
+  admin: { color: '#16A34A', Icon: IconShield, label: 'SUPER STOCKIST', idKey: 'admin_id' },
+  dealer: { color: '#0284C7', Icon: IconStore, label: 'DISTRIBUTOR', idKey: 'dealer_id' },
+  sub_dealer: { color: '#DC2626', Icon: IconLink, label: 'WHOLESALE DEALER', idKey: 'sub_dealer_id' },
+  promotor: { color: '#CA8A04', Icon: IconStar, label: 'RETAILER', idKey: 'promotor_id' },
   customer: { color: '#DB2777', Icon: IconUser, label: 'CUSTOMER', idKey: 'customer_id' },
 }
 const CHILD_ROLE = { dealer: 'sub_dealer', sub_dealer: 'promotor', promotor: 'customer' }
@@ -860,9 +860,9 @@ export default function AdminHierarchy() {
   } : null
 
   const statPills = totalStats ? [
-    { label: 'Dealers', roleKey: 'dealer', count: totalStats.dealers },
-    { label: 'Sub Dealers', roleKey: 'sub_dealer', count: totalStats.subDealers },
-    { label: 'Promotors', roleKey: 'promotor', count: totalStats.promotors },
+    { label: 'Distributors', roleKey: 'dealer', count: totalStats.dealers },
+    { label: 'Wholesale Dealers', roleKey: 'sub_dealer', count: totalStats.subDealers },
+    { label: 'Retailers', roleKey: 'promotor', count: totalStats.promotors },
     { label: 'Customers', roleKey: 'customer', count: totalStats.customers },
   ] : []
 
@@ -952,14 +952,14 @@ export default function AdminHierarchy() {
               <IconSwitchView color="#0C4044" />
             </button>
             <span style={{ color: '#0C4044', fontSize: '16px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Dealer Hierarchy Tree
+              Distributor Hierarchy Tree
             </span>
           </div>
           {totalStats && (
             <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: `${ROLE_CFG.admin.color}22`, border: `1px solid ${ROLE_CFG.admin.color}55`, borderRadius: '20px', padding: '4px 14px' }}>
                 <span style={{ color: ROLE_CFG.admin.color, fontWeight: 800, fontSize: '13px' }}>1</span>
-                <span style={{ color: subtext, fontSize: '12px', fontWeight: 650 }}>Admin</span>
+                <span style={{ color: subtext, fontSize: '12px', fontWeight: 650 }}>Super Stockist</span>
               </div>
               {statPills.map(s => {
                 const color = ROLE_CFG[s.roleKey].color
@@ -1008,7 +1008,7 @@ export default function AdminHierarchy() {
         <div className="sh-superadmin-col">
           <div className="otree-card" data-role="admin" style={{ '--nc': ROLE_CFG.admin.color, minWidth: 150, cursor: 'default' }}>
             <div className="otree-badge" style={{ '--nc': ROLE_CFG.admin.color }}>
-              <IconShield color={ROLE_CFG.admin.color} size={11} /> ADMIN
+              <IconShield color={ROLE_CFG.admin.color} size={11} /> SUPER STOCKIST
             </div>
             <div className="otree-id" style={{ color: ROLE_CFG.admin.color }}>{adminInfo.admin_id}</div>
             <div className="otree-name" style={{ color: text, fontSize: '12px' }}>{adminInfo.first_name} {adminInfo.last_name || ''}</div>
@@ -1099,7 +1099,7 @@ export default function AdminHierarchy() {
               </div>
             )
           })() : dealers.length === 0 ? (
-            <div style={{ color: subtext, padding: '60px', textAlign: 'center', fontSize: '15px' }}>No dealers created yet.</div>
+            <div style={{ color: subtext, padding: '60px', textAlign: 'center', fontSize: '15px' }}>No distributors created yet.</div>
           ) : (
             <div ref={scrollAreaRef} className="sh-tree-scroll">
               <div style={{ transformOrigin: 'top left', transform: 'scale(' + treeZoom + ')' }}>
@@ -1129,7 +1129,7 @@ export default function AdminHierarchy() {
 
       {!loading && (
         <div style={{ marginTop: '20px', padding: '14px 0', display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
-          {[{ role: 'Admin', key: 'admin' }, { role: 'Dealer', key: 'dealer' }, { role: 'Sub Dealer', key: 'sub_dealer' }, { role: 'Promotor', key: 'promotor' }, { role: 'Customer', key: 'customer' }].map(l => (
+          {[{ role: 'Super Stockist', key: 'admin' }, { role: 'Distributor', key: 'dealer' }, { role: 'Wholesale Dealer', key: 'sub_dealer' }, { role: 'Retailer', key: 'promotor' }, { role: 'Customer', key: 'customer' }].map(l => (
             <div key={l.role} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <div style={{ width: 9, height: 9, borderRadius: '50%', background: ROLE_CFG[l.key].color }} />
               <span style={{ color: subtext, fontSize: '11px' }}>{l.role}</span>

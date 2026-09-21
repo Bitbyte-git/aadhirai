@@ -88,8 +88,8 @@ const IconChevronDown = ({ color, size = 10 }) => (
 )
 
 const ROLE_CFG = {
-  sub_dealer: { color: '#DC2626', Icon: IconLink, label: 'SUB DEALER', idKey: 'sub_dealer_id' },
-  promotor: { color: '#CA8A04', Icon: IconStar, label: 'PROMOTOR', idKey: 'promotor_id' },
+  sub_dealer: { color: '#DC2626', Icon: IconLink, label: 'WHOLESALE DEALER', idKey: 'sub_dealer_id' },
+  promotor: { color: '#CA8A04', Icon: IconStar, label: 'RETAILER', idKey: 'promotor_id' },
   customer: { color: '#DB2777', Icon: IconUser, label: 'CUSTOMER', idKey: 'customer_id' },
 }
 const CHILD_ROLE = { sub_dealer: 'promotor', promotor: 'customer' }
@@ -849,7 +849,7 @@ export default function SubdealerHierarchy() {
   } : null
 
   const statPills = totalStats ? [
-    { label: 'Promotors', roleKey: 'promotor', count: totalStats.promotors },
+    { label: 'Retailers', roleKey: 'promotor', count: totalStats.promotors },
     { label: 'Customers', roleKey: 'customer', count: totalStats.customers },
   ] : []
 
@@ -939,14 +939,14 @@ export default function SubdealerHierarchy() {
               <IconSwitchView color="#0C4044" />
             </button>
             <span style={{ color: '#0C4044', fontSize: '16px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Sub Dealer Hierarchy Tree
+              Wholesale Dealer Hierarchy Tree
             </span>
           </div>
           {totalStats && (
             <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: `${ROLE_CFG.sub_dealer.color}22`, border: `1px solid ${ROLE_CFG.sub_dealer.color}55`, borderRadius: '20px', padding: '4px 14px' }}>
                 <span style={{ color: ROLE_CFG.sub_dealer.color, fontWeight: 800, fontSize: '13px' }}>1</span>
-                <span style={{ color: subtext, fontSize: '12px', fontWeight: 650 }}>Sub Dealer</span>
+                <span style={{ color: subtext, fontSize: '12px', fontWeight: 650 }}>Wholesale Dealer</span>
               </div>
               {statPills.map(s => {
                 const color = ROLE_CFG[s.roleKey].color
@@ -995,7 +995,7 @@ export default function SubdealerHierarchy() {
         <div className="sh-superadmin-col">
           <div className="otree-card" data-role="sub_dealer" style={{ '--nc': ROLE_CFG.sub_dealer.color, minWidth: 150, cursor: 'default' }}>
             <div className="otree-badge" style={{ '--nc': ROLE_CFG.sub_dealer.color }}>
-              <IconLink color={ROLE_CFG.sub_dealer.color} size={11} /> SUB DEALER
+              <IconLink color={ROLE_CFG.sub_dealer.color} size={11} /> WHOLESALE DEALER
             </div>
             <div className="otree-id" style={{ color: ROLE_CFG.sub_dealer.color }}>{subDealerInfo.sub_dealer_id}</div>
             <div className="otree-name" style={{ color: text, fontSize: '12px' }}>{subDealerInfo.first_name} {subDealerInfo.last_name || ''}</div>
@@ -1084,7 +1084,7 @@ export default function SubdealerHierarchy() {
               </div>
             )
           })() : promotors.length === 0 ? (
-            <div style={{ color: subtext, padding: '60px', textAlign: 'center', fontSize: '15px' }}>No promotors created yet.</div>
+            <div style={{ color: subtext, padding: '60px', textAlign: 'center', fontSize: '15px' }}>No retailers created yet.</div>
           ) : (
             <div ref={scrollAreaRef} className="sh-tree-scroll">
               <div style={{ transformOrigin: 'top left', transform: 'scale(' + treeZoom + ')' }}>
@@ -1114,7 +1114,7 @@ export default function SubdealerHierarchy() {
 
       {!loading && (
         <div style={{ marginTop: '20px', padding: '14px 0', display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
-          {[{ role: 'Sub Dealer', key: 'sub_dealer' }, { role: 'Promotor', key: 'promotor' }, { role: 'Customer', key: 'customer' }].map(l => (
+          {[{ role: 'Wholesale Dealer', key: 'sub_dealer' }, { role: 'Retailer', key: 'promotor' }, { role: 'Customer', key: 'customer' }].map(l => (
             <div key={l.role} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <div style={{ width: 9, height: 9, borderRadius: '50%', background: ROLE_CFG[l.key].color }} />
               <span style={{ color: subtext, fontSize: '11px' }}>{l.role}</span>

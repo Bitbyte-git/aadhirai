@@ -77,7 +77,7 @@ const IconSwitchView = ({ color, size = 18 }) => (
 )
 
 const ROLE_CFG = {
-  promotor: { color: '#CA8A04', Icon: IconStar, label: 'PROMOTOR', idKey: 'promotor_id' },
+  promotor: { color: '#CA8A04', Icon: IconStar, label: 'RETAILER', idKey: 'promotor_id' },
   customer: { color: '#DB2777', Icon: IconUser, label: 'CUSTOMER', idKey: 'customer_id' },
 }
 const CHILD_ROLE = { promotor: 'customer' }
@@ -834,14 +834,14 @@ export default function PromotorHierarchy() {
               <IconSwitchView color="#0C4044" />
             </button>
             <span style={{ color: '#0C4044', fontSize: '16px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Promotor Hierarchy Tree
+              Retailer Hierarchy Tree
             </span>
           </div>
           {customers && (
             <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: `${ROLE_CFG.promotor.color}22`, border: `1px solid ${ROLE_CFG.promotor.color}55`, borderRadius: '20px', padding: '4px 14px' }}>
                 <span style={{ color: ROLE_CFG.promotor.color, fontWeight: 800, fontSize: '13px' }}>1</span>
-                <span style={{ color: subtext, fontSize: '12px', fontWeight: 650 }}>Promotor</span>
+                <span style={{ color: subtext, fontSize: '12px', fontWeight: 650 }}>Retailer</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: `${ROLE_CFG.customer.color}22`, border: `1px solid ${ROLE_CFG.customer.color}55`, borderRadius: '20px', padding: '4px 14px' }}>
                 <span style={{ color: ROLE_CFG.customer.color, fontWeight: 800, fontSize: '13px' }}>{customers.length}</span>
@@ -883,7 +883,7 @@ export default function PromotorHierarchy() {
         <div className="sh-superadmin-col">
           <div className="otree-card" data-role="promotor" style={{ '--nc': ROLE_CFG.promotor.color, minWidth: 150, cursor: 'default' }}>
             <div className="otree-badge" style={{ '--nc': ROLE_CFG.promotor.color }}>
-              <IconStar color={ROLE_CFG.promotor.color} size={11} /> PROMOTOR
+              <IconStar color={ROLE_CFG.promotor.color} size={11} /> RETAILER
             </div>
             <div className="otree-id" style={{ color: ROLE_CFG.promotor.color }}>{promotorInfo.promotor_id}</div>
             <div className="otree-name" style={{ color: text, fontSize: '12px' }}>{promotorInfo.first_name} {promotorInfo.last_name || ''}</div>
@@ -979,7 +979,7 @@ export default function PromotorHierarchy() {
 
       {!loading && (
         <div style={{ marginTop: '20px', padding: '14px 0', display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
-          {[{ role: 'Promotor', key: 'promotor' }, { role: 'Customer', key: 'customer' }].map(l => (
+          {[{ role: 'Retailer', key: 'promotor' }, { role: 'Customer', key: 'customer' }].map(l => (
             <div key={l.role} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <div style={{ width: 9, height: 9, borderRadius: '50%', background: ROLE_CFG[l.key].color }} />
               <span style={{ color: subtext, fontSize: '11px' }}>{l.role}</span>

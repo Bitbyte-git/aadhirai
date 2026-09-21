@@ -75,7 +75,7 @@ const IconMessage = ({ color, size = 13 }) => (
 // ROLE CONFIG — Exact Superadmin Hierarchy Grid Colors & Styling
 // ══════════════════════════════════════════════════════════════════
 const ROLE_CFG = {
-  promotor: { color: '#CA8A04', Icon: IconStar, label: 'PROMOTOR', idKey: 'promotor_id' },
+  promotor: { color: '#CA8A04', Icon: IconStar, label: 'RETAILER', idKey: 'promotor_id' },
   customer: { color: '#DB2777', Icon: IconUser, label: 'CUSTOMER', idKey: 'customer_id' },
 }
 const CHILD_ROLE = { promotor: 'customer' }
@@ -1062,7 +1062,7 @@ export default function Promotor_Hierarchy_grid() {
                 <IconSwitchView color="#0C4044" />
               </button>
               <span style={{ color: '#0C4044', fontSize: '16px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Promotor Hierarchy Grid
+                Retailer Hierarchy Grid
               </span>
             </div>
             {root && (
@@ -1148,7 +1148,7 @@ export default function Promotor_Hierarchy_grid() {
                 <IconStar color={ROLE_CFG.promotor.color} size={18} />
                 <div>
                   <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.4, color: ROLE_CFG.promotor.color }}>
-                    LEVEL 1 · PROMOTOR
+                    LEVEL 1 · RETAILER
                   </div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: text, marginTop: 2 }}>
                     {root.first_name} {root.last_name || ''} ({root.promotor_id})

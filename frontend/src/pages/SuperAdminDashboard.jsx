@@ -15,10 +15,10 @@ const COLORS = ['#BDCFCE', '#CCA881', '#0C4044', '#C92035', '#BB8958', '#D1DFDE'
 
 
 const ROLE_CFG = {
-  admin: { color: '#53615F', label: 'ADMIN', idKey: 'admin_id' },
-  dealer: { color: '#0C4044', label: 'DEALER', idKey: 'dealer_id' },
-  sub_dealer: { color: '#BB8958', label: 'SUB DEALER', idKey: 'sub_dealer_id' },
-  promotor: { color: '#CCA881', label: 'PROMOTOR', idKey: 'promotor_id' },
+  admin: { color: '#53615F', label: 'SUPER STOCKIST', idKey: 'admin_id' },
+  dealer: { color: '#0C4044', label: 'DISTRIBUTOR', idKey: 'dealer_id' },
+  sub_dealer: { color: '#BB8958', label: 'WHOLESALE DEALER', idKey: 'sub_dealer_id' },
+  promotor: { color: '#CCA881', label: 'RETAILER', idKey: 'promotor_id' },
   customer: { color: '#C92035', label: 'CUSTOMER', idKey: 'customer_id' },
 }
 
@@ -318,10 +318,10 @@ let _hideTimer = null
 
 // â”€â”€â”€ CHAIN POPUP (hover on any tree node) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const ROLE_LABELS = {
-  admin: { emoji: '', label: 'ADMIN', color: '#53615F', idKey: 'admin_id' },
-  dealer: { emoji: ' dealers', label: 'DEALER', color: '#0C4044', idKey: 'dealer_id' },
-  sub_dealer: { emoji: ' sub_dealers', label: 'SUB DEALER', color: '#BB8958', idKey: 'sub_dealer_id' },
-  promotor: { emoji: ' promotor', label: 'PROMOTOR', color: '#CCA881', idKey: 'promotor_id' },
+  admin: { emoji: '', label: 'SUPER STOCKIST', color: '#53615F', idKey: 'admin_id' },
+  dealer: { emoji: ' dealers', label: 'DISTRIBUTOR', color: '#0C4044', idKey: 'dealer_id' },
+  sub_dealer: { emoji: ' sub_dealers', label: 'WHOLESALE DEALER', color: '#BB8958', idKey: 'sub_dealer_id' },
+  promotor: { emoji: ' promotor', label: 'RETAILER', color: '#CCA881', idKey: 'promotor_id' },
   customer: { emoji: ' customers', label: 'CUSTOMER', color: '#C92035', idKey: 'customer_id' },
 }
 
@@ -340,10 +340,10 @@ function scheduleHideChainPopup() {
 
 function printPersonCard(node, role, cfg, color, ancestors, superAdminEmail) {
   const ROLE_PRINT = {
-    admin: { label: 'ADMIN', emoji: '_ADMIN', idKey: 'admin_id' },
-    dealer: { label: 'DEALER', emoji: '_DEALER', idKey: 'dealer_id' },
-    sub_dealer: { label: 'SUB DEALER', emoji: '_SUB_DEALER', idKey: 'sub_dealer_id' },
-    promotor: { label: 'PROMOTOR', emoji: '_PROMOTOR', idKey: 'promotor_id' },
+    admin: { label: 'SUPER STOCKIST', emoji: '_ADMIN', idKey: 'admin_id' },
+    dealer: { label: 'DISTRIBUTOR', emoji: '_DEALER', idKey: 'dealer_id' },
+    sub_dealer: { label: 'WHOLESALE DEALER', emoji: '_SUB_DEALER', idKey: 'sub_dealer_id' },
+    promotor: { label: 'RETAILER', emoji: '_PROMOTOR', idKey: 'promotor_id' },
     customer: { label: 'CUSTOMER', emoji: '_CUSTOMER', idKey: 'customer_id' },
   }
 
@@ -735,7 +735,7 @@ function createAdminPopup(a, i, anchorEl, dark, subtext, text) {
       </div>
     </div>
     <div style="background:${adminBoxBg};border:1px solid ${adminBoxBd};border-radius:10px;padding:11px;">
-      <div style="display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(189,207,206,0.12);color:#BDCFCE;border:1px solid rgba(189,207,206,0.25);margin-bottom:6px;">ADMIN</div>
+      <div style="display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(189,207,206,0.12);color:#BDCFCE;border:1px solid rgba(189,207,206,0.25);margin-bottom:6px;">SUPER STOCKIST</div>
       <div style="font-size:10px;color:${c};font-family:monospace;margin-bottom:3px;">${a.admin_id}</div>
       <div style="font-size:13px;color:${text};font-weight:700;margin-bottom:6px;">${a.first_name}</div>
       <div style="font-size:11px;color:${subtext};margin-bottom:3px;display:flex;align-items:center;gap:5px;">${svgIconMarkup('phone', '${subtext}', 12)} ${a.mobile_number}</div>
@@ -1310,10 +1310,10 @@ const fetchAllMembers = async (adminsData = []) => {
     const cuss = cusRes.status === 'fulfilled' ? (cusRes.value.data?.results || cusRes.value.data || []) : []
 
       const allMembers = [
-        ...admins.map(m => ({ ...m, _role: 'Admin', _id: m.admin_id, _roleColor: '#BDCFCE', _dob: m.dob, _ann: m.anniversary_date, _joined: m.user?.created_at || null })),
-        ...dealers.map(m => ({ ...m, _role: 'Dealer', _id: m.dealer_id, _roleColor: '#0C4044', _dob: m.dob, _ann: m.anniversary_date, _joined: m.created_at })),
-        ...sds.map(m => ({ ...m, _role: 'SubDealer', _id: m.sub_dealer_id, _roleColor: '#BB8958', _dob: m.dob, _ann: m.anniversary_date, _joined: m.created_at })),
-        ...pros.map(m => ({ ...m, _role: 'Promotor', _id: m.promotor_id, _roleColor: '#CCA881', _dob: m.dob, _ann: m.anniversary_date, _joined: m.created_at })),
+        ...admins.map(m => ({ ...m, _role: 'Super Stockist', _id: m.admin_id, _roleColor: '#BDCFCE', _dob: m.dob, _ann: m.anniversary_date, _joined: m.user?.created_at || null })),
+        ...dealers.map(m => ({ ...m, _role: 'Distributor', _id: m.dealer_id, _roleColor: '#0C4044', _dob: m.dob, _ann: m.anniversary_date, _joined: m.created_at })),
+        ...sds.map(m => ({ ...m, _role: 'Wholesale Dealer', _id: m.sub_dealer_id, _roleColor: '#BB8958', _dob: m.dob, _ann: m.anniversary_date, _joined: m.created_at })),
+        ...pros.map(m => ({ ...m, _role: 'Retailer', _id: m.promotor_id, _roleColor: '#CCA881', _dob: m.dob, _ann: m.anniversary_date, _joined: m.created_at })),
         ...cuss.map(m => ({ ...m, _role: 'Customer', _id: m.customer_id, _roleColor: '#C92035', _dob: m.dob || null, _ann: m.anniversary_date || null, _joined: m.user?.created_at || m.created_at || null })),
       ]
 
@@ -3136,7 +3136,7 @@ return (
         </div>
 
         <div className="sa-admin-tools-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '22px', fontWeight: 800, margin: 0 }}>Admin Management</h2>
+          <h2 style={{ fontSize: '22px', fontWeight: 800, margin: 0 }}>Super Stockist Management</h2>
           <div style={{ display: 'flex', gap: '12px' }}>
 
 
@@ -3171,7 +3171,7 @@ return (
             <div className="sa-admin-action-split">
               <button
                 type="button"
-                onClick={() => navigate('/create-admin')}
+                onClick={() => navigate('/create-super-stockist')}
                 className="sa-btn-create-admin"
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -3180,7 +3180,7 @@ return (
                   <line x1="19" y1="8" x2="19" y2="14" />
                   <line x1="22" y1="11" x2="16" y2="11" />
                 </svg>
-                + Create Admin
+                + Create Super Stockist
               </button>
 
               <button
@@ -4076,10 +4076,10 @@ return (
                 <label style={{ display: 'block', color: subtext, fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>Send To</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                   {[
-                    { key: 'admin', label: 'Admin', color: '#53615F' },
-                    { key: 'dealer', label: 'Dealer', color: '#0C4044' },
-                    { key: 'sub_dealer', label: ' Subcommittee Dealer', color: '#BB8958' },
-                    { key: 'promotor', label: 'Promotor', color: '#CCA881' },
+                    { key: 'admin', label: 'Super Stockist', color: '#53615F' },
+                    { key: 'dealer', label: 'Distributor', color: '#0C4044' },
+                    { key: 'sub_dealer', label: 'Wholesale Dealer', color: '#BB8958' },
+                    { key: 'promotor', label: 'Retailer', color: '#CCA881' },
                     { key: 'customer', label: 'Customer', color: '#C92035' },
                   ].map(role => {
                     const checked = specialAnnForm.roles.includes(role.key)
@@ -4149,10 +4149,10 @@ try {
   <div style={{ display: 'flex', gap: '10px', marginTop: '10px', flexWrap: 'wrap' }}>
     {[
       { label: 'Super Admin', roleKey: 'super_admin', count: 1, color: '#CCA881' },
-      { label: 'Admins', roleKey: 'admin', count: totalStats.admins, color: '#53615F' },
-      { label: 'Dealers', roleKey: 'dealer', count: totalStats.dealers, color: '#0C4044' },
-      { label: 'Sub Dealers', roleKey: 'sub_dealer', count: totalStats.subDealers, color: '#BB8958' },
-      { label: 'Promotors', roleKey: 'promotor', count: totalStats.promotors, color: '#CCA881' },
+      { label: 'Super Stockists', roleKey: 'admin', count: totalStats.admins, color: '#53615F' },
+      { label: 'Distributors', roleKey: 'dealer', count: totalStats.dealers, color: '#0C4044' },
+      { label: 'Wholesale Dealers', roleKey: 'sub_dealer', count: totalStats.subDealers, color: '#BB8958' },
+      { label: 'Retailers', roleKey: 'promotor', count: totalStats.promotors, color: '#CCA881' },
       { label: 'Customers', roleKey: 'customer', count: totalStats.customers, color: '#C92035' },
     ].map(s => {
       const isActive = hierarchyFilter === s.roleKey
@@ -4377,10 +4377,10 @@ try {
                 <div style={{ flexShrink: 0, padding: '14px 28px', borderTop: '1px solid rgba(103,232,249,0.08)', display: 'flex', gap: '14px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
                   {[
                     { role: 'Super Admin', color: '#CCA881', emoji: 'ðŸ›¡ï¸' },
-                    { role: 'Admin', color: '#53615F', emoji: 'ðŸ›¡ï¸' },
-                    { role: 'Dealer', color: '#0C4044', emoji: 'ðŸª' },
-                    { role: 'Sub Dealer', color: '#BB8958', emoji: 'ðŸ”—' },
-                    { role: 'Promotor', color: '#CCA881', emoji: 'ðŸŒŸ' },
+                    { role: 'Super Stockist', color: '#53615F', emoji: 'ðŸ›¡ï¸' },
+                    { role: 'Distributor', color: '#0C4044', emoji: 'ðŸª' },
+                    { role: 'Wholesale Dealer', color: '#BB8958', emoji: 'ðŸ”—' },
+                    { role: 'Retailer', color: '#CCA881', emoji: 'ðŸŒŸ' },
                     { role: 'Customer', color: '#C92035', emoji: 'ðŸ‘¤' },
                   ].map(l => (
                     <div key={l.role} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -4853,10 +4853,10 @@ style={{ width: '100%', marginTop: '6px', padding: '14px', background: 'linear-g
                 <label style={{ display: 'block', color: subtext, fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>Send To (Select Roles) *</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                   {[
-                    { key: 'admin', label: 'Admin', color: '#53615F', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l7 3v6c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6l7-3z"/></svg> },
-                    { key: 'dealer', label: 'Dealer', color: '#0C4044', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="10" width="6" height="10" rx="1"/><rect x="9" y="4" width="6" height="16" rx="1"/><rect x="15" y="13" width="6" height="7" rx="1"/></svg> },
-                    { key: 'sub_dealer', label: 'Sub Dealer', color: '#BB8958', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 007.07 0l2.83-2.83a5 5 0 00-7.07-7.07L11.5 4.5"/><path d="M14 11a5 5 0 00-7.07 0l-2.83 2.83a5 5 0 007.07 7.07L12.5 19.5"/></svg> },
-                    { key: 'promotor', label: 'Promotor', color: '#CCA881', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg> },
+                    { key: 'admin', label: 'Super Stockist', color: '#53615F', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l7 3v6c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6l7-3z"/></svg> },
+                    { key: 'dealer', label: 'Distributor', color: '#0C4044', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="10" width="6" height="10" rx="1"/><rect x="9" y="4" width="6" height="16" rx="1"/><rect x="15" y="13" width="6" height="7" rx="1"/></svg> },
+                    { key: 'sub_dealer', label: 'Wholesale Dealer', color: '#BB8958', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 007.07 0l2.83-2.83a5 5 0 00-7.07-7.07L11.5 4.5"/><path d="M14 11a5 5 0 00-7.07 0l-2.83 2.83a5 5 0 007.07 7.07L12.5 19.5"/></svg> },
+                    { key: 'promotor', label: 'Retailer', color: '#CCA881', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg> },
                     { key: 'customer', label: 'Customer', color: '#C92035', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg> },
                   ].map(role => {
                     const checked = announcementForm.roles.includes(role.key)
@@ -5314,211 +5314,7 @@ style={{ width: '100%', padding: '15px', background: announcingSending ? 'rgba(1
             </div>
           </div>
         )}
-
-        {/* Create Admin Form - unchanged */}
-        {showForm && (
-          <div style={s.card}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                            <p style={s.secHead}>Create New Admin</p>
-                <CopyUrlButton />
-              </div>
-              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                          <div style={s.sectionCard}>
-              <SectionHeader icon="user" label="Personal Info" />
-              <div className="sa-form-grid3" style={{ display: 'grid', gap: '16px' }}>
-                <div><label style={s.lbl}>Initial</label>
-                  <input name="initial" maxLength={5} value={form.initial} onChange={handleChange} className="sa-inp" style={s.inp} />
-                </div>
-                <div><label style={s.lbl}>First Name *</label>
-                  <input name="first_name" maxLength={100} value={form.first_name} onChange={handleChange} required className="sa-inp" style={s.inp} />
-                </div>
-                <div><label style={s.lbl}>Last Name *</label>
-                  <input name="last_name" maxLength={100} value={form.last_name} onChange={handleChange} required className="sa-inp" style={s.inp} />
-                </div>
-
-                                <div>
-                  <label style={s.lbl}>Mobile *</label>
-                  <input
-                    name="mobile_number"
-                    maxLength={10}
-                    value={form.mobile_number}
-                    onChange={handleChange}
-                    required
-                    className="sa-inp"
-                    style={s.inp}
-                  />
-                </div>
-
-                <div>
-                  <label style={s.lbl}>Gender *</label>
-                  <select name="gender" value={form.gender} onChange={handleChange} required className="sa-inp" style={s.inp}>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="transgender">Transgender</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={s.lbl}>DOB *</label>
-                  <input type="date" name="dob" value={form.dob} onChange={handleChange} required className="sa-inp" style={s.inp} />
-                </div>
-
-                <div>
-                  <label style={s.lbl}>Married Status</label>
-                  <select name="married_status" value={form.married_status} onChange={handleChange} className="sa-inp" style={s.inp}>
-                    <option value="single">Single</option>
-                    <option value="married">Married</option>
-                    <option value="divorced">Divorced</option>
-                  </select>
-                </div>
-
-                {form.married_status === 'married' && (
-                  <div>
-                    <label style={s.lbl}>Anniversary Date</label>
-                    <input
-                      type="date"
-                      name="anniversary_date"
-                      value={form.anniversary_date}
-                      onChange={handleChange}
-                      className="sa-inp"
-                      style={s.inp}
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <label style={s.lbl}>Admin ID</label>
-                  <div style={{ ...s.inp, opacity: 0.55, cursor: 'not-allowed', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ color: '#53615F', fontFamily: 'monospace', fontSize: '13px' }}>
-                      BBADM{new Date().getFullYear()}
-                    </span>
-                    <span style={{ color: '#7A8987', fontSize: '12px' }}>
-                      &lt;auto-generated&gt;
-                    </span>
-                  </div>
-                </div>
-              </div>
-              </div>
-
-                                          <div style={s.sectionCard}>
-              <SectionHeader icon="lock" label="Account Info" />
-              <div className="sa-form-grid3" style={{ display: 'grid', gap: '16px' }}>
-                <div><label style={s.lbl}>Email *</label>
-                  <input type="email" name="email" value={form.email} onChange={handleChange} required className="sa-inp" style={s.inp} />
-                </div>
-                <div>
-                  <label style={s.lbl}>Password *</label>
-                  <input type="password" name="password" value={form.password} onChange={handleChange} required className="sa-inp" style={s.inp} />
-                  {form.password && (
-                    <div style={{ marginTop: '6px' }}>
-                      <div style={{ height: '4px', borderRadius: '4px', background: 'rgba(189,207,206,0.4)', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: getPasswordStrength(form.password).width, background: getPasswordStrength(form.password).color, transition: 'all 0.3s ease' }} />
-                      </div>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: getPasswordStrength(form.password).color, marginTop: '4px' }}>
-                        {getPasswordStrength(form.password).label}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label style={s.lbl}>Confirm Password *</label>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={e => { setConfirmPassword(e.target.value); setPasswordError('') }}
-                    required
-                    className="sa-inp"
-                    style={{ ...s.inp, border: `1px solid ${passwordError ? '#C92035' : inpBorder}` }}
-                  />
-                  {passwordError && (
-                    <div style={{ color: '#C92035', fontSize: '12px', marginTop: '6px' }}>
-                      {passwordError}
-                    </div>
-                  )}
-                  {confirmPassword && !passwordError && (
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: confirmPassword === form.password ? '#0C4044' : '#C92035', marginTop: '6px' }}>
-                      {confirmPassword === form.password ? 'Passwords match' : 'Passwords do not match'}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              </div>
-
-                              <div style={s.sectionCard}>
-              <SectionHeader icon="pin" label="Address" />
-              <div className="sa-form-grid3" style={{ display: 'grid', gap: '16px' }}>
-                <div><label style={s.lbl}>Door No *</label><input name="door_no" value={form.door_no} onChange={handleChange} required className="sa-inp" style={s.inp} /></div>
-                <div><label style={s.lbl}>Street Name *</label><input name="street_name" value={form.street_name} onChange={handleChange} required className="sa-inp" style={s.inp} /></div>
-                <div>
-                  <label style={s.lbl}>Pincode *</label>
-                  <input name="pincode" value={form.pincode} onChange={handlePincodeChange} required maxLength={6} inputMode="numeric" className="sa-inp" style={s.inp} />
-                                    {pincodeLookupMsg && (
-                    <div style={{ fontSize: '11px', fontWeight: 700, marginTop: '4px', color: pincodeLookupMsg.includes('auto-filled') ? '#0C4044' : pincodeLookupMsg.includes('not found') || pincodeLookupMsg.includes('Unable') ? '#C92035' : subtext }}>
-                      {pincodeLookupMsg}
-                    </div>
-                  )}
-                </div>
-                <div><label style={s.lbl}>Town</label><input name="town_name" value={form.town_name} onChange={handleChange} className="sa-inp" style={s.inp} /></div>
-                                <div><label style={s.lbl}>City</label><input name="city_name" value={form.city_name} onChange={handleChange} className="sa-inp" style={s.inp} /></div>
-                <div><label style={s.lbl}>District *</label><input name="district" value={form.district} onChange={handleChange} required className="sa-inp" style={s.inp} /></div>
-                <div><label style={s.lbl}>State *</label><input name="state" value={form.state} onChange={handleChange} required className="sa-inp" style={s.inp} /></div>
-              </div>
-              </div>
-
-                            <div style={s.sectionCard}>
-              <SectionHeader icon="id" label="Identity" />
-              <div className="sa-form-grid2" style={{ display: 'grid', gap: '16px' }}>
-                <div><label style={s.lbl}>Aadhaar No</label><input name="aadhaar_no" maxLength={12} value={form.aadhaar_no} onChange={handleChange} className="sa-inp" style={s.inp} /></div>
-                <div><label style={s.lbl}>PAN No</label><input name="pan_no" maxLength={10} value={form.pan_no} onChange={handleChange} className="sa-inp" style={s.inp} /></div>
-              </div>
-              </div>
-
-                            <div style={s.sectionCard}>
-              <SectionHeader icon="briefcase" label="Occupation" />
-              <div className="sa-form-grid3" style={{ display: 'grid', gap: '16px' }}>
-                <div><label style={s.lbl}>Occupation</label>
-                  <select name="occupation" value={form.occupation} onChange={handleChange} className="sa-inp" style={{ ...s.inp, cursor: 'pointer' }}>
-                    {OCCUPATION_OPTIONS.map(o => <option key={o} value={o} style={{ background: '#F3F3F0' }}>{o.charAt(0).toUpperCase() + o.slice(1)}</option>)}
-                  </select>
-                </div>
-                <div><label style={s.lbl}>Detail</label><input name="occupation_detail" value={form.occupation_detail} onChange={handleChange} className="sa-inp" style={s.inp} /></div>
-                <div><label style={s.lbl}>Annual Salary</label><input name="annual_salary" value={form.annual_salary} onChange={handleChange} className="sa-inp" style={s.inp} /></div>
-              </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
-                <button type="submit" className="sa-grad-btn"
-                  style={{ padding: '12px 28px', background: 'linear-gradient(90deg,#BDCFCE,#0C4044)', border: 'none', borderRadius: '12px', fontWeight: 800, color: '#FDFDFC', fontSize: '14px', cursor: 'pointer' }}>
-                  Create Admin
-                </button>
-                <button type="button" onClick={() => setShowForm(false)}
-                  style={{ padding: '12px 24px', background: inpBg, border: `1px solid ${border}`, borderRadius: '12px', color: subtext, fontSize: '14px', cursor: 'pointer' }}>
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
       </div>
-
-      {selectedAdminDetail && (
-        <div onClick={() => setSelectedAdminDetail(null)} style={{ position:'fixed', inset:0, zIndex:1350, padding:20, display:'grid', placeItems:'center', background:'rgba(7,31,34,.52)', backdropFilter:'blur(8px)' }}>
-          <section onClick={event => event.stopPropagation()} style={{ width:'min(520px,100%)', overflow:'hidden', border:'1px solid rgba(204,168,129,.38)', borderRadius:22, background:'linear-gradient(155deg,#fff,#F7FAF8)', boxShadow:'0 35px 90px rgba(7,31,34,.3)' }}>
-            <header style={{ padding:'24px 26px', display:'flex', alignItems:'center', justifyContent:'space-between', color:'#fff', background:'linear-gradient(120deg,#073B3F,#0C5254)' }}>
-              <div><small style={{ display:'block', marginBottom:5, color:'#D9B780', fontSize:9, fontWeight:800, letterSpacing:'.16em' }}>ADMIN PROFILE</small><h3 style={{ margin:0, fontFamily:'Georgia,serif', fontSize:25 }}>{selectedAdminDetail.first_name} {selectedAdminDetail.last_name}</h3></div>
-              <button type="button" onClick={() => setSelectedAdminDetail(null)} aria-label="Close profile" style={{ width:34, height:34, border:'1px solid rgba(255,255,255,.25)', borderRadius:'50%', color:'#fff', background:'rgba(255,255,255,.08)', cursor:'pointer' }}>×</button>
-            </header>
-            <div className="sa-admin-detail-grid" style={{ padding:24 }}>
-              {[['Admin ID',selectedAdminDetail.admin_id],['Email',selectedAdminDetail.email],['Mobile',selectedAdminDetail.mobile_number],['City',selectedAdminDetail.city_name],['Date of birth',selectedAdminDetail.dob || 'Not provided'],['Anniversary',selectedAdminDetail.anniversary_date || 'Not provided']].map(([label,value]) => <div className="sa-admin-detail-item" key={label}><small>{label}</small><strong>{value || 'Not provided'}</strong></div>)}
-            </div>
-            <footer style={{ padding:'0 24px 24px', display:'flex', gap:10 }}>
-              <button type="button" onClick={() => navigate(`/hierarchy-sales-count?role=admin&id=${selectedAdminDetail.id}`)} style={{ flex:1, minHeight:44, border:0, borderRadius:11, color:'#fff', background:'#073B3F', fontWeight:800, cursor:'pointer' }}>Open performance</button>
-              <button type="button" onClick={() => setSelectedAdminDetail(null)} style={{ minWidth:100, border:'1px solid #D8E3E1', borderRadius:11, color:'#53615F', background:'#fff', fontWeight:750, cursor:'pointer' }}>Close</button>
-            </footer>
-          </section>
-        </div>
-      )}
 
       {showAddCoin && (
   <div onClick={() => setShowAddCoin(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)', zIndex: 1400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -5598,381 +5394,6 @@ style={{ width: '100%', padding: '15px', background: announcingSending ? 'rgba(1
     </div>
   </div>
 )}
-
-      {/* ── ADMIN CREATION SUCCESS MODAL ── */}
-      {adminSuccessPopup && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 99999,
-            backgroundColor: 'rgba(7, 59, 63, 0.65)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-            animation: 'fadeIn 0.25s ease',
-          }}
-          onClick={() => setAdminSuccessPopup(null)}
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '480px',
-              background: '#FFFFFF',
-              borderRadius: '24px',
-              boxShadow: '0 25px 60px -15px rgba(7, 59, 63, 0.3)',
-              overflow: 'hidden',
-              border: '1px solid #E6D6C5',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header Banner */}
-            <div
-              style={{
-                background: 'linear-gradient(135deg, #073B3F 0%, #0C4044 60%, #155E63 100%)',
-                padding: '26px 28px 22px',
-                color: '#FFFFFF',
-                position: 'relative',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <div
-                  style={{
-                    width: '46px',
-                    height: '46px',
-                    borderRadius: '50%',
-                    background: 'rgba(255, 255, 255, 0.15)',
-                    border: '2px solid rgba(255, 255, 255, 0.4)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '22px',
-                    flexShrink: 0,
-                  }}
-                >
-                  ✓
-                </div>
-                <div>
-                  <h3
-                    style={{
-                      margin: 0,
-                      fontSize: '19px',
-                      fontWeight: 800,
-                      fontFamily: '"Cormorant Garamond", Georgia, serif',
-                      letterSpacing: '0.02em',
-                    }}
-                  >
-                    Admin Created Successfully!
-                  </h3>
-                  <p
-                    style={{
-                      margin: '4px 0 0',
-                      fontSize: '12px',
-                      color: 'rgba(255, 255, 255, 0.8)',
-                    }}
-                  >
-                    New administrator account is active in the hierarchy
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAdminSuccessPopup(null)}
-                style={{
-                  position: 'absolute',
-                  top: '18px',
-                  right: '18px',
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  background: 'rgba(255, 255, 255, 0.15)',
-                  border: '1px solid rgba(255, 255, 255, 0.25)',
-                  color: '#FFFFFF',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Content Body */}
-            <div style={{ padding: '24px 28px' }}>
-              {adminSuccessPopup.admin_id && (
-                <div
-                  style={{
-                    background: 'linear-gradient(135deg, #F9FBFB 0%, #EEF4F4 100%)',
-                    border: '1.5px dashed #0C4044',
-                    borderRadius: '16px',
-                    padding: '16px',
-                    marginBottom: '20px',
-                    textAlign: 'center',
-                  }}
-                >
-                  <span
-                    style={{
-                      display: 'block',
-                      fontSize: '11px',
-                      fontWeight: 800,
-                      color: '#70817F',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.08em',
-                      marginBottom: '4px',
-                    }}
-                  >
-                    Generated Admin ID
-                  </span>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: '18px',
-                        fontWeight: 900,
-                        color: '#073B3F',
-                        fontFamily: 'monospace',
-                        letterSpacing: '0.05em',
-                      }}
-                    >
-                      {adminSuccessPopup.admin_id}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(adminSuccessPopup.admin_id);
-                        setCopiedPopupAdminId(true);
-                        setTimeout(() => setCopiedPopupAdminId(false), 2000);
-                      }}
-                      style={{
-                        padding: '4px 10px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        borderRadius: '8px',
-                        background: copiedPopupAdminId ? '#059669' : '#073B3F',
-                        color: '#FFFFFF',
-                        border: 'none',
-                        cursor: 'pointer',
-                        transition: 'background 0.2s',
-                      }}
-                    >
-                      {copiedPopupAdminId ? 'Copied!' : 'Copy'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Admin Details Summary */}
-              <div
-                style={{
-                  background: '#FDFDFC',
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '14px',
-                  padding: '14px 18px',
-                  marginBottom: '22px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px',
-                }}
-              >
-                {adminSuccessPopup.name && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                    <span style={{ color: '#6B7280', fontWeight: 600 }}>Full Name:</span>
-                    <span style={{ color: '#111827', fontWeight: 700 }}>{adminSuccessPopup.name}</span>
-                  </div>
-                )}
-                {adminSuccessPopup.email && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                    <span style={{ color: '#6B7280', fontWeight: 600 }}>Email:</span>
-                    <span style={{ color: '#111827', fontWeight: 700 }}>{adminSuccessPopup.email}</span>
-                  </div>
-                )}
-                {adminSuccessPopup.mobile && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                    <span style={{ color: '#6B7280', fontWeight: 600 }}>Mobile:</span>
-                    <span style={{ color: '#111827', fontWeight: 700 }}>{adminSuccessPopup.mobile}</span>
-                  </div>
-                )}
-                {adminSuccessPopup.city && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                    <span style={{ color: '#6B7280', fontWeight: 600 }}>City:</span>
-                    <span style={{ color: '#111827', fontWeight: 700 }}>{adminSuccessPopup.city}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const text = `Admin ID: ${adminSuccessPopup.admin_id}\nName: ${adminSuccessPopup.name}\nEmail: ${adminSuccessPopup.email}\nMobile: ${adminSuccessPopup.mobile}`;
-                    navigator.clipboard.writeText(text);
-                    setCopiedPopupAdminId(true);
-                    setTimeout(() => setCopiedPopupAdminId(false), 2000);
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: '12px 18px',
-                    borderRadius: '12px',
-                    border: '1px solid #D1D5DB',
-                    background: '#F9FAFB',
-                    color: '#374151',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {copiedPopupAdminId ? 'Copied Details!' : 'Copy All Details'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAdminSuccessPopup(null)}
-                  style={{
-                    flex: 1,
-                    padding: '12px 18px',
-                    borderRadius: '12px',
-                    border: 'none',
-                    background: 'linear-gradient(135deg, #073B3F, #0C4044)',
-                    color: '#FFFFFF',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    boxShadow: '0 6px 18px rgba(7, 59, 63, 0.25)',
-                  }}
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── ADMIN ERROR MODAL ── */}
-      {adminErrorPopup && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 99999,
-            backgroundColor: 'rgba(0, 0, 0, 0.65)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-            animation: 'fadeIn 0.25s ease',
-          }}
-          onClick={() => setAdminErrorPopup(null)}
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '480px',
-              background: '#FFFFFF',
-              borderRadius: '24px',
-              boxShadow: '0 25px 60px -15px rgba(220, 38, 38, 0.3)',
-              overflow: 'hidden',
-              border: '1px solid #FECACA',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
-                padding: '22px 28px',
-                color: '#FFFFFF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '24px' }}>⚠️</span>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>
-                    {adminErrorPopup.title || 'Action Required'}
-                  </h3>
-                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'rgba(255, 255, 255, 0.85)' }}>
-                    Please correct the following fields
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAdminErrorPopup(null)}
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  background: 'rgba(255, 255, 255, 0.15)',
-                  border: '1px solid rgba(255, 255, 255, 0.25)',
-                  color: '#FFFFFF',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ padding: '24px 28px' }}>
-              <p style={{ margin: '0 0 14px', color: '#6B7280', fontSize: '13.5px' }}>
-                Please review and correct the following items:
-              </p>
-              <div
-                style={{
-                  background: '#FEF2F2',
-                  border: '1px solid #FEE2E2',
-                  borderRadius: '14px',
-                  padding: '14px 18px',
-                  marginBottom: '20px',
-                  maxHeight: '260px',
-                  overflowY: 'auto',
-                }}
-              >
-                <ul style={{ margin: 0, paddingLeft: '18px', color: '#991B1B', fontSize: '13.5px', lineHeight: 1.6 }}>
-                  {adminErrorPopup.errors.map((errMsg, i) => (
-                    <li key={i} style={{ fontWeight: 600 }}>{errMsg}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  onClick={() => setAdminErrorPopup(null)}
-                  style={{
-                    padding: '10px 24px',
-                    background: '#DC2626',
-                    border: 'none',
-                    borderRadius: '12px',
-                    color: '#FFFFFF',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Review & Fix
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   )

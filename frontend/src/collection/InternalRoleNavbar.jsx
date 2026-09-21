@@ -25,6 +25,7 @@ export default function InternalRoleNavbar({
   coinItems = [],
   jewelleryItems = [],
   reportItems = [],
+  commissionItems = [],
   actionItems = [],
 }) {
   const navigate = useNavigate()
@@ -70,12 +71,12 @@ export default function InternalRoleNavbar({
 
   const groups = [
     { label: 'Management', items: managementItems },
-    { label: 'Celebrations', items: celebrationItems },
-    { label: 'Announcements', items: announcementItems },
+    { label: 'Announcements', items: [...announcementItems, ...celebrationItems] },
     { label: 'My Rewards', items: myRewardsItems },
     { label: 'Coins', items: coinItems },
     { label: 'Jewellery', items: finalJewelleryItems },
     { label: 'Reports', items: reportItems },
+    { label: 'Commissions', items: commissionItems },
     { label: 'Role', items: roleSwitchItems },
   ].filter(group => group.items.length)
 
@@ -93,7 +94,7 @@ export default function InternalRoleNavbar({
           <div className="irn-inner">
             <button className="irn-brand" type="button" onClick={() => navigate(homePath)} title="Go to dashboard">
               <img src={logo} alt="Luxiva" />
-              <span><strong>LUXIVA</strong><small>{roleTitle}</small></span>
+              <span><strong>LUXIVA</strong><small>{currentTierLabel || roleTitle}</small></span>
             </button>
             <nav className={`irn-menu ${menuOpen ? 'is-open' : ''}`}>
               {groups.map(group => (

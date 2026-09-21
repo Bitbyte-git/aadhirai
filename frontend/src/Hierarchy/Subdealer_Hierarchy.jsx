@@ -56,11 +56,29 @@ const IconBack = ({ color, size = 14 }) => (
     <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
   </svg>
 )
-const IconBuilding = ({ color, size = 18 }) => (
+const IconMinus = ({ color, size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 12h14" />
+  </svg>
+)
+const IconPlus = ({ color, size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 5v14" /><path d="M5 12h14" />
+  </svg>
+)
+const IconFit = ({ color, size = 14 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="4" y="2" width="16" height="20"/><line x1="9" y1="6" x2="9" y2="6"/><line x1="15" y1="6" x2="15" y2="6"/>
-    <line x1="9" y1="10" x2="9" y2="10"/><line x1="15" y1="10" x2="15" y2="10"/><line x1="9" y1="14" x2="9" y2="14"/>
-    <line x1="15" y1="14" x2="15" y2="14"/><line x1="9" y1="18" x2="15" y2="18"/>
+    <path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M16 3h3a2 2 0 0 1 2 2v3" />
+    <path d="M8 21H5a2 2 0 0 1-2-2v-3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+    <path d="M9 12h6" />
+  </svg>
+)
+const IconSwitchView = ({ color, size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 3l4 4-4 4"/>
+    <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+    <path d="M7 21l-4-4 4-4"/>
+    <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
   </svg>
 )
 const IconChevronDown = ({ color, size = 10 }) => (
@@ -69,14 +87,13 @@ const IconChevronDown = ({ color, size = 10 }) => (
   </svg>
 )
 
-// ── ROLE CONFIG — SubDealer root ku keela Promotor -> Customer ──
 const ROLE_CFG = {
-  sub_dealer: { color: '#ef4444', Icon: IconLink, label: 'SUB DEALER' },
-  promotor: { color: '#d4a017', Icon: IconStar, label: 'PROMOTOR', idKey: 'promotor_id' },
-  customer: { color: '#fb7185', Icon: IconUser, label: 'CUSTOMER', idKey: 'customer_id' },
+  sub_dealer: { color: '#DC2626', Icon: IconLink, label: 'SUB DEALER', idKey: 'sub_dealer_id' },
+  promotor: { color: '#CA8A04', Icon: IconStar, label: 'PROMOTOR', idKey: 'promotor_id' },
+  customer: { color: '#DB2777', Icon: IconUser, label: 'CUSTOMER', idKey: 'customer_id' },
 }
-const CHILD_ROLE = { promotor: 'customer' }
-const CHILD_KEY = { promotor: 'customers' }
+const CHILD_ROLE = { sub_dealer: 'promotor', promotor: 'customer' }
+const CHILD_KEY = { sub_dealer: 'promotors', promotor: 'customers' }
 
 function iconSvg(paths, color, size = 14) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`
@@ -88,7 +105,7 @@ const ICON_PATHS = {
   phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>',
   mappin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
 }
-const ICON_BY_TYPE = { promotor: 'star', customer: 'user' }
+const ICON_BY_TYPE = { sub_dealer: 'link', promotor: 'star', customer: 'user' }
 
 function hexToRgb(hex) {
   const r = parseInt(hex.slice(1, 3), 16)
@@ -99,11 +116,35 @@ function hexToRgb(hex) {
 
 let _chainHideTimer = null
 function removeChainPopup() {
-  document.querySelectorAll('#chain-popup-sd').forEach(el => el.remove())
+  document.querySelectorAll('#chain-popup').forEach(el => el.remove())
 }
 function scheduleHideChainPopup() {
   clearTimeout(_chainHideTimer)
   _chainHideTimer = setTimeout(() => removeChainPopup(), 200)
+}
+
+function getPrintStyles(accent) {
+  return `
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    body { font-family:'Inter',system-ui,-apple-system,sans-serif; background:#F4F8F8; color:#111817; padding:32px 20px; }
+    .wrapper { max-width:540px; margin:0 auto; background:#FFFFFF; border:1.5px solid #D6E2E1; border-radius:20px; padding:32px; box-shadow:0 12px 36px rgba(7,59,63,0.08); }
+    .header { text-align:center; margin-bottom:26px; border-bottom:1.5px solid #E1EBEA; padding-bottom:18px; }
+    .header h1 { font-size:20px; font-weight:800; color:#073B3F; letter-spacing:0.2px; margin-bottom:4px; }
+    .header p { font-size:12.5px; color:#5C706E; font-weight:600; letter-spacing:0.5px; }
+    .chain-item { background:#FFFFFF; border:1.5px solid #E1EBEA; border-left:4px solid #5C706E; border-radius:12px; padding:12px 16px; margin-bottom:10px; text-align:left; box-shadow:0 2px 8px rgba(7,59,63,0.04); }
+    .chain-item.current { border-color:${accent}; border-left:5px solid ${accent}; background:${accent}0A; box-shadow:0 4px 16px rgba(7,59,63,0.1); }
+    .chain-role { font-size:9.5px; font-weight:800; color:#5C706E; letter-spacing:1.2px; margin-bottom:3px; text-transform:uppercase; }
+    .chain-item.current .chain-role { color:${accent}; font-weight:900; }
+    .chain-id { font-family:monospace; font-size:11px; font-weight:700; color:${accent}; margin-bottom:3px; }
+    .chain-name { font-size:15px; font-weight:800; color:#111817; margin-bottom:4px; }
+    .chain-info { font-size:11.5px; color:#5C706E; margin-top:2px; }
+    .chain-arrow { text-align:center; color:#073B3F; margin:2px 0 6px; font-size:16px; font-weight:900; line-height:1; }
+    .footer { text-align:center; font-size:10.5px; color:#5C706E; margin-top:26px; border-top:1px solid #E1EBEA; padding-top:14px; }
+    @media print {
+      body { background:#FFFFFF !important; padding:10mm !important; }
+      .wrapper { border:none !important; box-shadow:none !important; padding:0 !important; max-width:100% !important; }
+    }
+  `
 }
 
 function printPersonCard(node, role, cfg, color, ancestors, subDealerInfo) {
@@ -114,53 +155,30 @@ function printPersonCard(node, role, cfg, color, ancestors, subDealerInfo) {
   ]
   const chainHtml = chain.map((item, idx) => {
     const isLast = idx === chain.length - 1
-    if (item.type === 'sub_dealer') {
-      const d = item.data || {}
-      return `<div class="chain-item ${isLast ? 'current' : ''}">
-        <div class="chain-role">SUB DEALER</div>
-        <div class="chain-id">${d.sub_dealer_id || '—'}</div>
-        <div class="chain-name">${[d.first_name, d.last_name].filter(Boolean).join(' ') || '—'}</div>
-        <div class="chain-info">Tel: ${d.mobile_number || '—'}</div>
-      </div>${idx < chain.length - 1 ? `<div class="chain-arrow">↓</div>` : ''}`
-    }
     const r = ROLE_CFG[item.type]
     if (!r) return ''
     const d = item.data || {}
     const idVal = d[r.idKey] || d.id || '—'
     const name = [d.first_name, d.last_name].filter(Boolean).join(' ') || '—'
     const phone = d.mobile_number || '—'
-    const city = d.city_name || '—'
+    const city = d.city_name || ''
     return `<div class="chain-item ${isLast ? 'current' : ''}">
       <div class="chain-role">${r.label}</div>
       <div class="chain-id">${idVal}</div>
       <div class="chain-name">${name}</div>
-      <div class="chain-info">Tel: ${phone}</div>
-      <div class="chain-info">${city}</div>
+      <div class="chain-info">📞 ${phone}</div>
+      ${city ? `<div class="chain-info">📍 ${city}</div>` : ''}
     </div>${idx < chain.length - 1 ? `<div class="chain-arrow">↓</div>` : ''}`
   }).join('')
+
   const currentName = [node.first_name, node.last_name].filter(Boolean).join(' ') || '—'
   const roleLabel = ROLE_CFG[role]?.label || role.toUpperCase()
   const printWindow = window.open('', '_blank')
+  if (!printWindow) return
+
   printWindow.document.write(`
-    <!DOCTYPE html><html><head><title>${roleLabel} — ${currentName}</title>
-    <style>
-      * { margin:0; padding:0; box-sizing:border-box; }
-      body { font-family:'Inter',system-ui,sans-serif; background:#f8fafc; padding:40px; display:flex; justify-content:center; }
-      .wrapper { max-width:480px; width:100%; }
-      .header { text-align:center; margin-bottom:28px; }
-      .header h1 { font-size:20px; font-weight:800; color:#020617; }
-      .header p { font-size:12px; color:#64748b; margin-top:4px; }
-      .chain-item { background:#ffffff; border:1.5px solid #e2e8f0; border-radius:12px; padding:14px 18px; margin-bottom:8px; }
-      .chain-item.current { border-color:${color}; background:${color}11; }
-      .chain-role { font-size:10px; font-weight:800; color:#64748b; letter-spacing:1px; margin-bottom:4px; text-transform:uppercase; }
-      .chain-item.current .chain-role { color:${color}; }
-      .chain-id { font-family:monospace; font-size:11px; color:${color}; margin-bottom:4px; }
-      .chain-name { font-size:16px; font-weight:800; color:#020617; margin-bottom:6px; }
-      .chain-info { font-size:12px; color:#475569; margin-top:3px; }
-      .chain-arrow { text-align:center; color:#94a3b8; margin:4px 0; font-size:14px; }
-      .footer { text-align:center; font-size:10px; color:#94a3b8; margin-top:24px; letter-spacing:0.5px; }
-      @media print { body { background:white; padding:20px; } }
-    </style></head>
+    <!DOCTYPE html><html><head><meta charset="utf-8"/><title>${roleLabel} — ${currentName}</title>
+    <style>${getPrintStyles(color)}</style></head>
     <body><div class="wrapper">
       <div class="header"><h1>BitByte — ${roleLabel} Profile</h1><p>Hierarchy Chain Report</p></div>
       ${chainHtml}
@@ -172,7 +190,186 @@ function printPersonCard(node, role, cfg, color, ancestors, subDealerInfo) {
   printWindow.document.close()
 }
 
+function renderBracketBranch(node, role, childRole, childKey) {
+  const cfg = ROLE_CFG[role] || { color: '#073B3F', label: role.toUpperCase(), idKey: 'id' }
+  const idVal = node[cfg.idKey] || node.id || '—'
+  const name = [node.first_name, node.last_name].filter(Boolean).join(' ') || node.name || '—'
+  const phone = node.mobile_number || ''
+  const city = node.city_name || ''
+  const orderCount = node.order_count ?? 0
+  const children = childRole && childKey ? (node[childKey] || []) : []
+  const hasChildren = children.length > 0
+  const nextChildRole = CHILD_ROLE[childRole]
+  const nextChildKey = CHILD_KEY[childRole]
+
+  const cardHtml = `
+    <div class="bracket-card" style="border-left-color: ${cfg.color};">
+      <div class="bracket-card-role" style="color: ${cfg.color}; background: ${cfg.color}18;">
+        ${cfg.label}
+      </div>
+      <div class="bracket-card-id" style="color: ${cfg.color};">${idVal}</div>
+      <div class="bracket-card-name">${name}</div>
+      ${phone ? `<div class="bracket-card-sub">📞 ${phone}</div>` : ''}
+      ${city ? `<div class="bracket-card-sub">📍 ${city}</div>` : ''}
+      <div class="bracket-card-footer">
+        <span class="bracket-sales">📦 ${orderCount} Orders</span>
+        ${hasChildren ? `<span class="bracket-child-badge" style="color:${cfg.color};">${children.length} ${ROLE_CFG[childRole]?.label || 'Downlines'}</span>` : ''}
+      </div>
+    </div>
+  `
+
+  if (!hasChildren) {
+    return `
+      <div class="bracket-branch">
+        <div class="bracket-node-wrapper">${cardHtml}</div>
+      </div>
+    `
+  }
+
+  const childrenHtml = children.map((ch, idx) => {
+    const isFirst = idx === 0
+    const isLast = idx === children.length - 1
+    const isOnly = children.length === 1
+    const posClass = isOnly ? 'bracket-pos-only' : isFirst ? 'bracket-pos-first' : isLast ? 'bracket-pos-last' : 'bracket-pos-middle'
+
+    return `
+      <div class="bracket-child-row ${posClass}">
+        <div class="bracket-arm"></div>
+        ${renderBracketBranch(ch, childRole, nextChildRole, nextChildKey)}
+      </div>
+    `
+  }).join('')
+
+  return `
+    <div class="bracket-branch">
+      <div class="bracket-node-wrapper">${cardHtml}</div>
+      <div class="bracket-stem"></div>
+      <div class="bracket-children">
+        ${childrenHtml}
+      </div>
+    </div>
+  `
+}
+
+function printHorizontalBracketTree(rootNode, role, ancestors, subDealerInfo) {
+  const nodeName = [rootNode.first_name, rootNode.last_name].filter(Boolean).join(' ') || 'Sub Dealer Tree'
+  const nodeId = rootNode[ROLE_CFG[role]?.idKey] || rootNode.id || ''
+
+  const childRole = CHILD_ROLE[role]
+  const childKey = CHILD_KEY[role]
+  const treeHtml = renderBracketBranch(rootNode, role, childRole, childKey)
+
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    alert('Pop-up blocked! Please allow pop-ups for this site to print.')
+    return
+  }
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>Hierarchy Tree — ${nodeName} (${nodeId})</title>
+      <style id="print-orientation-style">
+        @page { size: A4 landscape; margin: 8mm 6mm; }
+      </style>
+      <style>
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        body {
+          font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+          background:#F4F8F8; color:#111817; padding:16px 20px 40px; min-width:100%;
+        }
+        .print-toolbar {
+          position:sticky; top:0; z-index:9999;
+          background:#FFFFFF; border:1.5px solid #D6E2E1; border-radius:14px;
+          padding:10px 18px; margin-bottom:14px;
+          display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
+          box-shadow:0 8px 24px rgba(7,59,63,0.08);
+        }
+        .btn-print { background:#073B3F; color:#FFFFFF; border:none; border-radius:8px; padding:7px 18px; font-weight:800; font-size:12.5px; cursor:pointer; }
+        .btn-mode { background:#F4F8F8; color:#073B3F; border:1px solid #D6E2E1; border-radius:8px; padding:7px 14px; font-weight:700; font-size:12px; cursor:pointer; }
+        .btn-mode.active { background:#E6F0F0; border-color:#073B3F; color:#073B3F; font-weight:800; }
+        .btn-action { background:#FFFFFF; color:#5C706E; border:1px solid #D6E2E1; border-radius:8px; padding:7px 12px; font-weight:700; font-size:12px; cursor:pointer; }
+        .btn-close { background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; border-radius:8px; padding:7px 14px; font-weight:700; font-size:12px; cursor:pointer; }
+        .tree-scroll-container { background:#FFFFFF; border:1.5px solid #D6E2E1; border-radius:16px; padding:24px 20px; overflow-x:auto; width:100%; box-shadow:0 4px 20px rgba(7,59,63,0.05); }
+        #bracket-tree-root { display:inline-block; min-width:max-content; position:relative; }
+        .bracket-branch { display:flex; align-items:center; position:relative; }
+        .bracket-node-wrapper { flex-shrink:0; display:flex; align-items:center; z-index:2; position:relative; }
+        .bracket-stem { width:20px; height:2px; background:#073B3F; flex-shrink:0; z-index:1; }
+        .bracket-children { display:flex; flex-direction:column; justify-content:center; position:relative; flex-shrink:0; }
+        .bracket-child-row { display:flex; align-items:center; position:relative; padding:3px 0; margin:0; }
+        .bracket-arm { width:20px; height:2px; background:#073B3F; flex-shrink:0; position:relative; z-index:1; }
+        .bracket-child-row.bracket-pos-first::before { content:''; position:absolute; left:0; top:50%; bottom:0; width:2px; background:#073B3F; z-index:1; }
+        .bracket-child-row.bracket-pos-middle::before { content:''; position:absolute; left:0; top:0; bottom:0; width:2px; background:#073B3F; z-index:1; }
+        .bracket-child-row.bracket-pos-last::before { content:''; position:absolute; left:0; top:0; bottom:50%; width:2px; background:#073B3F; z-index:1; }
+        .bracket-child-row.bracket-pos-only::before { display:none; }
+        .bracket-card {
+          width:180px; background:#FFFFFF; border:1.5px solid #E1EBEA; border-left:4px solid #073B3F;
+          border-radius:10px; padding:8px 10px; box-shadow:0 2px 8px rgba(7,59,63,0.06); text-align:left;
+        }
+        .bracket-card-role { font-size:8.5px; font-weight:800; letter-spacing:0.8px; padding:2px 6px; border-radius:4px; display:inline-block; margin-bottom:2px; }
+        .bracket-card-id { font-family:monospace; font-size:10px; font-weight:750; }
+        .bracket-card-name { font-size:12px; font-weight:800; color:#111817; margin:2px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .bracket-card-sub { font-size:9.5px; color:#5C706E; margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .bracket-card-footer { display:flex; justify-content:space-between; align-items:center; margin-top:4px; padding-top:4px; border-top:1px solid #E1EBEA; font-size:8.5px; font-weight:700; }
+        @media print {
+          .print-toolbar { display:none !important; }
+          body { background:#FFFFFF !important; padding:0 !important; }
+          .tree-scroll-container { border:none !important; box-shadow:none !important; padding:0 !important; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="print-toolbar">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button class="btn-print" onclick="window.print()">🖨️ Print Tree</button>
+          <button id="btn-landscape" class="btn-mode active" onclick="setOrientation('landscape')">Landscape</button>
+          <button id="btn-portrait" class="btn-mode" onclick="setOrientation('portrait')">Portrait</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button class="btn-action" onclick="zoomIn()">➕ Zoom In</button>
+          <button class="btn-action" onclick="zoomOut()">➖ Zoom Out</button>
+          <button class="btn-action" onclick="zoomFit()">🎯 Fit View</button>
+          <button class="btn-close" onclick="window.close()">✕ Close</button>
+        </div>
+      </div>
+      <div class="tree-scroll-container">
+        <div id="bracket-tree-root">${treeHtml}</div>
+      </div>
+      <script>
+        let currentScale = 1;
+        function applyScale(s) {
+          currentScale = s;
+          const el = document.getElementById('bracket-tree-root');
+          if (el) { el.style.transformOrigin = 'top left'; el.style.transform = 'scale(' + currentScale + ')'; }
+        }
+        function zoomIn() { applyScale(Math.min(1.5, currentScale + 0.08)); }
+        function zoomOut() { applyScale(Math.max(0.35, currentScale - 0.08)); }
+        function zoomFit() {
+          const el = document.getElementById('bracket-tree-root');
+          if (!el) return;
+          const avail = window.innerWidth - 60;
+          const natural = el.scrollWidth / currentScale;
+          if (natural > avail) applyScale(avail / natural); else applyScale(1);
+        }
+        function setOrientation(mode) {
+          const style = document.getElementById('print-orientation-style');
+          if (style) style.textContent = mode === 'portrait' ? '@page { size: A4 portrait; margin: 8mm 6mm; }' : '@page { size: A4 landscape; margin: 8mm 6mm; }';
+          document.getElementById('btn-landscape').classList.toggle('active', mode === 'landscape');
+          document.getElementById('btn-portrait').classList.toggle('active', mode === 'portrait');
+          zoomFit();
+        }
+        window.onload = () => { zoomFit(); setTimeout(() => window.print(), 200); };
+      <\/script>
+    </body>
+    </html>
+  `)
+  printWindow.document.close()
+}
+
 function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, subDealerInfo) {
+  if (typeof window !== 'undefined' && window.innerWidth <= 860) return
   clearTimeout(_chainHideTimer)
   removeChainPopup()
 
@@ -183,89 +380,49 @@ function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, subDe
   ]
 
   const el = document.createElement('div')
-  el.id = 'chain-popup-sd'
+  el.id = 'chain-popup'
 
-  if (!document.getElementById('chain-popup-sd-styles')) {
+  if (!document.getElementById('chain-popup-styles')) {
     const s = document.createElement('style')
-    s.id = 'chain-popup-sd-styles'
+    s.id = 'chain-popup-styles'
     s.textContent = `
-      #chain-popup-sd::-webkit-scrollbar{width:6px}
-      #chain-popup-sd::-webkit-scrollbar-track{background:rgba(255,255,255,0.03);border-radius:10px;margin:4px 0}
-      #chain-popup-sd::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#ef4444,#d4a017);border-radius:10px;box-shadow:0 0 6px rgba(239,68,68,0.4)}
-      #chain-popup-sd::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,#f87171,#eab308)}
-      #chain-popup-sd{scrollbar-color:rgba(239,68,68,0.5) rgba(255,255,255,0.03)}
-      @keyframes acpSlideInSD{from{opacity:0;transform:translateX(18px) scale(0.95)}to{opacity:1;transform:translateX(0) scale(1)}}
-      @keyframes acpPulseSD{0%,100%{opacity:0.6;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
-      @keyframes acpGlowSD{0%,100%{box-shadow:0 0 0px rgba(239,68,68,0)}50%{box-shadow:0 0 20px rgba(239,68,68,0.22)}}
-      @keyframes acpShimmerSD{0%{background-position:-200% center}100%{background-position:200% center}}
-      @keyframes acpBadgePopSD{0%{transform:scale(0.8);opacity:0}100%{transform:scale(1);opacity:1}}
+      #chain-popup::-webkit-scrollbar{width:6px}
+      #chain-popup::-webkit-scrollbar-track{background:rgba(255,255,255,0.03);border-radius:10px;margin:4px 0}
+      #chain-popup::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#DC2626,#CA8A04);border-radius:10px;box-shadow:0 0 6px rgba(220,38,38,0.4)}
+      #chain-popup::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,#ef4444,#eab308)}
+      #chain-popup{scrollbar-color:rgba(220,38,38,0.5) rgba(255,255,255,0.03)}
+      @keyframes acpSlideIn{from{opacity:0;transform:translateX(18px) scale(0.95)}to{opacity:1;transform:translateX(0) scale(1)}}
+      @media(max-width:860px){
+        #chain-popup{display:none !important; visibility:hidden !important; pointer-events:none !important;}
+      }
     `
     document.head.appendChild(s)
   }
 
-  const isDark = dark
   el.style.cssText = `
     position:fixed; z-index:9999;
-    background:${isDark ? 'rgba(5,10,20,0.97)' : 'rgba(248,250,252,0.98)'};
-    border:1px solid ${isDark ? 'rgba(239,68,68,0.22)' : 'rgba(37,99,235,0.18)'};
+    background:#FFFFFF;
+    border:1.5px solid rgba(12,64,68,0.18);
     border-radius:20px; padding:20px;
-    box-shadow:${isDark
-      ? '0 32px 80px rgba(0,0,0,0.85), 0 0 0 1px rgba(239,68,68,0.06), inset 0 1px 0 rgba(255,255,255,0.04)'
-      : '0 32px 80px rgba(0,0,0,0.15), 0 0 0 1px rgba(37,99,235,0.05)'};
-    animation:acpSlideInSD 0.3s cubic-bezier(0.22,1,0.36,1) both;
+    box-shadow:0 24px 60px rgba(7,59,63,0.16), 0 0 0 1px rgba(12,64,68,0.05);
+    animation:acpSlideIn 0.3s cubic-bezier(0.22,1,0.36,1) both;
     min-width:200px; max-width:260px;
     max-height:85vh; overflow-y:auto; overflow-x:hidden;
     scroll-behavior:smooth; scrollbar-width:thin;
     scroll-padding:8px;
     -webkit-overflow-scrolling:touch;
-    backdrop-filter:blur(28px);
     font-family:'Inter',system-ui,sans-serif;
   `
 
-  const totalNodes = chain.length
-  const sdColor = ROLE_CFG.sub_dealer.color
-  const sdRgb = hexToRgb(sdColor)
-
   const itemsHtml = chain.map((item, idx) => {
     const isLast = idx === chain.length - 1
-    const isSubDealer = item.type === 'sub_dealer'
-
     const arrowHtml = idx > 0 ? `
       <div style="display:flex;justify-content:center;padding:5px 0;">
         <div style="display:flex;flex-direction:column;align-items:center;gap:0;">
-          <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:7px solid rgba(239,68,68,0.5);"></div>
-          <div style="width:1.5px;height:16px;background:linear-gradient(180deg,rgba(239,68,68,0.1),rgba(239,68,68,0.65));"></div>
+          <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:7px solid rgba(220,38,38,0.5);"></div>
+          <div style="width:1.5px;height:16px;background:linear-gradient(180deg,rgba(220,38,38,0.1),rgba(220,38,38,0.65));"></div>
         </div>
       </div>` : ''
-
-    if (isSubDealer) {
-      const d = item.data || {}
-      const name = [d.first_name, d.last_name].filter(Boolean).join(' ') || '—'
-      return `
-        ${arrowHtml}
-        <div style="
-          border-radius:14px;padding:14px 16px;
-          background:${isDark ? `linear-gradient(135deg,rgba(${sdRgb},0.09),rgba(${sdRgb},0.04))` : `linear-gradient(135deg,rgba(${sdRgb},0.14),rgba(${sdRgb},0.06))`};
-          border:1px solid rgba(${sdRgb},0.3);
-          position:relative;overflow:hidden;
-        ">
-          <div style="position:absolute;top:-10px;right:-10px;width:70px;height:70px;background:radial-gradient(circle,rgba(${sdRgb},0.14),transparent 70%);pointer-events:none;"></div>
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-            <div style="width:30px;height:30px;border-radius:9px;background:${sdColor};display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px rgba(${sdRgb},0.35);">${iconSvg(ICON_PATHS.link, '#2e0505', 15)}</div>
-            <div>
-              <div style="font-size:9px;color:${sdColor};font-weight:800;letter-spacing:1.8px;">SUB DEALER</div>
-              <div style="font-size:8px;color:rgba(${sdRgb},0.6);margin-top:2px;letter-spacing:0.5px;">${d.sub_dealer_id || ''}</div>
-            </div>
-            <div style="margin-left:auto;display:flex;align-items:center;gap:5px;">
-              <div style="width:7px;height:7px;border-radius:50%;background:#22c55e;animation:acpPulseSD 1.8s ease-in-out infinite;box-shadow:0 0 8px rgba(34,197,94,0.9);"></div>
-              <span style="font-size:9px;color:#22c55e;font-weight:700;">LIVE</span>
-            </div>
-          </div>
-          <div style="font-size:13px;color:${isDark ? '#f1f5f9' : '#0f172a'};font-weight:700;margin-bottom:6px;">${name}</div>
-          <div style="font-size:12px;color:${isDark ? '#cbd5e1' : '#475569'};word-break:break-all;font-family:monospace;letter-spacing:0.3px;">📞 ${d.mobile_number || '—'}</div>
-        </div>
-      `
-    }
 
     const cfg = ROLE_CFG[item.type]
     if (!cfg) return ''
@@ -275,49 +432,39 @@ function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, subDe
     const phone = d.mobile_number || '—'
     const city = d.city_name || ''
     const rc = hexToRgb(cfg.color)
-    const iconKey = ICON_BY_TYPE[item.type]
+    const iconKey = ICON_BY_TYPE[item.type] || 'link'
 
     return `
       ${arrowHtml}
       <div style="
         border-radius:14px;padding:14px 16px;
-        background:${isLast
-        ? `linear-gradient(135deg,rgba(${rc},0.13),rgba(${rc},0.05))`
-        : `rgba(${rc},0.04)`};
-        border:${isLast
-        ? `1.5px solid rgba(${rc},0.55)`
-        : `1px solid rgba(${rc},0.16)`};
+        background:${isLast ? `linear-gradient(135deg,rgba(${rc},0.13),rgba(${rc},0.05))` : `rgba(${rc},0.04)`};
+        border:${isLast ? `1.5px solid rgba(${rc},0.55)` : `1px solid rgba(${rc},0.16)`};
         position:relative;overflow:hidden;
-        ${isLast ? `animation:acpGlowSD 3s ease-in-out infinite;` : ''}
       ">
-        ${isLast ? `<div style="position:absolute;top:-15px;right:-15px;width:80px;height:80px;background:radial-gradient(circle,rgba(${rc},0.18),transparent 70%);pointer-events:none;"></div>` : ''}
-
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px;">
-          <div style="width:30px;height:30px;border-radius:9px;background:${cfg.color};display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px rgba(${rc},0.3);">${iconSvg(ICON_PATHS[iconKey], '#020617', 15)}</div>
+          <div style="width:30px;height:30px;border-radius:9px;background:${cfg.color};display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px rgba(${rc},0.3);">${iconSvg(ICON_PATHS[iconKey], '#FFFFFF', 15)}</div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:9px;color:${cfg.color};font-weight:800;letter-spacing:1.8px;">${cfg.label}</div>
-            <div style="font-size:9px;color:${cfg.color};font-family:monospace;opacity:0.6;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${idVal}</div>
+            <div style="font-size:9px;color:${cfg.color};font-family:monospace;opacity:0.7;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${idVal}</div>
           </div>
           ${isLast ? `
           <div style="font-size:8px;font-weight:800;padding:3px 9px;border-radius:20px;
             background:rgba(${rc},0.18);color:${cfg.color};
             border:1px solid rgba(${rc},0.4);
-            animation:acpBadgePopSD 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
             white-space:nowrap;letter-spacing:0.5px;">● CURRENT</div>` : ''}
         </div>
-
-        <div style="font-size:14px;color:${isDark ? '#f1f5f9' : '#0f172a'};font-weight:700;margin-bottom:9px;letter-spacing:-0.3px;">${name}</div>
-
+        <div style="font-size:14px;color:#111817;font-weight:700;margin-bottom:9px;letter-spacing:-0.3px;">${name}</div>
         <div style="display:flex;flex-direction:column;gap:6px;">
           ${phone !== '—' ? `
           <div style="display:flex;align-items:center;gap:8px;">
             <div style="width:20px;height:20px;border-radius:6px;background:rgba(${rc},0.12);border:1px solid rgba(${rc},0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${iconSvg(ICON_PATHS.phone, cfg.color, 11)}</div>
-            <span style="font-size:12px;color:${isDark ? '#94a3b8' : '#64748b'};">${phone}</span>
+            <span style="font-size:12px;color:#5C706E;">${phone}</span>
           </div>` : ''}
           ${city ? `
           <div style="display:flex;align-items:center;gap:8px;">
             <div style="width:20px;height:20px;border-radius:6px;background:rgba(${rc},0.12);border:1px solid rgba(${rc},0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${iconSvg(ICON_PATHS.mappin, cfg.color, 11)}</div>
-            <span style="font-size:12px;color:${isDark ? '#94a3b8' : '#64748b'};">${city}</span>
+            <span style="font-size:12px;color:#5C706E;">${city}</span>
           </div>` : ''}
         </div>
       </div>
@@ -325,28 +472,23 @@ function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, subDe
   }).join('')
 
   el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid ${isDark ? 'rgba(239,68,68,0.1)' : 'rgba(37,99,235,0.08)'};">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid rgba(12,64,68,0.12);">
       <div style="display:flex;align-items:center;gap:9px;">
-        <div style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#ef4444,#d4a017);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(239,68,68,0.4);">${iconSvg(ICON_PATHS.link, '#020617', 13)}</div>
+        <div style="width:26px;height:26px;border-radius:8px;background:${ROLE_CFG.sub_dealer.color};display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(220,38,38,0.3);">${iconSvg(ICON_PATHS.link, '#FFFFFF', 13)}</div>
         <div>
-          <div style="font-size:11px;color:${isDark ? '#f87171' : '#dc2626'};font-weight:800;letter-spacing:1.8px;">HIERARCHY CHAIN</div>
-          <div style="font-size:9px;color:${isDark ? '#475569' : '#94a3b8'};margin-top:2px;">${totalNodes} level${totalNodes !== 1 ? 's' : ''} deep</div>
+          <div style="font-size:11px;color:#073B3F;font-weight:800;letter-spacing:1.8px;">HIERARCHY CHAIN</div>
+          <div style="font-size:9px;color:#5C706E;margin-top:2px;">${chain.length} level${chain.length !== 1 ? 's' : ''} deep</div>
         </div>
       </div>
-      <div style="
-        font-size:9px;font-weight:800;padding:4px 11px;border-radius:20px;
-        background:linear-gradient(90deg,rgba(239,68,68,0.15),rgba(212,160,23,0.12),rgba(239,68,68,0.15));
-        background-size:200% auto;
-        animation:acpShimmerSD 2.5s linear infinite;
-        border:1px solid rgba(239,68,68,0.22);
-        color:${isDark ? '#f87171' : '#dc2626'};
-        letter-spacing:1px;">● LIVE</div>
+      <button class="chain-close-btn" title="Close" style="
+        background: rgba(12,64,68,0.08); border: 1px solid rgba(12,64,68,0.2);
+        width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        cursor: pointer; color: #0C4044; font-weight: 800; font-size: 12px; line-height: 1; padding: 0;
+      ">✕</button>
     </div>
-
     ${itemsHtml}
-
-    <div style="margin-top:14px;padding-top:12px;border-top:1px solid ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'};">
-      <div style="font-size:9px;color:${isDark ? '#334155' : '#cbd5e1'};text-align:center;letter-spacing:0.8px;font-weight:600;">BitByte Network • Hierarchy View</div>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(12,64,68,0.10);">
+      <div style="font-size:9px;color:#5C706E;text-align:center;letter-spacing:0.8px;font-weight:600;">BitByte Network • Hierarchy View</div>
     </div>
   `
 
@@ -355,22 +497,51 @@ function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, subDe
   el.scrollTop = el.scrollHeight
   requestAnimationFrame(() => { el.style.scrollBehavior = 'smooth' })
 
-  const rect = anchorEl.getBoundingClientRect()
-  const popW = 280
+  const isMobile = window.innerWidth <= 768
+  const popW = isMobile ? Math.min(270, window.innerWidth - 24) : 280
   const popH = Math.min(el.scrollHeight || 460, window.innerHeight * 0.85)
-  let left = rect.right + 18
-  let top = rect.top + (rect.height / 2) - (popH / 2)
-  if (left + popW > window.innerWidth - 12) left = rect.left - popW - 18
+
+  let left, top
+  if (isMobile) {
+    left = (window.innerWidth - popW) / 2
+    top = Math.max(16, (window.innerHeight - popH) / 2)
+  } else {
+    const rect = anchorEl.getBoundingClientRect()
+    left = rect.right + 18
+    top = rect.top + (rect.height / 2) - (popH / 2)
+    if (left + popW > window.innerWidth - 16) {
+      left = rect.left - popW - 18
+    }
+  }
+
+  if (left < 12) left = 12
+  if (left + popW > window.innerWidth - 12) left = Math.max(12, window.innerWidth - popW - 12)
   if (top < 12) top = 12
-  if (top + popH > window.innerHeight - 12) top = window.innerHeight - popH - 12
+  if (top + popH > window.innerHeight - 12) top = Math.max(12, window.innerHeight - popH - 12)
+
   el.style.left = left + 'px'
   el.style.top = top + 'px'
+  el.style.width = popW + 'px'
+  el.style.boxSizing = 'border-box'
+
+  el.querySelector('.chain-close-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation()
+    removeChainPopup()
+  })
+
+  const onDocClick = (e) => {
+    if (!el.contains(e.target) && !anchorEl.contains(e.target)) {
+      removeChainPopup()
+      document.removeEventListener('pointerdown', onDocClick)
+    }
+  }
+  setTimeout(() => document.addEventListener('pointerdown', onDocClick), 50)
 
   el.addEventListener('mouseenter', () => clearTimeout(_chainHideTimer))
   el.addEventListener('mouseleave', () => scheduleHideChainPopup())
 }
 
-function TreeNode({ node, role, depth = 0, dark, text, subtext, ancestors = [], subDealerInfo = {}, flatMode = false, parentKey = null, openMap = {}, onToggle = () => {} }) {
+function TreeNode({ node, role, depth = 0, dark, text, subtext, ancestors = [], subDealerInfo = {}, flatMode = false, parentKey = null, openMap = {}, onToggle = () => {}, onPrint = () => {} }) {
   const navigate = useNavigate()
   const cfg = ROLE_CFG[role]
   const c = cfg.color
@@ -378,7 +549,7 @@ function TreeNode({ node, role, depth = 0, dark, text, subtext, ancestors = [], 
   const childRole = CHILD_ROLE[role]
   const children = childRole ? (node[CHILD_KEY[role]] || []) : []
   const hasChildren = !flatMode && !!childRole && children.length > 0
-const isOpen = openMap[parentKey] === node.id
+  const isOpen = openMap[parentKey] === node.id
 
   return (
     <div className="otree-node-wrap">
@@ -406,22 +577,29 @@ const isOpen = openMap[parentKey] === node.id
 
         <div className="otree-actions">
           <button
-            onClick={e => { e.stopPropagation(); printPersonCard(node, role, cfg, c, ancestors, subDealerInfo) }}
+            onClick={e => {
+              e.stopPropagation()
+              if (CHILD_ROLE[role]) {
+                onPrint({ node, role, cfg, color: c, ancestors })
+              } else {
+                printPersonCard(node, role, cfg, c, ancestors, subDealerInfo)
+              }
+            }}
             className="otree-btn" style={{ '--nc': c }}
           >
             <IconPrinter color={c} /> PRINT
           </button>
           <button
-  onClick={e => {
-    e.stopPropagation()
-    clearTimeout(_chainHideTimer)
-    removeChainPopup()
-    navigate(`/hierarchy-sales-count?role=${role}&id=${node.id}`)
-  }}
-  className="otree-btn otree-btn-sales"
->
-  <IconChart color="#22c55e" /> SALES ({node.order_count ?? 0})
-</button>
+            onClick={e => {
+              e.stopPropagation()
+              clearTimeout(_chainHideTimer)
+              removeChainPopup()
+              navigate(`/hierarchy-sales-count?role=${role}&id=${node.id}`)
+            }}
+            className="otree-btn otree-btn-sales"
+          >
+            <IconChart color="#0284C7" /> SALES ({node.order_count ?? 0})
+          </button>
         </div>
 
         {hasChildren && (
@@ -437,65 +615,78 @@ const isOpen = openMap[parentKey] === node.id
       </div>
 
       {hasChildren && isOpen && (
-  <div className="otree-children" style={{ '--lc': ROLE_CFG[childRole].color }}>
-    {children.map(child => (
-      <div className="otree-item" key={child.id}>
-        <TreeNode
-          node={child} role={childRole} depth={depth + 1}
-          dark={dark} text={text} subtext={subtext}
-          ancestors={[...ancestors, { node, role }]}
-          subDealerInfo={subDealerInfo}
-          parentKey={node.id}
-          openMap={openMap}
-          onToggle={onToggle}
-        />
-      </div>
-    ))}
-  </div>
-)}
+        <div className="otree-children" style={{ '--lc': ROLE_CFG[childRole].color }}>
+          {children.map(child => (
+            <div className="otree-item" key={child.id}>
+              <TreeNode
+                node={child} role={childRole} depth={depth + 1}
+                dark={dark} text={text} subtext={subtext}
+                ancestors={[...ancestors, { node, role }]}
+                subDealerInfo={subDealerInfo}
+                parentKey={`${role}_${node.id}`}
+                openMap={openMap}
+                onToggle={onToggle}
+                onPrint={onPrint}
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
-const IconSwitchView = ({ color, size = 18 }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke={color}
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M17 1l4 4-4 4" />
-    <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-    <path d="M7 23l-4-4 4-4" />
-    <path d="M21 13v2a4 4 0 0 1-4 4H3" />
-  </svg>
-)
-
-
 export default function SubdealerHierarchy() {
   const navigate = useNavigate()
-  const [dark] = useState(true)
+  const dark = false
   const [promotors, setPromotors] = useState([])
   const [subDealerInfo, setSubDealerInfo] = useState({})
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState(null)
-const [search, setSearch] = useState('')
-const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
-// oru parent-ku keela ore oru child mattum open aagum
-const [openMap, setOpenMap] = useState({})
-const handleToggle = (parentKey, nodeId) => {
-  setOpenMap(prev => ({
-    ...prev,
-    [parentKey]: prev[parentKey] === nodeId ? null : nodeId,
-  }))
-}
+  const [openMap, setOpenMap] = useState({})
+  const handleToggle = (parentKey, nodeId) => {
+    setOpenMap(prev => ({
+      ...prev,
+      [parentKey]: prev[parentKey] === nodeId ? null : nodeId,
+    }))
+  }
 
-const treeWrapperRef = useRef(null)
+  // Zoom controls
+  const [treeZoom, setTreeZoom] = useState(1)
+  const zoomPercent = Math.round(treeZoom * 100)
+  const zoomIn = () => setTreeZoom(z => Math.min(1.4, parseFloat((z + 0.1).toFixed(1))))
+  const zoomOut = () => setTreeZoom(z => Math.max(0.4, parseFloat((z - 0.1).toFixed(1))))
+  const resetZoom = () => setTreeZoom(1)
+  const fitHierarchy = () => {
+    const scrollEl = scrollAreaRef.current
+    if (!scrollEl) return
+    const content = scrollEl.firstElementChild
+    if (!content) return
+    const availWidth = scrollEl.clientWidth - 40
+    const naturalWidth = content.scrollWidth / treeZoom
+    if (naturalWidth > 0 && availWidth > 0) {
+      const scale = Math.min(1, Math.max(0.4, parseFloat((availWidth / naturalWidth).toFixed(2))))
+      setTreeZoom(scale)
+    }
+  }
+
+  const [printTarget, setPrintTarget] = useState(null)
+  const openPrintPopup = (target) => setPrintTarget(target)
+  const handlePrintOnly = () => {
+    const { node, role, cfg, color, ancestors } = printTarget
+    printPersonCard(node, role, cfg, color, ancestors, subDealerInfo)
+    setPrintTarget(null)
+  }
+  const handlePrintHierarchy = () => {
+    const { node, role, ancestors } = printTarget
+    printHorizontalBracketTree(node, role, ancestors, subDealerInfo)
+    setPrintTarget(null)
+  }
+
+  const treeWrapperRef = useRef(null)
   const scrollAreaRef = useRef(null)
   const [levelTops, setLevelTops] = useState({})
   const [promotorAnchors, setPromotorAnchors] = useState([])
@@ -553,13 +744,13 @@ const treeWrapperRef = useRef(null)
       scrollEl?.removeEventListener('scroll', measure)
       window.removeEventListener('resize', measure)
     }
- }, [promotors, filter, debouncedSearch, openMap])
+  }, [promotors, filter, debouncedSearch, openMap, treeZoom])
 
-  const text = '#f8fafc'
-  const subtext = '#94a3b8'
-  const inpBg = 'rgba(255,255,255,0.05)'
-  const inpBorder = '#374151'
-  const border = 'rgba(255,255,255,0.1)'
+  const text = '#111817'
+  const subtext = '#53615F'
+  const inpBg = '#FFFFFF'
+  const inpBorder = '#BDCFCE'
+  const border = 'rgba(12,64,68,0.18)'
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 120)
@@ -572,7 +763,6 @@ const treeWrapperRef = useRef(null)
       const res = await api.get('/hierarchy/full/')
       const myEmail = localStorage.getItem('email')
 
-      // Ella admins -> dealers -> sub_dealers ah walk panni, logged-in sub_dealer ah kandu pidikkurom
       let mySubDealer = null
       outer:
       for (const admin of res.data.admins || []) {
@@ -581,7 +771,6 @@ const treeWrapperRef = useRef(null)
           if (found) { mySubDealer = found; break outer }
         }
       }
-      // Fallback
       if (!mySubDealer) {
         outer2:
         for (const admin of res.data.admins || []) {
@@ -597,8 +786,13 @@ const treeWrapperRef = useRef(null)
           first_name: mySubDealer.first_name,
           last_name: mySubDealer.last_name,
           mobile_number: mySubDealer.mobile_number,
+          email: mySubDealer.email,
         })
-        setPromotors(mySubDealer.promotors || [])
+        const prList = mySubDealer.promotors || []
+        setPromotors(prList)
+        if (prList.length > 0) {
+          setOpenMap({ root: prList[0].id })
+        }
       }
     } catch (err) { console.error(err) }
     setLoading(false)
@@ -607,11 +801,11 @@ const treeWrapperRef = useRef(null)
   useEffect(() => { fetchHierarchy() }, [])
 
   useEffect(() => {
-  return () => {
-    clearTimeout(_chainHideTimer)
-    removeChainPopup()
-  }
-}, [])
+    return () => {
+      clearTimeout(_chainHideTimer)
+      removeChainPopup()
+    }
+  }, [])
 
   const flattenByRole = (role) => {
     if (!promotors) return []
@@ -651,7 +845,7 @@ const treeWrapperRef = useRef(null)
 
   const totalStats = promotors ? {
     promotors: promotors.length,
-    customers: promotors.reduce((a, pr) => a + pr.customers.length, 0),
+    customers: promotors.reduce((a, pr) => a + (pr.customers?.length || 0), 0),
   } : null
 
   const statPills = totalStats ? [
@@ -660,25 +854,38 @@ const treeWrapperRef = useRef(null)
   ] : []
 
   return (
-    <div style={{ minHeight: '100vh', background: '#020617', color: text, fontFamily: '"Inter",system-ui,sans-serif', padding: '28px 32px' }}>
+    <div className="sh-page-wrap">
       <style>{`
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
+        .sh-page-wrap{ min-height:100vh; background:#FFFFFF; color:${text}; fontFamily:"Inter",system-ui,sans-serif; padding:28px 32px; box-sizing:border-box; }
+        .sh-topbar{ display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:16px; }
+        .sh-controls{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+        .sh-search-wrap{ position:relative; width:240px; }
+        .sh-search-input{ width:100%; background:${inpBg}; border:1px solid ${inpBorder}; border-radius:10px; padding:9px 14px 9px 34px; color:${text}; font-size:13px; outline:none; box-sizing:border-box; }
+        .sh-zoom-wrap{ display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.94); border:1px solid rgba(12,64,68,0.16); border-radius:14px; padding:6px; box-shadow:0 12px 28px rgba(7,59,63,0.12); }
+        .sh-canvas{ background:#FFFFFF; border:1.5px solid ${border}; border-radius:20px; padding:28px 0; overflow:hidden; min-height:100vh; position:relative; box-shadow:0 18px 42px rgba(7,59,63,0.08); }
+        .sh-superadmin-col{ position:absolute; top:0; left:0; bottom:0; width:200px; z-index:40; background:#FFFFFF; display:flex; flex-direction:column; align-items:center; padding-top:20px; }
+        .sh-superadmin-line{ width:2px; flex:1; background:${ROLE_CFG.sub_dealer.color}; margin-top:6px; }
+        .sh-level-labels{ position:absolute; left:0; top:0; width:200px; height:100%; z-index:45; pointer-events:none; }
+        .sh-svg-bridge{ position:absolute; top:0; left:0; width:100%; height:100%; z-index:44; pointer-events:none; }
+        .sh-tree-scroll{ overflow-x:auto; overflow-y:hidden; padding:72px 32px 20px 220px; -webkit-overflow-scrolling:touch; }
+
         .otree-node-wrap{display:flex;flex-direction:column;align-items:center;}
         .otree-card{
-          background:rgba(255,255,255,0.03); border:1px solid var(--nc); border-radius:12px; padding:12px 16px;
+          background:#FFFFFF; border:2px solid var(--nc); border-radius:12px; padding:12px 16px;
           min-width:168px; max-width:210px; cursor:pointer; position:relative; transition:all .25s ease;
         }
-        .otree-card:hover{ transform:translateY(-3px); box-shadow:0 8px 22px rgba(0,0,0,0.35); }
-        .otree-badge{ display:inline-flex; align-items:center; gap:5px; font-size:9px; font-weight:700; padding:2px 8px; border-radius:20px; margin-bottom:8px; color:var(--nc); border:1px solid var(--nc); }
-        .otree-id{ font-family:monospace; font-size:10px; margin-bottom:4px; word-break:break-all; }
-        .otree-name{ font-weight:700; font-size:13px; margin-bottom:6px; }
-        .otree-sub{ display:flex; align-items:center; gap:4px; font-size:11px; margin-bottom:2px; }
+        .otree-card:hover{ transform:translateY(-3px); box-shadow:0 14px 30px rgba(7,59,63,0.16); }
+        .otree-badge{ display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:900; padding:2px 8px; border-radius:20px; margin-bottom:8px; color:var(--nc); background:#FFFFFF; border:1.5px solid var(--nc); }
+        .otree-id{ font-family:monospace; font-size:11px; font-weight:800; margin-bottom:6px; word-break:break-all; }
+        .otree-name{ font-weight:900; font-size:14px; margin-bottom:8px; line-height:1.35; }
+        .otree-sub{ display:flex; align-items:center; gap:4px; font-size:12px; font-weight:650; margin-bottom:4px; }
         .otree-actions{ margin-top:8px; display:flex; gap:6px; }
-        .otree-btn{ flex:1; display:flex; align-items:center; justify-content:center; gap:4px; padding:3px 0; font-size:9px; font-weight:700; background:transparent; border:1px solid var(--nc); border-radius:6px; color:var(--nc); cursor:pointer; }
-        .otree-btn-sales{ border-color:#22c55e; color:#22c55e; }
+        .otree-btn{ flex:1; display:flex; align-items:center; justify-content:center; gap:4px; padding:5px 0; font-size:10px; font-weight:800; background:#FFFFFF; border:1.5px solid var(--nc); border-radius:8px; color:var(--nc); cursor:pointer; }
+        .otree-btn-sales{ border-color:#0284C7; color:#0284C7; }
         .otree-toggle{ position:absolute; top:8px; right:10px; transition:transform .25s ease; }
-        .otree-count{ position:absolute; bottom:-10px; left:50%; transform:translateX(-50%); color:#000; font-size:9px; font-weight:800; padding:1px 7px; border-radius:20px; white-space:nowrap; }
+        .otree-count{ position:absolute; bottom:-10px; left:50%; transform:translateX(-50%); color:#FFFFFF; font-size:10px; font-weight:900; padding:2px 8px; border-radius:20px; white-space:nowrap; text-shadow:0 1px 1px rgba(0,0,0,0.18); }
 
         .otree-children{ display:flex; justify-content:center; align-items:flex-start; position:relative; padding-top:28px; }
         .otree-children::before{ content:''; position:absolute; top:0; left:50%; border-left:2px solid var(--lc); width:0; height:28px; }
@@ -693,24 +900,53 @@ const treeWrapperRef = useRef(null)
         .otree-children-root::before{ display:none; }
         .otree-children-root > .otree-item::before,
         .otree-children-root > .otree-item::after{ display:none; }
+        .hierarchy-zoom-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;min-width:34px;padding:0 10px;border-radius:10px;border:1px solid rgba(12,64,68,.24);background:rgba(255,255,255,.92);color:#0C4044;font-size:12px;font-weight:900;cursor:pointer;transition:all .2s ease;box-shadow:0 8px 18px rgba(7,59,63,.08);}
+        .hierarchy-zoom-btn:hover{background:#E6F1EF;border-color:rgba(12,64,68,.42);transform:translateY(-1px);}
+        .hierarchy-zoom-btn:disabled{opacity:.42;cursor:not-allowed;transform:none;}
+        .hierarchy-zoom-chip{height:34px;min-width:62px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;background:#0C4044;border:1px solid rgba(12,64,68,.24);color:#FFFFFF;font-size:12px;font-weight:900;}
+
+        /* Responsive Mobile & Tablet Rules */
+        @media (max-width: 860px) {
+          .sh-page-wrap { padding: 14px 10px 50px !important; }
+          .sh-topbar { flex-direction: column; align-items: stretch; gap: 14px; margin-bottom: 16px; }
+          .sh-controls { width: 100%; flex-direction: column; align-items: stretch; gap: 10px; }
+          .sh-search-wrap { width: 100% !important; }
+          .sh-zoom-wrap { display: flex; justify-content: space-between; width: 100% !important; box-sizing: border-box; }
+          .sh-canvas { border-radius: 14px; padding: 14px 0; min-height: auto; }
+          .sh-superadmin-col {
+            position: static !important;
+            width: 100% !important;
+            padding: 10px 10px 14px !important;
+            border-bottom: 1.5px dashed rgba(12,64,68,0.15);
+          }
+          .sh-superadmin-line { display: none !important; }
+          .sh-level-labels { display: none !important; }
+          .sh-svg-bridge { display: none !important; }
+          .sh-tree-scroll { padding: 16px 8px !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+          .hierarchy-zoom-chip { min-width: 48px; }
+          #chain-popup { display: none !important; visibility: hidden !important; pointer-events: none !important; }
+        }
       `}</style>
 
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+      <div className="sh-topbar">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-  <button onClick={() => navigate('/subdealer-hierarchy-grid')} title="Switch to Grid View"
-    style={{ background: 'rgba(165,243,252,0.1)', border: '1px solid rgba(165,243,252,0.35)', borderRadius: '8px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-    <IconSwitchView color="#a5f3fc" size={16} />
-  </button>
-  <span style={{ color: '#a5f3fc', fontSize: '16px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-    Full Dealer Hierarchy
-  </span>
-</div>
+            <button
+              onClick={() => navigate('/subdealer-hierarchy-grid')}
+              title="Switch to Grid View"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+            >
+              <IconSwitchView color="#0C4044" />
+            </button>
+            <span style={{ color: '#0C4044', fontSize: '16px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Sub Dealer Hierarchy Tree
+            </span>
+          </div>
           {totalStats && (
             <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: `${ROLE_CFG.sub_dealer.color}22`, border: `1px solid ${ROLE_CFG.sub_dealer.color}55`, borderRadius: '20px', padding: '4px 14px' }}>
                 <span style={{ color: ROLE_CFG.sub_dealer.color, fontWeight: 800, fontSize: '13px' }}>1</span>
-                <span style={{ color: subtext, fontSize: '11px' }}>Sub Dealer</span>
+                <span style={{ color: subtext, fontSize: '12px', fontWeight: 650 }}>Sub Dealer</span>
               </div>
               {statPills.map(s => {
                 const color = ROLE_CFG[s.roleKey].color
@@ -719,35 +955,44 @@ const treeWrapperRef = useRef(null)
                   <div key={s.label} onClick={() => setFilter(isActive ? null : s.roleKey)}
                     style={{ display: 'flex', alignItems: 'center', gap: '6px', background: isActive ? `${color}33` : `${color}14`, border: `1px solid ${isActive ? color : color + '44'}`, borderRadius: '20px', padding: '4px 14px', cursor: 'pointer', transition: 'all 0.25s ease' }}>
                     <span style={{ color, fontWeight: 800, fontSize: '13px' }}>{s.count}</span>
-                    <span style={{ color: subtext, fontSize: '11px' }}>{s.label}</span>
+                    <span style={{ color: subtext, fontSize: '12px', fontWeight: 650 }}>{s.label}</span>
                   </div>
                 )
               })}
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ position: 'relative' }}>
+
+        <div className="sh-controls">
+          <div className="sh-search-wrap">
             <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
               <IconSearch color={subtext} />
             </span>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search ID, Name, Phone..."
-              style={{ width: '240px', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '10px', padding: '9px 14px 9px 34px', color: text, fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+              className="sh-search-input" />
             {search && (
               <button onClick={() => setSearch('')} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: subtext, cursor: 'pointer' }}>
                 <IconX color={subtext} />
               </button>
             )}
           </div>
-          <button onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', borderRadius: '10px', padding: '9px 16px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
-            <IconBack color="#f87171" /> Back
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+            <div className="sh-zoom-wrap" style={{ flex: '1 1 auto' }}>
+              <button className="hierarchy-zoom-btn" onClick={zoomOut} disabled={treeZoom <= 0.4} title="Zoom out"><IconMinus color="currentColor" /></button>
+              <span className="hierarchy-zoom-chip">{zoomPercent}%</span>
+              <button className="hierarchy-zoom-btn" onClick={zoomIn} disabled={treeZoom >= 1.4} title="Zoom in"><IconPlus color="currentColor" /></button>
+              <button className="hierarchy-zoom-btn" onClick={fitHierarchy} title="Fit more hierarchy on screen"><IconFit color="currentColor" /> Fit</button>
+              <button className="hierarchy-zoom-btn" onClick={resetZoom} title="Reset hierarchy zoom">Reset</button>
+            </div>
+            <button onClick={() => navigate('/sub-dealer')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(220,38,38,0.35)', color: '#DC2626', borderRadius: '10px', padding: '9px 16px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, flexShrink: 0 }}>
+              <IconBack color="#DC2626" /> Back
+            </button>
+          </div>
         </div>
       </div>
 
-      <div ref={treeWrapperRef} style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${border}`, borderRadius: '20px', padding: '28px 0', overflow: 'hidden', minHeight: '100vh', position: 'relative' }}>
-
-        <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 200, zIndex: 40, background: '#020617', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 80 }}>
+      <div ref={treeWrapperRef} className="sh-canvas">
+        <div className="sh-superadmin-col">
           <div className="otree-card" data-role="sub_dealer" style={{ '--nc': ROLE_CFG.sub_dealer.color, minWidth: 150, cursor: 'default' }}>
             <div className="otree-badge" style={{ '--nc': ROLE_CFG.sub_dealer.color }}>
               <IconLink color={ROLE_CFG.sub_dealer.color} size={11} /> SUB DEALER
@@ -758,11 +1003,11 @@ const treeWrapperRef = useRef(null)
               <IconPhone color={subtext} /> {subDealerInfo.mobile_number}
             </div>
           </div>
-          <div style={{ width: 2, flex: 1, background: ROLE_CFG.sub_dealer.color, marginTop: 6 }} />
+          <div className="sh-superadmin-line" />
         </div>
 
         {!loading && promotors.length > 0 && !filter && !debouncedSearch && (
-          <div style={{ position: 'absolute', left: 0, top: 0, width: 200, height: '100%', zIndex: 45, pointerEvents: 'none' }}>
+          <div className="sh-level-labels">
             {[
               { role: 'promotor', label: 'Level 1' },
               { role: 'customer', label: 'Level 2' },
@@ -791,7 +1036,7 @@ const treeWrapperRef = useRef(null)
           const bridgeStartX = subDealerAnchor.x
           const farthestX = Math.max(...promotorAnchors.map(a => a.x))
           return (
-            <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 44, pointerEvents: 'none' }}>
+            <svg className="sh-svg-bridge" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 44, pointerEvents: 'none' }}>
               <line x1={bridgeStartX} y1={bridgeY} x2={Math.max(farthestX, bridgeStartX)} y2={bridgeY} stroke={ROLE_CFG.promotor.color} strokeWidth="2" />
               {promotorAnchors.map((a, i) => (
                 <line key={i} x1={a.x} y1={bridgeY} x2={a.x} y2={a.top} stroke={ROLE_CFG.promotor.color} strokeWidth="2" />
@@ -802,7 +1047,7 @@ const treeWrapperRef = useRef(null)
 
         {loading && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 0', gap: '16px' }}>
-            <div style={{ width: 32, height: 32, border: '3px solid rgba(239,68,68,0.2)', borderTop: '3px solid #ef4444', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+            <div style={{ width: 32, height: 32, border: '3px solid rgba(220,38,38,0.2)', borderTop: '3px solid #DC2626', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
             <span style={{ color: subtext, fontSize: '14px' }}>Loading hierarchy...</span>
           </div>
         )}
@@ -816,7 +1061,7 @@ const treeWrapperRef = useRef(null)
             return (
               <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', justifyContent: 'center', padding: '0 32px' }}>
                 {filteredResults.map((item, idx) => (
-                  <TreeNode key={item.node.id || idx} node={item.node} role={item.role} dark={dark} text={text} subtext={subtext} ancestors={item.ancestors} subDealerInfo={subDealerInfo} flatMode={true} />
+                  <TreeNode key={item.node.id || idx} node={item.node} role={item.role} dark={dark} text={text} subtext={subtext} ancestors={item.ancestors} subDealerInfo={subDealerInfo} flatMode={true} onPrint={openPrintPopup} />
                 ))}
               </div>
             )
@@ -832,7 +1077,7 @@ const treeWrapperRef = useRef(null)
                 ) : (
                   <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
                     {flatList.map((item, idx) => (
-                      <TreeNode key={item.node.id || idx} node={item.node} role={filter} dark={dark} text={text} subtext={subtext} ancestors={item.ancestors} subDealerInfo={subDealerInfo} flatMode={true} />
+                      <TreeNode key={item.node.id || idx} node={item.node} role={filter} dark={dark} text={text} subtext={subtext} ancestors={item.ancestors} subDealerInfo={subDealerInfo} flatMode={true} onPrint={openPrintPopup} />
                     ))}
                   </div>
                 )}
@@ -841,19 +1086,22 @@ const treeWrapperRef = useRef(null)
           })() : promotors.length === 0 ? (
             <div style={{ color: subtext, padding: '60px', textAlign: 'center', fontSize: '15px' }}>No promotors created yet.</div>
           ) : (
-            <div ref={scrollAreaRef} style={{ overflowX: 'auto', overflowY: 'hidden', padding: '110px 32px 20px 220px' }}>
-              <div className="otree-children otree-children-root" style={{ '--lc': ROLE_CFG.promotor.color, minWidth: 'max-content' }}>
-                {promotors.map(pr => (
-  <div className="otree-item" key={pr.id} style={{ paddingTop: 0 }}>
-    <TreeNode
-      node={pr} role="promotor" depth={0} dark={dark} text={text} subtext={subtext}
-      ancestors={[]} subDealerInfo={subDealerInfo}
-      parentKey="root"
-      openMap={openMap}
-      onToggle={handleToggle}
-    />
-  </div>
-))}
+            <div ref={scrollAreaRef} className="sh-tree-scroll">
+              <div style={{ transformOrigin: 'top left', transform: 'scale(' + treeZoom + ')' }}>
+                <div className="otree-children otree-children-root" style={{ '--lc': ROLE_CFG.promotor.color, minWidth: 'max-content' }}>
+                  {promotors.map(pr => (
+                    <div className="otree-item" key={pr.id} style={{ paddingTop: 0 }}>
+                      <TreeNode
+                        node={pr} role="promotor" depth={0} dark={dark} text={text} subtext={subtext}
+                        ancestors={[]} subDealerInfo={subDealerInfo}
+                        parentKey="root"
+                        openMap={openMap}
+                        onToggle={handleToggle}
+                        onPrint={openPrintPopup}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )
@@ -862,7 +1110,6 @@ const treeWrapperRef = useRef(null)
         {!loading && !promotors && (
           <div style={{ color: subtext, padding: '60px', textAlign: 'center', fontSize: '15px' }}>Failed to load hierarchy.</div>
         )}
-
       </div>
 
       {!loading && (
@@ -873,6 +1120,30 @@ const treeWrapperRef = useRef(null)
               <span style={{ color: subtext, fontSize: '11px' }}>{l.role}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {printTarget && (
+        <div onClick={() => setPrintTarget(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,0.45)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 1400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#FFFFFF', border: `1.5px solid ${printTarget.color}`, borderRadius: '20px', padding: '26px', width: '95%', maxWidth: '380px', boxShadow: '0 24px 60px rgba(7,59,63,0.2)', textAlign: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
+              <IconPrinter color={printTarget.color} size={24} />
+            </div>
+            <div style={{ color: '#111817', fontWeight: 800, fontSize: '15px', marginBottom: '4px' }}>
+              Print {printTarget.node.first_name}'s Profile
+            </div>
+            <div style={{ color: '#5C706E', fontSize: '12px', marginBottom: '20px' }}>Select an option to print</div>
+
+            <button onClick={handlePrintOnly} style={{ width: '100%', padding: '12px', marginBottom: '10px', background: `${printTarget.color}12`, border: `1.5px solid ${printTarget.color}`, borderRadius: '12px', color: printTarget.color, fontWeight: 800, fontSize: '13px', cursor: 'pointer' }}>
+              {ROLE_CFG[printTarget.role]?.label} Only
+            </button>
+            <button onClick={handlePrintHierarchy} style={{ width: '100%', padding: '12px', marginBottom: '10px', background: printTarget.color, border: 'none', borderRadius: '12px', color: '#FFFFFF', fontWeight: 800, fontSize: '13px', cursor: 'pointer' }}>
+              {ROLE_CFG[printTarget.role]?.label} Hierarchy (Full Tree)
+            </button>
+            <button onClick={() => setPrintTarget(null)} style={{ width: '100%', padding: '8px', background: 'none', border: 'none', color: '#5C706E', fontSize: '12px', cursor: 'pointer' }}>
+              Cancel
+            </button>
+          </div>
         </div>
       )}
     </div>

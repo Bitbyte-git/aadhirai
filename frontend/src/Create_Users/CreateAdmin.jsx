@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
-import CopyUrlButton from './CopyUrlButton'
+import CopyUrlButton from '../collection/CopyUrlButton'
 
 const OCCUPATION_OPTIONS = [
   'employee',

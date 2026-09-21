@@ -30,10 +30,13 @@ const ShopDashboard = lazy(() => import('./pages/ShopDashboard'))
 const ShopHierarchyGrid = lazy(() => import('./pages/ShopHierarchyGrid'))
 const AddShop = lazy(() => import('./Superadmin/AddShop'))
 const Profile = lazy(() => import('./collection/profile'))
-const CreateCustomer = lazy(() => import('./collection/create_customer'))
+const CreateCustomer = lazy(() => import('./Create_Users/create_customer'))
+const CreateDealer = lazy(() => import('./Create_Users/Create_Dealer'))
+const CreateSubdealer = lazy(() => import('./Create_Users/Create_Subdealer'))
+const CreatePromotor = lazy(() => import('./Create_Users/Create_Promotor'))
 const GeneralCustomer = lazy(() => import('./Superadmin/Manage_Users/GeneralCustomer'))
 const ReferralCustomer = lazy(() => import('./Superadmin/Manage_Users/ReferralCustomer'))
-const CreateAdmin = lazy(() => import('./collection/CreateAdmin'))
+const CreateAdmin = lazy(() => import('./Create_Users/CreateAdmin'))
 const CoinsCollection = lazy(() => import('./collection/coins_collection'))
 const AllCollection = lazy(() => import('./collection/all_collection'))
 const ProductDisplay = lazy(() => import('./collection/product_display'))
@@ -54,8 +57,10 @@ const OrderPayment = lazy(() => import('./Orders/OrderPayment'))
 const SuperAdminPayments = lazy(() => import('./payments/SuperAdminPayments'))
 const AthiraiRevenue = lazy(() => import('./payments/AthiraiRevenue'))
 const GeneralCustomerRevenue = lazy(() => import('./payments/GeneralCustomerRevenue'))
-const SuperAdminCommission = lazy(() => import('./payments/SuperAdminCommission'))
+const ResidualCommission = lazy(() => import('./payments/ResidualCommission'))
 const MyCommission = lazy(() => import('./payments/MyCommission'))
+const InternalMyCommission = lazy(() => import('./payments/InternalMyCommission'))
+const TeamCommission = lazy(() => import('./payments/TeamCommission'))
 const Commissions = lazy(() => import('./payments/Commissions'))
 const SuperAdminSendCoins = lazy(() => import('./payments/SuperAdminSendCoins'))
 const SuperStockist = lazy(() => import('./Superadmin/Manage_Users/Super_Stockist'))
@@ -190,7 +195,8 @@ function WithInternalRoleNavbar({ children }) {
           { label: role === 'promotor' ? 'My Requests' : 'Jewellery Requests', path: '/jewellery-requests' },
           { label: role === 'super_admin' ? 'Jewellery Transactions' : 'My Transactions', path: '/jewellery-transactions' },
         ]}
-        reportItems={[{ label: 'Hierarchy Report', path: cfg.hierarchy }, { label: 'Sales Report', path: '/sales-report' }]}
+        reportItems={[{ label: 'Hierarchy Report', path: cfg.hierarchy }, { label: 'Sales Report', path: '/sales-report' }, { label: 'Login Active', path: '/login-active' }, { label: 'Login Inactive', path: '/login-inactive' }]}
+        commissionItems={[{ label: 'My Commission', path: '/internal-my-commission' }, { label: 'Team Commission', path: '/internal-team-commission' }]}
         actionItems={[{ label: 'Dashboard', icon: 'user', path: cfg.home }, { label: 'Logout', icon: 'logout', variant: 'danger', action: () => { localStorage.clear(); window.location.href = '/login' } }]}
       />
       {children}
@@ -262,6 +268,9 @@ export default function App() {
           <Route path="/contact" element={<Navigate to="/register" replace />} />
           <Route path="/profile" element={<WithCustomerNavbar><Profile /></WithCustomerNavbar>} />
           <Route path="/create-customer" element={<ProtectedRoute role={["customer", "promotor", "sub_dealer", "dealer", "admin", "super_admin"]}><WithAnyNavbar><CreateCustomer /></WithAnyNavbar></ProtectedRoute>} />
+          <Route path="/create-dealer" element={<ProtectedRoute role="admin"><WithInternalRoleNavbar><CreateDealer /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/create-sub-dealer" element={<ProtectedRoute role="dealer"><WithInternalRoleNavbar><CreateSubdealer /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/create-promotor" element={<ProtectedRoute role="sub_dealer"><WithInternalRoleNavbar><CreatePromotor /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/general-customers" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><GeneralCustomer /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/referral-customers" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><ReferralCustomer /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/create-admin" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><CreateAdmin /></WithSuperAdminNavbar></ProtectedRoute>} />
@@ -369,8 +378,10 @@ export default function App() {
           <Route path="/superadmin-payments" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><SuperAdminPayments /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/athirai-revenue" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><AthiraiRevenue /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/general-customer-revenue" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><GeneralCustomerRevenue /></WithSuperAdminNavbar></ProtectedRoute>} />
-          <Route path="/superadmin-commission" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><SuperAdminCommission /></WithSuperAdminNavbar></ProtectedRoute>} />
+          <Route path="/superadmin-commission" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><ResidualCommission /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/my-commission" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><MyCommission /></WithSuperAdminNavbar></ProtectedRoute>} />
+          <Route path="/internal-my-commission" element={<ProtectedRoute role={["admin", "dealer", "sub_dealer", "promotor"]}><WithInternalRoleNavbar><InternalMyCommission /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/internal-team-commission" element={<ProtectedRoute role={["admin", "dealer", "sub_dealer", "promotor"]}><WithInternalRoleNavbar><TeamCommission /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/commissions" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><Commissions /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/superadmin-send-coins" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><SuperAdminSendCoins /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/superadmin-autopay-list" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><SuperAdminAutopayList /></WithSuperAdminNavbar></ProtectedRoute>} />

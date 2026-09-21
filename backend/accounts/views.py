@@ -314,7 +314,7 @@ class LoginView(APIView):
 
         # ── NEW: Reward logic — super_admin ku reward venaam ──
         if user.role != 'super_admin':
-            today = timezone.now().date()
+            today = timezone.localdate()
             is_first_ever_login = not DailyLoginLog.objects.filter(user=user).exists()
             _, created_today_log = DailyLoginLog.objects.get_or_create(user=user, login_date=today)
 
@@ -505,7 +505,7 @@ class ShopDashboardStatsView(APIView):
         virtual_count = sum(1 for s in descendants if s.shop_type == 'virtual')
 
         # Monthly growth: shops this shop directly created, last 6 months
-        today = timezone.now().date()
+        today = timezone.localdate()
         six_months_ago = (today.replace(day=1) - timedelta(days=150)).replace(day=1)
         monthly_counts = (
             ShopProfile.objects.filter(created_by=request.user, created_at__date__gte=six_months_ago)
@@ -2010,7 +2010,7 @@ class MetalRateView(APIView):
     def get(self, request):
         """Return today's rate; if not entered yet, return latest available."""
         from django.utils import timezone
-        today = timezone.now().date()
+        today = timezone.localdate()
 
         rate = MetalRate.objects.filter(date=today).first()
         if not rate:
@@ -2090,7 +2090,7 @@ class MetalOrderSummaryView(APIView):
 
     def get(self, request):
         user = request.user
-        today = timezone.now().date()
+        today = timezone.localdate()
         week_start = today - timedelta(days=today.weekday())
         month_start = today.replace(day=1)
 
@@ -2780,7 +2780,7 @@ def _admin_orders_period_queryset(period, start_date, end_date):
     filters in this file. 'today' is the default so the Admin Orders page's
     first load is always small instead of pulling every order ever placed."""
     qs = JewelryOrder.objects.all()
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     if period == 'today':
         qs = qs.filter(created_at__date=today)
@@ -3399,7 +3399,7 @@ class HierarchyNodeOrdersView(APIView):
 
         qs = JewelryOrder.objects.filter(user_id__in=user_ids)
         if period == 'today':
-            today = timezone.now().date()
+            today = timezone.localdate()
             qs = qs.filter(created_at__date=today)
         elif period != 'all':
             # ── NEW: default = this month mattum — Grid page-la kaattura SALES(X)
@@ -4250,6 +4250,45 @@ class HierarchyPersonSearchView(APIView):
         return Response({'query': query, 'results': results})
 
 
+def _collect_full_downline_user_ids(user):
+    """Every user_id BELOW `user` in the hierarchy — including intermediate
+    dealer/sub_dealer/promotor tiers, not just leaf customers. Unlike
+    _collect_user_ids_admin/_dealer/_sub_dealer (which only gather customers,
+    for order-count purposes), commission is earned by the intermediate tiers
+    themselves, so 'Team Commission' needs them included."""
+    role = user.role
+    ids = []
+    if role == 'admin':
+        admin = AdminProfile.objects.prefetch_related(
+            'assigned_dealers__assigned_sub_dealers__assigned_promotors__assigned_customers'
+        ).get(user=user)
+        for d in admin.assigned_dealers.all():
+            ids.append(d.user_id)
+            for sd in d.assigned_sub_dealers.all():
+                ids.append(sd.user_id)
+                for p in sd.assigned_promotors.all():
+                    ids.append(p.user_id)
+                    ids.extend(c.user_id for c in p.assigned_customers.all())
+    elif role == 'dealer':
+        dealer = DealerProfile.objects.prefetch_related(
+            'assigned_sub_dealers__assigned_promotors__assigned_customers'
+        ).get(user=user)
+        for sd in dealer.assigned_sub_dealers.all():
+            ids.append(sd.user_id)
+            for p in sd.assigned_promotors.all():
+                ids.append(p.user_id)
+                ids.extend(c.user_id for c in p.assigned_customers.all())
+    elif role == 'sub_dealer':
+        sd = SubDealerProfile.objects.prefetch_related('assigned_promotors__assigned_customers').get(user=user)
+        for p in sd.assigned_promotors.all():
+            ids.append(p.user_id)
+            ids.extend(c.user_id for c in p.assigned_customers.all())
+    elif role == 'promotor':
+        p = PromotorProfile.objects.prefetch_related('assigned_customers').get(user=user)
+        ids.extend(c.user_id for c in p.assigned_customers.all())
+    return ids
+
+
 def _resolve_scope_user_ids(user, role, node_id):
     """role+node_id (DB pk) kொடுத்தா andha subtree oda user_ids list return pண்ணும்.
     role illama na, logged-in user oda own network return pண்ணும்."""
@@ -4744,7 +4783,7 @@ class TodayLoginStatusView(APIView):
             except Exception:
                 scope_user_ids = set()
 
-        today = timezone.now().date()
+        today = timezone.localdate()
         rollup_counts = _get_period_rollup_counts(period)
 
         # ── NEW: role -> level Case/When, DB level la order pண்ணறatuku ──
@@ -4855,9 +4894,31 @@ class TodayLoginStatusView(APIView):
         })
 
 class DashboardQuickStatsView(APIView):
+    """Super Admin: global stats (cached). Admin/Dealer/SubDealer/Promotor: the
+    same 4 stat cards but scoped to their own downline network (not cached —
+    per-user, low traffic)."""
     permission_classes = [IsAuthenticated]
+    INTERNAL_ROLES = {'admin', 'dealer', 'sub_dealer', 'promotor'}
 
     def get(self, request):
+        if request.user.role in self.INTERNAL_ROLES:
+            downline_ids = _collect_full_downline_user_ids(request.user)
+            today = timezone.localdate()
+            today_start = timezone.make_aware(timezone.datetime.combine(today, timezone.datetime.min.time()))
+            today_end = today_start + timedelta(days=1)
+            yesterday_start = today_start - timedelta(days=1)
+
+            active_users = User.objects.filter(
+                id__in=downline_ids, last_login__gte=today_start, last_login__lt=today_end
+            ).count()
+
+            return Response({
+                'yesterday_orders': JewelryOrder.objects.filter(user_id__in=downline_ids, created_at__gte=yesterday_start, created_at__lt=today_start).count(),
+                'today_orders': JewelryOrder.objects.filter(user_id__in=downline_ids, created_at__gte=today_start, created_at__lt=today_end).count(),
+                'today_new_customers': CustomerProfile.objects.filter(user_id__in=downline_ids, created_at__gte=today_start, created_at__lt=today_end).count(),
+                'active_users': active_users,
+            })
+
         if request.user.role != 'super_admin':
             return Response({'error': 'Permission denied'}, status=403)
 
@@ -4866,7 +4927,7 @@ class DashboardQuickStatsView(APIView):
         if cached is not None:
             return Response(cached)
 
-        today = timezone.now().date()
+        today = timezone.localdate()
         yesterday = today - timedelta(days=1)
         # ── NEW: range queries instead of __date= — these USE the index, __date= does not ──
         today_start = timezone.make_aware(timezone.datetime.combine(today, timezone.datetime.min.time()))
@@ -6330,7 +6391,7 @@ class TodayRewardsView(APIView):
         if request.user.role != 'super_admin':
             return Response({'error': 'Permission denied'}, status=403)
 
-        today = timezone.now().date()
+        today = timezone.localdate()
         # ── NEW: super_admin ku reward kaanpikkathu — level 2 (admin) mudhal mattum ──
         qs_today = CoinRewardLog.objects.filter(date=today).exclude(user__role='super_admin').select_related('user')
         total_coins_today = qs_today.aggregate(t=Sum('coins'))['t'] or 0
@@ -6405,7 +6466,7 @@ class LoginRewardTransactionView(APIView):
         page_size = 20
         export_csv = request.query_params.get('export') == 'csv'
 
-        today = timezone.now().date()
+        today = timezone.localdate()
         if period == 'today':
             range_start, range_end = today, today
         elif period == 'week':
@@ -6520,7 +6581,7 @@ class RetailerPromotionListView(APIView):
         if request.user.role not in ['super_admin', 'admin']:
             return Response({'error': 'Permission denied'}, status=403)
 
-        today = timezone.now().date()
+        today = timezone.localdate()
         now = timezone.now()
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)   # NEW: monthly window — target THIS MONTH mattum check pannanum
 
@@ -6744,7 +6805,7 @@ class WholesaleDealerPromotionListView(APIView):
         if request.user.role not in ['super_admin', 'admin']:
             return Response({'error': 'Permission denied'}, status=403)
 
-        today = timezone.now().date()
+        today = timezone.localdate()
         now = timezone.now()
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)   # NEW: monthly window — target THIS MONTH mattum check pannanum
 
@@ -6893,7 +6954,7 @@ class DistributorPromotionListView(APIView):
         if request.user.role not in ['super_admin', 'admin']:
             return Response({'error': 'Permission denied'}, status=403)
 
-        today = timezone.now().date()
+        today = timezone.localdate()
         now = timezone.now()
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)   # NEW: monthly window — target THIS MONTH mattum check pannanum
 
@@ -7068,7 +7129,7 @@ class SuperStockistPromotionListView(APIView):
         if request.user.role != 'super_admin':
             return Response({'error': 'Permission denied'}, status=403)
 
-        today = timezone.now().date()
+        today = timezone.localdate()
         now = timezone.now()
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)   # NEW: monthly window — target THIS MONTH mattum check pannanum
 
@@ -8187,7 +8248,7 @@ def _recharge_period_queryset(user, period, start_date=None, end_date=None):
     """Common filter logic — Today / Month / 6 Month / Custom date.
     WalletView, RechargeHistoryView, RechargeStatementView ella idhை than use pannum."""
     qs = CoinRecharge.objects.filter(user=user, status='success')
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     if period == 'today':
         qs = qs.filter(created_at__date=today)
@@ -8233,7 +8294,7 @@ class WalletView(APIView):
 
     def get(self, request):
         wallet, _ = Wallet.objects.get_or_create(user=request.user)
-        today = timezone.now().date()
+        today = timezone.localdate()
 
         # ── NEW: ella entry um (recharge/commission/debit) ஒரே table, ஒரே query ──
         history = CoinRecharge.objects.filter(
@@ -8367,7 +8428,7 @@ class PayWithCoinsView(APIView):
 
 def _apply_period_filter(qs, period, start_date, end_date, date_field='created_at'):
     """Today/Month/6Month/Year/Custom — ella report kum share pண்ணும் common filter."""
-    today = timezone.now().date()
+    today = timezone.localdate()
     f = f'{date_field}__date'
 
     if period == 'today':
@@ -8402,12 +8463,16 @@ def _period_label(period, start_date, end_date):
 
 
 class PaymentsSummaryView(APIView):
-    """Super Admin ku mattum — dropdown vachi 3 views: All Sales / Super Admin
-    Commission (balance) / My Commission (fixed 1%)."""
+    """Super Admin: dropdown vachi views — All Sales / Super Admin Commission (balance) /
+    My Commission (fixed 1%). Admin/Dealer/SubDealer/Promotor: 'my_commission' (their own
+    commission earnings, any level) and 'team_commission' (their downline's earnings)."""
     permission_classes = [IsAuthenticated]
 
+    INTERNAL_ROLES = {'super_admin', 'admin', 'dealer', 'sub_dealer', 'promotor'}
+    SUPER_ADMIN_ONLY_VIEWS = {'all_sales', 'general_customer_revenue', 'athirai_revenue', 'super_admin_commission'}
+
     def get(self, request):
-        if request.user.role != 'super_admin':
+        if request.user.role not in self.INTERNAL_ROLES:
             return Response({'error': 'Not authorized'}, status=403)
 
         page = max(int(request.query_params.get('page', 1)), 1)
@@ -8415,11 +8480,16 @@ class PaymentsSummaryView(APIView):
         period = request.query_params.get('period', 'today')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
-        view = request.query_params.get('view', 'super_admin_commission')   # ── NEW: all_sales | super_admin_commission | my_commission
+        view = request.query_params.get('view', 'super_admin_commission')   # ── NEW: all_sales | super_admin_commission | my_commission | team_commission
         # ── 'format' is DRF's reserved URL_FORMAT_OVERRIDE query param — format=csv
         # isn't a registered renderer, so DRF 404s before this view even runs.
         # Use a differently-named param instead. ──
         export_csv = request.query_params.get('export') == 'csv'
+
+        if view in self.SUPER_ADMIN_ONLY_VIEWS and request.user.role != 'super_admin':
+            return Response({'error': 'Not authorized'}, status=403)
+        if view == 'team_commission' and request.user.role == 'super_admin':
+            return Response({'error': 'Not applicable for Super Admin — use Commissions leaderboard instead'}, status=400)
 
         if view == 'all_sales':
             # ── Full order value, commission edhுவும் illama ──
@@ -8438,7 +8508,7 @@ class PaymentsSummaryView(APIView):
                 for r in period_qs.values('payment_method').annotate(count=Count('id'), total=Sum('total_price')).order_by('-total')
             ]
 
-            six_months_ago = timezone.now().date() - timedelta(days=180)
+            six_months_ago = timezone.localdate() - timedelta(days=180)
             trend_qs = (
                 base_qs.filter(created_at__date__gte=six_months_ago)
                 .annotate(month=TruncMonth('created_at'))
@@ -8513,7 +8583,7 @@ class PaymentsSummaryView(APIView):
                 for r in period_qs.values('payment_method').annotate(count=Count('id'), total=Sum('total_price')).order_by('-total')
             ]
 
-            six_months_ago = timezone.now().date() - timedelta(days=180)
+            six_months_ago = timezone.localdate() - timedelta(days=180)
             trend_qs = (
                 base_qs.filter(created_at__date__gte=six_months_ago)
                 .annotate(month=TruncMonth('created_at'))
@@ -8590,7 +8660,7 @@ class PaymentsSummaryView(APIView):
                 for r in period_qs.values('payment_method').annotate(count=Count('id'), total=Sum('total_price')).order_by('-total')
             ]
 
-            six_months_ago = timezone.now().date() - timedelta(days=180)
+            six_months_ago = timezone.localdate() - timedelta(days=180)
             trend_qs = (
                 base_qs.filter(created_at__date__gte=six_months_ago)
                 .annotate(month=TruncMonth('created_at'))
@@ -8653,17 +8723,27 @@ class PaymentsSummaryView(APIView):
                 ],
             })
 
-        elif view in ('super_admin_commission', 'my_commission'):
-            level_filter = 0 if view == 'super_admin_commission' else -1
-            base_qs = CoinRecharge.objects.filter(
-                status='success', source='commission', commission_level=level_filter
-            )
+        elif view in ('super_admin_commission', 'my_commission', 'team_commission'):
+            if view == 'team_commission':
+                downline_ids = _collect_full_downline_user_ids(request.user)
+                base_qs = CoinRecharge.objects.filter(
+                    status='success', source='commission', user_id__in=downline_ids
+                )
+            elif view == 'my_commission' and request.user.role != 'super_admin':
+                base_qs = CoinRecharge.objects.filter(
+                    status='success', source='commission', user=request.user
+                )
+            else:
+                level_filter = 0 if view == 'super_admin_commission' else -1
+                base_qs = CoinRecharge.objects.filter(
+                    status='success', source='commission', commission_level=level_filter
+                )
             period_qs = _apply_period_filter(base_qs, period, start_date, end_date)
 
             total_revenue = period_qs.aggregate(total=Sum('amount_paid'))['total'] or 0
             total_coins_sold = period_qs.aggregate(total=Sum('coins_credited'))['total'] or 0
 
-            six_months_ago = timezone.now().date() - timedelta(days=180)
+            six_months_ago = timezone.localdate() - timedelta(days=180)
             trend_qs = (
                 base_qs.filter(created_at__date__gte=six_months_ago)
                 .annotate(month=TruncMonth('created_at'))
@@ -8680,13 +8760,13 @@ class PaymentsSummaryView(APIView):
             total_transactions = txn_qs.count()
 
             if export_csv:
-                fname = 'super-admin-commission-report' if view == 'super_admin_commission' else 'my-commission-report'
-                report_title = 'Super Admin Commission Report' if view == 'super_admin_commission' else 'My Commission Report'
-                report_note = (
-                    'Leftover unallocated commission balance from the payout pool.'
-                    if view == 'super_admin_commission' else
-                    'Your own fixed 1% share, credited on every successful recharge.'
-                )
+                fname = {'super_admin_commission': 'residual-commission-report', 'my_commission': 'my-commission-report', 'team_commission': 'team-commission-report'}[view]
+                report_title = {'super_admin_commission': 'Residual Commission Report', 'my_commission': 'My Commission Report', 'team_commission': 'Team Commission Report'}[view]
+                report_note = {
+                    'super_admin_commission': 'Leftover unallocated commission balance from the payout pool.',
+                    'my_commission': 'Your own commission share, credited on every successful order in your chain.',
+                    'team_commission': "Commission earned by everyone in your downline team.",
+                }[view]
                 export_entries = list(txn_qs[:REPORT_MAX_ROWS])
                 profile_map = _bulk_profile_id_map([r.related_order.user for r in export_entries if r.related_order])
                 report_rows = []
@@ -8741,7 +8821,7 @@ class PaymentsSummaryView(APIView):
         total_revenue = recharges_period.aggregate(total=Sum('amount_paid'))['total'] or 0
         total_coins_sold = recharges_period.aggregate(total=Sum('coins_credited'))['total'] or 0
 
-        six_months_ago = timezone.now().date() - timedelta(days=180)
+        six_months_ago = timezone.localdate() - timedelta(days=180)
         trend_qs = (
             recharges_all.filter(created_at__date__gte=six_months_ago)
             .annotate(month=TruncMonth('created_at'))
@@ -8854,7 +8934,7 @@ class TierCommissionView(APIView):
         total_transactions = period_qs.count()
         total_earners = period_qs.values('user_id').distinct().count()
 
-        six_months_ago = timezone.now().date() - timedelta(days=180)
+        six_months_ago = timezone.localdate() - timedelta(days=180)
         trend_qs = (
             base_qs.filter(created_at__date__gte=six_months_ago)
             .annotate(month=TruncMonth('created_at'))
@@ -9106,7 +9186,7 @@ def _next_occurrence(day):
     """Given day-of-month, return the next date this month/next month it falls on."""
     from datetime import date
     import calendar
-    today = timezone.now().date()
+    today = timezone.localdate()
     last_day_this_month = calendar.monthrange(today.year, today.month)[1]
     safe_day = min(day, last_day_this_month)
     candidate = today.replace(day=safe_day)
@@ -9162,7 +9242,7 @@ class AutoPayCreateView(APIView):
             })
 
             if frequency == 'daily':
-                next_date = timezone.now().date() + timedelta(days=7)
+                next_date = timezone.localdate() + timedelta(days=7)
             else:
                 next_date = _next_occurrence(recharge_day)
             start_at = int(timezone.datetime.combine(next_date, timezone.datetime.min.time()).timestamp())
@@ -9332,13 +9412,13 @@ def autopay_webhook(request):
         )
 
         if mandate.frequency == 'daily':
-            mandate.next_charge_date = timezone.now().date() + timedelta(days=7)
+            mandate.next_charge_date = timezone.localdate() + timedelta(days=7)
         else:
             mandate.next_charge_date = _next_occurrence(mandate.recharge_day)
 
         # ── NEW: record success ──
         mandate.last_charge_status = 'success'
-        mandate.last_charge_date = timezone.now().date()
+        mandate.last_charge_date = timezone.localdate()
         mandate.last_charge_error = None
         mandate.save(update_fields=['next_charge_date', 'last_charge_status', 'last_charge_date', 'last_charge_error'])
 
@@ -9357,7 +9437,7 @@ def autopay_webhook(request):
         readable_reason = FAILURE_REASON_MAP.get(raw_reason, 'Payment failed')
 
         mandate.last_charge_status = 'failed'
-        mandate.last_charge_date = timezone.now().date()
+        mandate.last_charge_date = timezone.localdate()
         mandate.last_charge_error = readable_reason
         mandate.save(update_fields=['last_charge_status', 'last_charge_date', 'last_charge_error'])
 

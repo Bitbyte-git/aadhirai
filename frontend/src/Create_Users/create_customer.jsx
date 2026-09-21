@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "../api";
-import CustomerFooter from "./CustomerFooter";
-import CopyUrlButton from "./CopyUrlButton";
+import CustomerFooter from "../collection/CustomerFooter";
+import CopyUrlButton from "../collection/CopyUrlButton";
 import CustomDropdown from "../components/CustomDropdown";
 
 const OCCUPATIONS = ["employee", "business", "others"];

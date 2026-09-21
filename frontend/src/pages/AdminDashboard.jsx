@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import api from '../api'
 import logo from '../assets/logo.png'
 import InternalRoleNavbar from '../collection/InternalRoleNavbar'
-import InternalRoleDashboardFrame from '../collection/InternalRoleDashboardFrame'
 import CopyUrlButton from '../collection/CopyUrlButton'
 import goldCoin from '../assets/gold-coin-transparent.png'
 import silverCoin from '../assets/silver-coin.png'
@@ -23,6 +23,232 @@ const ROLE_LABELS_ADMIN = {
   sub_dealer: { emoji: '🔗', label: 'SUB DEALER', color: '#BB8958', idKey: 'sub_dealer_id' },
   promotor: { emoji: '🌟', label: 'PROMOTOR', color: '#CCA881', idKey: 'promotor_id' },
   customer: { emoji: '👤', label: 'CUSTOMER', color: '#C92035', idKey: 'customer_id' },
+}
+
+const irdPalette = {
+  white: '#FDFDFC', off: '#F3F3F0', mist: '#E7EDEC', aqua: '#D1DFDE', dusty: '#BDCFCE',
+  teal: '#0C4044', deep: '#073B3F', champagne: '#F3E8DE', gold: '#CCA881', antique: '#BB8958',
+  grey: '#7A8987', black: '#111817', red: '#C92035',
+}
+
+const irdChartPeriods = [
+  { key: 'today', label: 'Today' }, { key: 'week', label: '7D' }, { key: 'month', label: '1M' },
+  { key: '3month', label: '3M' }, { key: 'year', label: '1Y' }, { key: 'all', label: 'All' },
+]
+
+function IrdIcon({ type }) {
+  const common = { width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }
+  if (type === 'store') return <svg {...common}><path d="M4 10h16l-1-5H5l-1 5z"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>
+  if (type === 'report') return <svg {...common}><path d="M4 19V5"/><path d="M8 19v-8"/><path d="M12 19V8"/><path d="M16 19v-5"/><path d="M20 19V4"/></svg>
+  if (type === 'clock') return <svg {...common}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+  if (type === 'box') return <svg {...common}><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+  if (type === 'cart') return <svg {...common}><path d="M6 6h15l-2 9H8L6 3H3"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg>
+  return <svg {...common}><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+}
+
+function irdNormalizeSeries(rows, period) {
+  const formatAxis = (iso) => {
+    const d = new Date(iso)
+    if (period === 'today') return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })
+    if (period === 'week' || period === 'month' || period === '3month') return `${d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`
+    return d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+  }
+  const grouped = new Map()
+  ;(rows || []).forEach(row => {
+    const label = formatAxis(row.time)
+    const prev = grouped.get(label)
+    if (prev) prev.count += Number(row.count || 0)
+    else grouped.set(label, {
+      ...row, count: Number(row.count || 0), label,
+      fullDate: new Date(row.time).toLocaleDateString('en-IN', { year: 'numeric', month: '2-digit', day: '2-digit' }).split('/').reverse().join('-'),
+      fullTime: new Date(row.time).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }),
+    })
+  })
+  return Array.from(grouped.values()).sort((a, b) => new Date(a.time) - new Date(b.time))
+}
+
+function IrdOrderTrendPanel({ title = 'Order Volume', endpoint = '/order-timeseries/', requestParams = {}, onSummaryChange }) {
+  const [period, setPeriod] = useState('today')
+  const [data, setData] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState(null)
+
+  const fetchData = async (nextPeriod = period) => {
+    setLoading(true)
+    try {
+      const res = await api.get(endpoint, { params: { ...requestParams, period: nextPeriod } })
+      const normalized = irdNormalizeSeries(res.data?.data || [], nextPeriod)
+      setData(normalized)
+      onSummaryChange?.(normalized.reduce((sum, row) => sum + Number(row.count || 0), 0))
+      setLastUpdated(new Date())
+    } catch {
+      setData([])
+      onSummaryChange?.(0)
+      setLastUpdated(new Date())
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => { fetchData('today') }, [])
+
+  const totalOrders = data.reduce((sum, row) => sum + Number(row.count || 0), 0)
+  const selectedPeriodLabel = irdChartPeriods.find(item => item.key === period)?.label || 'Today'
+  const peakIndex = data.length ? data.reduce((best, row, idx, arr) => row.count > arr[best].count ? idx : best, 0) : -1
+  const activeLabels = data.filter(row => row.count > 0).map(row => row.label)
+  const trendPercent = useMemo(() => {
+    if (!data.length) return 0
+    const mid = Math.max(1, Math.floor(data.length / 2))
+    const avg = arr => arr.length ? arr.reduce((s, d) => s + Number(d.count || 0), 0) / arr.length : 0
+    const first = avg(data.slice(0, mid))
+    const second = avg(data.slice(mid))
+    if (first <= 0) return second > 0 ? 100 : 0
+    return Math.round(((second - first) / first) * 100)
+  }, [data])
+
+  const Dot = ({ cx, cy, index, payload }) => {
+    if (!payload?.count || cx == null || cy == null) return null
+    const peak = index === peakIndex
+    return <g>{peak && <circle className="ird-pulse" cx={cx} cy={cy} r={10} fill="#E2BC84" opacity="0.28" />}<circle cx={cx} cy={cy} r={peak ? 6 : 4.5} fill="#E2BC84" stroke={irdPalette.deep} strokeWidth="2.5" /></g>
+  }
+
+  const Tip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null
+    const row = payload[0].payload
+    return <div className="ird-tooltip"><div><span>{row.fullDate}</span><b>{row.fullTime}</b></div><strong>{row.count} orders</strong></div>
+  }
+
+  return (
+    <section className="ird-chart-card">
+      <div className="ird-chart-head">
+        <div>
+          <p>Order Analytics</p>
+          <div className="ird-chart-title-row"><h2>{title}</h2><span><i />Manual refresh only</span></div>
+          <small>{totalOrders} orders selected - {trendPercent >= 0 ? '+' : ''}{trendPercent}% trend {lastUpdated ? `- Updated ${lastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : ''}</small>
+        </div>
+        <button disabled={loading} onClick={() => fetchData(period)}><IrdIcon type="clock" />{loading ? 'Refreshing...' : 'Refresh'}</button>
+      </div>
+      <div className="ird-periods">
+        {irdChartPeriods.map(p => <button key={p.key} className={period === p.key ? 'active' : ''} onClick={() => { setPeriod(p.key); fetchData(p.key) }}>{p.label}</button>)}
+        <span>Viewing {selectedPeriodLabel}</span>
+      </div>
+      <div className="ird-chart-box">
+        {loading ? <div className="ird-empty">Loading...</div> : data.length === 0 ? <div className="ird-empty">No orders in this period</div> : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 18, right: 22, left: 4, bottom: 8 }}>
+              <defs>
+                <linearGradient id="irdArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E3BC83" stopOpacity="0.42"/><stop offset="52%" stopColor="#C59A68" stopOpacity="0.16"/><stop offset="100%" stopColor="#C59A68" stopOpacity="0.01"/></linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 10" stroke="rgba(255,255,255,0.12)" vertical={false}/>
+              <XAxis dataKey="label" tickFormatter={(label) => activeLabels.includes(label) ? label : ''} stroke="rgba(226,235,232,0.62)" fontSize={10} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.16)' }} minTickGap={30}/>
+              <YAxis stroke="rgba(226,235,232,0.62)" fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} tickCount={5}/>
+              <Tooltip content={<Tip />} cursor={{ stroke: 'rgba(12,64,68,0.72)', strokeWidth: 2, strokeDasharray: '5 7' }}/>
+              <Area type="monotone" dataKey="count" stroke="transparent" fill="url(#irdArea)" dot={false} isAnimationActive={false}/>
+              <Line type="monotone" dataKey="count" stroke="#E2BC84" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" dot={<Dot />} activeDot={{ r: 8, fill: '#F0D29E', stroke: irdPalette.deep, strokeWidth: 3 }} isAnimationActive={false}/>
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function IrdDonutPanel({ title, totalLabel, data, login, onSliceClick }) {
+  const colors = [irdPalette.dusty, irdPalette.teal, irdPalette.antique, irdPalette.gold, irdPalette.red, irdPalette.grey]
+  return <section className="ird-pie"><h3>{title}</h3><strong>{totalLabel}</strong><ResponsiveContainer width="100%" height={260}><PieChart><Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={58} outerRadius={102} paddingAngle={2} onClick={onSliceClick} style={onSliceClick ? { cursor: 'pointer' } : undefined}>{data.map((item, idx) => <Cell key={item.name} fill={item.color || colors[idx % colors.length]} />)}</Pie><Tooltip contentStyle={{ background: irdPalette.white, border: `1px solid ${irdPalette.dusty}`, borderRadius: 10, fontSize: 12, color: irdPalette.black }}/></PieChart></ResponsiveContainer><div className="ird-legend">{data.map((item, idx) => <button key={item.name} onClick={() => onSliceClick?.(item)}><i style={{ background: item.color || colors[idx % colors.length] }}/><span className={login ? 'big' : ''}>{item.name} {item.value}</span></button>)}</div></section>
+}
+
+function AdminDashboardFrame({ roleName, roleDistribution = [], quickActions = [], endpoint, requestParams = {} }) {
+  const navigate = useNavigate()
+  const [orderCount, setOrderCount] = useState(0)
+  const [loginCounts, setLoginCounts] = useState({ active: 0, inactive: 0 })
+  const totalNetwork = roleDistribution.reduce((sum, item) => sum + Number(item.value || 0), 0)
+  const loginData = [
+    { name: 'Active', value: loginCounts.active, color: irdPalette.teal },
+    { name: 'Inactive', value: loginCounts.inactive, color: irdPalette.red },
+  ]
+  const hierarchyAction = quickActions.find(action => action.label.toLowerCase().includes('hierarchy'))
+  const reportAction = quickActions.find(action => action.label.toLowerCase().includes('report'))
+  const createAction = quickActions.find(action => action.label.toLowerCase().includes('create'))
+
+  useEffect(() => {
+    let current = true
+    api.get('/today-login-status/', { params: { period: 'today', list_type: 'active', limit: 1 } })
+      .then(res => {
+        if (!current) return
+        setLoginCounts({ active: Number(res.data?.total_count || 0), inactive: Number(res.data?.other_count || 0) })
+      })
+      .catch(() => current && setLoginCounts({ active: 0, inactive: 0 }))
+    return () => { current = false }
+  }, [])
+
+  return (
+    <div className="ird-shell">
+      <style>{`
+        @keyframes irdIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+        @keyframes irdPulse{0%,100%{transform:scale(1);opacity:.6}50%{transform:scale(1.8);opacity:.12}}
+        .ird-shell{padding:24px 34px 0;box-sizing:border-box;font-family:"Inter",system-ui,sans-serif;color:${irdPalette.black}}
+        .ird-grid{display:block}.ird-chart-card,.ird-pie,.ird-actions{position:relative;overflow:hidden;background:${irdPalette.white};border:1px solid rgba(189,207,206,.78);border-radius:20px;padding:24px 28px;box-shadow:0 24px 64px rgba(7,59,63,.10);animation:irdIn .55s ease both}.ird-chart-card:before,.ird-pie:before,.ird-actions:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 12% 5%,rgba(204,168,129,.18),transparent 30%),radial-gradient(circle at 95% 5%,rgba(12,64,68,.09),transparent 36%)}.ird-chart-card{margin-bottom:22px}.ird-chart-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:start}.ird-chart-head p{margin:0;font-size:12px;font-weight:950;letter-spacing:.14em;text-transform:uppercase;color:${irdPalette.antique}}.ird-chart-title-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.ird-chart-title-row h2{font-family:"Cormorant Garamond",Georgia,serif;font-size:42px;font-weight:950;line-height:1;color:${irdPalette.deep};margin:5px 0 0}.ird-chart-title-row span{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(12,64,68,.28);background:${irdPalette.mist};color:${irdPalette.teal};border-radius:999px;padding:8px 13px;font-size:12px;font-weight:900}.ird-chart-title-row i{width:8px;height:8px;border-radius:50%;background:${irdPalette.teal};box-shadow:0 0 0 4px rgba(12,64,68,.1)}.ird-chart-head small{display:block;margin-top:8px;font-size:13px;font-weight:800;color:${irdPalette.grey}}.ird-chart-head button{min-height:48px;padding:0 20px;border-radius:14px;border:1px solid rgba(12,64,68,.32);background:linear-gradient(135deg,${irdPalette.teal},${irdPalette.deep});color:${irdPalette.white};font-size:13px;font-weight:950;cursor:pointer;display:inline-flex;align-items:center;gap:10px;box-shadow:0 14px 28px rgba(7,59,63,.16)}.ird-chart-head button:disabled{opacity:.62;cursor:not-allowed}.ird-chart-head button svg{width:17px;height:17px}.ird-periods{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:16px 0;padding:8px;border:1px solid #D7E3E2;border-radius:17px;background:rgba(255,255,255,.7)}.ird-periods button{padding:8px 18px;border-radius:999px;border:1px solid rgba(189,207,206,.82);background:rgba(253,253,252,.7);color:#6f7f7d;font-size:13px;font-weight:850;cursor:pointer}.ird-periods button.active{background:linear-gradient(135deg,${irdPalette.teal},${irdPalette.deep});color:${irdPalette.white};border-color:${irdPalette.teal};box-shadow:0 10px 22px rgba(12,64,68,.20)}.ird-periods>span{margin-left:auto;padding-right:14px;color:#83918F;font-size:9px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}.ird-chart-box{position:relative;height:430px;border:1px solid rgba(219,191,148,.24);border-radius:20px;padding:22px 18px 10px;background:radial-gradient(circle at 16% 0%,rgba(197,154,104,.17),transparent 32%),linear-gradient(145deg,#0B4848,#07383B 62%,#052D31);box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 22px 44px rgba(7,59,63,.2)}.ird-chart-box:before{content:'ORDER ACTIVITY';position:absolute;left:24px;top:14px;color:rgba(255,255,255,.32);font-size:8px;font-weight:900;letter-spacing:.16em}.ird-empty{height:100%;display:flex;align-items:center;justify-content:center;color:rgba(231,239,236,.72);font-size:13px}.ird-pulse{transform-box:fill-box;transform-origin:center;animation:irdPulse 1.6s ease-in-out infinite}.ird-tooltip{background:linear-gradient(145deg,rgba(253,253,252,.98),rgba(243,243,240,.96));border:1px solid rgba(189,207,206,.95);border-radius:14px;padding:16px 20px;box-shadow:0 22px 50px rgba(7,59,63,.18);min-width:240px}.ird-tooltip div{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}.ird-tooltip span{color:${irdPalette.grey};font-size:13px}.ird-tooltip b{color:${irdPalette.teal};font-size:13px;background:${irdPalette.mist};padding:6px 12px;border-radius:9px}.ird-tooltip strong{font-size:20px;color:${irdPalette.black}}.ird-side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:36px}.ird-pie{min-height:620px;padding:56px 54px;border-radius:16px;background:${irdPalette.white}}.ird-pie h3{font-size:19px;margin:0 0 8px;font-weight:950;color:${irdPalette.teal}}.ird-pie>strong{display:block;font-family:"Cormorant Garamond",Georgia,serif;font-size:42px;margin:24px 0 30px;color:${irdPalette.black}}.ird-pie .recharts-responsive-container{height:340px}.ird-legend{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;margin-top:20px}.ird-legend button{border:0;background:transparent;display:flex;align-items:center;gap:6px;cursor:pointer}.ird-legend i{width:12px;height:12px;border-radius:50%}.ird-legend span{font-size:15px;font-weight:900;color:${irdPalette.black}}.ird-actions{margin-top:22px;border-radius:18px}.ird-actions h3{font-family:"Cormorant Garamond",Georgia,serif;font-size:30px;margin:0 0 14px;color:${irdPalette.teal}}.ird-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px}.ird-action-grid button{height:102px;border-radius:12px;border:1px solid rgba(189,207,206,.76);background:${irdPalette.white};display:flex;align-items:center;gap:12px;padding:0 36px;color:${irdPalette.deep};font-weight:950;font-size:15px;cursor:pointer}.ird-action-grid button:hover{transform:translateY(-2px);box-shadow:0 18px 38px rgba(7,59,63,.12)}.ird-create-split{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:26px}.ird-create-action{width:100%;height:54px;border:0;border-radius:14px;background:#00525C;color:#FDFDFC;font-size:15px;font-weight:950;cursor:pointer;box-shadow:0 16px 32px rgba(0,82,92,.15)}.ird-create-action:hover{background:#073B3F;transform:translateY(-1px)}.ird-create-action.secondary{background:#073B3F;box-shadow:0 16px 32px rgba(7,59,63,.15)}.ird-create-action.secondary:hover{background:#00525C}@media(max-width:640px){.ird-create-split{grid-template-columns:1fr}}
+        @media(max-width:1180px){.ird-side{grid-template-columns:1fr}}
+        @media(max-width:900px){.ird-side{grid-template-columns:1fr}.ird-pie{min-height:500px;padding:30px 24px}.ird-periods>span{width:100%;margin:4px 8px}}
+        @media(max-width:760px){.ird-shell{padding:18px 14px 0}.ird-chart-head{grid-template-columns:1fr}.ird-chart-title-row h2{font-size:34px}.ird-chart-box{height:340px}.ird-action-grid{grid-template-columns:1fr}}
+      `}</style>
+      <div className="ird-grid">
+        <IrdOrderTrendPanel title={`${roleName} Order Volume`} endpoint={endpoint} requestParams={requestParams} onSummaryChange={setOrderCount} />
+        <div className="ird-side">
+          <IrdDonutPanel title="Role Distribution" totalLabel={`${totalNetwork} total`} data={roleDistribution.filter(item => Number(item.value || 0) > 0)} />
+          <IrdDonutPanel title="Today's Login Status" totalLabel={`${loginCounts.active + loginCounts.inactive} total users`} data={loginData} login onSliceClick={(entry) => entry.name === 'Active' ? navigate('/login-active') : navigate('/login-inactive')} />
+        </div>
+      </div>
+      <section className="ird-actions">
+        <h3>{roleName} Management</h3>
+        <div className="ird-action-grid">
+          {hierarchyAction && <button onClick={hierarchyAction.onClick}><IrdIcon type={hierarchyAction.icon || 'store'} />Hierarchy</button>}
+          {reportAction && <button onClick={reportAction.onClick}><IrdIcon type={reportAction.icon || 'report'} />Sales Report</button>}
+        </div>
+        <div className="ird-create-split">
+          {createAction && <button className="ird-create-action" onClick={createAction.onClick}>+ {createAction.label}</button>}
+          <button className="ird-create-action secondary" onClick={() => navigate('/create-customer')}>+ Create Customer</button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function AdminQuickStats() {
+  const [stats, setStats] = useState({ yesterday_orders: 0, today_orders: 0, today_new_customers: 0, active_users: 0 })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let current = true
+    api.get('/dashboard-quick-stats/')
+      .then(res => { if (current) setStats(prev => ({ ...prev, ...res.data })) })
+      .catch(() => {})
+      .finally(() => { if (current) setLoading(false) })
+    return () => { current = false }
+  }, [])
+
+  const cards = [
+    { label: 'Yesterday Order', value: stats.yesterday_orders, sub: 'orders', note: 'Compared to today', color: '#9B31FF', bg: '#F5EAFF' },
+    { label: 'Today Order', value: stats.today_orders, sub: 'orders', note: 'Orders placed today', color: '#00A767', bg: '#EAF8F0' },
+    { label: 'Today New Customer', value: stats.today_new_customers, sub: '', note: 'Joined today', color: '#00A767', bg: '#EAF8F0' },
+    { label: 'Active User', value: stats.active_users, sub: '', note: 'Logged in today', color: '#2563EB', bg: '#EAF2FF' },
+  ]
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: '14px', margin: '42px 46px 0', maxWidth: '1500px', marginLeft: 'auto', marginRight: 'auto' }} className="ad-qstats">
+      {cards.map(kpi => (
+        <div key={kpi.label} style={{ background: '#FDFDFC', border: '1px solid rgba(189,207,206,.78)', borderRadius: '14px', padding: '20px 22px', minHeight: '130px', boxShadow: '0 18px 46px rgba(7,59,63,.07)' }}>
+          <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: kpi.bg, color: kpi.color, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '14px' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 6h15l-2 9H8L6 3H3" /><circle cx="9" cy="20" r="1.5" /><circle cx="18" cy="20" r="1.5" /></svg>
+          </div>
+          <div style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.06em', color: '#0C4044', marginBottom: '8px' }}>{kpi.label}</div>
+          <div><span style={{ fontSize: '26px', fontWeight: 900, color: '#00152a' }}>{loading ? '—' : kpi.value}</span>{kpi.sub ? <span style={{ marginLeft: '8px', fontSize: '15px', color: '#111817' }}>{kpi.sub}</span> : null}</div>
+          <div style={{ fontSize: '12px', color: '#009957', marginTop: '8px' }}>{kpi.note}</div>
+        </div>
+      ))}
+      <style>{`@media(max-width:1180px){.ad-qstats{grid-template-columns:repeat(2,minmax(0,1fr))!important}}@media(max-width:760px){.ad-qstats{grid-template-columns:1fr!important;margin-left:14px!important;margin-right:14px!important}}`}</style>
+    </div>
+  )
 }
 
 function SectionHeader({ icon, label }) {
@@ -620,7 +846,6 @@ export default function AdminDashboard() {
   const [showProfile, setShowProfile] = useState(false)
   const [profileData, setProfileData] = useState(null)
   const [showForm, setShowForm] = useState(false)
-  const [showHierarchy, setShowHierarchy] = useState(false)
   const [activeDealer, setActiveDealer] = useState(null)
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState('success')
@@ -1152,18 +1377,10 @@ const handleSubmit = async e => {
         homePath="/admin"
         managementItems={[
           { label: 'Dashboard', path: '/admin' },
-          { label: 'Dealer Hierarchy', path: '/admin-hierarchy' },
-          { label: 'Create Dealer', action: () => setShowForm(true) },
-          { label: 'Create Customer', action: () => setShowCreateCustomer(true) },
+          { label: 'Dealer Hierarchy', path: '/admin-hierarchy-grid' },
+          { label: 'Create Dealer', path: '/create-dealer' },
+          { label: 'Create Customer', path: '/create-customer' },
           { label: 'Requests', action: () => setShowRequests(true) },
-        ]}
-        celebrationItems={[
-          { label: "Today's Birthdays", action: () => navigate('/admin') },
-          { label: "Today's Anniversaries", action: () => navigate('/admin') },
-          { label: 'Work Anniversaries', action: () => navigate('/admin') },
-        ]}
-        announcementItems={[
-          { label: 'View Announcements', action: () => { setShowAnnouncements(true); localStorage.setItem('adminAnnouncementSeen', Date.now().toString()); setUnreadCount(0) }, badge: unreadCount },
         ]}
         coinItems={[
           { label: 'Buy Coin', path: '/buy-coin' },
@@ -1172,9 +1389,15 @@ const handleSubmit = async e => {
           { label: 'Coin Transactions', path: '/coin-transactions' },
         ]}
         reportItems={[
-          { label: 'Dealer Hierarchy Tree', path: '/admin-hierarchy' },
           { label: 'Dealer Hierarchy Grid', path: '/admin-hierarchy-grid' },
+          { label: 'Dealer Hierarchy Tree', path: '/admin-hierarchy' },
           { label: 'Sales Report', path: '/sales-report' },
+          { label: 'Login Active', path: '/login-active' },
+          { label: 'Login Inactive', path: '/login-inactive' },
+        ]}
+        commissionItems={[
+          { label: 'My Commission', path: '/internal-my-commission' },
+          { label: 'Team Commission', path: '/internal-team-commission' },
         ]}
         actionItems={[
           { label: 'Profile', icon: 'user', action: () => { setShowProfile(true); fetchProfile() } },
@@ -1182,7 +1405,8 @@ const handleSubmit = async e => {
           { label: 'Logout', icon: 'logout', variant: 'danger', action: () => { localStorage.clear(); navigate('/login') } },
         ]}
       />
-      <InternalRoleDashboardFrame
+      <AdminQuickStats />
+      <AdminDashboardFrame
         roleName="Admin"
         focusLabel="Dealers"
         focusCount={dealers.length}
@@ -1193,10 +1417,10 @@ const handleSubmit = async e => {
           { name: 'Customer', value: dealers.reduce((sum, dealer) => sum + (dealer.sub_dealers || []).reduce((sdSum, sd) => sdSum + (sd.promotors || []).reduce((pSum, p) => pSum + (p.customers?.length || 0), 0), 0), 0), color: '#C92035' },
         ]}
         quickActions={[
-          { label: 'Dealer Hierarchy Tree', icon: 'store', onClick: () => setShowHierarchy(true) },
           { label: 'Dealer Hierarchy Grid', icon: 'store', onClick: () => navigate('/admin-hierarchy-grid') },
+          { label: 'Dealer Hierarchy Tree', icon: 'store', onClick: () => navigate('/admin-hierarchy') },
           { label: 'Sales Report', icon: 'report', onClick: () => navigate('/sales-report') },
-          { label: 'Create Dealer', icon: 'users', onClick: () => setShowForm(true) },
+          { label: 'Create Dealer', icon: 'users', onClick: () => navigate('/create-dealer') },
         ]}
       />      <div style={{ position: 'relative', zIndex: 10, padding: '42px 46px 56px', maxWidth: '1500px', margin: '0 auto' }}>
         {msg && (
@@ -1207,143 +1431,7 @@ const handleSubmit = async e => {
 
 
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '26px', gap: '20px', flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ color: '#BB8958', fontSize: '12px', fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '8px' }}>Network Operations</div>
-            <h2 style={{ fontSize: 'clamp(32px,4vw,56px)', lineHeight: 0.95, fontFamily: 'Georgia, serif', color: accent, fontWeight: 500, margin: 0 }}>Dealer Management</h2>
-          </div>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <button onClick={() => navigate('/sales-report')}
-              style={{ padding: '12px 24px', background: '#FDFDFC', border: '1px solid rgba(12,64,68,0.22)', borderRadius: '999px', fontWeight: 800, color: '#0C4044', fontSize: '14px', cursor: 'pointer', boxShadow: '0 12px 26px rgba(7,59,63,0.06)' }}>
-              Sales Report
-            </button>
-           <button onClick={() => navigate('/admin-hierarchy-grid')}
-  style={{ padding: '12px 24px', background: '#F3F3F0', border: '1px solid rgba(12,64,68,0.22)', borderRadius: '999px', fontWeight: 800, color: '#073B3F', fontSize: '14px', cursor: 'pointer', boxShadow: '0 12px 26px rgba(7,59,63,0.06)' }}>
-  Hierarchy
-</button>
-            <button onClick={() => setShowForm(!showForm)} className="ad-grad-btn"
-              style={{ padding: '12px 28px', background: '#073B3F', border: 'none', borderRadius: '999px', fontWeight: 900, color: '#FDFDFC', fontSize: '14px', cursor: 'pointer', boxShadow: '0 16px 34px rgba(7,59,63,0.18)' }}>
-              {showForm ? 'Cancel' : '+ Create Dealer'}
-            </button>
-            <button onClick={() => setShowCreateCustomer(!showCreateCustomer)} className="ad-grad-btn"
-              style={{ padding: '12px 28px', background: 'linear-gradient(90deg,#C92035,#BB8958)', border: 'none', borderRadius: '999px', fontWeight: 900, color: '#FDFDFC', fontSize: '14px', cursor: 'pointer', boxShadow: '0 16px 34px rgba(201,32,53,0.18)' }}>
-              {showCreateCustomer ? 'Cancel' : '+ Create Customer'}
-            </button>
-          </div>
-        </div>
 
-        {/* DEALER HIERARCHY MODAL */}
-        {/* ── DEALER HIERARCHY MODAL ── */}
-        {showHierarchy && (
-          <div
-            onClick={() => { setShowHierarchy(false); setActiveDealer(null); removeDealerPopup() }}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,23,0.75)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <div
-              onClick={e => e.stopPropagation()}
-              style={{ background: dark ? '#F3F3F0' : '#FDFDFC', border: '1px solid rgba(12,64,68,0.2)', borderRadius: '24px', width: '95%', maxWidth: '1100px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-            >
-
-              {/* HEADER - fixed top */}
-              <div style={{ padding: '20px 28px', borderBottom: '1px solid rgba(12,64,68,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-                <div>
-                  <span style={{ color: '#073B3F', fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>🏢 Full Dealer Hierarchy</span>
-                  {(() => {
-                    const totalSubDealers = dealers.reduce((a, d) => a + (d.sub_dealers?.length || 0), 0)
-                    const totalPromotors = dealers.reduce((a, d) => a + (d.sub_dealers || []).reduce((b, sd) => b + (sd.promotors?.length || 0), 0), 0)
-                    const totalCustomers = dealers.reduce((a, d) => a + (d.sub_dealers || []).reduce((b, sd) => b + (sd.promotors || []).reduce((c, p) => c + (p.customers?.length || 0), 0), 0), 0)
-                    return (
-                      <div style={{ display: 'flex', gap: '10px', marginTop: '10px', flexWrap: 'wrap' }}>
-                        {[
-                          { label: 'Dealers', count: dealers.length, color: '#0C4044' },
-                          { label: 'Sub Dealers', count: totalSubDealers, color: '#BB8958' },
-                          { label: 'Promotors', count: totalPromotors, color: '#CCA881' },
-                          { label: 'Customers', count: totalCustomers, color: '#C92035' },
-                        ].map(s => (
-                          <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: `rgba(${hexToRgbA(s.color)},0.08)`, border: `1px solid rgba(${hexToRgbA(s.color)},0.25)`, borderRadius: '20px', padding: '3px 12px' }}>
-                            <span style={{ color: s.color, fontWeight: 800, fontSize: '13px' }}>{s.count}</span>
-                            <span style={{ color: subtext, fontSize: '11px' }}>{s.label}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })()}
-                </div>
-                <button
-                  onClick={() => { setShowHierarchy(false); setActiveDealer(null); removeDealerPopup() }}
-                  style={{ background: 'transparent', border: '1px solid rgba(201,32,53,0.3)', color: '#C92035', borderRadius: '8px', padding: '6px 14px', cursor: 'pointer', fontSize: '12px', whiteSpace: 'nowrap' }}
-                >✕ Close</button>
-              </div>
-
-              {/* SCROLL AREA - இதுதான் scroll ஆகும் */}
-              <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', padding: '28px 32px', scrollBehavior: 'smooth', scrollbarWidth: 'thin', scrollbarColor: 'rgba(12,64,68,0.4) rgba(253,253,252,0.03)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 'max-content', margin: '0 auto' }}>
-
-                  {/* Admin Root Node */}
-                  <div style={{ background: 'linear-gradient(135deg,rgba(12,64,68,0.13),rgba(189,207,206,0.08))', border: '1px solid rgba(12,64,68,0.55)', borderRadius: '16px', padding: '16px 48px', fontWeight: 800, fontSize: '16px', color: '#0C4044', animation: 'dPulseGlow 3s ease-in-out infinite', boxShadow: '0 0 24px rgba(12,64,68,0.1)' }}>
-                    🛡️ Admin
-                    <div style={{ fontSize: '11px', color: '#7A8987', fontWeight: 400, marginTop: '4px', textAlign: 'center' }}>
-                      {localStorage.getItem('email')}
-                    </div>
-                  </div>
-
-                  {/* Stem */}
-                  <div style={{ width: 2, height: 32, background: 'linear-gradient(180deg,#0C4044,rgba(12,64,68,0.3))' }} />
-
-                  {dealers.length > 0 && (
-                    <>
-                      <div style={{ height: 2, background: 'linear-gradient(90deg,transparent,rgba(12,64,68,0.5),transparent)', width: '80%' }} />
-                      <div style={{ display: 'flex', gap: '32px', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 0 }}>
-                        {dealers.map((dealer, di) => (
-                          <div key={dealer.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <div style={{ width: 2, height: 24, background: 'rgba(12,64,68,0.5)' }} />
-                            <AdminTreeNode
-                              node={dealer}
-                              role="dealer"
-                              depth={0}
-                              dark={dark}
-                              text={text}
-                              subtext={subtext}
-                              colorIdx={di}
-                              ancestors={[]}
-                              superAdminEmail={localStorage.getItem('superAdminEmail') || ''}
-                              adminData={dealer._admin || null}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-
-                  {dealers.length === 0 && (
-                    <div style={{ color: subtext, padding: '60px', textAlign: 'center', fontSize: '15px' }}>No dealers yet.</div>
-                  )}
-
-                </div>
-              </div>
-
-              {/* LEGEND - fixed bottom */}
-              <div style={{ flexShrink: 0, padding: '14px 28px', borderTop: '1px solid rgba(12,64,68,0.08)', display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
-                {[
-                  { role: 'Admin', color: '#0C4044', emoji: '🛡️' },
-                  { role: 'Dealer', color: '#BDCFCE', emoji: '🏪' },
-                  { role: 'Sub Dealer', color: '#BB8958', emoji: '🔗' },
-                  { role: 'Promotor', color: '#CCA881', emoji: '🌟' },
-                  { role: 'Customer', color: '#C92035', emoji: '👤' },
-                ].map(l => (
-                  <div key={l.role} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ width: 9, height: 9, borderRadius: '50%', background: l.color }} />
-                    <span style={{ color: subtext, fontSize: '11px' }}>{l.emoji} {l.role}</span>
-                  </div>
-                ))}
-                <div style={{ color: subtext, fontSize: '11px', width: '100%', textAlign: 'center' }}>
-                  💡 Click any node to expand/collapse
-                </div>
-              </div>
-
-            </div>
-          </div>
-        )}
 
         {/* ── ANNOUNCEMENT VIEW MODAL (Admin) ── */}
         {showAnnouncements && (
@@ -2284,37 +2372,6 @@ const handleSubmit = async e => {
           </div>
         )}
 
-        {/* Dealers Table */}
-        <div style={card}>
-          <p style={secHead('#073B3F')}>My Dealers ({dealers.length})</p>
-          {dealers.length === 0 ? (
-            <p style={{ color: subtext, textAlign: 'center', padding: '60px 0', fontSize: '15px' }}>No dealers yet!</p>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
-                <thead>
-                  <tr style={{ borderBottom: `1px solid ${inpBorder}` }}>
-                    {['Dealer ID', 'First Name', 'Last Name', 'Email', 'Mobile', 'City', 'Created'].map(h => (
-                      <th key={h} style={{ padding: '14px 16px', textAlign: 'left', color: subtext, fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {dealers.map((c, i) => (
-                    <tr key={i} className="ad-tr" style={{ borderBottom: `1px solid ${border}` }}>
-                      <td style={{ padding: '14px 16px', color: '#0C4044', fontFamily: 'monospace', fontSize: '13px' }}>{c.dealer_id}</td>
-                      <td style={{ padding: '14px 16px', color: text }}>{c.first_name || ''}</td>
-                      <td style={{ padding: '14px 16px', color: subtext }}>{c.email}</td>
-                      <td style={{ padding: '14px 16px', color: subtext }}>{c.mobile_number}</td>
-                      <td style={{ padding: '14px 16px', color: subtext }}>{c.city_name}</td>
-                      <td style={{ padding: '14px 16px', color: subtext, whiteSpace: 'nowrap' }}>{new Date(c.created_at).toLocaleDateString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
       </div>
 
 

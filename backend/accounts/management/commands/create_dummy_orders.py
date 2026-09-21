@@ -3,6 +3,9 @@ File: BitByte-Marketing/backend/accounts/management/commands/create_dummy_orders
 
 Purpose : Ella dummy customer kum RANDOM order count (min-max range) create pannurathukku.
           Modes:
+            0) Commission-test mode (--commission-test) — 1 order per customer, backdated
+               across the last N days, running REAL distribute_commission() so the
+               Residual/My Commission pages have real data across Today/Week/Month/Year.
             1) Normal/force-add mode (existing) — min/max orders per customer
             2) Combined-target mode (--customer_ids + --combined-target) — spreads random
                orders ACROSS the listed customers until their COMBINED total crosses the
@@ -13,6 +16,9 @@ Run (normal):
 
 Run (combined target across specific customers):
     python manage.py create_dummy_orders --customer_ids "BBCUS20260000544,BBCUS20260000741,BBCUS20260000740,BBCUS20260000739,BBCUS20260000660" --combined-target 15000000
+
+Run (commission test — 20 customers, spread over the last 30 days):
+    python manage.py create_dummy_orders --commission-test --count 20 --days 30
 """
 import random
 from datetime import timedelta
@@ -20,7 +26,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
-from accounts.models import AdminProfile, CustomerProfile, JewelryProduct, JewelryOrder
+from accounts.models import AdminProfile, CustomerProfile, JewelryProduct, JewelryOrder, CoinRecharge
 
 GAP_OPTIONS_MINUTES = [10, 20, 30, 60, 120, 180, 240]
 
@@ -58,6 +64,12 @@ class Command(BaseCommand):
                              help='Rupee total the LISTED customers must reach COMBINED (used with --customer_ids)')
         parser.add_argument('--orders-each', type=int, default=0,
                              help='Exact number of orders to create for EACH listed customer (used with --customer_ids, overrides --combined-target)')
+        parser.add_argument('--commission-test', action='store_true',
+                             help='Test mode: create 1 order per customer, backdated across the last --days, and run REAL commission distribution (credits real wallet coins to promotor/dealer/admin/super_admin chain) so Residual/My Commission pages have data to show.')
+        parser.add_argument('--count', type=int, default=20,
+                             help='Number of customers to use in --commission-test mode (default 20)')
+        parser.add_argument('--days', type=int, default=30,
+                             help='Spread order dates randomly across the last N days, up to now (used with --commission-test)')
 
     def handle(self, *args, **options):
         customer_ids_arg = options['customer_ids']
@@ -91,6 +103,89 @@ class Command(BaseCommand):
             existing_ids.add(order_id)
             seq_counter += 1
             return order_id
+
+        # ══════════════════════════════════════════════════════════
+        # MODE 0: --commission-test — 1 backdated order per customer,
+        # WITH real distribute_commission() so the commission chain
+        # (promotor/sub_dealer/dealer/admin/super_admin wallets +
+        # Residual/My Commission CoinRecharge rows) actually gets data.
+        # ══════════════════════════════════════════════════════════
+        if options['commission_test']:
+            from accounts.views import distribute_commission
+
+            count = options['count']
+            days = options['days']
+
+            customers = list(
+                CustomerProfile.objects.filter(assigned_promotor__isnull=False)
+                .select_related('user', 'assigned_promotor')
+                .order_by('?')[:count]
+            )
+            if not customers:
+                self.stdout.write(self.style.ERROR("No customers with an assigned promotor found! Run create_dummy_customers first."))
+                return
+
+            self.stdout.write(self.style.SUCCESS(
+                f"Commission-test mode: creating 1 order each for {len(customers)} customers, "
+                f"backdated across the last {days} days, running REAL commission distribution..."
+            ))
+
+            created = 0
+            for customer in customers:
+                product = random.choice(products)
+                qty = random.randint(1, 2)
+                unit_price = float(product.price or 0)
+                total_price = round(unit_price * qty, 2)
+
+                order_time = timezone.now() - timedelta(
+                    days=random.randint(0, days), minutes=random.choice(GAP_OPTIONS_MINUTES)
+                )
+
+                order = JewelryOrder.objects.create(
+                    order_id=next_order_id(),
+                    user=customer.user,
+                    product=product,
+                    product_name=product.name,
+                    product_metal=product.metal,
+                    product_grade=product.grade or '',
+                    product_category=product.category,
+                    product_image_url=product_image_urls.get(product.id, ''),
+                    customer_name=f"{customer.first_name} {customer.last_name}".strip(),
+                    customer_phone=customer.mobile_number,
+                    customer_alt_phone='',
+                    customer_dob=customer.dob,
+                    customer_anniversary=customer.anniversary_date,
+                    pincode=str(random.randint(600001, 643001)),
+                    address_line1=random.choice(ADDRESS_LINES),
+                    address_line2=customer.town_name or '',
+                    city=customer.city_name,
+                    state=customer.state,
+                    quantity=qty,
+                    unit_price=unit_price,
+                    total_price=total_price,
+                    payment_method=random.choice(PAYMENT_METHODS),
+                    payment_status='paid',
+                    status='confirmed',
+                )
+                JewelryOrder.objects.filter(pk=order.pk).update(created_at=order_time)
+                order.created_at = order_time
+
+                try:
+                    distribute_commission(order)
+                    # distribute_commission's CoinRecharge rows get auto_now_add=True
+                    # created_at (= real "now") — backdate them to match the order date
+                    # so Month/Year/Week filters actually have spread-out test data.
+                    CoinRecharge.objects.filter(related_order=order, source='commission').update(created_at=order_time)
+                    created += 1
+                    self.stdout.write(self.style.SUCCESS(
+                        f"  {order.order_id} -> {customer.customer_id} ({customer.first_name}), "
+                        f"₹{total_price:,.2f}, dated {order_time.date()}"
+                    ))
+                except Exception as e:
+                    self.stdout.write(self.style.ERROR(f"  ❌ commission FAILED for {order.order_id}: {e!r}"))
+
+            self.stdout.write(self.style.SUCCESS(f"\nDone! {created} orders created with commission distributed."))
+            return
 
         # ══════════════════════════════════════════════════════════
         # MODE 1: --customer_ids + --combined-target

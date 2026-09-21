@@ -3168,35 +3168,6 @@ return (
   Add Shop
 </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                fetchMetalPrices()
-                setShowTodayRates(true)
-              }}
-              className="sa-btn-today-rates"
-              style={{
-                padding: '11px 22px',
-                background: 'linear-gradient(135deg, rgba(204,168,129,0.18), rgba(187,137,88,0.1))',
-                border: '1px solid rgba(204,168,129,0.5)',
-                borderRadius: '12px',
-                fontWeight: 800,
-                color: '#8A5A25',
-                fontSize: '14px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 2px 8px rgba(204,168,129,0.12)',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8A5A25" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>
-              </svg>
-              Today Gold Rate
-            </button>
-
             <div className="sa-admin-action-split">
               <button
                 type="button"

@@ -1460,7 +1460,7 @@ const selectAdmin = (node) => {
           transition:background .2s ease, transform .2s ease;
         }
         .gcard-info-btn:hover{ background:var(--nc); color:#FFFFFF; transform:scale(1.1); }
-        .gcard-active{ opacity:1; transform:translateY(-3px); box-shadow:0 0 0 2px var(--sc), 0 18px 36px rgba(7,59,63,0.20); }
+        .gcard-active{ opacity:1; transform:translateY(-4px); box-shadow:0 0 0 3px #0C4044, 0 18px 36px rgba(7,59,63,0.25); }
         .gcard-dim{ opacity:1; }
         .gcard-dim:hover{ opacity:1; }
         .gcard-badge{ display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:900; padding:2px 8px; border-radius:20px; margin-bottom:8px; color:var(--nc); background:#FFFFFF; border:1.5px solid var(--nc); }

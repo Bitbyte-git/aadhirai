@@ -2,7 +2,15 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "../api";
 import SuperAdminNavbar from "../collection/SuperAdminNavbar";
+import InternalRoleNavbar from "../collection/InternalRoleNavbar";
 import { SkeletonText } from "../components/Skeleton";
+
+const INTERNAL_ROLE_CHROME = {
+  admin: { title: 'ADMIN', home: '/admin' },
+  dealer: { title: 'DEALER', home: '/dealer' },
+  sub_dealer: { title: 'SUB DEALER', home: '/sub-dealer' },
+  promotor: { title: 'PROMOTER', home: '/promotor' },
+}
 import {
   UsersIcon,
   UserIcon,
@@ -50,6 +58,8 @@ const PERIOD_OPTIONS = [
 export default function LoginInactive() {
   const navigate = useNavigate();
   const location = useLocation();
+  const viewerRole = localStorage.getItem('role');
+  const viewerChrome = INTERNAL_ROLE_CHROME[viewerRole];
   const scopeIds = location.state?.ids || null;
   const scopeLabel = location.state?.scopeLabel || null;
   // Other pages (e.g. Super Stockist directory's "Today Inactive" stat card)
@@ -536,7 +546,11 @@ export default function LoginInactive() {
 
   return (
     <>
-      <SuperAdminNavbar />
+      {viewerChrome ? (
+        <InternalRoleNavbar roleTitle={viewerChrome.title} homePath={viewerChrome.home} />
+      ) : (
+        <SuperAdminNavbar />
+      )}
       <div className="pil-page">
         <style>{`
           .pil-page {

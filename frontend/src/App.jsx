@@ -383,10 +383,10 @@ export default function App() {
           <Route path="/superadmin-autopay-list" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><SuperAdminAutopayList /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/admin-orders" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><AdminOrdersPage /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/superadmin/manage-users/super-stockist" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><SuperStockist /></WithSuperAdminNavbar></ProtectedRoute>} />
-          <Route path="/superadmin/manage-users/distributor" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><Distributor /></WithSuperAdminNavbar></ProtectedRoute>} />
-          <Route path="/superadmin/manage-users/wholesale-dealer" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><WholesaleDealer /></WithSuperAdminNavbar></ProtectedRoute>} />
-          <Route path="/superadmin/manage-users/retailer" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><Retailer /></WithSuperAdminNavbar></ProtectedRoute>} />
-          <Route path="/superadmin/manage-users/customer" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><CustomerManage /></WithSuperAdminNavbar></ProtectedRoute>} />
+          <Route path="/superadmin/manage-users/distributor" element={<ProtectedRoute role={["super_admin", "admin"]}><WithInternalRoleNavbar><Distributor /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/superadmin/manage-users/wholesale-dealer" element={<ProtectedRoute role={["super_admin", "admin", "dealer"]}><WithInternalRoleNavbar><WholesaleDealer /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/superadmin/manage-users/retailer" element={<ProtectedRoute role={["super_admin", "admin", "dealer", "sub_dealer"]}><WithInternalRoleNavbar><Retailer /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/superadmin/manage-users/customer" element={<ProtectedRoute role={["super_admin", "admin", "dealer", "sub_dealer", "promotor"]}><WithInternalRoleNavbar><CustomerManage /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/sales-report" element={<ProtectedRoute><WithInternalRoleNavbar><Report /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/hierarchy-sales-count" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><SuperAdminHierarchySalesCount /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/promotions/retailer" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><RetailerPromotions /></WithSuperAdminNavbar></ProtectedRoute>} />

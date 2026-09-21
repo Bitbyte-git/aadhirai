@@ -516,16 +516,20 @@ function LaneCard({ node, role, active, onClick, ancestors, text, subtext, onMes
   const c = sc
   const Icon = cfg.Icon
   const childRole = CHILD_ROLE[role]
-  const childCount = childRole ? (node[CHILD_KEY[role]] || []).length : null
+  const childCount = childRole
+    ? (node.child_count !== undefined
+        ? node.child_count
+        : (node[CHILD_KEY[role]] || []).length)
+    : null
 
   const childStatusCounts = childRole
-    ? (() => {
+    ? (node.child_status_counts || (() => {
         const counts = { red: 0, orange: 0, yellow: 0, green: 0 }
         ;(node[CHILD_KEY[role]] || []).forEach(ch => {
           if (ch.status && counts[ch.status] !== undefined) counts[ch.status]++
         })
         return counts
-      })()
+      })())
     : null
 
   return (
@@ -936,8 +940,8 @@ export default function Promotor_Hierarchy_grid() {
           }
           .gcard-active{
             opacity: 1;
-            transform: translateY(-3px);
-            box-shadow: 0 0 0 2px var(--sc), 0 18px 36px rgba(7,59,63,0.20);
+            transform: translateY(-4px);
+            box-shadow: 0 0 0 3px #0C4044, 0 18px 36px rgba(7,59,63,0.25);
           }
           .gcard-dim{
             opacity: 0.94;

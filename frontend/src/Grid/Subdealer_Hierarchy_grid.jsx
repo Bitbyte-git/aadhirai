@@ -557,16 +557,20 @@ function LaneCard({ node, role, active, onClick, ancestors, dark, text, subtext,
   const c = sc
   const Icon = cfg.Icon
   const childRole = CHILD_ROLE[role]
-  const childCount = childRole ? (node[CHILD_KEY[role]] || []).length : null
+  const childCount = childRole
+    ? (node.child_count !== undefined
+        ? node.child_count
+        : (node[CHILD_KEY[role]] || []).length)
+    : null
 
   const childStatusCounts = childRole
-    ? (() => {
+    ? (node.child_status_counts || (() => {
         const counts = { red: 0, orange: 0, yellow: 0, green: 0 }
         ;(node[CHILD_KEY[role]] || []).forEach(ch => {
           if (ch.status && counts[ch.status] !== undefined) counts[ch.status]++
         })
         return counts
-      })()
+      })())
     : null
 
   return (
@@ -995,7 +999,7 @@ export default function Subdealer_Hierarchy_grid() {
             transition:background .2s ease, transform .2s ease;
           }
           .gcard-info-btn:hover{ background:var(--nc); color:#FFFFFF; transform:scale(1.1); }
-          .gcard-active{ opacity:1; transform:translateY(-3px); box-shadow:0 0 0 2px var(--sc), 0 18px 36px rgba(7,59,63,0.20); }
+          .gcard-active{ opacity:1; transform:translateY(-4px); box-shadow:0 0 0 3px #0C4044, 0 18px 36px rgba(7,59,63,0.25); }
           .gcard-dim{ opacity:1; }
           .gcard-badge{ display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:900; padding:2px 8px; border-radius:20px; margin-bottom:8px; color:var(--nc); background:#FFFFFF; border:1.5px solid var(--nc); }
           .gcard-id{ font-family:monospace; font-size:11px; font-weight:800; margin-bottom:6px; word-break:break-all; }

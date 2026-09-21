@@ -225,7 +225,15 @@ function AdminDashboardFrame({ roleName, roleDistribution = [], quickActions = [
       <div className="ird-grid">
         <IrdOrderTrendPanel title={`${roleName} Order Volume`} endpoint={endpoint} requestParams={requestParams} onSummaryChange={setOrderCount} />
         <div className="ird-side">
-          <IrdDonutPanel title="Role Distribution" totalLabel={`${totalNetwork} total`} data={fastRoleDistribution.filter(item => Number(item.value || 0) > 0)} loading={countsLoading} />
+          <IrdDonutPanel title="Role Distribution" totalLabel={`${totalNetwork} total`} data={fastRoleDistribution.filter(item => Number(item.value || 0) > 0)} loading={countsLoading} onSliceClick={(entry) => {
+            const routeMap = {
+              'Distributor': '/superadmin/manage-users/distributor',
+              'Wholesale Dealer': '/superadmin/manage-users/wholesale-dealer',
+              'Retailer': '/superadmin/manage-users/retailer',
+              'Customer': '/superadmin/manage-users/customer',
+            }
+            if (routeMap[entry.name]) navigate(routeMap[entry.name])
+          }} />
           <IrdDonutPanel title="Today's Login Status" totalLabel={`${loginCounts.active + loginCounts.inactive} total users`} data={loginData} login onSliceClick={(entry) => entry.name === 'Active' ? navigate('/login-active') : navigate('/login-inactive')} loading={loginLoading} />
         </div>
       </div>

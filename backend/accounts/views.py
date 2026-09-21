@@ -3705,18 +3705,46 @@ class HierarchyTierDirectoryView(APIView):
         'customer': (CustomerProfile, 'customer_id'),
     }
 
-    def get(self, request):
-        if request.user.role != 'super_admin':
-            return Response({'error': 'Permission denied'}, status=403)
+    # requester role -> { target role: FK path from that target's profile back to the requester's own User row }
+    SCOPE_FIELDS = {
+        'admin': {
+            'dealer': 'assigned_admin__user',
+            'sub_dealer': 'assigned_dealer__assigned_admin__user',
+            'promotor': 'assigned_sub_dealer__assigned_dealer__assigned_admin__user',
+            'customer': 'assigned_promotor__assigned_sub_dealer__assigned_dealer__assigned_admin__user',
+        },
+        'dealer': {
+            'sub_dealer': 'assigned_dealer__user',
+            'promotor': 'assigned_sub_dealer__assigned_dealer__user',
+            'customer': 'assigned_promotor__assigned_sub_dealer__assigned_dealer__user',
+        },
+        'sub_dealer': {
+            'promotor': 'assigned_sub_dealer__user',
+            'customer': 'assigned_promotor__assigned_sub_dealer__user',
+        },
+        'promotor': {
+            'customer': 'assigned_promotor__user',
+        },
+    }
 
+    def get(self, request):
         role = request.query_params.get('role')
         cfg = self.PROFILE_MAP.get(role)
         if not cfg:
             return Response({'error': 'invalid role'}, status=400)
         model, id_field = cfg
 
+        requester_role = request.user.role
+        if requester_role == 'super_admin':
+            base_qs = model.objects.select_related('user').all()
+        else:
+            scope_field = self.SCOPE_FIELDS.get(requester_role, {}).get(role)
+            if not scope_field:
+                return Response({'error': 'Permission denied'}, status=403)
+            base_qs = model.objects.select_related('user').filter(**{scope_field: request.user})
+
         today = timezone.localtime(timezone.now()).date()
-        all_profiles = list(model.objects.select_related('user').all())
+        all_profiles = list(base_qs)
         total_all_count = len(all_profiles)
 
         active_user_ids = set(

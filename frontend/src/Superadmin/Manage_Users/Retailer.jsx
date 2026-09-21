@@ -4,8 +4,13 @@ import api from '../../api'
 
 const PAGE_SIZE = 300
 
+const HOME_PATH_BY_ROLE = {
+  super_admin: '/super-admin', admin: '/admin', dealer: '/dealer', sub_dealer: '/sub-dealer', promotor: '/promotor',
+}
+
 export default function Retailer() {
   const navigate = useNavigate()
+  const homePath = HOME_PATH_BY_ROLE[localStorage.getItem('role')] || '/super-admin'
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -730,7 +735,7 @@ export default function Retailer() {
             <span>/</span>
             <span style={{ color: '#073B3F', fontWeight: 700 }}>Retailers</span>
           </div>
-          <button className="mu-back-btn" onClick={() => navigate('/super-admin')}>
+          <button className="mu-back-btn" onClick={() => navigate(homePath)}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>

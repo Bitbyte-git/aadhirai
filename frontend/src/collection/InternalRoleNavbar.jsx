@@ -1,6 +1,14 @@
 import { useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import logo from '../assets/logo.png'
+import api from '../api'
+
+const ANN_ROLE_META = {
+  ADMIN: { seenKey: 'adminAnnouncementSeen', idField: 'admin_id' },
+  DEALER: { seenKey: 'dealerAnnouncementSeen', idField: 'dealer_id' },
+  'SUB DEALER': { seenKey: 'subDealerAnnouncementSeen', idField: 'sub_dealer_id' },
+  PROMOTER: { seenKey: 'promotorAnnouncementSeen', idField: 'promotor_id' },
+}
 
 function NavIcon({ type = 'dot', size = 17 }) {
   const common = {
@@ -44,6 +52,63 @@ export default function InternalRoleNavbar({
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [activeGroup, setActiveGroup] = useState(null)
   const [openDrawerSection, setOpenDrawerSection] = useState(null)
+
+  // ── Announcements (self-contained — same feature every internal role sees) ──
+  const annMeta = ANN_ROLE_META[roleTitle] || ANN_ROLE_META.ADMIN
+  const [showAnnouncements, setShowAnnouncements] = useState(false)
+  const [announcements, setAnnouncements] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [myOwnId, setMyOwnId] = useState(null)
+  const [replyAnn, setReplyAnn] = useState(null)
+  const [replyText, setReplyText] = useState('')
+  const [replyMsg, setReplyMsg] = useState('')
+  const [replyLoading, setReplyLoading] = useState(false)
+  const [repliedIds, setRepliedIds] = useState(new Set())
+
+  useEffect(() => {
+    let current = true
+    api.get('/announcements/')
+      .then(res => {
+        if (!current) return
+        const sorted = [...res.data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        setAnnouncements(sorted)
+        const lastSeen = parseInt(localStorage.getItem(annMeta.seenKey) || '0')
+        setUnreadCount(sorted.filter(a => new Date(a.created_at).getTime() > lastSeen).length)
+      })
+      .catch(() => {})
+    api.get('/dashboard/')
+      .then(res => { if (current) setMyOwnId(res.data?.[annMeta.idField] || null) })
+      .catch(() => {})
+    return () => { current = false }
+  }, [roleTitle])
+
+  const extractIdsFromTitle = (title) => title.match(/BB[A-Z]+\d+/g) || []
+  const isCurrentUserMentioned = (title) => myOwnId && extractIdsFromTitle(title).includes(myOwnId)
+
+  const openAnnouncements = () => {
+    setShowAnnouncements(true)
+    localStorage.setItem(annMeta.seenKey, Date.now().toString())
+    setUnreadCount(0)
+  }
+
+  const submitReply = async () => {
+    if (!replyText.trim() || !replyAnn) return
+    setReplyLoading(true)
+    try {
+      await api.post(`/announcements/${replyAnn.id}/replies/`, { message: replyText })
+      setRepliedIds(prev => new Set([...prev, replyAnn.id]))
+      setReplyMsg('✅ Wish sent!')
+      setReplyText('')
+    } catch (err) {
+      if (err.response?.data?.error === 'Already replied') {
+        setRepliedIds(prev => new Set([...prev, replyAnn.id]))
+        setReplyMsg('⚠️ Already sent!')
+      } else {
+        setReplyMsg('❌ Failed.')
+      }
+    }
+    setReplyLoading(false)
+  }
 
   // Close drawer on escape key
   useEffect(() => {
@@ -171,11 +236,14 @@ export default function InternalRoleNavbar({
     { label: 'Role', items: roleSwitchItems },
   ].filter(group => group.items.length)
 
-  const actions = actionItems && actionItems.length > 0 ? actionItems : [
+  const callerActions = actionItems && actionItems.length > 0 ? actionItems : [
     { label: 'Profile', icon: 'user', path: homePath },
-    { label: 'Announcements', icon: 'bell', path: homePath },
     { label: 'Logout', icon: 'logout', variant: 'danger', action: logout },
   ]
+  const announcementAction = { label: 'Announcements', icon: 'bell', action: openAnnouncements, badge: unreadCount }
+  const actions = callerActions.some(a => a.icon === 'bell')
+    ? callerActions.map(a => a.icon === 'bell' ? announcementAction : a)
+    : [callerActions[0], announcementAction, ...callerActions.slice(1)]
 
   return (
     <>
@@ -719,6 +787,299 @@ export default function InternalRoleNavbar({
         .irn-drawer-logout-btn:hover {
           background: #A81628;
         }
+
+        /* ── PREMIUM ANNOUNCEMENTS POPUP ── */
+        .irn-ann-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(7, 24, 26, 0.6);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          z-index: 10100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          animation: irnFadeIn 0.2s ease;
+        }
+        .irn-ann-modal {
+          width: 100%;
+          max-width: 560px;
+          max-height: 85vh;
+          background: linear-gradient(180deg, #FDFDFC 0%, #FBFAF7 100%);
+          border: 1px solid rgba(204, 168, 129, 0.4);
+          border-radius: 22px;
+          box-shadow: 0 40px 100px rgba(7, 45, 48, 0.4);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          animation: irnSlideUp 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes irnSlideUp {
+          from { transform: translateY(24px) scale(0.98); opacity: 0; }
+          to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        .irn-ann-top-accent {
+          height: 4px;
+          width: 100%;
+          background: linear-gradient(90deg, #073B3F, #CCA881 35%, #E5C378 55%, #073B3F);
+          background-size: 200% 100%;
+          animation: role-drawer-accent-shift 6s ease-in-out infinite;
+          flex-shrink: 0;
+        }
+        @keyframes role-drawer-accent-shift {
+          0%, 100% { background-position: 0% 0%; }
+          50% { background-position: 100% 0%; }
+        }
+        .irn-ann-head {
+          flex-shrink: 0;
+          padding: 22px 26px;
+          border-bottom: 1px solid rgba(204, 168, 129, 0.3);
+          background: radial-gradient(120% 100% at 0% 0%, rgba(204,168,129,0.10), transparent 55%);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .irn-ann-head-left {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+        .irn-ann-icon {
+          width: 42px;
+          height: 42px;
+          border-radius: 12px;
+          background: linear-gradient(145deg, #073B3F, #0C4E53);
+          border: 1px solid rgba(204, 168, 129, 0.55);
+          box-shadow: 0 4px 12px rgba(7, 59, 63, 0.22);
+          display: grid;
+          place-items: center;
+          font-size: 19px;
+          flex-shrink: 0;
+        }
+        .irn-ann-title {
+          font-family: 'Playfair Display', Georgia, serif;
+          font-size: 17px;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          color: #073B3F;
+          text-transform: uppercase;
+        }
+        .irn-ann-sub {
+          font-size: 11px;
+          color: #7A8987;
+          margin-top: 3px;
+        }
+        .irn-ann-close {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          border: 1px solid rgba(201, 32, 53, 0.3);
+          background: rgba(201, 32, 53, 0.06);
+          color: #C92035;
+          display: grid;
+          place-items: center;
+          cursor: pointer;
+          transition: all 0.18s ease;
+          flex-shrink: 0;
+        }
+        .irn-ann-close:hover {
+          background: #C92035;
+          color: #FFFFFF;
+          transform: rotate(90deg);
+        }
+        .irn-ann-body {
+          flex: 1;
+          overflow-y: auto;
+          padding: 18px 26px 26px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          -webkit-overflow-scrolling: touch;
+        }
+        .irn-ann-empty {
+          text-align: center;
+          color: #7A8987;
+          padding: 60px 0;
+          font-size: 14px;
+        }
+        .irn-ann-card {
+          background: #FFFFFF;
+          border: 1px solid rgba(209, 223, 222, 0.6);
+          border-radius: 16px;
+          padding: 16px 18px;
+          box-shadow: 0 1px 2px rgba(7, 59, 63, 0.04);
+          transition: all 0.2s ease;
+        }
+        .irn-ann-card.is-latest {
+          background: linear-gradient(135deg, rgba(7,59,63,0.05), rgba(204,168,129,0.08));
+          border-color: rgba(204, 168, 129, 0.5);
+        }
+        .irn-ann-card-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          margin-bottom: 8px;
+          flex-wrap: wrap;
+        }
+        .irn-ann-card-title-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+        }
+        .irn-ann-new-badge {
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+          padding: 3px 9px;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #9F6130, #CCA881);
+          color: #FDFBF5;
+          box-shadow: 0 2px 6px rgba(159, 97, 48, 0.28);
+          flex-shrink: 0;
+        }
+        .irn-ann-card-title {
+          font-family: 'Playfair Display', Georgia, serif;
+          font-weight: 700;
+          font-size: 14.5px;
+          color: #073B3F;
+        }
+        .irn-ann-card-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+        .irn-ann-date {
+          font-size: 10px;
+          color: #9AA7A5;
+          white-space: nowrap;
+        }
+        .irn-ann-reply-btn {
+          padding: 5px 13px;
+          font-size: 10.5px;
+          font-weight: 700;
+          border-radius: 999px;
+          cursor: pointer;
+          background: rgba(7, 59, 63, 0.08);
+          border: 1px solid rgba(7, 59, 63, 0.25);
+          color: #073B3F;
+          white-space: nowrap;
+          transition: all 0.18s ease;
+        }
+        .irn-ann-reply-btn:hover:not(:disabled) {
+          background: #073B3F;
+          color: #FFFFFF;
+        }
+        .irn-ann-reply-btn:disabled {
+          background: transparent;
+          border-color: rgba(209, 223, 222, 0.6);
+          color: #9AA7A5;
+          cursor: not-allowed;
+        }
+        .irn-ann-card-msg {
+          color: #4A5A58;
+          font-size: 13px;
+          line-height: 1.6;
+          margin: 0;
+        }
+        .irn-ann-mentioned {
+          margin-top: 10px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 10.5px;
+          font-weight: 700;
+          color: #9F6130;
+          background: rgba(204, 168, 129, 0.14);
+          border: 1px solid rgba(204, 168, 129, 0.4);
+          padding: 4px 12px;
+          border-radius: 999px;
+        }
+
+        /* ── REPLY MODAL ── */
+        .irn-reply-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(7, 24, 26, 0.65);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          z-index: 10200;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }
+        .irn-reply-modal {
+          width: 100%;
+          max-width: 440px;
+          background: #FDFDFC;
+          border: 1px solid rgba(204, 168, 129, 0.4);
+          border-radius: 20px;
+          box-shadow: 0 40px 100px rgba(7, 45, 48, 0.4);
+          padding: 26px;
+          animation: irnSlideUp 0.25s ease;
+        }
+        .irn-reply-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 18px;
+        }
+        .irn-reply-title {
+          font-family: 'Playfair Display', Georgia, serif;
+          font-size: 15px;
+          font-weight: 700;
+          color: #073B3F;
+        }
+        .irn-reply-target {
+          font-size: 11px;
+          color: #7A8987;
+          margin-top: 5px;
+        }
+        .irn-reply-msg {
+          border-radius: 10px;
+          padding: 10px 14px;
+          font-size: 13px;
+          margin-bottom: 14px;
+        }
+        .irn-reply-textarea {
+          width: 100%;
+          background: #FFFFFF;
+          border: 1px solid #D9E4E3;
+          border-radius: 12px;
+          padding: 12px 14px;
+          color: #111817;
+          font-size: 13.5px;
+          outline: none;
+          resize: vertical;
+          font-family: inherit;
+          line-height: 1.6;
+          box-sizing: border-box;
+        }
+        .irn-reply-textarea:focus {
+          border-color: #073B3F;
+        }
+        .irn-reply-send-btn {
+          margin-top: 14px;
+          width: 100%;
+          padding: 13px;
+          border: none;
+          border-radius: 12px;
+          font-weight: 800;
+          font-size: 13.5px;
+          color: #FFFFFF;
+          background: linear-gradient(135deg, #073B3F, #0C4E53);
+          cursor: pointer;
+          transition: all 0.18s ease;
+        }
+        .irn-reply-send-btn:disabled {
+          background: rgba(7, 59, 63, 0.2);
+          color: #073B3F;
+          cursor: not-allowed;
+        }
       `}</style>
 
       <header className="irn-top">
@@ -937,6 +1298,99 @@ export default function InternalRoleNavbar({
             </div>
           </aside>
         </>
+      )}
+
+      {/* ── PREMIUM ANNOUNCEMENTS POPUP ── */}
+      {showAnnouncements && (
+        <div className="irn-ann-overlay" onClick={() => setShowAnnouncements(false)}>
+          <div className="irn-ann-modal" onClick={e => e.stopPropagation()}>
+            <div className="irn-ann-top-accent" />
+            <div className="irn-ann-head">
+              <div className="irn-ann-head-left">
+                <div className="irn-ann-icon">📢</div>
+                <div>
+                  <div className="irn-ann-title">Announcements</div>
+                  <div className="irn-ann-sub">{announcements.length} total from Super Admin</div>
+                </div>
+              </div>
+              <button className="irn-ann-close" type="button" onClick={() => setShowAnnouncements(false)} aria-label="Close">
+                <NavIcon type="close" size={16} />
+              </button>
+            </div>
+            <div className="irn-ann-body">
+              {announcements.length === 0 ? (
+                <div className="irn-ann-empty">No announcements yet.</div>
+              ) : (
+                announcements.map((ann, idx) => {
+                  const isLatest = idx === 0
+                  const mentioned = isCurrentUserMentioned(ann.title)
+                  const alreadyReplied = repliedIds.has(ann.id)
+                  return (
+                    <div key={ann.id} className={`irn-ann-card ${isLatest ? 'is-latest' : ''}`}>
+                      <div className="irn-ann-card-top">
+                        <div className="irn-ann-card-title-row">
+                          {isLatest && <span className="irn-ann-new-badge">● NEW</span>}
+                          <span className="irn-ann-card-title">{ann.title}</span>
+                        </div>
+                        <div className="irn-ann-card-meta">
+                          <span className="irn-ann-date">
+                            {new Date(ann.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <button
+                            className="irn-ann-reply-btn"
+                            type="button"
+                            disabled={alreadyReplied}
+                            onClick={() => { setReplyAnn(ann); setReplyMsg(''); setReplyText('') }}
+                          >
+                            {alreadyReplied ? '✓ Wished' : '💬 Reply'}
+                          </button>
+                        </div>
+                      </div>
+                      <p className="irn-ann-card-msg">{ann.message}</p>
+                      {mentioned && <div className="irn-ann-mentioned">🎂 You are mentioned</div>}
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── REPLY MODAL ── */}
+      {replyAnn && (
+        <div className="irn-reply-overlay" onClick={() => { setReplyAnn(null); setReplyMsg(''); setReplyText('') }}>
+          <div className="irn-reply-modal" onClick={e => e.stopPropagation()}>
+            <div className="irn-reply-head">
+              <div>
+                <div className="irn-reply-title">💬 Send Your Wish</div>
+                <div className="irn-reply-target">Replying to: <strong style={{ color: '#111817' }}>{replyAnn.title}</strong></div>
+              </div>
+              <button className="irn-ann-close" type="button" onClick={() => { setReplyAnn(null); setReplyMsg(''); setReplyText('') }}>
+                <NavIcon type="close" size={14} />
+              </button>
+            </div>
+            {replyMsg && (
+              <div className="irn-reply-msg" style={{
+                background: replyMsg.includes('✅') ? 'rgba(12,64,68,0.1)' : 'rgba(201,32,53,0.1)',
+                border: `1px solid ${replyMsg.includes('✅') ? 'rgba(12,64,68,0.3)' : 'rgba(201,32,53,0.3)'}`,
+                color: replyMsg.includes('✅') ? '#0C4044' : '#C92035',
+              }}>
+                {replyMsg}
+              </div>
+            )}
+            <textarea
+              className="irn-reply-textarea"
+              value={replyText}
+              onChange={e => setReplyText(e.target.value)}
+              rows={4}
+              placeholder="Type your wish or message..."
+            />
+            <button className="irn-reply-send-btn" disabled={replyLoading || !replyText.trim()} onClick={submitReply}>
+              {replyLoading ? '⏳ Sending...' : '💬 Send Wish'}
+            </button>
+          </div>
+        </div>
       )}
     </>
   )

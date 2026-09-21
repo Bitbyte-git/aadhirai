@@ -658,12 +658,9 @@ export default function PromotorDashboard() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [pincodeLookupMsg, setPincodeLookupMsg] = useState('')
-const [showAnnouncements, setShowAnnouncements] = useState(false)
 const [updateMessage, setUpdateMessage] = useState('')
 const [proofDocument, setProofDocument] = useState(null)
 
-const [announcements, setAnnouncements] = useState([])
-const [unreadCount, setUnreadCount] = useState(0)
 const [showProfile, setShowProfile] = useState(false)
 const [showProfileEdit, setShowProfileEdit] = useState(false)
 const [updateForm, setUpdateForm] = useState({})
@@ -693,15 +690,6 @@ const [showStoredCoin, setShowStoredCoin] = useState(false)
   const [myRequestsLoading, setMyRequestsLoading] = useState(false)
 
 
-const [replyAnn,        setReplyAnn]        = useState(null)
-  const [replyText,       setReplyText]       = useState('')
-  const [replyLoading,    setReplyLoading]    = useState(false)
-  const [replyMsg,        setReplyMsg]        = useState('')
-  const [repliedIds,      setRepliedIds]      = useState(new Set())
-  const [annReplies,      setAnnReplies]      = useState({})
-  const [replyPopupAnnId, setReplyPopupAnnId] = useState(null)
-  const [replyPopupPos, setReplyPopupPos] = useState({ top: 0, left: 0 })
-const wishTimerRef = useRef(null)
 
   const bg = dark ? '#073B3F' : '#FDFDFC'
   const text = dark ? '#FDFDFC' : '#111817'
@@ -938,50 +926,6 @@ const fetchMyCoinRequests = async () => {
   setMyRequestsLoading(false)
 }
 
-  const fetchAnnouncements = async () => {
-  try {
-    const res = await api.get('/announcements/')
-    const sorted = res.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    setAnnouncements(sorted)
-    const lastSeen = parseInt(localStorage.getItem('promotorAnnouncementSeen') || '0')
-    setUnreadCount(sorted.filter(a => new Date(a.created_at).getTime() > lastSeen).length)
-  } catch {}
-}
-
-function extractIdsFromTitle(title) {
-    return title.match(/BB[A-Z]+\d+/g) || []
-  }
-
-  function isCurrentUserMentioned(title) {
-    const myId = promotorInfo?.promotor_id
-    if (!myId) return false
-    return extractIdsFromTitle(title).includes(myId)
-  }
-
-  async function fetchReplies(annId) {
-    try {
-      const res = await api.get(`/announcements/${annId}/replies/`)
-      setAnnReplies(prev => ({ ...prev, [annId]: res.data }))
-    } catch {}
-  }
-
-  async function submitReply() {
-    if (!replyText.trim()) return
-    setReplyLoading(true)
-    try {
-      await api.post(`/announcements/${replyAnn.id}/replies/`, { message: replyText })
-      setRepliedIds(prev => new Set([...prev, replyAnn.id]))
-      setReplyMsg('✅ Wish sent!')
-      setReplyText('')
-    } catch (err) {
-      if (err.response?.data?.error === 'Already replied') {
-        setRepliedIds(prev => new Set([...prev, replyAnn.id]))
-        setReplyMsg('⚠️ Already sent!')
-      } else { setReplyMsg('❌ Failed.') }
-    }
-    setReplyLoading(false)
-  }
-
 useEffect(() => {
   if (showForm && promotorInfo) {
     setSelectedPromotor(promotorInfo)
@@ -989,11 +933,10 @@ useEffect(() => {
   }
 }, [showForm])
 
-useEffect(() => { 
-  fetchAll(); fetchAnnouncements()
+useEffect(() => {
+  fetchAll()
   fetchMetalPrices()
   const interval = setInterval(() => {
-    fetchAnnouncements()
     fetchMetalPrices()
   }, 30000)
   return () => clearInterval(interval)
@@ -1156,7 +1099,6 @@ const handleSubmit = async e => {
         ]}
         actionItems={[
           { label: 'Profile', icon: 'user', action: () => setShowProfile(true) },
-          { label: 'Announcements', icon: 'bell', action: () => { setShowAnnouncements(true); localStorage.setItem('promotorAnnouncementSeen', Date.now().toString()); setUnreadCount(0) }, badge: unreadCount },
           { label: 'Logout', icon: 'logout', variant: 'danger', action: () => { localStorage.clear(); navigate('/login') } },
         ]}
       />
@@ -1692,141 +1634,6 @@ const handleSubmit = async e => {
   )}
 
   {/* ── HIERARCHY MODAL ── */}
-{/* ── ANNOUNCEMENT VIEW MODAL (Promotor) ── */}
-{showAnnouncements && (
-  <div onClick={() => setShowAnnouncements(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,23,0.82)', backdropFilter: 'blur(10px)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-    <div onClick={e => e.stopPropagation()} style={{ background: dark ? 'linear-gradient(145deg,#F3F3F0,#E7EDEC)' : '#FDFDFC', border: '1px solid rgba(201,32,53,0.3)', borderRadius: '24px', width: '95%', maxWidth: '560px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 32px 80px rgba(17,24,23,0.6)', animation: 'fadeIn 0.3s cubic-bezier(0.22,1,0.36,1)' }}>
-      <div style={{ flexShrink: 0, padding: '24px 28px', borderBottom: '1px solid rgba(201,32,53,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'linear-gradient(135deg,rgba(201,32,53,0.25),rgba(204,168,129,0.15))', border: '1px solid rgba(201,32,53,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>📢</div>
-          <div>
-            <div style={{ color: '#C92035', fontWeight: 800, fontSize: '14px' }}>ANNOUNCEMENTS</div>
-            <div style={{ color: subtext, fontSize: '11px', marginTop: '2px' }}>{announcements.length} total from Super Admin</div>
-          </div>
-        </div>
-        <button onClick={() => setShowAnnouncements(false)} style={{ background: 'rgba(201,32,53,0.1)', border: '1px solid rgba(201,32,53,0.3)', color: '#C92035', borderRadius: '8px', padding: '6px 14px', cursor: 'pointer', fontSize: '12px' }}>✕ Close</button>
-      </div>
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {announcements.length === 0 ? (
-          <div style={{ textAlign: 'center', color: subtext, padding: '60px 0', fontSize: '15px' }}>No announcements yet.</div>
-        ) : announcements.map((ann, idx) => {
-          const isMentioned = isCurrentUserMentioned(ann.title)
-          const alreadyReplied = repliedIds.has(ann.id)
-          const replies = annReplies[ann.id] || []
-          return (
-            <div key={ann.id} style={{ background: idx === 0 ? (dark ? 'rgba(201,32,53,0.07)' : 'rgba(201,32,53,0.05)') : (dark ? 'rgba(253,253,252,0.02)' : 'rgba(17,24,23,0.02)'), border: `1px solid ${idx === 0 ? 'rgba(201,32,53,0.35)' : (dark ? 'rgba(253,253,252,0.06)' : 'rgba(17,24,23,0.08)')}`, borderRadius: '14px', padding: '16px 18px', position: 'relative' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {idx === 0 && <span style={{ fontSize: '9px', fontWeight: 800, padding: '2px 8px', borderRadius: '20px', background: 'rgba(201,32,53,0.15)', color: '#C92035', border: '1px solid rgba(201,32,53,0.3)' }}>● NEW</span>}
-                  <span style={{ color: idx === 0 ? '#C92035' : text, fontWeight: 700, fontSize: '14px' }}>{ann.title}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ color: subtext, fontSize: '10px', whiteSpace: 'nowrap' }}>{new Date(ann.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                  <button disabled={alreadyReplied} onClick={() => { setReplyAnn(ann); setReplyMsg(''); setReplyText('') }} style={{ padding: '4px 12px', fontSize: '10px', fontWeight: 700, borderRadius: '20px', cursor: alreadyReplied ? 'not-allowed' : 'pointer', background: alreadyReplied ? 'rgba(253,253,252,0.05)' : 'rgba(201,32,53,0.15)', border: `1px solid ${alreadyReplied ? 'rgba(253,253,252,0.1)' : 'rgba(201,32,53,0.4)'}`, color: alreadyReplied ? subtext : '#C92035', whiteSpace: 'nowrap' }}>
-                    {alreadyReplied ? '✓ Wished' : '💬 Reply'}
-                  </button>
-                </div>
-              </div>
-              <p style={{ color: dark ? '#111817' : '#7A8987', fontSize: '13px', lineHeight: '1.6', margin: 0 }}>{ann.message}</p>
-{isMentioned && (
-  <div
-    onMouseEnter={e => {
-      clearTimeout(wishTimerRef.current)
-      const rect = e.currentTarget.getBoundingClientRect()
-      let left = rect.left + rect.width / 2
-      if (left - 160 < 12) left = 172
-      if (left + 160 > window.innerWidth - 12) left = window.innerWidth - 172
-      setReplyPopupPos({ top: rect.top, left })
-      setReplyPopupAnnId(ann.id)
-      fetchReplies(ann.id)
-    }}
-    onMouseLeave={() => { wishTimerRef.current = setTimeout(() => setReplyPopupAnnId(null), 220) }}
-    style={{ marginTop: '10px', display: 'flex', justifyContent: 'center' }}
-  >
-    <div style={{ fontSize: '10px', color: '#0C4044', padding: '3px 14px', border: '1px solid rgba(12,64,68,0.3)', borderRadius: '20px', cursor: 'default', background: 'rgba(12,64,68,0.06)', fontWeight: 600 }}>
-      🎂 You are mentioned · {replies.length} wish{replies.length !== 1 ? 'es' : ''} — hover to see
-    </div>
-  </div>
-)}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  </div>
-)}
-
-
-{/* ── REPLY MODAL — Promotor ── */}
-{replyAnn && (
-  <div onClick={() => { setReplyAnn(null); setReplyMsg(''); setReplyText('') }} style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,23,0.85)', backdropFilter: 'blur(12px)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-    <div onClick={e => e.stopPropagation()} style={{ background: dark ? 'linear-gradient(145deg,#F3F3F0,#E7EDEC)' : '#FDFDFC', border: '1px solid rgba(201,32,53,0.3)', borderRadius: '20px', padding: '28px', width: '95%', maxWidth: '460px', boxShadow: '0 32px 80px rgba(17,24,23,0.7)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-        <div>
-          <div style={{ color: '#C92035', fontWeight: 800, fontSize: '14px' }}>💬 SEND YOUR WISH</div>
-          <div style={{ color: subtext, fontSize: '11px', marginTop: '4px' }}>Replying to: <span style={{ color: text, fontWeight: 600 }}>{replyAnn.title}</span></div>
-        </div>
-        <button onClick={() => setReplyAnn(null)} style={{ background: 'rgba(201,32,53,0.1)', border: '1px solid rgba(201,32,53,0.3)', color: '#C92035', borderRadius: '8px', padding: '5px 12px', cursor: 'pointer', fontSize: '12px' }}>✕</button>
-      </div>
-      {replyMsg && <div style={{ background: replyMsg.includes('✅') ? 'rgba(12,64,68,0.1)' : 'rgba(201,32,53,0.1)', border: `1px solid ${replyMsg.includes('✅') ? 'rgba(12,64,68,0.3)' : 'rgba(201,32,53,0.3)'}`, color: replyMsg.includes('✅') ? '#0C4044' : '#C92035', borderRadius: '10px', padding: '10px 14px', fontSize: '13px', marginBottom: '16px' }}>{replyMsg}</div>}
-      <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={4} placeholder="Type your wish..." style={{ width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '10px', padding: '12px 14px', color: text, fontSize: '14px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.6', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = '#C92035'} onBlur={e => e.target.style.borderColor = inpBorder} />
-      <button disabled={replyLoading || !replyText.trim()} onClick={submitReply} style={{ marginTop: '14px', width: '100%', padding: '13px', background: replyLoading || !replyText.trim() ? 'rgba(201,32,53,0.2)' : 'linear-gradient(90deg,#C92035,#CCA881)', border: 'none', borderRadius: '12px', fontWeight: 800, fontSize: '14px', color: replyLoading || !replyText.trim() ? '#C92035' : '#3b0024', cursor: replyLoading || !replyText.trim() ? 'not-allowed' : 'pointer' }}>
-        {replyLoading ? '⏳ Sending...' : '💬 Send Wish'}
-      </button>
-    </div>
-  </div>
-)}
-
-{/* ── WISH HOVER POPUP — Admin ── */}
-{replyPopupAnnId && (
-  <div
-    id="ad-wish-popup"
-    onMouseEnter={() => clearTimeout(wishTimerRef.current)}
-    onMouseLeave={() => { wishTimerRef.current = setTimeout(() => setReplyPopupAnnId(null), 220) }}
-    style={{
-      position: 'fixed',
-      top: `${replyPopupPos.top}px`,
-      left: `${replyPopupPos.left}px`,
-      transform: 'translate(-50%, calc(-100% - 10px))',
-      background: dark ? 'rgba(7,59,63,0.97)' : 'rgba(248,250,252,0.98)',
-      border: '1px solid rgba(12,64,68,0.35)',
-      borderRadius: '16px', padding: '16px 18px',
-      minWidth: '270px', maxWidth: '340px', maxHeight: '280px',
-      overflowY: 'auto', zIndex: 9999,
-      boxShadow: '0 20px 60px rgba(17,24,23,0.7)',
-      backdropFilter: 'blur(24px)',
-      scrollbarWidth: 'thin',
-      scrollbarColor: 'rgba(12,64,68,0.5) rgba(12,64,68,0.03)',
-      animation: 'adWishIn 0.25s cubic-bezier(0.22,1,0.36,1) both',
-    }}
-  >
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px solid rgba(12,64,68,0.15)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-        <div style={{ width: '22px', height: '22px', borderRadius: '6px', background: 'rgba(12,64,68,0.15)', border: '1px solid rgba(12,64,68,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px' }}>💬</div>
-        <span style={{ fontSize: '10px', fontWeight: 800, color: '#0C4044', letterSpacing: '1.5px' }}>WISHES</span>
-      </div>
-      <div style={{ background: 'rgba(12,64,68,0.15)', border: '1px solid rgba(12,64,68,0.3)', borderRadius: '20px', padding: '2px 10px', fontSize: '10px', color: '#0C4044', fontWeight: 800 }}>
-        {(annReplies[replyPopupAnnId] || []).length}
-      </div>
-    </div>
-    {(annReplies[replyPopupAnnId] || []).length === 0 ? (
-      <div style={{ color: subtext, fontSize: '12px', textAlign: 'center', padding: '20px 0' }}>No wishes yet</div>
-    ) : (annReplies[replyPopupAnnId] || []).map(r => (
-      <div key={r.id} style={{ marginBottom: '8px', padding: '10px 12px', background: dark ? 'rgba(12,64,68,0.05)' : 'rgba(12,64,68,0.04)', borderRadius: '10px', border: '1px solid rgba(12,64,68,0.15)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 700, color: '#0C4044' }}>{r.replied_by_name}</span>
-          <span style={{ fontSize: '9px', color: subtext }}>{new Date(r.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
-        </div>
-        <p style={{ margin: 0, fontSize: '12px', color: dark ? '#111817' : '#7A8987', lineHeight: '1.5' }}>{r.message}</p>
-      </div>
-    ))}
-    <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(12,64,68,0.08)', textAlign: 'center', fontSize: '9px', color: dark ? '#7A8987' : '#111817', letterSpacing: '0.8px', fontWeight: 600 }}>
-      BitByte Network • Wishes
-    </div>
-  </div>
-)}
-
-       
 
 
       </div>

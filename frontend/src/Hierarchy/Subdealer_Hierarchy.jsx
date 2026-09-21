@@ -791,6 +791,7 @@ export default function SubdealerHierarchy() {
     return () => clearTimeout(t)
   }, [search])
 
+  const hasFetchedRef = useRef(false)
   const fetchHierarchy = async () => {
     setLoading(true)
     try {
@@ -805,13 +806,16 @@ export default function SubdealerHierarchy() {
         })
         const prList = res.data.items || res.data.root.promotors || []
         setPromotors(prList)
-        setOpenMap({})
       }
     } catch (err) { console.error(err) }
     setLoading(false)
   }
 
-  useEffect(() => { fetchHierarchy() }, [])
+  useEffect(() => {
+    if (hasFetchedRef.current) return
+    hasFetchedRef.current = true
+    fetchHierarchy()
+  }, [])
 
   useEffect(() => {
     return () => {

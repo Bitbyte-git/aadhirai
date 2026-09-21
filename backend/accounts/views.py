@@ -3578,7 +3578,7 @@ def _month_status_map():
         child_statuses = [status_map[('dealer', d['id'])] for d in dealers_by_admin.get(a['id'], [])]
         status_map[('admin', a['id'])] = worst_status(child_statuses) if child_statuses else 'red'
 
-    cache.set(cache_key, status_map, 120)   # ── NEW: 2 min TTL ──
+    cache.set(cache_key, status_map, 1800)   # ── 30 min TTL ──
     return status_map
 
 
@@ -8031,7 +8031,7 @@ class GenericTablePDFView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        if request.user.role not in ['super_admin', 'admin']:
+        if request.user.role not in ['super_admin', 'admin', 'dealer', 'sub_dealer', 'promotor']:
             return Response({'error': 'Permission denied'}, status=403)
 
         data = request.data

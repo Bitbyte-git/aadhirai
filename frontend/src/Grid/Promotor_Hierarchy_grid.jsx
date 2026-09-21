@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import { SkeletonCard } from '../components/Skeleton'
@@ -776,6 +776,7 @@ export default function Promotor_Hierarchy_grid() {
   const [customerCache, setCustomerCache] = useState({})
   const [customerLoadingDepth, setCustomerLoadingDepth] = useState(null)
 
+  const hasFetchedRef = useRef(false)
   const fetchHierarchy = async () => {
     setLoading(true)
     try {
@@ -783,12 +784,15 @@ export default function Promotor_Hierarchy_grid() {
       setRoot(res.data.root)
       const directCusts = res.data.items || res.data.root?.customers || []
       setDirectCustomers(directCusts)
-      setCustomerChain([])
     } catch (err) { console.error(err) }
     setLoading(false)
   }
 
-  useEffect(() => { fetchHierarchy() }, [])
+  useEffect(() => {
+    if (hasFetchedRef.current) return
+    hasFetchedRef.current = true
+    fetchHierarchy()
+  }, [])
 
   useEffect(() => {
     return () => {

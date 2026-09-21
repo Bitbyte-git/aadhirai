@@ -778,6 +778,7 @@ export default function PromotorHierarchy() {
     }
   }
 
+  const hasFetchedRef = useRef(false)
   const fetchHierarchy = async () => {
     setLoading(true)
     try {
@@ -792,13 +793,16 @@ export default function PromotorHierarchy() {
         })
         const cusList = res.data.items || res.data.root.customers || []
         setCustomers(cusList)
-        setOpenMap({})
       }
     } catch (err) { console.error(err) }
     setLoading(false)
   }
 
-  useEffect(() => { fetchHierarchy() }, [])
+  useEffect(() => {
+    if (hasFetchedRef.current) return
+    hasFetchedRef.current = true
+    fetchHierarchy()
+  }, [])
 
   useEffect(() => {
     return () => {

@@ -64,6 +64,56 @@ export default function SuperStockist() {
     }
   }
 
+  const [downloading, setDownloading] = useState(false)
+
+  const downloadReport = async () => {
+    if (!rows.length) return
+    setDownloading(true)
+    try {
+      const columns = ['S.No', 'Super Stockist ID', 'Name', 'Email', 'Mobile', 'City']
+      const rowsPayload = rows.map((r, i) => [
+        i + 1,
+        r.admin_id || '—',
+        `${r.first_name || ''} ${r.last_name || ''}`.trim() || '—',
+        r.email || '—',
+        r.mobile_number || '—',
+        r.city_name || '—',
+      ])
+      const statsPayload = [
+        { label: 'Total Super Stockists', value: totalCount },
+        { label: 'Today Active', value: stats.today_active },
+        { label: 'Today Inactive', value: stats.today_inactive },
+        { label: 'Today Orders', value: stats.today_orders },
+      ]
+      const res = await api.post(
+        '/generic-table-pdf/',
+        {
+          title: 'Super Stockist Directory Report',
+          subtitle: 'All Super Stockists under this network, with today’s activity.',
+          period_label: `Generated ${new Date().toLocaleDateString('en-IN')}`,
+          stats: statsPayload,
+          columns,
+          rows: rowsPayload,
+        },
+        { responseType: 'blob' }
+      )
+      const blob = new Blob([res.data], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `super_stockists_${new Date().toISOString().slice(0, 10)}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      showToast('Report downloaded successfully!')
+    } catch {
+      showToast('Failed to download report')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   const fetchAdmins = async (signal, currentOffset, searchTerm, append, retryCount = 0, currentTab = activeTab) => {
     if (append) setLoadingMore(true)
     else setLoading(true)
@@ -804,6 +854,14 @@ export default function SuperStockist() {
                 <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
               </svg>
               <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
+            </button>
+            <button className="mu-export-btn" onClick={downloadReport} disabled={loading || downloading || !rows.length}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span>{downloading ? 'Preparing...' : 'Download Report'}</span>
             </button>
           </div>
         </div>

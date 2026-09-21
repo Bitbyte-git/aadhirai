@@ -2376,8 +2376,8 @@ export default function CustomerNavbar() {
           width: 340px;
           max-width: 88vw;
           height: 100%;
-          background: #ffffff;
-          box-shadow: -16px 0 50px rgba(7, 45, 48, 0.24);
+          background: linear-gradient(180deg, #FDFDFC 0%, #FBFAF7 100%);
+          box-shadow: -20px 0 60px rgba(7, 45, 48, 0.28);
           display: flex;
           flex-direction: column;
           box-sizing: border-box;
@@ -2392,20 +2392,27 @@ export default function CustomerNavbar() {
         }
 
         .role-drawer-top-accent {
-          height: 3px;
+          height: 4px;
           width: 100%;
-          background: linear-gradient(90deg, #CCA881, #E5C378 40%, #073B3F);
+          background: linear-gradient(90deg, #073B3F, #CCA881 35%, #E5C378 55%, #073B3F);
+          background-size: 200% 100%;
+          animation: role-drawer-accent-shift 6s ease-in-out infinite;
           flex-shrink: 0;
+        }
+
+        @keyframes role-drawer-accent-shift {
+          0%, 100% { background-position: 0% 0%; }
+          50% { background-position: 100% 0%; }
         }
 
         .role-drawer-head {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 18px 20px 14px;
+          padding: 20px 20px 16px;
           border-bottom: 1px solid #EDF4F3;
           flex-shrink: 0;
-          background: #FAFDFD;
+          background: radial-gradient(120% 100% at 0% 0%, rgba(204,168,129,0.10), transparent 55%), #FAFDFD;
         }
 
         .role-drawer-brand {
@@ -2415,24 +2422,25 @@ export default function CustomerNavbar() {
         }
 
         .role-drawer-logo-mark {
-          width: 32px;
-          height: 32px;
-          border-radius: 9px;
-          background: rgba(7, 59, 63, 0.08);
-          border: 1px solid rgba(204, 168, 129, 0.4);
+          width: 34px;
+          height: 34px;
+          border-radius: 10px;
+          background: linear-gradient(145deg, #073B3F, #0C4E53);
+          border: 1px solid rgba(204, 168, 129, 0.55);
+          box-shadow: 0 4px 12px rgba(7, 59, 63, 0.22);
           display: grid;
           place-items: center;
-          color: #073B3F;
-          font-weight: 900;
-          font-size: 14px;
-          font-family: Georgia, serif;
+          color: #E5C378;
+          font-weight: 700;
+          font-size: 16px;
+          font-family: 'Playfair Display', Georgia, serif;
         }
 
         .role-drawer-brand-title {
-          font-family: Georgia, serif;
-          font-size: 15px;
+          font-family: 'Playfair Display', Georgia, serif;
+          font-size: 16px;
           font-weight: 700;
-          letter-spacing: 0.12em;
+          letter-spacing: 0.14em;
           color: #073B3F;
           margin: 0;
           text-transform: uppercase;
@@ -2469,26 +2477,28 @@ export default function CustomerNavbar() {
 
         /* User Card in Drawer */
         .role-drawer-user-card {
-          padding: 14px 20px;
-          background: linear-gradient(135deg, rgba(7,59,63,0.04) 0%, rgba(204,168,129,0.08) 100%);
+          padding: 16px 20px;
+          background: linear-gradient(135deg, rgba(7,59,63,0.06) 0%, rgba(204,168,129,0.12) 100%);
           border-bottom: 1px solid #EDF4F3;
           display: flex;
           align-items: center;
           gap: 12px;
           flex-shrink: 0;
+          position: relative;
         }
 
         .role-drawer-avatar {
-          width: 40px;
-          height: 40px;
+          width: 42px;
+          height: 42px;
           border-radius: 50%;
           background: linear-gradient(135deg, #073B3F, #0C4E53);
           color: #F8F5EE;
           display: grid;
           place-items: center;
           font-weight: 800;
-          font-size: 16px;
-          box-shadow: 0 4px 12px rgba(7, 59, 63, 0.2);
+          font-size: 17px;
+          font-family: 'Playfair Display', Georgia, serif;
+          box-shadow: 0 0 0 3px rgba(204,168,129,0.22), 0 6px 16px rgba(7, 59, 63, 0.24);
           border: 1.5px solid #CCA881;
           flex-shrink: 0;
         }
@@ -2500,7 +2510,7 @@ export default function CustomerNavbar() {
 
         .role-drawer-user-name {
           font-weight: 800;
-          font-size: 13.5px;
+          font-size: 14px;
           color: #073B3F;
           white-space: nowrap;
           overflow: hidden;
@@ -2512,12 +2522,27 @@ export default function CustomerNavbar() {
           display: inline-flex;
           align-items: center;
           gap: 4px;
-          font-size: 10px;
+          font-size: 9.5px;
           font-weight: 800;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          color: #9F6130;
-          margin-top: 2px;
+          color: #FDFBF5;
+          margin-top: 5px;
+          padding: 3px 9px;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #9F6130, #CCA881);
+          box-shadow: 0 3px 8px rgba(159, 97, 48, 0.28);
+        }
+
+        .role-drawer-user-role.is-guest {
+          color: #7A8987;
+          background: transparent;
+          box-shadow: none;
+          padding: 0;
+          text-transform: none;
+          letter-spacing: normal;
+          font-weight: 600;
+          font-size: 11px;
         }
 
         /* Scrollable Navigation List */
@@ -2534,18 +2559,18 @@ export default function CustomerNavbar() {
         .role-drawer-section-label {
           font-size: 9.5px;
           font-weight: 800;
-          letter-spacing: 0.14em;
+          letter-spacing: 0.16em;
           text-transform: uppercase;
-          color: #8D9F9D;
-          padding: 6px 8px 3px;
+          color: #9F6130;
+          padding: 8px 8px 4px;
         }
 
         .role-drawer-item {
           width: 100%;
           text-align: left;
-          border: 1px solid rgba(209, 223, 222, 0.5);
-          border-radius: 12px;
-          padding: 9px 12px;
+          border: 1px solid rgba(209, 223, 222, 0.6);
+          border-radius: 13px;
+          padding: 10px 12px;
           background: #FFFFFF;
           color: #073B3F;
           cursor: pointer;
@@ -2553,16 +2578,17 @@ export default function CustomerNavbar() {
           align-items: center;
           justify-content: space-between;
           gap: 10px;
-          transition: all 180ms ease;
+          transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
           box-sizing: border-box;
           text-decoration: none;
+          box-shadow: 0 1px 2px rgba(7, 59, 63, 0.04);
         }
 
         .role-drawer-item:hover {
-          background: #F3F8F8;
-          border-color: #073B3F;
-          transform: translateX(3px);
-          box-shadow: 0 4px 14px rgba(7, 59, 63, 0.08);
+          background: linear-gradient(135deg, #FFFFFF, #FAF6EF);
+          border-color: #CCA881;
+          transform: translateX(4px);
+          box-shadow: 0 8px 20px rgba(7, 59, 63, 0.10);
         }
 
         .role-drawer-item-left {
@@ -2588,19 +2614,19 @@ export default function CustomerNavbar() {
         }
 
         .role-drawer-icon-box.icon-ruby {
-          background: rgba(201, 32, 53, 0.08);
+          background: linear-gradient(145deg, rgba(201, 32, 53, 0.14), rgba(201, 32, 53, 0.05));
           color: #C92035;
         }
         .role-drawer-icon-box.icon-teal {
-          background: rgba(7, 59, 63, 0.08);
+          background: linear-gradient(145deg, rgba(7, 59, 63, 0.14), rgba(7, 59, 63, 0.05));
           color: #073B3F;
         }
         .role-drawer-icon-box.icon-gold {
-          background: rgba(187, 137, 88, 0.12);
+          background: linear-gradient(145deg, rgba(187, 137, 88, 0.22), rgba(187, 137, 88, 0.08));
           color: #9F6130;
         }
         .role-drawer-icon-box.icon-emerald {
-          background: rgba(12, 64, 68, 0.08);
+          background: linear-gradient(145deg, rgba(12, 64, 68, 0.14), rgba(12, 64, 68, 0.05));
           color: #0C4044;
         }
 
@@ -2718,9 +2744,12 @@ export default function CustomerNavbar() {
         .role-drawer-tagline {
           text-align: center;
           font-size: 9.5px;
-          color: #8D9F9D;
-          letter-spacing: 0.06em;
+          color: #9F6130;
+          letter-spacing: 0.1em;
           text-transform: uppercase;
+          font-weight: 700;
+          padding-top: 6px;
+          border-top: 1px solid rgba(204, 168, 129, 0.35);
         }
         @media (max-width: 1020px) and (min-width: 901px) {
           .summary-pill {
@@ -3142,7 +3171,7 @@ export default function CustomerNavbar() {
                 title="AUG Coin Wallet"
               >
                 <Icon name="star" size={15} />{" "}
-                <span className="summary-text">AUG Coin</span>
+                <span className="summary-text">AUG</span>
               </button>
 
               <button
@@ -3285,7 +3314,8 @@ export default function CustomerNavbar() {
                     type="button"
                     onClick={() => {
                       setActiveMega(null);
-                      navigate(item.route);
+                      if (item.label === "Nearby Shop") requireLogin(item.route);
+                      else navigate(item.route);
                     }}
                   >
                     {item.label}
@@ -3438,29 +3468,31 @@ export default function CustomerNavbar() {
               )}
             </button>
 
-            <button
-              type="button"
-              className="mobile-service-item"
-              onClick={() => {
-                setMobileOpen(false);
-                requireLogin("/coin-shop");
-              }}
-            >
-              <div className="mobile-service-left">
-                <span className="mobile-service-icon coin-icon">
-                  <Icon name="coin" size={17} />
-                </span>
-                <span className="mobile-service-label">AUG Coins</span>
-              </div>
-              <span className="mobile-service-tag">Rewards</span>
-            </button>
+            {isLoggedIn && (
+              <button
+                type="button"
+                className="mobile-service-item"
+                onClick={() => {
+                  setMobileOpen(false);
+                  requireLogin("/coin-shop");
+                }}
+              >
+                <div className="mobile-service-left">
+                  <span className="mobile-service-icon coin-icon">
+                    <Icon name="coin" size={17} />
+                  </span>
+                  <span className="mobile-service-label">AUG Coins</span>
+                </div>
+                <span className="mobile-service-tag">Rewards</span>
+              </button>
+            )}
 
             <button
               type="button"
               className="mobile-service-item"
               onClick={() => {
                 setMobileOpen(false);
-                navigate("/nearby-shop");
+                requireLogin("/nearby-shop");
               }}
             >
               <div className="mobile-service-left">
@@ -3506,22 +3538,24 @@ export default function CustomerNavbar() {
               <span className="mobile-service-arrow">›</span>
             </button>
 
-            <button
-              type="button"
-              className="mobile-service-item"
-              onClick={() => {
-                setMobileOpen(false);
-                requireLogin("/create-customer");
-              }}
-            >
-              <div className="mobile-service-left">
-                <span className="mobile-service-icon add-user-icon">
-                  <Icon name="userPlus" size={17} />
-                </span>
-                <span className="mobile-service-label">Create Customer</span>
-              </div>
-              <span className="mobile-service-arrow">›</span>
-            </button>
+            {isLoggedIn && role === 'super_admin' && (
+              <button
+                type="button"
+                className="mobile-service-item"
+                onClick={() => {
+                  setMobileOpen(false);
+                  navigate("/create-customer");
+                }}
+              >
+                <div className="mobile-service-left">
+                  <span className="mobile-service-icon add-user-icon">
+                    <Icon name="userPlus" size={17} />
+                  </span>
+                  <span className="mobile-service-label">Create Customer</span>
+                </div>
+                <span className="mobile-service-arrow">›</span>
+              </button>
+            )}
 
             {roleSwitchCfg && (
               <button
@@ -3552,7 +3586,8 @@ export default function CustomerNavbar() {
                 key={item.label}
                 onClick={() => {
                   setMobileOpen(false);
-                  navigate(item.route);
+                  if (item.label === "Nearby Shop") requireLogin(item.route);
+                  else navigate(item.route);
                 }}
               >
                 {item.label}
@@ -3618,7 +3653,7 @@ export default function CustomerNavbar() {
                     ? localStorage.getItem("email")?.split("@")[0] || "Valued Customer"
                     : "Welcome, Guest"}
                 </strong>
-                <span className="role-drawer-user-role">
+                <span className={`role-drawer-user-role${isLoggedIn ? '' : ' is-guest'}`}>
                   {isLoggedIn ? (
                     <>✦ {role ? role.replace("_", " ") : "Member"}</>
                   ) : (
@@ -3686,27 +3721,29 @@ export default function CustomerNavbar() {
               </button>
 
               {/* 3. AUG Coins */}
-              <button
-                className="role-drawer-item"
-                type="button"
-                onClick={() => {
-                  setRoleDrawerOpen(false);
-                  requireLogin("/coin-shop");
-                }}
-              >
-                <div className="role-drawer-item-left">
-                  <span className="role-drawer-icon-box icon-gold">
-                    <Icon name="coin" size={17} />
-                  </span>
-                  <div className="role-drawer-item-labels">
-                    <span className="role-drawer-item-title">AUG Coins</span>
-                    <span className="role-drawer-item-desc">Shop with gold coin rewards</span>
+              {isLoggedIn && (
+                <button
+                  className="role-drawer-item"
+                  type="button"
+                  onClick={() => {
+                    setRoleDrawerOpen(false);
+                    requireLogin("/coin-shop");
+                  }}
+                >
+                  <div className="role-drawer-item-left">
+                    <span className="role-drawer-icon-box icon-gold">
+                      <Icon name="coin" size={17} />
+                    </span>
+                    <div className="role-drawer-item-labels">
+                      <span className="role-drawer-item-title">AUG Coins</span>
+                      <span className="role-drawer-item-desc">Shop with gold coin rewards</span>
+                    </div>
                   </div>
-                </div>
-                <span className="role-drawer-chevron">
-                  <Icon name="chevronRight" size={16} />
-                </span>
-              </button>
+                  <span className="role-drawer-chevron">
+                    <Icon name="chevronRight" size={16} />
+                  </span>
+                </button>
+              )}
 
               {/* 4. Nearby Shop */}
               <button
@@ -3714,7 +3751,7 @@ export default function CustomerNavbar() {
                 type="button"
                 onClick={() => {
                   setRoleDrawerOpen(false);
-                  navigate("/nearby-shop");
+                  requireLogin("/nearby-shop");
                 }}
               >
                 <div className="role-drawer-item-left">
@@ -3777,28 +3814,30 @@ export default function CustomerNavbar() {
                 </span>
               </button>
 
-              {/* 7. Create Customer */}
-              <button
-                className="role-drawer-item"
-                type="button"
-                onClick={() => {
-                  setRoleDrawerOpen(false);
-                  requireLogin("/create-customer");
-                }}
-              >
-                <div className="role-drawer-item-left">
-                  <span className="role-drawer-icon-box icon-gold">
-                    <Icon name="userPlus" size={17} />
-                  </span>
-                  <div className="role-drawer-item-labels">
-                    <span className="role-drawer-item-title">Create Customer</span>
-                    <span className="role-drawer-item-desc">Onboard customer account</span>
+              {/* 7. Create Customer — Super Admin mattum */}
+              {isLoggedIn && role === 'super_admin' && (
+                <button
+                  className="role-drawer-item"
+                  type="button"
+                  onClick={() => {
+                    setRoleDrawerOpen(false);
+                    navigate("/create-customer");
+                  }}
+                >
+                  <div className="role-drawer-item-left">
+                    <span className="role-drawer-icon-box icon-gold">
+                      <Icon name="userPlus" size={17} />
+                    </span>
+                    <div className="role-drawer-item-labels">
+                      <span className="role-drawer-item-title">Create Customer</span>
+                      <span className="role-drawer-item-desc">Onboard customer account</span>
+                    </div>
                   </div>
-                </div>
-                <span className="role-drawer-chevron">
-                  <Icon name="chevronRight" size={16} />
-                </span>
-              </button>
+                  <span className="role-drawer-chevron">
+                    <Icon name="chevronRight" size={16} />
+                  </span>
+                </button>
+              )}
 
               {/* Role Switch if applicable */}
               {roleSwitchCfg && (

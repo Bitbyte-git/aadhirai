@@ -804,6 +804,7 @@ export default function AdminHierarchy() {
     return () => clearTimeout(t)
   }, [search])
 
+  const hasFetchedRef = useRef(false)
   const fetchHierarchy = async () => {
     setLoading(true)
     try {
@@ -818,13 +819,16 @@ export default function AdminHierarchy() {
         })
         const dList = res.data.items || res.data.root.dealers || []
         setDealers(dList)
-        setOpenMap({})
       }
     } catch (err) { console.error(err) }
     setLoading(false)
   }
 
-  useEffect(() => { fetchHierarchy() }, [])
+  useEffect(() => {
+    if (hasFetchedRef.current) return
+    hasFetchedRef.current = true
+    fetchHierarchy()
+  }, [])
 
   useEffect(() => {
     return () => {

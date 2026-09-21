@@ -1,9 +1,19 @@
 import { useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import logo from '../assets/logo.png'
 
 function NavIcon({ type = 'dot', size = 17 }) {
-  const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true }
+  const common = {
+    width: size,
+    height: size,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2.2,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    'aria-hidden': true,
+  }
   const icons = {
     chevron: <path d="m6 9 6 6 6-6" />,
     rate: <><path d="M4 19V5" /><path d="M4 19h16" /><path d="m7 15 4-4 3 3 5-7" /></>,
@@ -11,6 +21,8 @@ function NavIcon({ type = 'dot', size = 17 }) {
     user: <><circle cx="12" cy="8" r="4" /><path d="M4 21c1.8-4 5-6 8-6s6.2 2 8 6" /></>,
     bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></>,
     coin: <><circle cx="12" cy="12" r="9" /><path d="M9 9h4a2 2 0 1 1 0 4h-3M9 15h6" /></>,
+    menu: <><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></>,
+    close: <><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>,
     dot: <circle cx="12" cy="12" r="3" />,
   }
   return <svg {...common}>{icons[type] || icons.dot}</svg>
@@ -29,10 +41,29 @@ export default function InternalRoleNavbar({
   actionItems = [],
 }) {
   const navigate = useNavigate()
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [activeGroup, setActiveGroup] = useState(null)
+  const [openDrawerSection, setOpenDrawerSection] = useState(null)
+
+  // Close drawer on escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setDrawerOpen(false)
+    }
+    if (drawerOpen) {
+      document.body.style.overflow = 'hidden'
+      window.addEventListener('keydown', handleKeyDown)
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [drawerOpen])
+
   const runItem = item => {
-    setMenuOpen(false)
+    setDrawerOpen(false)
     setActiveGroup(null)
     if (item?.action) {
       item.action()
@@ -40,26 +71,63 @@ export default function InternalRoleNavbar({
     }
     if (item?.path) navigate(item.path)
   }
+
   const logout = () => {
     localStorage.clear()
     navigate('/login')
   }
-  
+
   const ROLE_SWITCH_LABELS = {
     PROMOTER: 'Retailer',
     'SUB DEALER': 'Wholesale Dealer',
     DEALER: 'Distributor',
     ADMIN: 'Super Stockist',
   }
-  const currentTierLabel = ROLE_SWITCH_LABELS[roleTitle]
-  const roleSwitchItems = currentTierLabel
-    ? [
-        { label: currentTierLabel, path: homePath },
-        { label: 'Customer', path: '/customer' },
-      ]
-    : []
+  const currentTierLabel = ROLE_SWITCH_LABELS[roleTitle] || roleTitle
 
-  const myRewardsItems = [{ label: 'AUG Coin', path: '/recharge' }]
+  // Automatic default items if not explicitly provided
+  const ROLE_DEFAULTS = {
+    ADMIN: {
+      hierarchy: '/admin-hierarchy-grid',
+      hierarchyLabel: 'Distributor Hierarchy',
+      createLabel: 'Create Distributor',
+      createPath: '/create-distributor',
+    },
+    DEALER: {
+      hierarchy: '/dealer-hierarchy-grid',
+      hierarchyLabel: 'Wholesale Dealer Hierarchy',
+      createLabel: 'Create Wholesale Dealer',
+      createPath: '/create-wholesale-dealer',
+    },
+    'SUB DEALER': {
+      hierarchy: '/subdealer-hierarchy-grid',
+      hierarchyLabel: 'Retailer Hierarchy',
+      createLabel: 'Create Retailer',
+      createPath: '/create-retailer',
+    },
+    PROMOTER: {
+      hierarchy: '/promotor-hierarchy-grid',
+      hierarchyLabel: 'Customer Hierarchy',
+      createLabel: 'Create Customer',
+      createPath: '/create-customer',
+    },
+  }
+
+  const rDef = ROLE_DEFAULTS[roleTitle] || ROLE_DEFAULTS.ADMIN
+
+  const finalManagementItems = managementItems && managementItems.length > 0 ? managementItems : [
+    { label: 'Dashboard', path: homePath },
+    { label: rDef.hierarchyLabel, path: rDef.hierarchy },
+    { label: rDef.createLabel, path: rDef.createPath },
+    { label: 'Create Customer', path: '/create-customer' },
+  ]
+
+  const finalCoinItems = coinItems && coinItems.length > 0 ? coinItems : [
+    { label: 'Buy Coin', path: '/buy-coin' },
+    { label: 'Available Coins', path: '/available-coins' },
+    { label: roleTitle === 'PROMOTER' ? 'My Requests' : 'Coin Requests', path: '/coin-requests-page' },
+    { label: 'Coin Transactions', path: '/coin-transactions' },
+  ]
 
   const defaultJewelleryItems = [
     { label: roleTitle === 'SUPER ADMIN' ? 'Add Jewellery' : 'Buy Jewellery', path: '/add-jewellery' },
@@ -69,77 +137,807 @@ export default function InternalRoleNavbar({
   ]
   const finalJewelleryItems = jewelleryItems && jewelleryItems.length > 0 ? jewelleryItems : defaultJewelleryItems
 
+  const finalReportItems = reportItems && reportItems.length > 0 ? reportItems : [
+    { label: `${rDef.hierarchyLabel} Grid`, path: rDef.hierarchy },
+    { label: 'Sales Report', path: '/sales-report' },
+    { label: 'Login Active', path: '/login-active' },
+    { label: 'Login Inactive', path: '/login-inactive' },
+    { label: 'My Login Rewards', path: '/internal-my-login-rewards' },
+    { label: 'Team Login Rewards', path: '/internal-team-login-rewards' },
+  ]
+
+  const finalCommissionItems = commissionItems && commissionItems.length > 0 ? commissionItems : [
+    { label: 'My Commission', path: '/internal-my-commission' },
+    { label: 'Team Commission', path: '/internal-team-commission' },
+  ]
+
+  const roleSwitchItems = currentTierLabel
+    ? [
+        { label: currentTierLabel, path: homePath },
+        { label: 'Customer', path: '/customer' },
+      ]
+    : []
+
+  const myRewardsItems = [{ label: 'AUG', path: '/recharge' }]
+
   const groups = [
-    { label: 'Management', items: managementItems },
+    { label: 'Management', items: finalManagementItems },
     { label: 'Announcements', items: [...announcementItems, ...celebrationItems] },
     { label: 'My Rewards', items: myRewardsItems },
-    { label: 'Coins', items: coinItems },
+    { label: 'Coins', items: finalCoinItems },
     { label: 'Jewellery', items: finalJewelleryItems },
-    { label: 'Reports', items: reportItems },
-    { label: 'Commissions', items: commissionItems },
+    { label: 'Reports', items: finalReportItems },
+    { label: 'Commissions', items: finalCommissionItems },
     { label: 'Role', items: roleSwitchItems },
   ].filter(group => group.items.length)
 
-  const actions = actionItems.length ? actionItems : [{ label: 'Logout', icon: 'logout', variant: 'danger', action: logout }]
+  const actions = actionItems && actionItems.length > 0 ? actionItems : [
+    { label: 'Profile', icon: 'user', path: homePath },
+    { label: 'Announcements', icon: 'bell', path: homePath },
+    { label: 'Logout', icon: 'logout', variant: 'danger', action: logout },
+  ]
 
   return (
     <>
       <style>{`
-        .irn-top,.irn-top *{box-sizing:border-box}.irn-top{position:fixed;top:0;left:0;right:0;z-index:80;background:rgba(253,253,252,.96);border-bottom:1px solid rgba(189,207,206,.72);box-shadow:0 18px 44px rgba(7,59,63,.07);backdrop-filter:blur(22px)}.irn-top-spacer{height:80px}.irn-inner{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;padding:12px 38px;column-gap:24px}.irn-brand{grid-column:1;min-width:0;height:56px;border:0;background:transparent;display:flex;align-items:center;gap:10px;padding:0;cursor:pointer}.irn-brand img{width:44px;height:44px;object-fit:contain}.irn-brand strong{display:block;font-family:Georgia,'Times New Roman',serif;font-size:24px;line-height:.95;font-weight:850;letter-spacing:.04em;color:#073B3F}.irn-brand small{display:block;margin-top:5px;color:#BB8958;font-size:9px;font-weight:900;letter-spacing:.25em;text-transform:uppercase}.irn-menu{grid-column:2;display:flex;align-items:stretch;justify-content:center;min-width:0;height:56px;margin:0;border-top:0}.irn-group{position:relative;display:flex}.irn-trigger{width:auto;border:0;background:transparent;padding:0 14px;color:#073B3F;font-family:Georgia,'Times New Roman',serif;font-size:13px;font-weight:850;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;white-space:nowrap;border-radius:12px}.irn-trigger:hover,.irn-trigger.is-active{background:#EDF3F1}.irn-drop{position:absolute;top:calc(100% + 1px);left:50%;transform:translateX(-50%) translateY(10px);min-width:292px;padding:22px 24px;background:rgba(253,253,252,.99);border:1px solid rgba(189,207,206,.82);box-shadow:0 28px 70px rgba(7,59,63,.17);border-radius:16px;opacity:0;visibility:hidden;pointer-events:none;transition:.18s ease;z-index:100}.irn-group:hover .irn-drop,.irn-group.is-active .irn-drop{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%) translateY(0)}.irn-title{display:flex;align-items:center;gap:12px;font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:900;color:#073B3F;margin-bottom:15px}.irn-title span{color:#BB8958}.irn-link{width:100%;border:0;background:transparent;padding:11px 9px;border-radius:9px;text-align:left;color:#111817;font-size:13px;font-weight:780;display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer}.irn-link:hover{color:#0C4044;background:#EDF3F1;transform:translateX(3px)}.irn-badge{min-width:19px;height:19px;border-radius:999px;background:#C92035;color:#FDFDFC;font-size:10px;font-weight:900;display:inline-flex;align-items:center;justify-content:center;padding:0 6px}.irn-actions{grid-column:3;display:flex;align-items:center;justify-content:flex-end;gap:8px}.irn-action,.irn-mobile-toggle{min-height:44px;border:1px solid transparent;background:transparent;color:#0C4044;font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;border-radius:999px;padding:0 14px;position:relative;white-space:nowrap}.irn-action:hover,.irn-mobile-toggle:hover{background:#F3F3F0;border-color:rgba(189,207,206,.7);box-shadow:0 12px 28px rgba(7,59,63,.08)}.irn-action.danger{color:#C92035}.irn-action .irn-badge{position:absolute;top:2px;right:1px}.irn-mobile-toggle{display:none;width:46px;padding:0}
-        @media(max-width:980px){.irn-top-spacer{height:76px}.irn-inner{grid-template-columns:minmax(0,1fr) auto auto;padding:10px 18px;column-gap:8px}.irn-brand{height:56px}.irn-brand img{width:42px;height:42px}.irn-brand strong{font-size:22px}.irn-actions{grid-column:2}.irn-actions .irn-action:not(:first-child){display:none}.irn-action{width:44px;padding:0;font-size:0}.irn-mobile-toggle{display:flex;grid-column:3}.irn-menu{display:none;grid-column:1/-1;height:auto;margin:8px -18px 0;padding:10px 18px 18px;flex-direction:column;align-items:stretch;background:rgba(253,253,252,.98);border-top:1px solid rgba(189,207,206,.55)}.irn-menu.is-open{display:flex}.irn-group{display:block}.irn-trigger{width:100%;height:50px;justify-content:space-between;padding:0 14px}.irn-drop{position:static;min-width:0;width:100%;padding:0 14px;max-height:0;overflow:hidden;border:0;border-radius:10px;box-shadow:none;opacity:0;visibility:hidden;transform:none!important}.irn-group:hover .irn-drop{opacity:0;visibility:hidden;pointer-events:none}.irn-group.is-active .irn-drop{max-height:420px;padding:14px;opacity:1;visibility:visible;pointer-events:auto;background:#F7F9F8}.irn-title{font-size:18px;margin-bottom:8px}}
-        @media(max-width:520px){.irn-inner{padding-inline:12px}.irn-menu{margin-inline:-12px;padding-inline:12px}.irn-brand img{width:38px;height:38px}.irn-brand strong{font-size:19px}.irn-brand small{font-size:8px}.irn-actions .irn-action:first-child{display:none}}
+        .irn-top, .irn-top * { box-sizing: border-box; }
+        .irn-top {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          z-index: 900;
+          background: rgba(253, 253, 252, 0.98);
+          border-bottom: 1px solid rgba(189, 207, 206, 0.75);
+          box-shadow: 0 10px 30px rgba(7, 59, 63, 0.06);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+        }
+        .irn-top-spacer {
+          height: 74px;
+        }
+        .irn-inner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 8px 24px;
+          max-width: 1600px;
+          margin: 0 auto;
+          width: 100%;
+          gap: 12px;
+        }
+
+        /* ── BRAND LOGO & TITLE ── */
+        .irn-brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          background: transparent;
+          border: 0;
+          padding: 0;
+          cursor: pointer;
+          flex-shrink: 0;
+          text-align: left;
+          text-decoration: none;
+        }
+        .irn-brand img {
+          width: 42px;
+          height: 42px;
+          object-fit: contain;
+        }
+        .irn-brand-text {
+          display: flex;
+          flex-direction: column;
+        }
+        .irn-brand strong {
+          display: block;
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: 22px;
+          line-height: 1;
+          font-weight: 900;
+          letter-spacing: 0.03em;
+          color: #073B3F;
+        }
+        .irn-brand small {
+          display: block;
+          margin-top: 3px;
+          color: #BB8958;
+          font-size: 8.5px;
+          font-weight: 850;
+          letter-spacing: 0.22em;
+          text-transform: uppercase;
+        }
+
+        /* ── DESKTOP CENTER NAVIGATION ── */
+        .irn-menu {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 3px;
+          flex-wrap: nowrap;
+          flex: 1;
+          max-width: 960px;
+          margin: 0 10px;
+        }
+        .irn-group {
+          position: relative;
+          display: inline-flex;
+        }
+        .irn-trigger {
+          border: 0;
+          background: transparent;
+          padding: 8px 10px;
+          color: #073B3F;
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: 12px;
+          font-weight: 850;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          cursor: pointer;
+          white-space: nowrap;
+          border-radius: 9px;
+          transition: all 0.16s ease;
+        }
+        .irn-trigger:hover, .irn-trigger.is-active {
+          background: #EDF3F1;
+          color: #0C4044;
+        }
+        .irn-trigger-aug {
+          background: rgba(204, 168, 129, 0.14);
+          color: #8C5E28;
+          font-weight: 900;
+          border: 1px solid rgba(204, 168, 129, 0.35);
+        }
+        .irn-trigger-aug:hover {
+          background: rgba(204, 168, 129, 0.28);
+          color: #6C4212;
+        }
+
+        /* ── DESKTOP DROPDOWN ── */
+        .irn-drop {
+          position: absolute;
+          top: calc(100% + 6px);
+          left: 50%;
+          transform: translateX(-50%) translateY(8px);
+          min-width: 250px;
+          padding: 16px 18px;
+          background: rgba(255, 255, 255, 0.99);
+          border: 1px solid rgba(189, 207, 206, 0.85);
+          box-shadow: 0 24px 60px rgba(7, 59, 63, 0.16), 0 4px 14px rgba(7, 59, 63, 0.06);
+          border-radius: 14px;
+          opacity: 0;
+          visibility: hidden;
+          pointer-events: none;
+          transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+          z-index: 1000;
+        }
+        .irn-group:hover .irn-drop, .irn-group.is-active .irn-drop {
+          opacity: 1;
+          visibility: visible;
+          pointer-events: auto;
+          transform: translateX(-50%) translateY(0);
+        }
+        .irn-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: 15px;
+          font-weight: 900;
+          color: #073B3F;
+          margin-bottom: 10px;
+          padding-bottom: 6px;
+          border-bottom: 1px solid #EDF3F2;
+        }
+        .irn-title span {
+          color: #BB8958;
+        }
+        .irn-link {
+          width: 100%;
+          border: 0;
+          background: transparent;
+          padding: 8px 10px;
+          border-radius: 8px;
+          text-align: left;
+          color: #111817;
+          font-size: 12px;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .irn-link:hover {
+          color: #0C4044;
+          background: #EDF3F1;
+          transform: translateX(3px);
+        }
+        .irn-badge {
+          min-width: 18px;
+          height: 18px;
+          border-radius: 999px;
+          background: #C92035;
+          color: #FFFFFF;
+          font-size: 9px;
+          font-weight: 850;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 5px;
+        }
+
+        /* ── RIGHT ACTIONS ── */
+        .irn-actions {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-shrink: 0;
+        }
+        .irn-action {
+          height: 38px;
+          border: 1px solid transparent;
+          background: transparent;
+          color: #0C4044;
+          font-size: 12px;
+          font-weight: 800;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          cursor: pointer;
+          border-radius: 999px;
+          padding: 0 12px;
+          position: relative;
+          white-space: nowrap;
+          transition: all 0.16s ease;
+        }
+        .irn-action:hover {
+          background: #EDF3F1;
+          border-color: rgba(189, 207, 206, 0.7);
+        }
+        .irn-action.danger {
+          color: #C92035;
+          background: rgba(201, 32, 53, 0.05);
+          border-color: rgba(201, 32, 53, 0.18);
+        }
+        .irn-action.danger:hover {
+          background: #C92035;
+          color: #FFFFFF;
+        }
+        .irn-action .irn-badge {
+          position: absolute;
+          top: -2px;
+          right: -2px;
+        }
+
+        /* ── MOBILE MENU BUTTON ── */
+        .irn-mobile-menu-btn {
+          display: none;
+          height: 38px;
+          padding: 0 14px;
+          background: #073B3F;
+          border: none;
+          border-radius: 10px;
+          color: #FFFFFF;
+          font-size: 11.5px;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+          align-items: center;
+          gap: 7px;
+          cursor: pointer;
+          transition: all 0.18s ease;
+          box-shadow: 0 4px 12px rgba(7, 59, 63, 0.18);
+          flex-shrink: 0;
+        }
+        .irn-mobile-menu-btn:hover {
+          background: #0C4044;
+          transform: translateY(-1px);
+        }
+
+        /* ── RESPONSIVE BREAKPOINTS ── */
+        @media (max-width: 1260px) {
+          .irn-menu {
+            display: none !important;
+          }
+          .irn-mobile-menu-btn {
+            display: inline-flex !important;
+          }
+          /* On screens under 1260px, hide desktop Profile and Logout from top bar, they live inside drawer */
+          .irn-actions .irn-action:not([title*="Announcements"]):not([title*="Bell"]):not(.irn-bell-btn) {
+            display: none !important;
+          }
+        }
+
+        @media (max-width: 580px) {
+          .irn-inner {
+            padding: 8px 12px;
+            gap: 8px;
+          }
+          .irn-top-spacer {
+            height: 64px;
+          }
+          .irn-brand img {
+            width: 35px;
+            height: 35px;
+          }
+          .irn-brand strong {
+            font-size: 18px;
+          }
+          .irn-brand small {
+            font-size: 7.5px;
+            letter-spacing: 0.18em;
+          }
+          .irn-mobile-menu-btn {
+            height: 34px;
+            padding: 0 10px;
+            font-size: 11px;
+            gap: 5px;
+          }
+          .irn-mobile-menu-btn span {
+            display: inline;
+          }
+        }
+
+        /* ── MOBILE DRAWER OVERLAY & PANEL ── */
+        .irn-drawer-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(7, 59, 63, 0.48);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          z-index: 9998;
+          animation: irnFadeIn 0.2s ease;
+        }
+        @keyframes irnFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        .irn-drawer {
+          position: fixed;
+          top: 0;
+          right: 0;
+          bottom: 0;
+          width: min(340px, 86vw);
+          background: #FFFFFF;
+          z-index: 9999;
+          box-shadow: -12px 0 45px rgba(7, 59, 63, 0.18);
+          display: flex;
+          flex-direction: column;
+          animation: irnSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+          overflow: hidden;
+        }
+        @keyframes irnSlideIn {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+
+        .irn-drawer-head {
+          padding: 16px 20px;
+          background: #F8FAFA;
+          border-bottom: 1px solid #E1EBEA;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .irn-drawer-brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .irn-drawer-brand img {
+          width: 36px;
+          height: 36px;
+          object-fit: contain;
+        }
+        .irn-drawer-brand strong {
+          display: block;
+          font-family: Georgia, serif;
+          font-size: 19px;
+          font-weight: 900;
+          color: #073B3F;
+          line-height: 1;
+        }
+        .irn-drawer-brand small {
+          display: block;
+          margin-top: 3px;
+          color: #BB8958;
+          font-size: 8px;
+          font-weight: 850;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+        }
+        .irn-drawer-close {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          border: 1px solid #D1DFDE;
+          background: #FFFFFF;
+          color: #073B3F;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .irn-drawer-close:hover {
+          background: #FEE2E2;
+          border-color: #F87171;
+          color: #DC2626;
+        }
+
+        .irn-drawer-body {
+          flex: 1;
+          overflow-y: auto;
+          padding: 14px 14px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .irn-drawer-aug-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 16px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, rgba(204,168,129,0.18), rgba(204,168,129,0.06));
+          border: 1.5px solid rgba(204,168,129,0.4);
+          color: #8C5E28;
+          font-size: 13.5px;
+          font-weight: 800;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .irn-drawer-aug-btn:hover {
+          background: rgba(204,168,129,0.28);
+          transform: translateX(2px);
+        }
+
+        .irn-drawer-section {
+          border-radius: 12px;
+          border: 1px solid #E6EEED;
+          background: #FAFBFB;
+          overflow: hidden;
+          transition: all 0.2s ease;
+        }
+        .irn-drawer-section.is-open {
+          border-color: #0C4044;
+          background: #FFFFFF;
+          box-shadow: 0 4px 14px rgba(7, 59, 63, 0.05);
+        }
+        .irn-drawer-section-head {
+          width: 100%;
+          padding: 12px 14px;
+          background: transparent;
+          border: none;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          cursor: pointer;
+          font-family: Georgia, serif;
+          font-size: 13px;
+          font-weight: 850;
+          text-transform: uppercase;
+          color: #073B3F;
+        }
+        .irn-drawer-chevron {
+          transition: transform 0.2s ease;
+          display: flex;
+          align-items: center;
+          color: #5C706E;
+        }
+        .irn-drawer-chevron.rotated {
+          transform: rotate(180deg);
+          color: #073B3F;
+        }
+
+        .irn-drawer-sublist {
+          padding: 4px 8px 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          border-top: 1px solid #EDF3F2;
+        }
+        .irn-drawer-link {
+          width: 100%;
+          padding: 9px 12px;
+          background: transparent;
+          border: none;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          color: #2D3E3C;
+          font-size: 12.5px;
+          font-weight: 650;
+          cursor: pointer;
+          text-align: left;
+          transition: all 0.14s ease;
+        }
+        .irn-drawer-link:hover {
+          background: #EDF3F1;
+          color: #073B3F;
+          transform: translateX(3px);
+        }
+        .irn-drawer-arrow {
+          color: #8C9E9C;
+          font-size: 12px;
+        }
+
+        .irn-drawer-foot {
+          padding: 14px 16px;
+          border-top: 1px solid #E1EBEA;
+          background: #F8FAFA;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .irn-drawer-foot-btn {
+          width: 100%;
+          height: 40px;
+          border-radius: 10px;
+          border: 1px solid #D1DFDE;
+          background: #FFFFFF;
+          color: #073B3F;
+          font-size: 12px;
+          font-weight: 750;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 0 14px;
+          cursor: pointer;
+        }
+        .irn-drawer-foot-btn:hover {
+          background: #EDF3F1;
+        }
+        .irn-drawer-logout-btn {
+          width: 100%;
+          height: 42px;
+          border-radius: 10px;
+          border: none;
+          background: #C92035;
+          color: #FFFFFF;
+          font-size: 12.5px;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          cursor: pointer;
+          transition: all 0.18s ease;
+          box-shadow: 0 4px 14px rgba(201, 32, 53, 0.22);
+        }
+        .irn-drawer-logout-btn:hover {
+          background: #A81628;
+        }
       `}</style>
-        <header className="irn-top">
-          <div className="irn-inner">
-            <button className="irn-brand" type="button" onClick={() => navigate(homePath)} title="Go to dashboard">
-              <img src={logo} alt="Luxiva" />
-              <span><strong>LUXIVA</strong><small>{currentTierLabel || roleTitle}</small></span>
-            </button>
-            <nav className={`irn-menu ${menuOpen ? 'is-open' : ''}`}>
-              {groups.map(group => (
-                group.label === 'My Rewards' ? (
-                  // ── NEW: dropdown illama, direct click-able button ── 
+
+      <header className="irn-top">
+        <div className="irn-inner">
+          {/* ── BRAND ── */}
+          <button
+            className="irn-brand"
+            type="button"
+            onClick={() => navigate(homePath)}
+            title="Go to dashboard"
+          >
+            <img src={logo} alt="Luxiva" />
+            <div className="irn-brand-text">
+              <strong>LUXIVA</strong>
+              <small>{currentTierLabel}</small>
+            </div>
+          </button>
+
+          {/* ── DESKTOP MENU (Hidden below 1260px) ── */}
+          <nav className="irn-menu" aria-label="Main Navigation">
+            {groups.map(group => (
+              group.label === 'My Rewards' ? (
+                <button
+                  key={group.label}
+                  type="button"
+                  className="irn-trigger irn-trigger-aug"
+                  onClick={() => runItem(group.items[0])}
+                  title="AUG Coin Quick Recharge"
+                >
+                  🪙 {group.items[0].label}
+                </button>
+              ) : (
+                <div
+                  className={`irn-group ${activeGroup === group.label ? 'is-active' : ''}`}
+                  key={group.label}
+                  onMouseEnter={() => setActiveGroup(group.label)}
+                  onMouseLeave={() => setActiveGroup(null)}
+                >
                   <button
-                    key={group.label}
+                    className={`irn-trigger ${activeGroup === group.label ? 'is-active' : ''}`}
                     type="button"
-                    className="irn-trigger"
-                    onClick={() => runItem(group.items[0])}
+                    onClick={() => setActiveGroup(curr => curr === group.label ? null : group.label)}
+                    aria-expanded={activeGroup === group.label}
                   >
-                    {group.items[0].label}
+                    {group.label}
+                    <NavIcon type="chevron" size={14} />
                   </button>
-                ) : (
-                  <div className={`irn-group ${activeGroup === group.label ? 'is-active' : ''}`} key={group.label}>
-                    <button className={`irn-trigger ${activeGroup === group.label ? 'is-active' : ''}`} type="button" onClick={() => setActiveGroup(current => current === group.label ? null : group.label)} aria-expanded={activeGroup === group.label}>{group.label}<NavIcon type="chevron" size={15} /></button>
-                    <div className="irn-drop">
-                      <div className="irn-title"><span>D</span>{group.label}</div>
-                      {group.items.map(item => (
-                        <button key={item.label} type="button" className="irn-link" onClick={() => runItem(item)}>
-                          <span>{item.label}</span>
-                          {item.badge ? <span className="irn-badge">{item.badge > 99 ? '99+' : item.badge}</span> : <b>-&gt;</b>}
-                        </button>
-                      ))}
+                  <div className="irn-drop">
+                    <div className="irn-title">
+                      <span>●</span> {group.label}
                     </div>
+                    {group.items.map(item => (
+                      <button
+                        key={item.label}
+                        type="button"
+                        className="irn-link"
+                        onClick={() => runItem(item)}
+                      >
+                        <span>{item.label}</span>
+                        {item.badge ? (
+                          <span className="irn-badge">{item.badge > 99 ? '99+' : item.badge}</span>
+                        ) : (
+                          <span style={{ color: '#8C9E9C', fontSize: '12px' }}>→</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            ))}
+          </nav>
+
+          {/* ── RIGHT ACTIONS ── */}
+          <div className="irn-actions">
+            {actions.map(item => {
+              const isBell = item.icon === 'bell'
+              return (
+                <button
+                  key={item.label}
+                  type="button"
+                  className={`irn-action ${item.variant === 'danger' ? 'danger' : ''} ${isBell ? 'irn-bell-btn' : ''}`}
+                  onClick={() => item.action ? item.action() : (item.path ? navigate(item.path) : logout())}
+                  title={item.label}
+                >
+                  <NavIcon type={item.icon || 'dot'} size={17} />
+                  {!isBell && <span>{item.label}</span>}
+                  {item.badge ? (
+                    <span className="irn-badge">{item.badge > 99 ? '99+' : item.badge}</span>
+                  ) : null}
+                </button>
+              )
+            })}
+
+            {/* ── MOBILE / TABLET MENU TOGGLE BUTTON (Visible <= 1260px) ── */}
+            <button
+              className="irn-mobile-menu-btn"
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Open Navigation Menu"
+            >
+              <NavIcon type="menu" size={18} />
+              <span>MENU</span>
+            </button>
+          </div>
+        </div>
+      </header>
+      <div className="irn-top-spacer" />
+
+      {/* ── MOBILE & TABLET SLIDE-IN DRAWER ── */}
+      {drawerOpen && (
+        <>
+          <div
+            className="irn-drawer-overlay"
+            onClick={() => setDrawerOpen(false)}
+            aria-hidden="true"
+          />
+          <aside className="irn-drawer" role="dialog" aria-label="Mobile Navigation">
+            {/* Drawer Header */}
+            <div className="irn-drawer-head">
+              <div className="irn-drawer-brand">
+                <img src={logo} alt="Luxiva" />
+                <div>
+                  <strong>LUXIVA</strong>
+                  <small>{currentTierLabel}</small>
+                </div>
+              </div>
+              <button
+                className="irn-drawer-close"
+                type="button"
+                onClick={() => setDrawerOpen(false)}
+                aria-label="Close menu"
+              >
+                <NavIcon type="close" size={17} />
+              </button>
+            </div>
+
+            {/* Drawer Body */}
+            <div className="irn-drawer-body">
+              {groups.map(group => {
+                if (group.label === 'My Rewards') {
+                  return (
+                    <button
+                      key={group.label}
+                      type="button"
+                      className="irn-drawer-aug-btn"
+                      onClick={() => { setDrawerOpen(false); runItem(group.items[0]) }}
+                    >
+                      <span>🪙 {group.items[0].label}</span>
+                      <span className="irn-drawer-arrow">→</span>
+                    </button>
+                  )
+                }
+
+                const isExpanded = openDrawerSection === group.label
+                return (
+                  <div className={`irn-drawer-section ${isExpanded ? 'is-open' : ''}`} key={group.label}>
+                    <button
+                      type="button"
+                      className="irn-drawer-section-head"
+                      onClick={() => setOpenDrawerSection(prev => prev === group.label ? null : group.label)}
+                    >
+                      <span>{group.label}</span>
+                      <span className={`irn-drawer-chevron ${isExpanded ? 'rotated' : ''}`}>
+                        <NavIcon type="chevron" size={14} />
+                      </span>
+                    </button>
+                    {isExpanded && (
+                      <div className="irn-drawer-sublist">
+                        {group.items.map(item => (
+                          <button
+                            key={item.label}
+                            type="button"
+                            className="irn-drawer-link"
+                            onClick={() => { setDrawerOpen(false); runItem(item) }}
+                          >
+                            <span>{item.label}</span>
+                            {item.badge ? (
+                              <span className="irn-badge">{item.badge > 99 ? '99+' : item.badge}</span>
+                            ) : (
+                              <span className="irn-drawer-arrow">↗</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )
+              })}
+            </div>
+
+            {/* Drawer Footer Actions */}
+            <div className="irn-drawer-foot">
+              {actions.filter(a => a.variant !== 'danger').map(item => (
+                <button
+                  key={item.label}
+                  type="button"
+                  className="irn-drawer-foot-btn"
+                  onClick={() => {
+                    setDrawerOpen(false)
+                    item.action ? item.action() : (item.path ? navigate(item.path) : logout())
+                  }}
+                >
+                  <NavIcon type={item.icon || 'dot'} size={16} />
+                  <span>{item.label}</span>
+                  {item.badge ? <span className="irn-badge">{item.badge}</span> : null}
+                </button>
               ))}
-            </nav>
-            <button className="irn-mobile-toggle" type="button" onClick={() => setMenuOpen(open => !open)} aria-label="Toggle navigation" aria-expanded={menuOpen}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
-            </button>
-            <div className="irn-actions">
-  {actions.map(item => {
-    const iconOnly = item.icon === 'bell'
-    return (
-      <button key={item.label} type="button" className={`irn-action ${item.variant === 'danger' ? 'danger' : ''}`} onClick={() => item.action ? item.action() : logout()} title={item.label}>
-        <NavIcon type={item.icon || 'dot'} />{!iconOnly && item.label}
-        {item.badge ? <span className="irn-badge">{item.badge > 99 ? '99+' : item.badge}</span> : null}
-      </button>
-    )
-  })}
-</div>
-          </div>
-        </header>
-        <div className="irn-top-spacer" />
+              <button
+                type="button"
+                className="irn-drawer-logout-btn"
+                onClick={() => { setDrawerOpen(false); logout() }}
+              >
+                <NavIcon type="logout" size={17} />
+                <span>LOGOUT</span>
+              </button>
+            </div>
+          </aside>
+        </>
+      )}
     </>
   )
 }

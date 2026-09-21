@@ -122,29 +122,54 @@ export default function Distributor() {
     fetchData(controller.signal, 0, search, false)
   }
 
-  const exportCSV = () => {
+  const [downloading, setDownloading] = useState(false)
+
+  const downloadReport = async () => {
     if (!rows.length) return
-    const headers = ['S.No', 'Distributor ID', 'First Name', 'Last Name', 'Email', 'Mobile', 'City']
-    const csvRows = rows.map((r, i) => [
-      i + 1,
-      `"${r.dealer_id || ''}"`,
-      `"${(r.first_name || '').replace(/"/g, '""')}"`,
-      `"${(r.last_name || '').replace(/"/g, '""')}"`,
-      `"${(r.email || '').replace(/"/g, '""')}"`,
-      `"${r.mobile_number || ''}"`,
-      `"${(r.city_name || '').replace(/"/g, '""')}"`,
-    ])
-    const blob = new Blob([[headers.join(','), ...csvRows.map((r) => r.join(','))].join('\n')], {
-      type: 'text/csv;charset=utf-8;',
-    })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `distributors_${new Date().toISOString().slice(0, 10)}.csv`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    showToast('Exported Distributors CSV')
+    setDownloading(true)
+    try {
+      const columns = ['S.No', 'Distributor ID', 'Name', 'Email', 'Mobile', 'City']
+      const rowsPayload = rows.map((r, i) => [
+        i + 1,
+        r.dealer_id || '—',
+        `${r.first_name || ''} ${r.last_name || ''}`.trim() || '—',
+        r.email || '—',
+        r.mobile_number || '—',
+        r.city_name || '—',
+      ])
+      const statsPayload = [
+        { label: 'Total Distributors', value: totalCount },
+        { label: 'Today Active', value: stats.today_active },
+        { label: 'Today Inactive', value: stats.today_inactive },
+        { label: 'Today Orders', value: stats.today_orders },
+      ]
+      const res = await api.post(
+        '/generic-table-pdf/',
+        {
+          title: 'Distributor Directory Report',
+          subtitle: 'All Distributors under this network, with today’s activity.',
+          period_label: `Generated ${new Date().toLocaleDateString('en-IN')}`,
+          stats: statsPayload,
+          columns,
+          rows: rowsPayload,
+        },
+        { responseType: 'blob' }
+      )
+      const blob = new Blob([res.data], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `distributors_${new Date().toISOString().slice(0, 10)}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      showToast('Report downloaded successfully!')
+    } catch {
+      showToast('Failed to download report')
+    } finally {
+      setDownloading(false)
+    }
   }
 
   useEffect(() => {
@@ -761,13 +786,13 @@ export default function Distributor() {
               </svg>
               <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
             </button>
-            <button className="mu-export-btn" onClick={exportCSV} disabled={loading || !rows.length}>
+            <button className="mu-export-btn" onClick={downloadReport} disabled={loading || downloading || !rows.length}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              <span>Export CSV</span>
+              <span>{downloading ? 'Preparing...' : 'Download Report'}</span>
             </button>
           </div>
         </div>

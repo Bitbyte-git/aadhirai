@@ -1169,7 +1169,12 @@ useLayoutEffect(() => {
     setLoading(false)
   }
 
-  useEffect(() => { fetchHierarchy() }, [])
+  const hasFetchedRef = useRef(false)
+  useEffect(() => {
+    if (hasFetchedRef.current) return
+    hasFetchedRef.current = true
+    fetchHierarchy()
+  }, [])
 
   useEffect(() => {
   return () => {

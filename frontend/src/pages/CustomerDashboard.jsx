@@ -1891,8 +1891,7 @@ export default function CustomerDashboard() {
           .store-section { padding: 16px 0; }
           .store-heading h2 { font-size: 1.3rem; }
           .view-all-link { min-height: 34px; padding: 0 12px; font-size: 10.5px; align-self: flex-start; }
-          .hero-news-popover { top: 16px; right: 8px; align-items: flex-end; }
-          .hero-news-trigger { min-height: 32px; padding: 0 10px; font-size: 11px; }
+          .hero-news-popover { display: none !important; }
         }
 
         @media (max-width: 480px) {

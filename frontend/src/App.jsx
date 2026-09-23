@@ -348,6 +348,7 @@ export default function App() {
           <Route path="/collection/necklace-set" element={<Navigate to={collectionPath('necklaces')} replace />} />
           <Route path="/collection/offers" element={<Navigate to="/collection/all?price=below25k" replace />} />
           <Route path="/collection/gifting" element={<WithCustomerNavbar><AllCollection /></WithCustomerNavbar>} />
+          <Route path="/collection/gifting/filter" element={<WithCustomerNavbar><AllCollection /></WithCustomerNavbar>} />
           <Route path="/collection/new-arrivals" element={<Navigate to="/collection/all?new=true" replace />} />
 
           <Route path="/cart" element={<ProtectedRoute role={["customer", "promotor", "sub_dealer", "dealer", "admin"]}><WithCustomerNavbar><CardSection /></WithCustomerNavbar></ProtectedRoute>} />
@@ -359,6 +360,7 @@ export default function App() {
           <Route path="/add-banners" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><AddBanners /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/home-banner" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><HomeBanner /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/collection/all" element={<WithCustomerNavbar><AllCollection /></WithCustomerNavbar>} />
+          <Route path="/collection/all/filter" element={<WithCustomerNavbar><AllCollection /></WithCustomerNavbar>} />
           <Route path="/collection/coins" element={<WithCustomerNavbar><CoinsCollection /></WithCustomerNavbar>} />
           <Route path="/gold-coins" element={<Navigate to={coinsPath('gold')} replace />} />
           <Route path="/silver-coins" element={<Navigate to={coinsPath('silver')} replace />} />

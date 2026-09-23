@@ -278,7 +278,7 @@ function DealerQuickStats() {
           </div>
         ))
       )}
-      <style>{`@media(max-width:1180px){.dl-qstats{grid-template-columns:repeat(2,minmax(0,1fr))!important}}@media(max-width:760px){.dl-qstats{grid-template-columns:1fr!important;margin-left:14px!important;margin-right:14px!important}}`}</style>
+      <style>{`@media(max-width:1180px){.dl-qstats{grid-template-columns:repeat(2,minmax(0,1fr))!important}}@media(max-width:760px){.dl-qstats{grid-template-columns:repeat(2,minmax(0,1fr))!important;margin-left:14px!important;margin-right:14px!important}.dl-qstats>div{padding:14px!important;min-height:0!important}.dl-qstats>div>div:first-child{width:36px!important;height:36px!important;margin-bottom:8px!important}.dl-qstats>div>div:first-child svg{width:18px!important;height:18px!important}.dl-qstats>div>div:nth-child(2){font-size:9.5px!important;margin-bottom:6px!important}.dl-qstats>div>div:nth-child(3) span:first-child{font-size:20px!important}.dl-qstats>div>div:nth-child(4){font-size:11px!important;margin-top:6px!important}}`}</style>
     </div>
   )
 }

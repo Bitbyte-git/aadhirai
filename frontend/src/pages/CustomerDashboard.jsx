@@ -798,7 +798,7 @@ export default function CustomerDashboard() {
           z-index: 4;
           margin-top: 0;
           border-radius: 0;
-          background: rgba(253,253,252,0.96);
+          background: #F3F3F0;
           border-top: 1px solid #D1DFDE;
           border-bottom: 1px solid #D1DFDE;
           box-shadow: 0 8px 32px rgba(7,59,63,0.08);
@@ -1312,7 +1312,54 @@ export default function CustomerDashboard() {
           margin-left: 3px;
         }
 
+        .athirai-world-section { padding: clamp(38px, 4.5vw, 64px) 0 clamp(10px, 2vw, 20px); }
+        .athirai-world-heading { text-align: center; margin: 0 auto clamp(22px, 2.6vw, 32px); }
+        .athirai-world-heading h2 { color: #073B3F; font-family: Georgia, "Times New Roman", serif; font-size: clamp(26px, 2.6vw, 34px); font-weight: 700; }
+        .athirai-world-heading p { margin-top: 9px; color: #7A8987; font-size: 13.5px; }
+        /* Two independent columns instead of a shared-row grid, so
+           diagonally-opposite cards (Casual/Modern = tall, Wedding/
+           Traditional = short) can differ in height while cards stacked
+           in the same column still add up to roughly the same total. */
+        .athirai-world-grid { display: flex; gap: clamp(10px, 1.4vw, 18px); padding: 0 clamp(0px, 5vw, 90px); }
+        .athirai-world-col { display: flex; flex-direction: column; gap: clamp(10px, 1.4vw, 18px); flex: 1; min-width: 0; }
+        .athirai-world-card { position: relative; border: 0; padding: 0; cursor: pointer; border-radius: 10px; overflow: hidden; box-shadow: 0 14px 34px rgba(7,59,63,.09); }
+        .athirai-world-card.card-tall { aspect-ratio: 16 / 11; }
+        .athirai-world-card.card-short { aspect-ratio: 16 / 9.5; }
+        .athirai-world-card img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .3s ease; }
+        .athirai-world-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 45%, rgba(7,59,63,.82) 100%); }
+        .athirai-world-card:hover img { transform: scale(1.04); }
+        .athirai-world-card-label { position: absolute; left: 0; right: 0; bottom: 16px; z-index: 2; color: #fff; font-family: Georgia, "Times New Roman", serif; font-size: 19px; font-weight: 700; text-align: center; }
+
+        @media (max-width: 680px) {
+          .athirai-world-grid { gap: 8px; }
+          .athirai-world-col { gap: 8px; }
+          .athirai-world-card { border-radius: 8px; }
+          .athirai-world-card-label { font-size: 14px; bottom: 10px; }
+        }
+
         /* Premium featured collection */
+        .gender-section { padding: clamp(38px, 4.5vw, 64px) 0 clamp(10px, 2vw, 20px); }
+        .gender-heading { text-align: center; max-width: 560px; margin: 0 auto clamp(28px, 3vw, 40px); }
+        .gender-kicker { display: inline-flex; align-items: center; gap: 10px; color: #C59A68; margin-bottom: 12px; }
+        .gender-kicker i { width: 28px; height: 1px; background: #C59A68; }
+        .gender-kicker em { font-style: normal; font-size: 15px; color: #A2764C; }
+        .gender-kicker-label { display: block; color: #A2764C; font-size: 11px; font-weight: 800; letter-spacing: .18em; margin-bottom: 10px; }
+        .gender-heading h2 { color: #073B3F; font-family: Georgia, "Times New Roman", serif; font-size: clamp(26px, 2.6vw, 34px); font-weight: 700; }
+        .gender-heading p { margin-top: 9px; color: #7A8987; font-size: 13.5px; }
+        .gender-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(14px, 1.6vw, 24px); }
+        .gender-card { border: 0; background: none; padding: 0; cursor: pointer; text-align: center; display: flex; flex-direction: column; gap: 14px; }
+        .gender-card-image { display: block; border-radius: 18px; overflow: hidden; aspect-ratio: 4 / 5; background: linear-gradient(160deg,#f5f2ec,#ecefeb); box-shadow: 0 14px 34px rgba(7,59,63,.09); transition: transform .3s ease, box-shadow .3s ease; }
+        .gender-card-image img { width: 100%; height: 100%; object-fit: cover; }
+        .gender-card:hover .gender-card-image { transform: translateY(-6px); box-shadow: 0 22px 48px rgba(7,59,63,.16); }
+        .gender-card-label { font-family: Georgia, "Times New Roman", serif; font-size: 15px; font-weight: 700; color: #9F6130; }
+
+        @media (max-width: 680px) {
+          .gender-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+          .gender-card { gap: 8px; }
+          .gender-card-image { border-radius: 12px; }
+          .gender-card-label { font-size: 11px; }
+        }
+
         .featured-section { position: relative; padding: clamp(42px, 5vw, 76px) 0; }
         .featured-section::before { content: ''; position: absolute; left: 50%; top: 0; width: 100vw; height: 100%; transform: translateX(-50%); z-index: -1; background: radial-gradient(circle at 8% 25%, rgba(204,168,129,.12), transparent 25%), linear-gradient(180deg,#fff,#f8faf8 52%,#fff); border-top: 1px solid rgba(209,223,222,.7); border-bottom: 1px solid rgba(209,223,222,.55); }
         .featured-section .store-heading { align-items: flex-end; margin-bottom: clamp(24px,3vw,38px); }
@@ -1363,9 +1410,9 @@ export default function CustomerDashboard() {
           .featured-section .product-body { padding: 12px; }
           .featured-section .product-body h3 { font-size: 14px; margin-bottom: 10px; }
           .featured-section .product-price { font-size: 13px; }
-          .featured-section .product-cart-btn { width: 34px; height: 34px; }
+          .featured-section .product-cart-btn { width: 34px !important; height: 34px !important; }
           .product-badge { top: 8px; left: 8px; padding: 5px 7px; font-size: 7px; }
-          .featured-section .wish-btn { top: 8px; right: 8px; width: 31px; height: 31px; }
+          .featured-section .wish-btn { top: 8px; right: 8px; width: 31px !important; height: 31px !important; }
           .product-quick-view { display: none; }
         }
 
@@ -1807,6 +1854,7 @@ export default function CustomerDashboard() {
         @media (max-width: 768px) {
           .store-shell { width: calc(100% - 28px); }
           .store-banner { aspect-ratio: 16 / 7; }
+          .store-banner img { object-position: 25% center; }
           .product-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
           .newsletter {
             grid-template-columns: 1fr;
@@ -1877,10 +1925,10 @@ export default function CustomerDashboard() {
           .product-card { border-radius: 12px; }
           .product-img { min-height: 130px; }
           .product-body { padding: 8px; }
-          .product-body h3 { font-size: 12.5px; margin-bottom: 6px; line-height: 1.25; min-height: 30px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+          .product-body h3 { font-size: 12.5px; margin-bottom: 6px; line-height: 1.25; min-height: 30px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
           .product-price { font-size: 13.5px; }
-          .product-cart-btn { width: 32px; height: 32px; }
-          .wish-btn { width: 30px; height: 30px; top: 6px; right: 6px; }
+          .featured-section .product-cart-btn { width: 32px; height: 32px; }
+          .featured-section .wish-btn { width: 30px; height: 30px; top: 6px; right: 6px; }
           .product-badge { top: 6px; left: 6px; padding: 4px 7px; font-size: 7.5px; }
           .newsletter { padding: 18px 14px; grid-template-columns: 1fr; text-align: center; border-radius: 14px; }
           .newsletter-icon-wrap { margin: 0 auto 8px; width: 44px; height: 44px; }
@@ -1890,7 +1938,7 @@ export default function CustomerDashboard() {
           .store-heading { flex-direction: column; align-items: flex-start; gap: 6px; }
           .store-section { padding: 16px 0; }
           .store-heading h2 { font-size: 1.3rem; }
-          .view-all-link { min-height: 34px; padding: 0 12px; font-size: 10.5px; align-self: flex-start; }
+          .featured-section .store-heading .view-all-link { min-height: 34px; padding: 0 12px; font-size: 10.5px; align-self: flex-start; }
           .hero-news-popover { display: none !important; }
         }
 
@@ -1904,7 +1952,7 @@ export default function CustomerDashboard() {
           .store-cat span { font-size: 9.5px; }
           .product-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 6px !important; }
           .product-body { padding: 7px 6px; }
-          .product-body h3 { font-size: 11.5px; min-height: 28px; }
+          .product-body h3 { font-size: 11.5px; min-height: 30px; white-space: normal; }
           .store-promo-content h3 { font-size: 15px; }
           .store-heading h2 { font-size: 1.15rem; }
           .store-promo { flex: 0 0 min(84vw, 250px); }
@@ -2298,6 +2346,69 @@ export default function CustomerDashboard() {
                 </button>
               ))}
             </div>
+          </div>
+        </section>
+
+        <section className="store-section athirai-world-section">
+          <div className="athirai-world-heading">
+            <h2>Athirai World</h2>
+            <p>A companion for every occasion</p>
+          </div>
+          <div className="athirai-world-grid">
+            {[
+              [
+                { label: "Wedding", route: "/collection/all?wedding=true", image: "/occasion-wedding.png", size: "short" },
+                { label: "Modern", route: "/collection/all?occasion=Modern Wear", image: "/occasion-modern.png", size: "tall" },
+              ],
+              [
+                { label: "Casual", route: "/collection/all?dailywear=true", image: "/occasion-casual.png", size: "tall" },
+                { label: "Traditional", route: "/collection/all?occasion=Traditional Wear", image: "/occasion-traditional.png", size: "short" },
+              ],
+            ].map((column, colIndex) => (
+              <div className="athirai-world-col" key={colIndex}>
+                {column.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    className={`athirai-world-card card-${item.size}`}
+                    onClick={() => navigate(item.route)}
+                  >
+                    <img src={item.image} alt="" />
+                    <span className="athirai-world-card-label">{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="store-section gender-section">
+          <div className="gender-heading">
+            <span className="gender-kicker">
+              <i /> <em>◇</em> <i />
+            </span>
+            <span className="gender-kicker-label">SHOP BY GENDER</span>
+            <h2>Shop by Gender</h2>
+            <p>Find Jewelry for Women, Men, and Kids</p>
+          </div>
+          <div className="gender-grid">
+            {[
+              { label: "Women's Jewellery", route: "/collection/all?gender=women", image: "/gender-women.png" },
+              { label: "Men's Jewellery", route: "/collection/all?gender=men", image: "/gender-men.png" },
+              { label: "Kid's Jewellery", route: "/collection/all?gender=kids", image: "/gender-kids.png" },
+            ].map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                className="gender-card"
+                onClick={() => navigate(item.route)}
+              >
+                <span className="gender-card-image">
+                  <img src={item.image} alt="" />
+                </span>
+                <span className="gender-card-label">{item.label}</span>
+              </button>
+            ))}
           </div>
         </section>
 

@@ -181,12 +181,210 @@ function CoinCard({ product, rates, navigate, wishlisted, onWishlist }) {
   )
 }
 
+const COIN_SORT_OPTIONS = [
+  ['Featured', 'featured'],
+  ['Weight: Low to High', 'weight-low'],
+  ['Weight: High to Low', 'weight-high'],
+]
+
+// Real weights each metal is actually sold in — matches CATEGORY_SUBCATEGORIES
+// (categoryConfig.js) goldcoin/coin.gold and coin.silver lists. Showing the
+// full combined list regardless of metal let people pick a weight (like
+// "40 g") that only exists for the other metal, silently zeroing results.
+const GOLD_COIN_WEIGHTS = ['50 mg', '100 mg', '200 mg', '250 mg', '500 mg', '1 g', '2 g', '4 g', '8 g', '16 g', '40 g']
+const SILVER_COIN_WEIGHTS = ['250 mg', '500 mg', '1 g', '2 g', '5 g', '10 g', '20 g', '50 g', '100 g']
+const ALL_COIN_WEIGHTS = [...new Set([...GOLD_COIN_WEIGHTS, ...SILVER_COIN_WEIGHTS])].sort((a, b) => {
+  const toGrams = (w) => w.includes('mg') ? parseFloat(w) / 1000 : parseFloat(w)
+  return toGrams(a) - toGrams(b)
+})
+
+// Shown as its own group inside the Sort By sheet, per request — narrows to
+// a price bracket rather than reordering the list.
+const COIN_PRICE_RANGES = [
+  ['0 - 1,000', '0-1000'],
+  ['1,000 - 5,000', '1000-5000'],
+  ['5,000 - 10,000', '5000-10000'],
+  ['10,000 - 25,000', '10000-25000'],
+  ['25,000 Above', '25000-above'],
+]
+
+function productMatchesPriceRange(price, rangeValue) {
+  if (!rangeValue) return true
+  if (rangeValue.endsWith('-above')) {
+    const min = parseFloat(rangeValue)
+    return price >= min
+  }
+  const [min, max] = rangeValue.split('-').map(Number)
+  return price >= min && price <= max
+}
+
+// Mobile-only slide-up sheet — mirrors the pattern used on the All
+// Jewellery collection page for visual consistency, kept local to this
+// file since it's the only page that needs it here.
+function CoinMobileSheet({ title, open, onClose, children, footer }) {
+  return (
+    <>
+      <div className={`coin-sheet-backdrop ${open ? 'open' : ''}`} onClick={onClose} />
+      <div className={`coin-sheet ${open ? 'open' : ''}`} role="dialog" aria-modal="true" aria-hidden={!open}>
+        <div className="coin-sheet-handle" />
+        <div className="coin-sheet-header">
+          <h3>{title}</h3>
+          <button type="button" className="coin-sheet-close" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div className="coin-sheet-body">{children}</div>
+        {footer && <div className="coin-sheet-footer">{footer}</div>}
+      </div>
+    </>
+  )
+}
+
+// Mobile-only "Sort | Filter" bar, replacing the native <select> + always-
+// visible sidebar on small screens. Desktop keeps the existing toolbar and
+// sidebar untouched.
+function CoinSortFilterBar({ sortBy, setSortBy, isGold, isAllMetals, metalFilter, weightFilter, priceFilter, selectMetal, selectWeight, selectPrice, clearWeightAndPrice, coinWeights }) {
+  const [sheet, setSheet] = useState(null) // null | 'sort' | 'filter'
+  const hasWeightFilter = Boolean(weightFilter)
+  const hasPriceFilter = Boolean(priceFilter)
+  const hasActiveSort = sortBy !== 'featured' || hasPriceFilter
+  const hasActiveFilter = hasWeightFilter || !isAllMetals
+
+  return (
+    <>
+      <div className="coin-sort-filter-bar">
+        <button type="button" className="coin-sf-btn" onClick={() => setSheet('sort')}>
+          Sort {hasActiveSort && <span className="coin-sf-dot" />}
+        </button>
+        <span className="coin-sf-divider" />
+        <button type="button" className="coin-sf-btn" onClick={() => setSheet('filter')}>
+          Filter {hasActiveFilter && <span className="coin-sf-dot" />}
+        </button>
+      </div>
+
+      <CoinMobileSheet
+        title="Sort By"
+        open={sheet === 'sort'}
+        onClose={() => setSheet(null)}
+        footer={
+          hasPriceFilter ? (
+            <button
+              type="button"
+              className="coin-sheet-btn-ghost"
+              onClick={() => { selectPrice(''); setSheet(null) }}
+            >
+              Clear Price Range
+            </button>
+          ) : null
+        }
+      >
+        <div className="coin-sheet-options">
+          {COIN_SORT_OPTIONS.map(([label, value]) => (
+            <button
+              key={value}
+              type="button"
+              // Sort and Price Range live in one sheet, so only one checkmark
+              // shows at a time — picking a sort clears any price range.
+              className={`coin-sheet-option ${sortBy === value && !hasPriceFilter ? 'active' : ''}`}
+              onClick={() => { setSortBy(value); if (hasPriceFilter) selectPrice(''); setSheet(null) }}
+            >
+              {label}
+              {sortBy === value && !hasPriceFilter && <span>✓</span>}
+            </button>
+          ))}
+        </div>
+        <div className="coin-sheet-group">
+          <div className="coin-sheet-group-title">Price Range</div>
+          <div className="coin-sheet-options">
+            {COIN_PRICE_RANGES.map(([label, value]) => (
+              <button
+                key={value}
+                type="button"
+                className={`coin-sheet-option ${priceFilter === value ? 'active' : ''}`}
+                onClick={() => {
+                  const next = priceFilter === value ? '' : value
+                  selectPrice(next)
+                  if (next) setSortBy('featured')
+                  setSheet(null)
+                }}
+              >
+                {label}
+                {priceFilter === value && <span>✓</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      </CoinMobileSheet>
+
+      <CoinMobileSheet
+        title="Filter"
+        open={sheet === 'filter'}
+        onClose={() => setSheet(null)}
+        footer={
+          hasWeightFilter || hasPriceFilter ? (
+            <button
+              type="button"
+              className="coin-sheet-btn-ghost"
+              onClick={() => { clearWeightAndPrice(); setSheet(null) }}
+            >
+              Clear Weight &amp; Price
+            </button>
+          ) : null
+        }
+      >
+        <div className="coin-sheet-group">
+          <div className="coin-sheet-group-title">Metal &amp; Purity</div>
+          <div className="coin-sheet-options">
+            <button
+              type="button"
+              className={`coin-sheet-option ${isAllMetals ? 'active' : ''}`}
+              onClick={() => { selectMetal(''); setSheet(null) }}
+            >
+              All Coins {isAllMetals && <span>✓</span>}
+            </button>
+            <button
+              type="button"
+              className={`coin-sheet-option ${metalFilter === 'silver' ? 'active' : ''}`}
+              onClick={() => { selectMetal('silver'); setSheet(null) }}
+            >
+              Silver Coins {metalFilter === 'silver' && <span>✓</span>}
+            </button>
+            <button
+              type="button"
+              className={`coin-sheet-option ${isGold ? 'active' : ''}`}
+              onClick={() => { selectMetal('gold', '22k'); setSheet(null) }}
+            >
+              Gold Coins {isGold && <span>✓</span>}
+            </button>
+          </div>
+        </div>
+        <div className="coin-sheet-group">
+          <div className="coin-sheet-group-title">Coin Weight</div>
+          <div className="coin-sheet-options">
+            {coinWeights.map((weight) => (
+              <button
+                key={weight}
+                type="button"
+                className={`coin-sheet-option ${weightFilter === weight ? 'active' : ''}`}
+                onClick={() => { selectWeight(weightFilter === weight ? '' : weight); setSheet(null) }}
+              >
+                {weight}
+                {weightFilter === weight && <span>✓</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      </CoinMobileSheet>
+    </>
+  )
+}
+
 export default function CoinsCollection() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const metalFilter = searchParams.get('metal') || 'silver'
+  // Empty string means "All Coins" (both metals) — the default landing view.
+  const metalFilter = searchParams.get('metal') || ''
   const gradeFilter = searchParams.get('grade')
   const weightFilter = searchParams.get('weight')
+  const priceFilter = searchParams.get('price')
 
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -195,6 +393,7 @@ export default function CoinsCollection() {
   const [sortBy, setSortBy] = useState('featured')
 
   const isGold = metalFilter === 'gold'
+  const isAllMetals = !metalFilter
 
   useEffect(() => {
     api.get('/metal-rates/')
@@ -220,7 +419,8 @@ export default function CoinsCollection() {
     const loadCoins = async () => {
       setLoading(true)
       try {
-        let url = `/jewelry-products/?category=coins&metal=${encodeURIComponent(metalFilter)}`
+        let url = '/jewelry-products/?category=coins'
+        if (metalFilter) url += `&metal=${encodeURIComponent(metalFilter)}`
         if (gradeFilter) url += `&grade=${encodeURIComponent(gradeFilter)}`
         const res = await api.get(url)
         let list = normalizeProductList(res.data)
@@ -253,7 +453,10 @@ export default function CoinsCollection() {
   }, [metalFilter, gradeFilter, weightFilter])
 
   const sortedProducts = useMemo(() => {
-    const list = [...products]
+    let list = [...products]
+    if (priceFilter) {
+      list = list.filter(product => productMatchesPriceRange(getCoinPrice(product, rates).price, priceFilter))
+    }
     if (sortBy === 'price-low') {
       list.sort((a, b) => getCoinPrice(a, rates).price - getCoinPrice(b, rates).price)
     }
@@ -267,7 +470,7 @@ export default function CoinsCollection() {
       list.sort((a, b) => (Number(b.net_weight) || 0) - (Number(a.net_weight) || 0))
     }
     return list
-  }, [products, rates, sortBy])
+  }, [products, rates, sortBy, priceFilter])
 
   const toggleWishlist = async productId => {
     setWishlistedIds(prev => {
@@ -288,14 +491,26 @@ export default function CoinsCollection() {
     }
   }
 
-  const selectMetal = (metal, grade = '') => {
-    let url = `/collection/coins?metal=${metal}`
-    if (grade) url += `&grade=${grade}`
-    if (weightFilter) url += `&weight=${encodeURIComponent(weightFilter)}`
-    navigate(url)
-  }
+  const coinWeights = isGold
+    ? GOLD_COIN_WEIGHTS
+    : metalFilter === 'silver'
+      ? SILVER_COIN_WEIGHTS
+      : ALL_COIN_WEIGHTS
 
-  const coinWeights = ['50 mg', '100 mg', '250 mg', '500 mg', '1 g', '2 g', '5 g', '10 g', '20 g', '50 g', '100 g']
+  const selectMetal = (metal, grade = '') => {
+    const nextWeights = metal === 'gold' ? GOLD_COIN_WEIGHTS : metal === 'silver' ? SILVER_COIN_WEIGHTS : ALL_COIN_WEIGHTS
+    // Clear the weight filter if it doesn't apply to the metal being
+    // switched to (e.g. "40 g" only exists for Gold) — otherwise the
+    // results silently go empty with no obvious explanation.
+    const keepWeight = weightFilter && nextWeights.includes(weightFilter) ? weightFilter : ''
+    const params = new URLSearchParams()
+    if (metal) params.set('metal', metal)
+    if (grade) params.set('grade', grade)
+    if (keepWeight) params.set('weight', keepWeight)
+    if (priceFilter) params.set('price', priceFilter)
+    const query = params.toString()
+    navigate(`/collection/coins${query ? `?${query}` : ''}`)
+  }
 
   const coinQuickLinks = [
     { label: 'Silver 100mg', metal: 'silver', weight: '100 mg', image: '/coin/100mg.silver.png' },
@@ -309,10 +524,31 @@ export default function CoinsCollection() {
   ]
 
   const selectWeight = weight => {
-    let url = `/collection/coins?metal=${metalFilter}`
-    if (gradeFilter) url += `&grade=${gradeFilter}`
-    if (weight) url += `&weight=${encodeURIComponent(weight)}`
-    navigate(url)
+    const params = new URLSearchParams()
+    if (metalFilter) params.set('metal', metalFilter)
+    if (gradeFilter) params.set('grade', gradeFilter)
+    if (weight) params.set('weight', weight)
+    if (priceFilter) params.set('price', priceFilter)
+    const query = params.toString()
+    navigate(`/collection/coins${query ? `?${query}` : ''}`)
+  }
+
+  const selectPrice = price => {
+    const params = new URLSearchParams()
+    if (metalFilter) params.set('metal', metalFilter)
+    if (gradeFilter) params.set('grade', gradeFilter)
+    if (weightFilter) params.set('weight', weightFilter)
+    if (price) params.set('price', price)
+    const query = params.toString()
+    navigate(`/collection/coins${query ? `?${query}` : ''}`)
+  }
+
+  const clearWeightAndPrice = () => {
+    const params = new URLSearchParams()
+    if (metalFilter) params.set('metal', metalFilter)
+    if (gradeFilter) params.set('grade', gradeFilter)
+    const query = params.toString()
+    navigate(`/collection/coins${query ? `?${query}` : ''}`)
   }
 
   const liveRate = isGold
@@ -942,6 +1178,188 @@ export default function CoinsCollection() {
           margin: 0 auto 16px;
         }
 
+        /* Mobile Sort | Filter bar — hidden on desktop, where the toolbar
+           select + always-visible sidebar above already cover this. */
+        .coin-sort-filter-bar-mobile {
+          display: none;
+        }
+
+        .coin-sort-filter-bar {
+          display: flex;
+          align-items: stretch;
+          border: 1.5px solid #D1DFDE;
+          border-radius: 12px;
+          background: #fff;
+          overflow: hidden;
+        }
+
+        .coin-sf-btn {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          border: 0;
+          background: transparent;
+          padding: 11px 10px;
+          font-size: 13px;
+          font-weight: 800;
+          color: #073B3F;
+          cursor: pointer;
+        }
+
+        .coin-sf-btn:active {
+          background: #F3F3F0;
+        }
+
+        .coin-sf-divider {
+          width: 1px;
+          background: #D1DFDE;
+        }
+
+        .coin-sf-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #C92035;
+        }
+
+        .coin-sheet-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(7,31,34,0.45);
+          z-index: 1400;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.25s ease;
+        }
+
+        .coin-sheet-backdrop.open {
+          opacity: 1;
+          pointer-events: auto;
+        }
+
+        .coin-sheet {
+          position: fixed;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 1401;
+          background: #fff;
+          border-radius: 18px 18px 0 0;
+          max-height: 78vh;
+          display: flex;
+          flex-direction: column;
+          transform: translateY(100%);
+          transition: transform 0.28s cubic-bezier(.32,.72,0,1);
+          box-shadow: 0 -12px 40px rgba(7,31,34,0.18);
+        }
+
+        .coin-sheet.open {
+          transform: translateY(0);
+        }
+
+        .coin-sheet-handle {
+          width: 36px;
+          height: 4px;
+          border-radius: 999px;
+          background: #e0dad0;
+          margin: 10px auto 0;
+          flex-shrink: 0;
+        }
+
+        .coin-sheet-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 18px 10px;
+          border-bottom: 1px solid #F3F3F0;
+          flex-shrink: 0;
+        }
+
+        .coin-sheet-header h3 {
+          margin: 0;
+          font-size: 15.5px;
+          font-weight: 800;
+          color: #073B3F;
+        }
+
+        .coin-sheet-close {
+          border: 0;
+          background: #F3F3F0;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          font-size: 13px;
+          cursor: pointer;
+          color: #073B3F;
+        }
+
+        .coin-sheet-body {
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+          padding: 10px 14px;
+        }
+
+        .coin-sheet-footer {
+          border-top: 1px solid #F3F3F0;
+          padding: 12px 18px;
+          flex-shrink: 0;
+        }
+
+        .coin-sheet-btn-ghost {
+          width: 100%;
+          border: 1.5px solid #D1DFDE;
+          background: #fff;
+          border-radius: 10px;
+          padding: 11px;
+          font-size: 13px;
+          font-weight: 700;
+          color: #073B3F;
+          cursor: pointer;
+        }
+
+        .coin-sheet-group {
+          margin-bottom: 18px;
+        }
+
+        .coin-sheet-group-title {
+          font-size: 12.5px;
+          font-weight: 800;
+          color: #7A8987;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          margin-bottom: 8px;
+          padding: 0 4px;
+        }
+
+        .coin-sheet-options {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .coin-sheet-option {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border: 0;
+          background: transparent;
+          padding: 12px 12px;
+          font-size: 13.5px;
+          font-weight: 700;
+          color: #333;
+          border-radius: 8px;
+          cursor: pointer;
+          text-align: left;
+        }
+
+        .coin-sheet-option:active,
+        .coin-sheet-option.active {
+          background: #E7EDEC;
+          color: #073B3F;
+        }
+
         @media (max-width: 1280px) {
           .coins-grid {
             grid-template-columns: repeat(auto-fill, minmax(230px, 300px));
@@ -949,9 +1367,18 @@ export default function CoinsCollection() {
         }
 
         @media (max-width: 920px) {
-          .coins-hero,
+          .coins-hero {
+            display: none;
+          }
+
+          /* Replaced by .coin-sort-filter-bar-mobile below this breakpoint */
           .coins-toolbar {
-            grid-template-columns: 1fr;
+            display: none;
+          }
+
+          .coin-sort-filter-bar-mobile {
+            display: block;
+            margin-bottom: 18px;
           }
 
           .coins-grid {
@@ -959,17 +1386,13 @@ export default function CoinsCollection() {
           }
 
           .coins-catalog-layout {
-            grid-template-columns: 1fr;
+            grid-template-columns: minmax(0, 1fr);
           }
 
+          /* Filters now live in the Filter sheet — sidebar hidden here
+             instead of being shown inline (which duplicated it). */
           .coin-sidebar {
-            position: static;
-            max-height: none;
-          }
-
-          .coin-sidebar-body {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            display: none;
           }
 
           .coin-collection-rail-track {
@@ -1112,31 +1535,36 @@ export default function CoinsCollection() {
         <section className="coins-hero">
           <div className="coins-title-panel">
             <div className="coins-kicker">Certified Coin Collection</div>
-            <h1>{isGold ? 'Gold Coins' : 'Silver Coins'}</h1>
+            <h1>{isAllMetals ? 'All Coins' : isGold ? 'Gold Coins' : 'Silver Coins'}</h1>
             <p>
               {loading ? 'Curating coin products...' : `${sortedProducts.length} coin designs available`}
               {weightFilter ? ` - ${weightFilter}` : ''}
             </p>
           </div>
 
-          <aside className="coins-rate-panel">
-            <img src={isGold ? goldCoin : silverCoin} alt="" />
-            <div>
-              <span>Live backend rate</span>
-              <strong>{formatMoney(liveRate)}</strong>
-              <span>{isGold ? `${(gradeFilter || '22k').toUpperCase()} gold per gram` : 'Silver 999 per gram'}</span>
-            </div>
-            <span>Coin prices use saved product prices or live-rate calculation when weight is available.</span>
-          </aside>
+          {!isAllMetals && (
+            <aside className="coins-rate-panel">
+              <img src={isGold ? goldCoin : silverCoin} alt="" />
+              <div>
+                <span>Live backend rate</span>
+                <strong>{formatMoney(liveRate)}</strong>
+                <span>{isGold ? `${(gradeFilter || '22k').toUpperCase()} gold per gram` : 'Silver 999 per gram'}</span>
+              </div>
+              <span>Coin prices use saved product prices or live-rate calculation when weight is available.</span>
+            </aside>
+          )}
         </section>
 
         <section className="coins-toolbar">
           <div className="coin-filter-row">
-            <button className={`coin-chip ${!isGold ? 'active' : ''}`} type="button" onClick={() => selectMetal('silver')}>
-              Silver 999
+            <button className={`coin-chip ${isAllMetals ? 'active' : ''}`} type="button" onClick={() => selectMetal('')}>
+              All Coins
+            </button>
+            <button className={`coin-chip ${metalFilter === 'silver' ? 'active' : ''}`} type="button" onClick={() => selectMetal('silver')}>
+              Silver Coins
             </button>
             <button className={`coin-chip ${isGold ? 'active' : ''}`} type="button" onClick={() => selectMetal('gold', '22k')}>
-              Gold 22K
+              Gold Coins
             </button>
             {weightFilter && (
               <>
@@ -1145,9 +1573,12 @@ export default function CoinsCollection() {
                   className="coin-chip clear"
                   type="button"
                   onClick={() => {
-                    let url = `/collection/coins?metal=${metalFilter}`
-                    if (gradeFilter) url += `&grade=${gradeFilter}`
-                    navigate(url)
+                    const params = new URLSearchParams()
+                    if (metalFilter) params.set('metal', metalFilter)
+                    if (gradeFilter) params.set('grade', gradeFilter)
+                    if (priceFilter) params.set('price', priceFilter)
+                    const query = params.toString()
+                    navigate(`/collection/coins${query ? `?${query}` : ''}`)
                   }}
                 >
                   Clear weight
@@ -1164,6 +1595,23 @@ export default function CoinsCollection() {
             <option value="price-high">Price: High to Low</option>
           </select>
         </section>
+
+        <div className="coin-sort-filter-bar-mobile">
+          <CoinSortFilterBar
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            isGold={isGold}
+            isAllMetals={isAllMetals}
+            metalFilter={metalFilter}
+            weightFilter={weightFilter}
+            priceFilter={priceFilter}
+            selectMetal={selectMetal}
+            selectWeight={selectWeight}
+            selectPrice={selectPrice}
+            clearWeightAndPrice={clearWeightAndPrice}
+            coinWeights={coinWeights}
+          />
+        </div>
 
         <section className="coin-collection-rail" aria-label="Quick coin collections">
           <div className="coin-collection-rail-head">
@@ -1209,11 +1657,14 @@ export default function CoinsCollection() {
               <div className="coin-filter-group">
                 <span className="coin-filter-title">Metal &amp; purity</span>
                 <div className="coin-filter-options">
-                  <button className={`coin-filter-option ${!isGold ? 'active' : ''}`} type="button" onClick={() => selectMetal('silver')}>
-                    <span>Silver 999</span><i />
+                  <button className={`coin-filter-option ${isAllMetals ? 'active' : ''}`} type="button" onClick={() => selectMetal('')}>
+                    <span>All Coins</span><i />
+                  </button>
+                  <button className={`coin-filter-option ${metalFilter === 'silver' ? 'active' : ''}`} type="button" onClick={() => selectMetal('silver')}>
+                    <span>Silver Coins</span><i />
                   </button>
                   <button className={`coin-filter-option ${isGold ? 'active' : ''}`} type="button" onClick={() => selectMetal('gold', '22k')}>
-                    <span>Gold 22K</span><i />
+                    <span>Gold Coins</span><i />
                   </button>
                 </div>
               </div>
@@ -1233,9 +1684,25 @@ export default function CoinsCollection() {
                   ))}
                 </div>
               </div>
+
+              <div className="coin-filter-group">
+                <span className="coin-filter-title">Price range</span>
+                <div className="coin-filter-options">
+                  {COIN_PRICE_RANGES.map(([label, value]) => (
+                    <button
+                      key={value}
+                      className={`coin-filter-option ${priceFilter === value ? 'active' : ''}`}
+                      type="button"
+                      onClick={() => selectPrice(priceFilter === value ? '' : value)}
+                    >
+                      <span>{label}</span><i />
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <button className="coin-sidebar-clear" type="button" onClick={() => navigate('/collection/coins?metal=silver')}>
+            <button className="coin-sidebar-clear" type="button" onClick={() => navigate('/collection/coins')}>
               Clear all filters
             </button>
           </aside>

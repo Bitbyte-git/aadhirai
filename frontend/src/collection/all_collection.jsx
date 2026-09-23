@@ -32,6 +32,9 @@ import { getSubcategories, getGiftingSubcategories } from '../config/categoryCon
 
   const filterCategories = [
     ['All Jewellery', '/collection/all', null],
+    ['Gold Coins', '/collection/coins?metal=gold', null],
+    ['Silver Coins', '/collection/coins?metal=silver', null],
+    ['Silver Jewellery', '/collection/all?metal=silver', null],
     ['Necklaces', '/collection/all?category=necklaces', 'necklaces'],
     ['Earrings', '/collection/all?category=earrings', 'earrings'],
     ['Rings', '/collection/all?category=rings', 'rings'],
@@ -43,36 +46,52 @@ import { getSubcategories, getGiftingSubcategories } from '../config/categoryCon
     ['Necklace Set', '/collection/all?category=necklaces', 'necklaces'],
     ['Nose Pin', '/collection/all?category=nosepin', null],
     ['Anklets', '/collection/all?category=anklets', 'anklets'],
-    ['Coin & Bars', '/collection/coins', null],
   ]
 
+  // Matches the navbar's "Gold Jewellery" mega-menu (CustomerNavbar.jsx)
+  // category-for-category, plus Gold Coins and a Silver switch link per
+  // request — so the Filter page's list is the same one customers already
+  // know from the navbar, not a shorter, different one.
   const goldFilterCategories = [
     ['All Gold Jewellery', '/collection/all?metal=gold', null],
     ['Gold Coins', '/collection/coins?metal=gold', null],
+    ['Silver Coins', '/collection/coins?metal=silver', null],
+    ['Silver Jewellery', '/collection/all?metal=silver', null],
     ['Gold Rings', '/collection/all?metal=gold&category=rings', 'rings'],
-    ['Gold Earrings', '/collection/all?metal=gold&category=earrings', 'earrings'],
     ['Gold Bangles', '/collection/all?metal=gold&category=bangles', 'bangles'],
+    ['Gold Bracelets', '/collection/all?metal=gold&category=bracelets', 'bracelets'],
+    ['Gold Earrings', '/collection/all?metal=gold&category=earrings', 'earrings'],
     ['Gold Pendants', '/collection/all?metal=gold&category=pendants', 'pendants'],
     ['Gold Chains', '/collection/all?metal=gold&category=chains', 'chains'],
     ['Gold Necklaces', '/collection/all?metal=gold&category=necklaces', 'necklaces'],
     ['Gold Mangalsutra', '/collection/all?metal=gold&category=mangalsutra', 'mangalsutra'],
-    ['Gold Nose Pin', '/collection/all?metal=gold&category=nosepin', 'nosepin'],
     ['Gold Anklets', '/collection/all?metal=gold&category=anklets', 'anklets'],
-    ['Gold Coins & Bars', '/collection/coins?metal=gold', null],
+    ['Gold Maang Tikka', '/collection/all?metal=gold&category=maangtikka', 'maangtikka'],
+    ['Gold Kada', '/collection/all?metal=gold&category=kada', 'kada'],
+    ['Gold Nose Pins', '/collection/all?metal=gold&category=nosepin', 'nosepin'],
+    ['Gold Tie Pins', '/collection/all?metal=gold&category=tiepins', 'tiepins'],
+    ['Gold Ear Chains', '/collection/all?metal=gold&category=earchains', 'earchains'],
+    ['Gold Toe Rings', '/collection/all?metal=gold&category=toerings', 'toerings'],
+    ['Gold Armlets', '/collection/all?metal=gold&category=armlets', 'armlets'],
   ]
 
+// Matches the navbar's "Silver Jewellery" mega-menu, same reasoning as gold.
 const silverFilterCategories = [
   ['All Silver Jewellery', '/collection/all?metal=silver', null],
   ['Silver Coins', '/collection/coins?metal=silver', null],
+  ['Gold Coins', '/collection/coins?metal=gold', null],
+  ['Gold Jewellery', '/collection/all?metal=gold', null],
+  ['Silver Anklets', '/collection/all?metal=silver&category=anklets', 'anklets'],
   ['Silver Rings', '/collection/all?metal=silver&category=rings', 'rings'],
   ['Silver Earrings', '/collection/all?metal=silver&category=earrings', 'earrings'],
-  ['Silver Bangles', '/collection/all?metal=silver&category=bangles', 'bangles'],
   ['Silver Bracelets', '/collection/all?metal=silver&category=bracelets', 'bracelets'],
+  ['Silver Bangles', '/collection/all?metal=silver&category=bangles', 'bangles'],
   ['Silver Pendants', '/collection/all?metal=silver&category=pendants', 'pendants'],
   ['Silver Chains', '/collection/all?metal=silver&category=chains', 'chains'],
   ['Silver Necklaces', '/collection/all?metal=silver&category=necklaces', 'necklaces'],
-  ['Silver Anklets', '/collection/all?metal=silver&category=anklets', 'anklets'],
-  ['Silver Articles', '/collection/all?metal=silver', null],
+  ['Silver Toe Rings', '/collection/all?metal=silver&category=toerings', 'toerings'],
+  ['Silver Nose Pins', '/collection/all?metal=silver&category=nosepin', 'nosepin'],
+  ['Silver Articles', '/collection/all?metal=silver&category=articles', 'articles'],
 ]
 
 const weddingFilterCategories = [
@@ -305,6 +324,7 @@ const giftingFilterCategories = [
     if (type === 'grid') return <svg {...common}><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></svg>
     if (type === 'list') return <svg {...common}><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></svg>
     if (type === 'arrow') return <svg {...common}><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></svg>
+    if (type === 'gem') return <svg {...common}><path d="M2.5 9 6 4h12l3.5 5-9.5 11L2.5 9Z" /><path d="M2.5 9h19" /><path d="M9 4 6.5 9 12 20l5.5-11L15 4" /></svg>
     return <svg {...common}><path d="M12 3 20 7v5c0 4.8-3.2 7.8-8 9-4.8-1.2-8-4.2-8-9V7l8-4Z" /><path d="M12 8v7" /><path d="M9.5 12h5" /></svg>
   }
 
@@ -456,6 +476,63 @@ function SkeletonGrid({ count = 8 }) {
   )
 }
 
+// Reuses existing site photos (home page category rail + the Shop-by-Category
+// tiles already in this file) so the icon look stays consistent. Matched by
+// exact label rather than `key`, since a couple of filterCategories entries
+// (e.g. "Necklaces" and "Necklace Set") share the same key. Categories
+// without a confirmed-existing photo fall back to the generic gem icon —
+// note categoryTiles' own '/diamond Earings.jpg' path is missing from
+// public/, so it's deliberately not reused here for Earrings/Nose Pin.
+const CATEGORY_RAIL_IMAGES = {
+  'Necklaces': '/landing-img/necklace.png',
+  'Earrings': '/landing-img/earings.png',
+  'Rings': '/landing-img/rings.png',
+  'Bracelets': '/landing-img/bracklets.png',
+  'Pendants': '/landing-img/pendants.png',
+  'Chains': '/landing-img/chains.png',
+  'Bangles': '/landing-img/bangles.png',
+  'Mangalsutra': '/black_necklaces.png',
+  'Necklace Set': '/wedding_necklaces.jpg',
+  'Coin & Bars': '/coin/200mg.png',
+  'Coins': '/coin/200mg.png',
+  'Coins & Bars': '/coin/200mg.png',
+  'Gold Coins': '/coin/200mg.gold.png',
+  'Silver Coins': '/coin/silver5gm.png',
+  'Silver Jewellery': '/landing-img/silvers.png',
+  'Gold Jewellery': '/gold-women.png',
+}
+
+function CategoryRail({ categories, activeKey, navigate }) {
+  return (
+    <div className="an-cat-rail">
+      {categories.map(([label, route, key]) => {
+        // Metal-scoped lists use "Gold Rings" / "Silver Rings" etc. —
+        // strip the metal prefix so they still match the base image map.
+        const bareLabel = label.replace(/^(Gold|Silver)\s+/, '')
+        const image = CATEGORY_RAIL_IMAGES[label] || CATEGORY_RAIL_IMAGES[bareLabel] || null
+        const isActive = key ? key === activeKey : label.startsWith('All') && !activeKey
+        return (
+          <button
+            key={label}
+            type="button"
+            className={`an-cat-rail-item ${isActive ? 'active' : ''}`}
+            onClick={() => navigate(route)}
+          >
+            <span className="an-cat-rail-frame">
+              {image ? (
+                <img src={image} alt="" />
+              ) : (
+                <Icon type={label === 'All Jewellery' ? 'grid' : 'gem'} size={22} />
+              )}
+            </span>
+            <span>{label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subcategoryFilter, activeScrollSub, isWedding, isGifting, giftTagFilter, giftTypeFilter }) {
   const { wrapRef, asideRef, style } = useFixedSidebar()
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
@@ -497,6 +574,11 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
 
   return (
     <div ref={wrapRef} className="an-filter-wrap">
+      {/* Mobile-only horizontal category rail (Flipkart-style quick browse) */}
+      <div className="an-cat-rail-mobile">
+        <CategoryRail categories={categories} activeKey={activeKey} navigate={navigate} />
+      </div>
+
       {/* Mobile Toggle Bar */}
       <button
         type="button"
@@ -605,7 +687,30 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
 
 function QuickFilterDropdown({ label, options, currentValue, onSelect }) {
   const [open, setOpen] = useState(false)
+  const [coords, setCoords] = useState({ top: 0, left: 0 })
   const containerRef = useRef(null)
+  const toggleRef = useRef(null)
+  const panelRef = useRef(null)
+
+  // Panel is anchored to the button's left edge and grows rightward, so a
+  // pill near the right side of the screen can push it past the viewport
+  // edge. Once it renders, measure it and pull it back inside the screen.
+  useEffect(() => {
+    if (!open || !panelRef.current) return
+    const margin = 8
+    const rect = panelRef.current.getBoundingClientRect()
+    const viewportWidth = window.innerWidth
+    let adjustedLeft = coords.left
+    if (rect.right > viewportWidth - margin) {
+      adjustedLeft = Math.max(margin, viewportWidth - margin - rect.width)
+    } else if (rect.left < margin) {
+      adjustedLeft = margin
+    }
+    if (adjustedLeft !== coords.left) {
+      setCoords((c) => ({ ...c, left: adjustedLeft }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -614,11 +719,23 @@ function QuickFilterDropdown({ label, options, currentValue, onSelect }) {
         setOpen(false)
       }
     }
+    // Fixed-position panels don't track the pill on scroll/resize — close
+    // instead of leaving them floating in the wrong spot. Scroll listener
+    // is capture-phase (fires for the panel's own internal scroll too), so
+    // it must ignore scrolls that originate inside our own dropdown.
+    const handleDismiss = (e) => {
+      if (containerRef.current && containerRef.current.contains(e.target)) return
+      setOpen(false)
+    }
     document.addEventListener('mousedown', handleTouchOrClick)
     document.addEventListener('touchstart', handleTouchOrClick)
+    window.addEventListener('scroll', handleDismiss, true)
+    window.addEventListener('resize', handleDismiss)
     return () => {
       document.removeEventListener('mousedown', handleTouchOrClick)
       document.removeEventListener('touchstart', handleTouchOrClick)
+      window.removeEventListener('scroll', handleDismiss, true)
+      window.removeEventListener('resize', handleDismiss)
     }
   }, [open])
 
@@ -626,16 +743,25 @@ function QuickFilterDropdown({ label, options, currentValue, onSelect }) {
   const hasValue = Boolean(currentValue && currentValue !== '')
   const displayValue = selectedOption ? selectedOption[0] : ''
 
+  const toggleOpen = () => {
+    if (!open && toggleRef.current) {
+      const rect = toggleRef.current.getBoundingClientRect()
+      setCoords({ top: rect.bottom + 6, left: rect.left })
+    }
+    setOpen((prev) => !prev)
+  }
+
   return (
     <div className="an-qf-dropdown" ref={containerRef}>
       <button
+        ref={toggleRef}
         type="button"
         className={`an-qf-toggle ${hasValue ? 'active' : ''}`}
-        onClick={() => setOpen(prev => !prev)}
+        onClick={toggleOpen}
         aria-expanded={open}
       >
         <span className="an-qf-value">
-          {hasValue ? `${label}: ${displayValue}` : `${label} ▾`}
+          {hasValue ? `${label}: ${displayValue}` : label}
         </span>
         {hasValue ? (
           <span
@@ -649,12 +775,25 @@ function QuickFilterDropdown({ label, options, currentValue, onSelect }) {
           >
             ✕
           </span>
-        ) : null}
+        ) : (
+          <svg
+            className={`an-qf-caret ${open ? 'open' : ''}`}
+            width="10"
+            height="10"
+            viewBox="0 0 10 10"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
       </button>
 
-      {/* Lightweight Dropdown Menu: directly below pill, NO fixed bottom sheet */}
+      {/* Fixed-position panel — escapes .an-quick-filters' horizontal-scroll
+          clipping (overflow-x:auto forces overflow-y:auto too, which was
+          cutting the panel off behind the product grid). */}
       {open && (
-        <div className="an-qf-panel open">
+        <div ref={panelRef} className="an-qf-panel open" style={{ top: coords.top, left: coords.left }}>
           {options.map(([optLabel, optValue]) => {
             const isSelected = optValue === (currentValue || '')
             return (
@@ -678,6 +817,323 @@ function QuickFilterDropdown({ label, options, currentValue, onSelect }) {
   )
 }
 
+// Generic slide-up sheet — shared shell for the Sort and Filter panels below.
+// Always mounted (translateY off-screen when closed) so it can animate in.
+function MobileSheet({ title, open, onClose, children, footer }) {
+  return (
+    <>
+      <div className={`an-sheet-backdrop ${open ? 'open' : ''}`} onClick={onClose} />
+      <div className={`an-sheet ${open ? 'open' : ''}`} role="dialog" aria-modal="true" aria-hidden={!open}>
+        <div className="an-sheet-handle" />
+        <div className="an-sheet-header">
+          <h3>{title}</h3>
+          <button type="button" className="an-sheet-close" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div className="an-sheet-body">{children}</div>
+        {footer && <div className="an-sheet-footer">{footer}</div>}
+      </div>
+    </>
+  )
+}
+
+// Mobile-only "Sort | Filter" bar (Flipkart-style). Sort opens a sheet with
+// the same Price/Gender/Age/Occasion quick filters the desktop pill row
+// uses; Filter opens a sheet with the top-level category list. Both reuse
+// the exact same state/routes as the desktop UI — just presented as sheets.
+function SortFilterBar({
+  priceFilter, genderFilter, ageFilter, occasionFilter,
+  onSelectPrice, onSelectGender, onSelectAge, onSelectOccasion, onResetQuickFilters,
+  activeFilterTag, navigate, filterPageRoute,
+}) {
+  const [sheet, setSheet] = useState(null) // null | 'sort'
+  const [expandedGroup, setExpandedGroup] = useState('price')
+
+  const hasQuickFilters = Boolean(priceFilter || genderFilter || ageFilter || occasionFilter)
+
+  const sortGroups = [
+    { key: 'price', label: 'Price', options: PRICE_OPTIONS, value: priceFilter, onSelect: onSelectPrice },
+    { key: 'gender', label: 'Gender', options: GENDER_OPTIONS, value: genderFilter, onSelect: onSelectGender },
+    { key: 'age', label: 'Age', options: getAgeOptionsForGender(genderFilter), value: ageFilter, onSelect: onSelectAge },
+    { key: 'occasion', label: 'Occasion', options: OCCASION_OPTIONS, value: occasionFilter, onSelect: onSelectOccasion },
+  ]
+
+  return (
+    <>
+      <div className="an-sort-filter-bar">
+        <button type="button" className="an-sf-btn" onClick={() => setSheet('sort')}>
+          <Icon type="arrow" size={15} />
+          Sort{hasQuickFilters ? <span className="an-sf-dot" /> : null}
+        </button>
+        <span className="an-sf-divider" />
+        <button type="button" className="an-sf-btn" onClick={() => navigate(filterPageRoute)}>
+          <Icon type="list" size={15} />
+          Filter{activeFilterTag ? <span className="an-sf-dot" /> : null}
+        </button>
+      </div>
+
+      <MobileSheet
+        title="Sort & Quick Filters"
+        open={sheet === 'sort'}
+        onClose={() => setSheet(null)}
+        footer={
+          <>
+            {hasQuickFilters && (
+              <button type="button" className="an-sheet-btn-ghost" onClick={onResetQuickFilters}>Clear All</button>
+            )}
+            <button type="button" className="an-sheet-btn-primary" onClick={() => setSheet(null)}>Done</button>
+          </>
+        }
+      >
+        {sortGroups.map((group) => {
+          const isOpen = expandedGroup === group.key
+          const selectedLabel = group.options.find(([, v]) => v === (group.value || ''))?.[0]
+          return (
+            <div className="an-sheet-group" key={group.key}>
+              <button
+                type="button"
+                className="an-sheet-group-head"
+                onClick={() => setExpandedGroup(isOpen ? null : group.key)}
+              >
+                <span>{group.label}{group.value ? `: ${selectedLabel}` : ''}</span>
+                <svg className={`an-sheet-chevron ${isOpen ? 'open' : ''}`} width="11" height="11" viewBox="0 0 10 10" fill="none">
+                  <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              {isOpen && (
+                <div className="an-sheet-options">
+                  {group.options.map(([optLabel, optValue]) => {
+                    const isSelected = optValue === (group.value || '')
+                    return (
+                      <button
+                        key={optLabel}
+                        type="button"
+                        className={`an-sheet-option ${isSelected ? 'active' : ''}`}
+                        onClick={() => group.onSelect(optValue)}
+                      >
+                        {optLabel}
+                        {isSelected && <span>✓</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </MobileSheet>
+    </>
+  )
+}
+
+// Dedicated full-screen Filter page (routed via /collection/all/filter or
+// /collection/gifting/filter) — two-pane: categories on the left, that
+// category's subcategories on the right, matching the reference Flipkart
+// filter screen. Reuses the exact routes/params the rest of the page
+// already uses, so selecting an option here is identical to selecting it
+// from the old sidebar accordion.
+function FilterFullPage({ categories, activeKey, activeSubFilter, isGifting, isWedding, metalFilter, navigate, onBack }) {
+  const [selectedKey, setSelectedKey] = useState(activeKey || null)
+  const subcategoryMetal = isWedding ? 'wedding' : (metalFilter || 'gold')
+
+  const buildSubcategoryRoute = (baseRoute, subLabel) => {
+    const sep = baseRoute.includes('?') ? '&' : '?'
+    const param = isGifting ? 'gift_type' : 'subcategory'
+    return `${baseRoute}${sep}${param}=${encodeURIComponent(subLabel)}`
+  }
+
+  const subOptionsFor = (key) => {
+    if (!key) return []
+    return isGifting ? getGiftingSubcategories(key) : getSubcategories(key, subcategoryMetal)
+  }
+
+  const selectedEntry = categories.find(([, , key]) => key === selectedKey)
+
+  // Selecting e.g. "Bracelets" then switching metal to one that doesn't
+  // offer bracelets would otherwise leave selectedKey pointing at a
+  // category no longer in `categories`, crashing the render below.
+  useEffect(() => {
+    if (selectedKey && !categories.some(([, , key]) => key === selectedKey)) {
+      setSelectedKey(null)
+    }
+  }, [categories, selectedKey])
+
+  const selectedSubOptions = selectedEntry ? subOptionsFor(selectedKey) : []
+
+  return (
+    <div className="an-fp-page">
+      <style>{`
+        .an-fp-page {
+          min-height: 100vh;
+          background: #fff;
+          font-family: Inter, "Montserrat", system-ui, sans-serif;
+        }
+        .an-fp-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 14px 16px;
+          border-bottom: 1px solid #f2ede7;
+          position: sticky;
+          top: 0;
+          background: #fff;
+          z-index: 5;
+        }
+        .an-fp-back {
+          border: 0;
+          background: #f7f1ea;
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          display: grid;
+          place-items: center;
+          color: #073B3F;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+        .an-fp-header h1 {
+          margin: 0;
+          font-size: 16px;
+          font-weight: 800;
+          color: #073B3F;
+        }
+        .an-fp-body {
+          display: grid;
+          grid-template-columns: 132px 1fr;
+          min-height: calc(100vh - 63px);
+        }
+        .an-fp-left {
+          background: #faf7f2;
+          border-right: 1px solid #f2ede7;
+          overflow-y: auto;
+        }
+        .an-fp-cat-item {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          border: 0;
+          background: transparent;
+          padding: 15px 8px;
+          font-size: 12px;
+          font-weight: 700;
+          color: #453b30;
+          cursor: pointer;
+          border-left: 3px solid transparent;
+          line-height: 1.3;
+        }
+        .an-fp-cat-item.selected {
+          background: #fff;
+          color: #073B3F;
+          border-left-color: #073B3F;
+          font-weight: 800;
+        }
+        .an-fp-cat-item.active {
+          color: #073B3F;
+        }
+        .an-fp-right {
+          padding: 6px 4px;
+          overflow-y: auto;
+        }
+        .an-fp-sub-item {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border: 0;
+          background: transparent;
+          padding: 14px 16px;
+          font-size: 13.5px;
+          font-weight: 600;
+          color: #333;
+          cursor: pointer;
+          text-align: left;
+          border-bottom: 1px solid #f7f3ee;
+        }
+        .an-fp-sub-item.all {
+          font-weight: 800;
+          color: #073B3F;
+        }
+        .an-fp-sub-item.active {
+          background: #eaf1f0;
+          color: #073B3F;
+          font-weight: 800;
+        }
+        .an-fp-empty {
+          padding: 40px 20px;
+          text-align: center;
+          color: #8a8a8a;
+          font-size: 13px;
+        }
+      `}</style>
+
+      <div className="an-fp-header">
+        <button type="button" className="an-fp-back" onClick={onBack} aria-label="Back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+        <h1>Filters</h1>
+      </div>
+
+      <div className="an-fp-body">
+        <div className="an-fp-left">
+          {categories.map(([label, route, key]) => {
+            const itemSubOptions = subOptionsFor(key)
+            const isSelected = key ? key === selectedKey : !selectedKey && label.startsWith('All')
+            const isActive = key ? key === activeKey : label.startsWith('All') && !activeKey
+            return (
+              <button
+                key={label}
+                type="button"
+                className={`an-fp-cat-item ${isSelected ? 'selected' : ''} ${isActive ? 'active' : ''}`}
+                onClick={() => {
+                  if (itemSubOptions.length > 0) {
+                    setSelectedKey(key)
+                  } else {
+                    navigate(route)
+                  }
+                }}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="an-fp-right">
+          {selectedKey && selectedSubOptions.length > 0 ? (
+            <>
+              <button
+                type="button"
+                className="an-fp-sub-item all"
+                onClick={() => navigate(selectedEntry[1])}
+              >
+                All {selectedEntry[0]}
+              </button>
+              {selectedSubOptions.map((sub) => {
+                const isSelected = activeSubFilter === sub
+                return (
+                  <button
+                    key={sub}
+                    type="button"
+                    className={`an-fp-sub-item ${isSelected ? 'active' : ''}`}
+                    onClick={() => navigate(buildSubcategoryRoute(selectedEntry[1], sub))}
+                  >
+                    {sub}
+                    {isSelected && <span>✓</span>}
+                  </button>
+                )
+              })}
+            </>
+          ) : (
+            <div className="an-fp-empty">Select a category to see its options</div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function RightRail({ copy }) {
     return (
@@ -988,6 +1444,60 @@ export default function AllCollection() {
       navigate(`${location.pathname}?${params.toString()}`)
     }
 
+    const onSelectGender = (val) => {
+      const params = new URLSearchParams(searchParams)
+      if (val) params.set('gender', val); else params.delete('gender')
+      params.delete('age')
+      navigate(`${location.pathname}?${params.toString()}`)
+    }
+
+    const onResetQuickFilters = () => {
+      const params = new URLSearchParams(searchParams)
+      params.delete('price')
+      params.delete('gender')
+      params.delete('age')
+      params.delete('occasion')
+      navigate(`${location.pathname}?${params.toString()}`)
+    }
+
+    // Same category-list selection FilterPanel uses, mirrored here so the
+    // mobile Sort|Filter bar's Filter sheet can show it without prop-drilling
+    // FilterPanel's internal accordion state.
+    const sheetCategories = isGifting
+      ? giftingFilterCategories
+      : isWedding
+        ? weddingFilterCategories
+        : metalFilter === 'gold'
+          ? goldFilterCategories
+          : metalFilter === 'silver'
+            ? silverFilterCategories
+            : filterCategories
+    const sheetActiveKey = isGifting ? giftTagFilter : categoryFilter
+    const sheetActiveFilterTag = subcategoryFilter || categoryFilter || giftTagFilter
+
+  const activeQuickFilterLabels = [
+    priceFilter && `Price: ${PRICE_OPTIONS.find(([, v]) => v === priceFilter)?.[0] || priceFilter}`,
+    genderFilter && `Gender: ${GENDER_OPTIONS.find(([, v]) => v === genderFilter)?.[0] || genderFilter}`,
+    ageFilter && `Age: ${getAgeOptionsForGender(genderFilter).find(([, v]) => v === ageFilter)?.[0] || ageFilter}`,
+    occasionFilter && `Occasion: ${occasionFilter}`,
+  ].filter(Boolean)
+
+  const emptyState = (
+    <section className="an-empty">
+      <p>No products found{activeQuickFilterLabels.length ? ' for:' : '. Try another collection.'}</p>
+      {activeQuickFilterLabels.length > 0 && (
+        <>
+          <div className="an-empty-tags">
+            {activeQuickFilterLabels.map((label) => <span key={label}>{label}</span>)}
+          </div>
+          <button type="button" className="an-empty-clear" onClick={onResetQuickFilters}>
+            Clear Filters
+          </button>
+        </>
+      )}
+    </section>
+  )
+
   const productResults = loading ? (
     <SkeletonGrid count={8} />
   ) : visibleProducts.length ? (
@@ -997,7 +1507,7 @@ export default function AllCollection() {
       ))}
     </section>
   ) : (
-      <section className="an-empty">No products found. Try another collection.</section>
+      emptyState
     )
 
   const subcategoryResults = sectionsLoading ? (
@@ -1021,10 +1531,28 @@ export default function AllCollection() {
         </section>
       ))
     ) : (
-      <section className="an-empty">No products found. Try another collection.</section>
+      emptyState
     )
 
    const mainContent = (categoryFilter || (isGifting && giftTagFilter)) ? subcategoryResults : productResults
+
+    // Filter is a dedicated full page (not a bottom sheet) so the
+    // category + subcategory two-pane layout has room to breathe — see
+    // SortFilterBar's "Filter" button and the /filter routes in App.jsx.
+    if (location.pathname.endsWith('/filter')) {
+      return (
+        <FilterFullPage
+          categories={sheetCategories}
+          activeKey={sheetActiveKey}
+          activeSubFilter={subcategoryFilter || giftTypeFilter}
+          isGifting={isGifting}
+          isWedding={isWedding}
+          metalFilter={metalFilter}
+          navigate={navigate}
+          onBack={() => navigate(-1)}
+        />
+      )
+    }
 
     return (
       <div className="an-page">
@@ -1067,6 +1595,7 @@ export default function AllCollection() {
 
           .an-filter-wrap {
             width: 100%;
+            min-width: 0;
             min-height: 1px;
             position: relative;
             align-self: stretch;
@@ -1239,6 +1768,8 @@ export default function AllCollection() {
           .an-qf-toggle:hover {
             border-color: #073B3F;
             background: #f7faf9;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(7,59,63,0.10);
           }
 
           .an-qf-toggle.active {
@@ -1248,11 +1779,32 @@ export default function AllCollection() {
             box-shadow: 0 4px 12px rgba(7,59,63,0.18);
           }
 
+          .an-qf-toggle.active:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(7,59,63,0.24);
+          }
+
           .an-qf-value {
             font-size: 13px;
             font-weight: 700;
             color: inherit;
             white-space: nowrap;
+          }
+
+          .an-qf-caret {
+            flex-shrink: 0;
+            color: currentColor;
+            opacity: 0.65;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+          }
+
+          .an-qf-toggle:hover .an-qf-caret {
+            opacity: 1;
+          }
+
+          .an-qf-caret.open {
+            transform: rotate(180deg);
+            opacity: 1;
           }
 
           .an-qf-clear-x {
@@ -1293,9 +1845,7 @@ export default function AllCollection() {
           }
 
           .an-qf-panel {
-            position: absolute;
-            top: calc(100% + 5px);
-            left: 0;
+            position: fixed;
             z-index: 1000;
             min-width: 170px;
             background: #fff;
@@ -1344,6 +1894,253 @@ export default function AllCollection() {
           @keyframes qfFadeIn {
             from { opacity: 0; transform: translateY(-3px); }
             to { opacity: 1; transform: translateY(0); }
+          }
+
+          /* Mobile Sort | Filter bar — hidden on desktop, where the pill
+             row (.an-quick-filters) above already covers this. */
+          .an-sort-filter-bar-mobile {
+            display: none;
+          }
+
+          .an-sort-filter-bar {
+            display: flex;
+            align-items: stretch;
+            border: 1.5px solid #ded8d1;
+            border-radius: 12px;
+            background: #fff;
+            overflow: hidden;
+          }
+
+          .an-sf-btn {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            border: 0;
+            background: transparent;
+            padding: 11px 10px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #073B3F;
+            cursor: pointer;
+          }
+
+          .an-sf-btn:active {
+            background: #f7faf9;
+          }
+
+          .an-sf-divider {
+            width: 1px;
+            background: #ded8d1;
+          }
+
+          .an-sf-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #C92035;
+            margin-left: 2px;
+          }
+
+          /* Bottom sheet shell — shared by Sort & Filter */
+          .an-sheet-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(7,31,34,0.45);
+            z-index: 1400;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+          }
+
+          .an-sheet-backdrop.open {
+            opacity: 1;
+            pointer-events: auto;
+          }
+
+          .an-sheet {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1401;
+            background: #fff;
+            border-radius: 18px 18px 0 0;
+            max-height: 78vh;
+            display: flex;
+            flex-direction: column;
+            transform: translateY(100%);
+            transition: transform 0.28s cubic-bezier(.32,.72,0,1);
+            box-shadow: 0 -12px 40px rgba(7,31,34,0.18);
+          }
+
+          .an-sheet.open {
+            transform: translateY(0);
+          }
+
+          .an-sheet-handle {
+            width: 36px;
+            height: 4px;
+            border-radius: 999px;
+            background: #e0dad0;
+            margin: 10px auto 0;
+            flex-shrink: 0;
+          }
+
+          .an-sheet-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 18px 10px;
+            border-bottom: 1px solid #f2ede7;
+            flex-shrink: 0;
+          }
+
+          .an-sheet-header h3 {
+            margin: 0;
+            font-size: 15.5px;
+            font-weight: 800;
+            color: #073B3F;
+          }
+
+          .an-sheet-close {
+            border: 0;
+            background: #f7f1ea;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            font-size: 13px;
+            cursor: pointer;
+            color: #073B3F;
+          }
+
+          .an-sheet-body {
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 4px 0;
+          }
+
+          .an-sheet-footer {
+            border-top: 1px solid #f2ede7;
+            padding: 12px 18px;
+            display: flex;
+            gap: 10px;
+            flex-shrink: 0;
+          }
+
+          .an-sheet-btn-ghost {
+            flex: 1;
+            border: 1.5px solid #ded8d1;
+            background: #fff;
+            border-radius: 10px;
+            padding: 11px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #073B3F;
+            cursor: pointer;
+          }
+
+          .an-sheet-btn-primary {
+            flex: 1;
+            border: 0;
+            background: #073B3F;
+            border-radius: 10px;
+            padding: 11px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #fff;
+            cursor: pointer;
+          }
+
+          /* Sort sheet — expandable groups */
+          .an-sheet-group {
+            border-bottom: 1px solid #f2ede7;
+          }
+
+          .an-sheet-group-head {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 0;
+            background: transparent;
+            padding: 14px 18px;
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #111;
+            cursor: pointer;
+            text-align: left;
+          }
+
+          .an-sheet-chevron {
+            flex-shrink: 0;
+            color: #8b551e;
+            transition: transform 0.2s ease;
+          }
+
+          .an-sheet-chevron.open {
+            transform: rotate(180deg);
+          }
+
+          .an-sheet-options {
+            padding: 0 12px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+          }
+
+          .an-sheet-option {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 0;
+            background: transparent;
+            padding: 10px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: left;
+          }
+
+          .an-sheet-option:active,
+          .an-sheet-option.active {
+            background: #eaf1f0;
+            color: #073B3F;
+          }
+
+          .an-sheet-option.active {
+            font-weight: 800;
+          }
+
+          /* Filter sheet — category list */
+          .an-sheet-cat-list {
+            padding: 6px 8px;
+          }
+
+          .an-sheet-cat-item {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 0;
+            background: transparent;
+            padding: 13px 12px;
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #333;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: left;
+            border-bottom: 1px solid #f7f3ee;
+          }
+
+          .an-sheet-cat-item:active,
+          .an-sheet-cat-item.active {
+            background: #eaf1f0;
+            color: #073B3F;
           }
 
           /* Navbar-styled category sidebar */
@@ -1698,43 +2495,73 @@ export default function AllCollection() {
             font-size: 13px;
           }
 
-          .an-cat-rail {
-            display: grid;
-            grid-template-columns: repeat(9, minmax(0, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
-            align-items: start;
+          /* Mobile-only horizontal category rail — hidden on desktop, where
+             the sidebar list in .an-filter already covers this job. */
+          .an-cat-rail-mobile {
+            display: none;
           }
 
-          .an-cat-rail button {
+          .an-cat-rail {
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            padding: 6px 2px 12px;
+          }
+
+          .an-cat-rail::-webkit-scrollbar {
+            display: none;
+          }
+
+          .an-cat-rail-item {
+            flex: 0 0 auto;
+            width: 70px;
             border: 0;
             background: transparent;
             cursor: pointer;
             text-align: center;
-            font-weight: 800;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.25;
+            letter-spacing: 0.1px;
+            color: #453b30;
           }
 
-          .an-cat-rail img {
-            width: 78px;
-            height: 78px;
-            border-radius: 50%;
-            object-fit: cover;
-            background: #f7f1ea;
-            margin: 0 auto 9px;
-            box-shadow: 0 10px 28px rgba(92,66,41,.08);
-          }
-
-          .an-cat-rail .view-all {
-            width: 78px;
-            height: 78px;
-            border-radius: 50%;
-            border: 1px solid #f0d8b8;
+          .an-cat-rail-frame {
             display: grid;
             place-items: center;
-            margin: 0 auto 9px;
-            color: #a36b18;
-            font-size: 24px;
-            background: #fff5e7;
+            width: 66px;
+            height: 66px;
+            border-radius: 50%;
+            background: #f7f1ea;
+            margin: 0 auto 7px;
+            box-shadow: 0 6px 16px rgba(92,66,41,.10);
+            border: 1.5px solid #f0e6d8;
+            color: #8b551e;
+            transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+          }
+
+          .an-cat-rail-item img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+          }
+
+          .an-cat-rail-item:active .an-cat-rail-frame {
+            transform: scale(0.96);
+          }
+
+          .an-cat-rail-item.active .an-cat-rail-frame {
+            border-color: #073B3F;
+            background: #eaf1f0;
+            box-shadow: 0 8px 20px rgba(7,59,63,0.16);
+            transform: translateY(-2px);
+          }
+
+          .an-cat-rail-item.active {
+            color: #073B3F;
           }
 
           .an-products {
@@ -1928,10 +2755,49 @@ export default function AllCollection() {
           min-height: 280px;
           border-radius: 12px;
           border: 1px solid #eadfd3;
-          display: grid;
-          place-items: center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          padding: 24px;
           background: #fff;
           font-weight: 900;
+        }
+
+        .an-empty p {
+          margin: 0;
+          font-size: 14px;
+          font-weight: 800;
+          color: #333;
+          text-align: center;
+        }
+
+        .an-empty-tags {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 8px;
+        }
+
+        .an-empty-tags span {
+          background: #f7f1ea;
+          color: #8b551e;
+          border-radius: 999px;
+          padding: 6px 12px;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .an-empty-clear {
+          border: 0;
+          background: #073B3F;
+          color: #fff;
+          border-radius: 999px;
+          padding: 10px 22px;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
         }
 
         .an-skeleton-card {
@@ -1975,18 +2841,55 @@ export default function AllCollection() {
             .an-layout { grid-template-columns: 230px minmax(0, 1fr); }
             .an-category-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
             .an-promo-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
-            .an-cat-rail { grid-template-columns: repeat(5, minmax(0, 1fr)); }
             .an-products { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
+          }
+
+          /* index.css has a global safety net that forces .an-layout to a single
+             column starting at 1180px, wider than this page's own 820px mobile
+             breakpoint below. Without this, the quick-filter pills keep their
+             desktop flex-wrap between 820px-1180px and wrap into a broken
+             2-line grid instead of a scrollable row. */
+          @media (max-width: 1180px) {
+            /* Below 1180px the desktop pill row is replaced entirely by the
+               Sort | Filter bar + bottom sheets — switching both at the
+               same breakpoint index.css's layout collapse uses avoids
+               re-creating the gap-zone bug fixed above. */
+            .an-quick-filters {
+              display: none !important;
+            }
+            .an-sort-filter-bar-mobile {
+              display: block;
+            }
+
+            /* Same gap as above: index.css collapses .an-layout to a single
+               column at 1180px, but .an-products' own 2-column override
+               below was gated behind the narrower 820px breakpoint, so
+               products rendered as one full-width column in between. */
+            .an-products {
+              display: grid !important;
+              grid-template-columns: repeat(2, 1fr) !important;
+              gap: 12px !important;
+            }
+            .an-product-card {
+              flex: none !important;
+              width: 100% !important;
+              min-width: 0 !important;
+            }
           }
 
           @media (max-width: 820px) {
             .an-shell { width: min(100% - 16px, 100%); padding: 0 4px; }
             .an-layout { grid-template-columns: 1fr; padding: 10px 0 20px; gap: 10px; }
             .an-right-rail { display: none; }
+            .an-cat-rail-mobile { display: block; }
 
-            /* Mobile Filter Bar — Inline Accordion (NO bottom sheet, NO modal) */
+            /* Replaced by the Filter bottom sheet (SortFilterBar) — the old
+               inline accordion this bar toggled is no longer reachable on
+               mobile, so the bar itself stays hidden. Rules below it are
+               now dead but left in place in case .an-filter-wrap needs the
+               inline accordion again on some future breakpoint. */
             .an-mobile-filter-bar {
-              display: flex;
+              display: none;
               align-items: center;
               justify-content: space-between;
               width: 100%;
@@ -2072,19 +2975,11 @@ export default function AllCollection() {
               margin-bottom: 2px;
             }
 
-            /* Quick Filters Horizontal Swipeable Pills — Simple Inline Dropdowns */
+            /* Replaced by SortFilterBar (.an-sort-filter-bar-mobile) below
+               1180px — stays hidden here (rule below the 1180px hide would
+               otherwise win the cascade tie and re-show it). */
             .an-quick-filters {
-              display: flex !important;
-              flex-wrap: nowrap !important;
-              overflow-x: auto !important;
-              -webkit-overflow-scrolling: touch;
-              gap: 8px !important;
-              padding: 4px 2px 8px !important;
-              margin-top: 4px !important;
-              scrollbar-width: none;
-            }
-            .an-quick-filters::-webkit-scrollbar {
-              display: none;
+              display: none !important;
             }
             .an-qf-dropdown {
               flex-shrink: 0;
@@ -2103,9 +2998,7 @@ export default function AllCollection() {
             }
             /* Normal dropdown positioned right below the pill on mobile — NEVER covers full page */
             .an-qf-panel {
-              position: absolute !important;
-              top: calc(100% + 5px) !important;
-              left: 0 !important;
+              position: fixed !important;
               right: auto !important;
               bottom: auto !important;
               width: max-content !important;
@@ -2316,12 +3209,7 @@ export default function AllCollection() {
                     label="Gender"
                     options={GENDER_OPTIONS}
                     currentValue={genderFilter}
-                    onSelect={(val) => {
-                      const params = new URLSearchParams(searchParams)
-                      if (val) params.set('gender', val); else params.delete('gender')
-                      params.delete('age')
-                      navigate(`${location.pathname}?${params.toString()}`)
-                    }}
+                    onSelect={onSelectGender}
                   />
                   <QuickFilterDropdown
                     label="Age"
@@ -2339,19 +3227,29 @@ export default function AllCollection() {
                     <button
                       type="button"
                       className="an-qf-reset-btn"
-                      onClick={() => {
-                        const params = new URLSearchParams(searchParams)
-                        params.delete('price')
-                        params.delete('gender')
-                        params.delete('age')
-                        params.delete('occasion')
-                        navigate(`${location.pathname}?${params.toString()}`)
-                      }}
+                      onClick={onResetQuickFilters}
                       title="Clear all quick filters"
                     >
                       Reset All ✕
                     </button>
                   )}
+                </div>
+
+                <div className="an-sort-filter-bar-mobile">
+                  <SortFilterBar
+                    priceFilter={priceFilter}
+                    genderFilter={genderFilter}
+                    ageFilter={ageFilter}
+                    occasionFilter={occasionFilter}
+                    onSelectPrice={(val) => updateFilterParam('price', val)}
+                    onSelectGender={onSelectGender}
+                    onSelectAge={(val) => updateFilterParam('age', val)}
+                    onSelectOccasion={(val) => updateFilterParam('occasion', val)}
+                    onResetQuickFilters={onResetQuickFilters}
+                    activeFilterTag={sheetActiveFilterTag}
+                    navigate={navigate}
+                    filterPageRoute={`${isGifting ? '/collection/gifting' : '/collection/all'}/filter${location.search}`}
+                  />
                 </div>
               </div>
 

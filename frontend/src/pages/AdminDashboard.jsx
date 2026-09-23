@@ -295,7 +295,7 @@ function AdminQuickStats() {
           </div>
         ))
       )}
-      <style>{`@media(max-width:1180px){.ad-qstats{grid-template-columns:repeat(2,minmax(0,1fr))!important}}@media(max-width:760px){.ad-qstats{grid-template-columns:1fr!important;margin-left:14px!important;margin-right:14px!important}}`}</style>
+      <style>{`@media(max-width:1180px){.ad-qstats{grid-template-columns:repeat(2,minmax(0,1fr))!important}}@media(max-width:760px){.ad-qstats{grid-template-columns:repeat(2,minmax(0,1fr))!important;margin-left:14px!important;margin-right:14px!important}.ad-qstats>div{padding:14px!important;min-height:0!important}.ad-qstats>div>div:first-child{width:36px!important;height:36px!important;margin-bottom:8px!important}.ad-qstats>div>div:first-child svg{width:18px!important;height:18px!important}.ad-qstats>div>div:nth-child(2){font-size:9.5px!important;margin-bottom:6px!important}.ad-qstats>div>div:nth-child(3) span:first-child{font-size:20px!important}.ad-qstats>div>div:nth-child(4){font-size:11px!important;margin-top:6px!important}}`}</style>
     </div>
   )
 }

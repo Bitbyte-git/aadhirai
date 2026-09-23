@@ -8337,18 +8337,29 @@ class OrderReceiptPDFView(APIView):
             ]))
             pill.hAlign = 'CENTER'
             badge_cells.append(pill)
-        badges_row = Table([badge_cells], colWidths=[content_width / 3.0] * 3)
+        # Natural-width columns + hAlign so the three badges sit as one tight
+        # centered group instead of being stretched into three even columns
+        # (which spaced "100% Trust" noticeably off from the other two).
+        badges_row = Table([badge_cells], colWidths=[None, None, None])
         badges_row.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 14), ('RIGHTPADDING', (0, 0), (-1, -1), 14),
             ('TOPPADDING', (0, 0), (-1, -1), 10), ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ]))
+        badges_row.hAlign = 'CENTER'
+        badges_wrapper = Table([[badges_row]], colWidths=[content_width])
+        badges_wrapper.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
             ('LINEABOVE', (0, 0), (-1, 0), 0.5, colors.HexColor('#E1EBEA')),
         ]))
-        elements.append(badges_row)
+        elements.append(badges_wrapper)
         elements.append(Spacer(1, 10))
 
         elements.append(Paragraph(
-            'Thank you for shopping with Athirai. This is a computer-generated receipt.', footer_style,
+            'Thank you for shopping with Athirai.', footer_style,
         ))
 
         doc.build(elements)

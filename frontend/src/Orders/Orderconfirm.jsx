@@ -95,6 +95,24 @@ const checkoutStyles = `
     animation: fadeUp 0.42s ease both;
   }
 
+  .oc-back {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    margin-bottom: 16px;
+    border: 1px solid rgba(189,207,206,0.78);
+    border-radius: 50%;
+    background: rgba(253,253,252,0.92);
+    color: #073B3F;
+    cursor: pointer;
+  }
+
+  .oc-back:active {
+    opacity: 0.6;
+  }
+
   .oc-hero {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -201,10 +219,20 @@ const checkoutStyles = `
   .oc-product-band {
     display: grid;
     grid-template-columns: 150px minmax(0, 1fr);
-    gap: 24px;
+    grid-template-areas:
+      "img tag"
+      "img title"
+      "img specs";
+    align-content: start;
+    gap: 8px 24px;
     padding: 26px;
     background: linear-gradient(120deg, rgba(231,237,236,0.82), rgba(243,232,222,0.70));
   }
+
+  .oc-product-band .oc-product-img { grid-area: img; }
+  .oc-product-band .oc-product-tag { grid-area: tag; margin-bottom: 0; align-self: start; }
+  .oc-product-band .oc-product-title { grid-area: title; }
+  .oc-product-band .oc-specs { grid-area: specs; }
 
   .oc-product-img {
     width: 150px;
@@ -423,15 +451,26 @@ const checkoutStyles = `
       gap: 8px;
     }
     .oc-product-band {
-      grid-template-columns: 90px 1fr !important;
-      gap: 12px;
-      padding: 12px;
+      grid-template-columns: 74px minmax(0, 1fr) !important;
+      grid-template-areas:
+        "img tag"
+        "title title"
+        "specs specs" !important;
+      gap: 10px 12px;
+      padding: 14px;
       border-radius: 12px;
     }
     .oc-product-img {
-      width: 90px;
-      height: 90px;
+      width: 74px;
+      height: 74px;
       border-radius: 8px;
+    }
+    .oc-product-band .oc-product-tag {
+      align-self: center;
+    }
+    .oc-product-title {
+      font-size: 21px !important;
+      margin: 0 !important;
     }
     .oc-hero {
       padding: 18px 14px;
@@ -661,6 +700,12 @@ export default function OrderConfirm() {
       <div className="oc-page">
         <style>{checkoutStyles}</style>
         <main className="oc-main">
+          <button type="button" className="oc-back" onClick={() => navigate(-1)} aria-label="Back">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12" />
+              <polyline points="12 19 5 12 12 5" />
+            </svg>
+          </button>
           <header className="oc-hero">
             <div>
               <p className="oc-kicker">Secure Checkout</p>
@@ -683,18 +728,16 @@ export default function OrderConfirm() {
                   <div className="oc-product-img">
                     {firstImage ? <img src={firstImage} alt={product.name} /> : <div style={{ height: '100%', display: 'grid', placeItems: 'center', color: '#073B3F', fontWeight: 900 }}>Team 369</div>}
                   </div>
-                  <div>
-                    <div className="oc-product-tag">{isCartCheckout ? 'Cart Checkout' : `${metal?.toUpperCase()} ${product.grade?.toUpperCase() || ''}`}</div>
-                    <h2 className="oc-product-title">{product.name}</h2>
-                    <div className="oc-specs">
-                      {[
-                        { label: isCartCheckout ? 'Items' : 'Metal', value: isCartCheckout ? cartItems.length : metal?.charAt(0).toUpperCase() + metal?.slice(1) },
-                        { label: isCartCheckout ? 'Quantity' : 'Weight', value: isCartCheckout ? cartQuantity : product.net_weight ? `${product.net_weight} gm` : '-' },
-                        { label: isCartCheckout ? 'Shipping' : 'Purity', value: isCartCheckout ? 'Insured' : product.grade?.toUpperCase() || '-' },
-                      ].map(s => (
-                        <div className="oc-spec" key={s.label}><span>{s.label}</span><strong>{s.value}</strong></div>
-                      ))}
-                    </div>
+                  <div className="oc-product-tag">{isCartCheckout ? 'Cart Checkout' : `${metal?.toUpperCase()} ${product.grade?.toUpperCase() || ''}`}</div>
+                  <h2 className="oc-product-title">{product.name}</h2>
+                  <div className="oc-specs">
+                    {[
+                      { label: isCartCheckout ? 'Items' : 'Metal', value: isCartCheckout ? cartItems.length : metal?.charAt(0).toUpperCase() + metal?.slice(1) },
+                      { label: isCartCheckout ? 'Quantity' : 'Weight', value: isCartCheckout ? cartQuantity : product.net_weight ? `${product.net_weight} gm` : '-' },
+                      { label: isCartCheckout ? 'Shipping' : 'Purity', value: isCartCheckout ? 'Insured' : product.grade?.toUpperCase() || '-' },
+                    ].map(s => (
+                      <div className="oc-spec" key={s.label}><span>{s.label}</span><strong>{s.value}</strong></div>
+                    ))}
                   </div>
                 </div>
 
@@ -741,8 +784,7 @@ export default function OrderConfirm() {
           @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
           @keyframes modalIn{from{opacity:0;transform:translateY(18px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
           .oc-btn:hover{opacity:.88}.country-opt:hover{background:#e7edec!important}
-          .address-overlay{backdrop-filter:blur(7px);background:rgba(7,59,63,.62)!important}
-          .address-modal{max-width:780px!important;border-radius:8px!important;border:1px solid #bdcfce;box-shadow:0 30px 90px rgba(7,59,63,.28)!important;animation:modalIn .28s ease both}
+          .address-inline-card{border:1px solid #bdcfce!important;border-radius:8px!important;background:#fff;box-shadow:0 14px 34px rgba(7,59,63,.08);animation:modalIn .28s ease both}
           .address-modal-header{padding:24px 30px!important;background:linear-gradient(110deg,#fdfdfc,#e7edec);border-bottom:1px solid #bdcfce!important}
           .address-kicker{margin:0 0 5px;color:#9f6130;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase}
           .address-title{font-family:"Playfair Display",serif;font-size:26px!important;color:#073b3f!important}
@@ -775,24 +817,21 @@ export default function OrderConfirm() {
           .saved-address-head{padding:15px 20px!important;background:#e7edec;border-bottom-color:#d1dfde!important}
           .saved-address-body{padding:20px!important}
           .new-address-button{border-color:#0c4044!important;color:#073b3f!important;background:#fdfdfc!important;min-height:38px}
-          .address-use-button{background:#073b3f!important;min-height:38px}
           .voucher-card{background:#f3f3f0!important;border-color:#d1dfde!important;min-height:54px;transition:.2s ease}
           .voucher-card:hover{background:#e7edec!important;border-color:#bdcfce!important;transform:translateX(3px)}
           .delivery-layout .oc-summary-card{position:sticky;top:190px;border-color:#bdcfce;box-shadow:0 18px 44px rgba(7,59,63,.1)}
-          .checkout-actionbar{position:sticky!important;bottom:18px!important;left:auto!important;right:auto!important;margin:28px 0 0!important;padding:14px 18px!important;border:1px solid #bdcfce!important;border-radius:8px!important;background:rgba(253,253,252,.96)!important;backdrop-filter:blur(12px);box-shadow:0 16px 42px rgba(7,59,63,.14)!important}
+          .checkout-actionbar{position:fixed!important;bottom:18px!important;left:50%!important;right:auto!important;transform:translateX(-50%);width:min(1192px,calc(100% - 48px));margin:0!important;padding:14px 18px!important;border:1px solid #bdcfce!important;border-radius:8px!important;background:rgba(253,253,252,.96)!important;backdrop-filter:blur(12px);box-shadow:0 16px 42px rgba(7,59,63,.14)!important}
           .checkout-total-label{font-size:10px;color:#7a8987;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px}
           .checkout-total-value{font-family:"Playfair Display",serif;font-size:23px!important;color:#073b3f!important}
           .checkout-buy{min-width:220px;border-radius:5px!important;background:#073b3f!important;min-height:50px;transition:.2s ease}
           .checkout-buy:not(:disabled):hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(7,59,63,.22)}
           .checkout-buy:disabled{background:#bdcfce!important;color:#fdfdfc!important}
           @media(max-width:700px){
-            .address-overlay{padding:0!important;align-items:flex-end!important}
-            .address-modal{max-height:96vh!important;border-radius:8px 8px 0 0!important}
             .address-modal-header,.address-modal-body,.address-modal-footer{padding-left:18px!important;padding-right:18px!important}
             .address-contact-grid,.address-location-grid,.address-detail-grid{grid-template-columns:1fr!important}
             .address-section{padding:16px}
-            .address-modal-footer{display:grid!important;grid-template-columns:1fr 1.4fr}
-            .address-action{padding:11px 14px!important;min-width:0!important}
+            .address-modal-footer{display:flex!important}
+            .address-action{flex:1;padding:11px 14px!important;min-width:0!important}
           }
           @media(max-width:900px){
             .delivery-layout{grid-template-columns:1fr!important}
@@ -805,167 +844,23 @@ export default function OrderConfirm() {
             .saved-address-body{flex-direction:column;gap:18px}
             .saved-address-actions{width:100%;margin-left:0!important;flex-direction:row!important}
             .saved-address-actions button{flex:1}
-            .checkout-actionbar{bottom:8px!important}
+            .checkout-actionbar{bottom:8px!important;width:calc(100% - 24px)!important}
             .checkout-buy{min-width:0}
           }
         `}</style>
 
-        {/* ── ADDRESS POPUP ── */}
-        {showAddressPopup && (
-          <div className="address-overlay" onClick={() => setShowAddressPopup(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto', padding: '16px', paddingTop: 'clamp(190px, 20vh, 240px)', paddingBottom: 40 }}>
-            <div className="address-modal" role="dialog" aria-modal="true" aria-labelledby="address-modal-title" onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 8, width: '100%', maxWidth: 680, maxHeight: 'calc(100vh - 260px)', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.25)' }}>
-              {/* Header */}
-              <div className="address-modal-header" style={{ padding: '22px 28px', borderBottom: '1px solid #f0ebe4', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-                <div>
-                  <p className="address-kicker">Secure delivery</p>
-                  <h2 id="address-modal-title" className="address-title" style={{ margin: 0, fontSize: 18, fontWeight: 700, color: RED }}>Where should we deliver?</h2>
-                  <p className="address-subtitle">Add a complete address for insured and on-time delivery.</p>
-                </div>
-                <button className="address-close" type="button" aria-label="Close address form" onClick={() => setShowAddressPopup(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#999', lineHeight: 1 }}>&times;</button>
-              </div>
-
-              {/* Body */}
-              <div className="address-modal-body" style={{ padding: '24px 28px', overflowY: 'auto', flex: 1 }}>
-
-                {/* Contact Details */}
-                <section className="address-section">
-                <h3 className="address-section-title" style={{ margin: '0 0 16px', fontSize: 13, fontWeight: 700, color: DARK }}>Contact Details</h3>
-                <div className="address-contact-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-                  <div>
-                    <label style={lbl}>Name *</label>
-                    <input style={inp(addressErrors.name)} placeholder="Full Name"
-                      value={addressForm.name} onChange={e => setAddressForm(f => ({ ...f, name: e.target.value }))} />
-                    {addressErrors.name && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.name}</div>}
-                  </div>
-                  <div>
-                    <label style={lbl}>Email</label>
-                    <input style={inp()} placeholder="Email (optional)"
-                      value={addressForm.email} onChange={e => setAddressForm(f => ({ ...f, email: e.target.value }))} />
-                  </div>
-                </div>
-                <div style={{ marginBottom: 24 }}>
-                  <label style={lbl}>Contact Number *</label>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <div style={{ padding: '13px 14px', border: '1px solid #d1dfde', borderRadius: 6, background: '#f3f3f0', fontSize: 13, fontWeight: 700, color: '#073B3F', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                      IN +91
-                    </div>
-                    <input style={{ ...inp(addressErrors.phone), flex: 1 }} placeholder="10-digit mobile" maxLength={10}
-                      value={addressForm.phone} onChange={e => setAddressForm(f => ({ ...f, phone: e.target.value }))} />
-                  </div>
-                  {addressErrors.phone && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.phone}</div>}
-                </div>
-                </section>
-
-                {/* Address Details */}
-                <section className="address-section">
-                <h3 className="address-section-title" style={{ margin: '0 0 16px', fontSize: 13, fontWeight: 700, color: DARK }}>Address Details</h3>
-                <div className="address-location-grid" style={{ display: 'grid', gridTemplateColumns: '0.65fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
-
-                  {/* Country dropdown */}
-                  <div style={{ position: 'relative' }}>
-                    <label style={lbl}>Country *</label>
-                    <div onClick={() => setShowCountryDrop(v => !v)}
-                      style={{ padding: '13px 14px', border: '1px solid #e2d9d0', borderRadius: 6, background: '#fafafa', fontSize: 14, color: DARK, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
-                      <span>{selectedCountry.flag}</span>
-                      <span>{selectedCountry.code}</span>
-                      <span style={{ marginLeft: 'auto', color: '#7A8987', fontSize: 12 }}>&#9662;</span>
-                    </div>
-                    {showCountryDrop && (
-                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e2d9d0', borderRadius: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 100, maxHeight: 220, overflowY: 'auto' }}>
-                        {COUNTRIES.map(c => (
-                          <div key={c.code} className="country-opt"
-                            onClick={() => { setCountry(c.code); setShowCountryDrop(false) }}
-                            style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', background: country === c.code ? 'rgba(123,31,46,0.06)' : '#fff', fontSize: 13, color: DARK, transition: 'background 0.15s' }}>
-                            <span>{c.flag}</span>
-                            <span style={{ fontWeight: country === c.code ? 700 : 400 }}>{c.name}</span>
-                            <span style={{ color: '#aaa', fontSize: 11, marginLeft: 'auto' }}>{c.code}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label style={lbl}>Pincode *</label>
-                    <input style={inp(addressErrors.pincode)} placeholder="6-digit pincode" maxLength={6}
-                      value={addressForm.pincode}
-                      onChange={e => setAddressForm(f => ({ ...f, pincode: e.target.value.replace(/\D/g, '') }))} />
-                    {addressErrors.pincode
-                      ? <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.pincode}</div>
-                      : pincodeLookup.loading
-                        ? <div style={{ color: MUTED, fontSize: 11, marginTop: 3 }}>Fetching city & state...</div>
-                        : pincodeLookup.error
-                          ? <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{pincodeLookup.error}</div>
-                          : null}
-                  </div>
-                  <div>
-                    <label style={lbl}>City *</label>
-                    <input style={inp(addressErrors.city)} placeholder="Auto-fills from pincode"
-                      value={addressForm.city} onChange={e => setAddressForm(f => ({ ...f, city: e.target.value }))} />
-                    {addressErrors.city && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.city}</div>}
-                  </div>
-                </div>
-
-                <div className="address-detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                  <div>
-                    <label style={lbl}>State *</label>
-                    <input style={inp(addressErrors.state)} placeholder="Auto-fills from pincode"
-                      value={addressForm.state} onChange={e => setAddressForm(f => ({ ...f, state: e.target.value }))} />
-                    {addressErrors.state && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.state}</div>}
-                  </div>
-                  <div>
-                    <label style={lbl}>Address (House No., Building, Street, Area) *</label>
-                    <input style={inp(addressErrors.address)} placeholder="Address"
-                      value={addressForm.address} onChange={e => setAddressForm(f => ({ ...f, address: e.target.value }))} />
-                    {addressErrors.address && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.address}</div>}
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: 24 }}>
-                  <label style={lbl}>Locality / Town</label>
-                  <input style={inp()} placeholder="Locality / Town (optional)"
-                    value={addressForm.locality} onChange={e => setAddressForm(f => ({ ...f, locality: e.target.value }))} />
-                </div>
-                </section>
-
-                {/* Save Address As */}
-                <section className="address-section" style={{ marginBottom: 0 }}>
-                <h3 className="address-section-title" style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: DARK }}>Save Address As</h3>
-                <div style={{ display: 'flex', gap: 12, marginBottom: addressType === 'Other' ? 12 : 16, flexWrap: 'wrap' }}>
-                  {['Home', 'Work', 'Other'].map(t => (
-                    <button className="address-type-button" type="button" key={t} onClick={() => setAddressType(t)}
-                      style={{ padding: '8px 24px', borderRadius: 20, border: `1.5px solid ${addressType === t ? RED : '#e2d9d0'}`, background: addressType === t ? 'rgba(123,31,46,0.06)' : '#fff', color: addressType === t ? RED : '#777', fontWeight: addressType === t ? 700 : 400, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s' }}>
-                      {t}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Other label input */}
-                {addressType === 'Other' && (
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={lbl}>Label Name (e.g. Parents, Office 2...)</label>
-                    <input style={inp()} placeholder="Type address label..."
-                      value={otherLabel} onChange={e => setOtherLabel(e.target.value)} />
-                  </div>
-                )}
-
-                <div className="address-default" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <input type="checkbox" id="default-addr" checked={isDefault} onChange={e => setIsDefault(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer', accentColor: RED }} />
-                  <label htmlFor="default-addr" style={{ fontSize: 13, color: DARK, cursor: 'pointer' }}>Make this my default delivery address</label>
-                </div>
-                </section>
-              </div>
-
-              {/* Footer */}
-              <div className="address-modal-footer" style={{ padding: '16px 28px', borderTop: '1px solid #f0ebe4', display: 'flex', justifyContent: 'flex-end', gap: 12, flexShrink: 0 }}>
-                <button className="address-action" type="button" onClick={() => setShowAddressPopup(false)} style={{ padding: '12px 28px', background: '#fff', border: '1.5px solid #0C4044', borderRadius: 2, color: '#073B3F', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
-                <button className="address-action address-submit" type="button" onClick={handleUseAddress} style={{ padding: '12px 28px', background: RED, border: 'none', borderRadius: 2, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Use This Address</button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <main className="delivery-main" style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 24px 100px', animation: 'fadeUp 0.4s ease both' }}>
+          <button
+            type="button"
+            className="oc-back"
+            onClick={() => { setStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+            aria-label="Back to review order"
+          >
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12" />
+              <polyline points="12 19 5 12 12 5" />
+            </svg>
+          </button>
           <header className="delivery-heading">
             <p className="delivery-kicker">Delivery &amp; offers</p>
             <h1>Choose your delivery address</h1>
@@ -981,7 +876,161 @@ export default function OrderConfirm() {
                 </div>
                 <div className="delivery-content" style={{ flex: 1 }}>
                   <h2 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 700, color: DARK }}>DELIVER TO</h2>
-                  {savedAddress ? (
+                  {showAddressPopup ? (
+                    <div className="address-inline-card">
+                      {/* Header */}
+                      <div className="address-modal-header" style={{ padding: '22px 24px', borderBottom: '1px solid #f0ebe4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <p className="address-kicker">Secure delivery</p>
+                          <h2 className="address-title" style={{ margin: 0, fontSize: 18, fontWeight: 700, color: RED }}>Where should we deliver?</h2>
+                          <p className="address-subtitle">Add a complete address for insured and on-time delivery.</p>
+                        </div>
+                        {savedAddress && (
+                          <button className="address-close" type="button" aria-label="Close address form" onClick={() => setShowAddressPopup(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#999', lineHeight: 1 }}>&times;</button>
+                        )}
+                      </div>
+
+                      {/* Body */}
+                      <div className="address-modal-body" style={{ padding: '24px' }}>
+
+                        {/* Contact Details */}
+                        <section className="address-section">
+                        <h3 className="address-section-title" style={{ margin: '0 0 16px', fontSize: 13, fontWeight: 700, color: DARK }}>Contact Details</h3>
+                        <div className="address-contact-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                          <div>
+                            <label style={lbl}>Name *</label>
+                            <input style={inp(addressErrors.name)} placeholder="Full Name"
+                              value={addressForm.name} onChange={e => setAddressForm(f => ({ ...f, name: e.target.value }))} />
+                            {addressErrors.name && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.name}</div>}
+                          </div>
+                          <div>
+                            <label style={lbl}>Email</label>
+                            <input style={inp()} placeholder="Email (optional)"
+                              value={addressForm.email} onChange={e => setAddressForm(f => ({ ...f, email: e.target.value }))} />
+                          </div>
+                        </div>
+                        <div style={{ marginBottom: 24 }}>
+                          <label style={lbl}>Contact Number *</label>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <div style={{ padding: '13px 14px', border: '1px solid #d1dfde', borderRadius: 6, background: '#f3f3f0', fontSize: 13, fontWeight: 700, color: '#073B3F', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                              IN +91
+                            </div>
+                            <input style={{ ...inp(addressErrors.phone), flex: 1 }} placeholder="10-digit mobile" maxLength={10}
+                              value={addressForm.phone} onChange={e => setAddressForm(f => ({ ...f, phone: e.target.value }))} />
+                          </div>
+                          {addressErrors.phone && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.phone}</div>}
+                        </div>
+                        </section>
+
+                        {/* Address Details */}
+                        <section className="address-section">
+                        <h3 className="address-section-title" style={{ margin: '0 0 16px', fontSize: 13, fontWeight: 700, color: DARK }}>Address Details</h3>
+                        <div className="address-location-grid" style={{ display: 'grid', gridTemplateColumns: '0.65fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+
+                          {/* Country dropdown */}
+                          <div style={{ position: 'relative' }}>
+                            <label style={lbl}>Country *</label>
+                            <div onClick={() => setShowCountryDrop(v => !v)}
+                              style={{ padding: '13px 14px', border: '1px solid #e2d9d0', borderRadius: 6, background: '#fafafa', fontSize: 14, color: DARK, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
+                              <span>{selectedCountry.flag}</span>
+                              <span>{selectedCountry.code}</span>
+                              <span style={{ marginLeft: 'auto', color: '#7A8987', fontSize: 12 }}>&#9662;</span>
+                            </div>
+                            {showCountryDrop && (
+                              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e2d9d0', borderRadius: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 100, maxHeight: 220, overflowY: 'auto' }}>
+                                {COUNTRIES.map(c => (
+                                  <div key={c.code} className="country-opt"
+                                    onClick={() => { setCountry(c.code); setShowCountryDrop(false) }}
+                                    style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', background: country === c.code ? 'rgba(123,31,46,0.06)' : '#fff', fontSize: 13, color: DARK, transition: 'background 0.15s' }}>
+                                    <span>{c.flag}</span>
+                                    <span style={{ fontWeight: country === c.code ? 700 : 400 }}>{c.name}</span>
+                                    <span style={{ color: '#aaa', fontSize: 11, marginLeft: 'auto' }}>{c.code}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <label style={lbl}>Pincode *</label>
+                            <input style={inp(addressErrors.pincode)} placeholder="6-digit pincode" maxLength={6}
+                              value={addressForm.pincode}
+                              onChange={e => setAddressForm(f => ({ ...f, pincode: e.target.value.replace(/\D/g, '') }))} />
+                            {addressErrors.pincode
+                              ? <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.pincode}</div>
+                              : pincodeLookup.loading
+                                ? <div style={{ color: MUTED, fontSize: 11, marginTop: 3 }}>Fetching city & state...</div>
+                                : pincodeLookup.error
+                                  ? <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{pincodeLookup.error}</div>
+                                  : null}
+                          </div>
+                          <div>
+                            <label style={lbl}>City *</label>
+                            <input style={inp(addressErrors.city)} placeholder="Auto-fills from pincode"
+                              value={addressForm.city} onChange={e => setAddressForm(f => ({ ...f, city: e.target.value }))} />
+                            {addressErrors.city && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.city}</div>}
+                          </div>
+                        </div>
+
+                        <div className="address-detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                          <div>
+                            <label style={lbl}>State *</label>
+                            <input style={inp(addressErrors.state)} placeholder="Auto-fills from pincode"
+                              value={addressForm.state} onChange={e => setAddressForm(f => ({ ...f, state: e.target.value }))} />
+                            {addressErrors.state && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.state}</div>}
+                          </div>
+                          <div>
+                            <label style={lbl}>Address (House No., Building, Street, Area) *</label>
+                            <input style={inp(addressErrors.address)} placeholder="Address"
+                              value={addressForm.address} onChange={e => setAddressForm(f => ({ ...f, address: e.target.value }))} />
+                            {addressErrors.address && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.address}</div>}
+                          </div>
+                        </div>
+
+                        <div style={{ marginBottom: 24 }}>
+                          <label style={lbl}>Locality / Town</label>
+                          <input style={inp()} placeholder="Locality / Town (optional)"
+                            value={addressForm.locality} onChange={e => setAddressForm(f => ({ ...f, locality: e.target.value }))} />
+                        </div>
+                        </section>
+
+                        {/* Save Address As */}
+                        <section className="address-section" style={{ marginBottom: 0 }}>
+                        <h3 className="address-section-title" style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: DARK }}>Save Address As</h3>
+                        <div style={{ display: 'flex', gap: 12, marginBottom: addressType === 'Other' ? 12 : 16, flexWrap: 'wrap' }}>
+                          {['Home', 'Work', 'Other'].map(t => (
+                            <button className="address-type-button" type="button" key={t} onClick={() => setAddressType(t)}
+                              style={{ padding: '8px 24px', borderRadius: 20, border: `1.5px solid ${addressType === t ? RED : '#e2d9d0'}`, background: addressType === t ? 'rgba(123,31,46,0.06)' : '#fff', color: addressType === t ? RED : '#777', fontWeight: addressType === t ? 700 : 400, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s' }}>
+                              {t}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Other label input */}
+                        {addressType === 'Other' && (
+                          <div style={{ marginBottom: 16 }}>
+                            <label style={lbl}>Label Name (e.g. Parents, Office 2...)</label>
+                            <input style={inp()} placeholder="Type address label..."
+                              value={otherLabel} onChange={e => setOtherLabel(e.target.value)} />
+                          </div>
+                        )}
+
+                        <div className="address-default" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <input type="checkbox" id="default-addr" checked={isDefault} onChange={e => setIsDefault(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer', accentColor: RED }} />
+                          <label htmlFor="default-addr" style={{ fontSize: 13, color: DARK, cursor: 'pointer' }}>Make this my default delivery address</label>
+                        </div>
+                        </section>
+                      </div>
+
+                      {/* Footer */}
+                      <div className="address-modal-footer" style={{ padding: '16px 24px', borderTop: '1px solid #f0ebe4', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                        {savedAddress && (
+                          <button className="address-action" type="button" onClick={() => setShowAddressPopup(false)} style={{ padding: '12px 28px', background: '#fff', border: '1.5px solid #0C4044', borderRadius: 2, color: '#073B3F', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+                        )}
+                        <button className="address-action address-submit" type="button" onClick={handleUseAddress} style={{ padding: '12px 28px', background: RED, border: 'none', borderRadius: 2, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Use This Address</button>
+                      </div>
+                    </div>
+                  ) : savedAddress ? (
                     <div className="saved-address-card" style={{ background: '#fff', border: '1px solid #e2d9d0', borderRadius: 6, overflow: 'hidden' }}>
                       <div className="saved-address-head" style={{ padding: '14px 20px', borderBottom: '1px solid #f0ebe4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: 12, fontWeight: 700, color: '#777', letterSpacing: '1px' }}>SAVED ADDRESSES</span>
@@ -1000,7 +1049,9 @@ export default function OrderConfirm() {
                         </div>
                         <div className="saved-address-actions" style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0, marginLeft: 16 }}>
                           <button onClick={() => setShowAddressPopup(true)} style={{ padding: '7px 18px', background: '#fff', border: '1px solid #e2d9d0', borderRadius: 4, color: DARK, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Edit Address</button>
-                          <button className="address-use-button" disabled={placing} onClick={handlePlaceOrder} style={{ padding: '8px 18px', background: placing ? '#ccc' : RED, border: 'none', borderRadius: 4, color: '#fff', fontSize: 12, fontWeight: 700, cursor: placing ? 'not-allowed' : 'pointer' }}>{placing ? 'Processing...' : 'Use This Address'}</button>
+                          {/* This address is already the active one — no navigation here.
+                              Only the bottom "Proceed To Buy" bar moves to payment/Razorpay. */}
+                          <span className="address-selected-badge" style={{ padding: '8px 18px', background: '#e7edec', border: 'none', borderRadius: 4, color: '#073B3F', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>&#10003; Selected</span>
                         </div>
                       </div>
                     </div>

@@ -30,6 +30,8 @@ const styles = `
   @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
   .op-page{min-height:100vh;background:radial-gradient(circle at 12% 15%, rgba(209,223,222,.55), transparent 30%), radial-gradient(circle at 88% 85%, rgba(187,137,88,.08), transparent 32%), linear-gradient(135deg,#FDFDFC 0%,#F6EFE7 55%,#EDF2F1 100%);font-family:"Montserrat",system-ui,sans-serif;color:${DARK}}
   .op-main{width:min(1040px,calc(100% - 40px));margin:0 auto;padding:44px 0 90px;animation:fadeUp .4s ease both}
+  .op-back{display:flex;align-items:center;justify-content:center;width:34px;height:34px;margin-bottom:16px;border:1px solid rgba(189,207,206,.78);border-radius:50%;background:rgba(253,253,252,.92);color:${RED};cursor:pointer}
+  .op-back:active{opacity:.6}
   .op-kicker{margin:0 0 8px;color:${GOLD};font-size:12px;font-weight:900;letter-spacing:2.4px;text-transform:uppercase}
   .op-title{margin:0 0 28px;color:${RED};font-family:"Playfair Display",serif;font-size:clamp(28px,4vw,40px)}
   .op-card{border:1px solid rgba(189,207,206,.8);border-radius:14px;background:#fff;box-shadow:0 18px 46px rgba(12,64,68,.08);padding:26px;margin-bottom:20px}
@@ -247,6 +249,12 @@ export default function OrderPayment() {
     <div className="op-page">
       <style>{styles}</style>
       <main className="op-main">
+        <button type="button" className="op-back" onClick={() => navigate(-1)} aria-label="Back">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+          </svg>
+        </button>
         <p className="op-kicker">Secure Payment</p>
         <h1 className="op-title">Pay with AUG Coin</h1>
 

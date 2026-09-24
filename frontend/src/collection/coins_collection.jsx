@@ -241,7 +241,7 @@ function CoinMobileSheet({ title, open, onClose, children, footer }) {
 // Mobile-only "Sort | Filter" bar, replacing the native <select> + always-
 // visible sidebar on small screens. Desktop keeps the existing toolbar and
 // sidebar untouched.
-function CoinSortFilterBar({ sortBy, setSortBy, isGold, isAllMetals, metalFilter, weightFilter, priceFilter, selectMetal, selectWeight, selectPrice, clearWeightAndPrice, coinWeights }) {
+function CoinSortFilterBar({ sortBy, setSortBy, isGold, isAllMetals, metalFilter, weightFilter, priceFilter, selectMetal, selectWeight, selectPrice, clearWeightAndPrice, coinWeights, navigate }) {
   const [sheet, setSheet] = useState(null) // null | 'sort' | 'filter'
   const hasWeightFilter = Boolean(weightFilter)
   const hasPriceFilter = Boolean(priceFilter)
@@ -353,6 +353,17 @@ function CoinSortFilterBar({ sortBy, setSortBy, isGold, isAllMetals, metalFilter
               onClick={() => { selectMetal('gold', '22k'); setSheet(null) }}
             >
               Gold Coins {isGold && <span>✓</span>}
+            </button>
+          </div>
+        </div>
+        <div className="coin-sheet-group">
+          <div className="coin-sheet-group-title">Jewellery</div>
+          <div className="coin-sheet-options">
+            <button type="button" className="coin-sheet-option" onClick={() => navigate('/collection/all?metal=gold')}>
+              Gold Jewellery
+            </button>
+            <button type="button" className="coin-sheet-option" onClick={() => navigate('/collection/all?metal=silver')}>
+              Silver Jewellery
             </button>
           </div>
         </div>
@@ -512,16 +523,35 @@ export default function CoinsCollection() {
     navigate(`/collection/coins${query ? `?${query}` : ''}`)
   }
 
-  const coinQuickLinks = [
-    { label: 'Silver 100mg', metal: 'silver', weight: '100 mg', image: '/coin/100mg.silver.png' },
-    { label: 'Silver 250mg', metal: 'silver', weight: '250 mg', image: '/coin/250mg.silver.png' },
-    { label: 'Silver 500mg', metal: 'silver', weight: '500 mg', image: '/coin/500mg.silver.png' },
-    { label: 'Silver Coins', metal: 'silver', image: '/silver-coin.jpg.jpeg' },
-    { label: 'Gold 100mg', metal: 'gold', grade: '22k', weight: '100 mg', image: '/coin/100mg.gold.png' },
-    { label: 'Gold 200mg', metal: 'gold', grade: '22k', weight: '200 mg', image: '/coin/200mg.gold.png' },
-    { label: 'Gold 250mg', metal: 'gold', grade: '22k', weight: '250 mg', image: '/coin/250mg.gold.png' },
-    { label: 'Gold Coins', metal: 'gold', grade: '22k', image: '/gold-coin.jpg.jpeg' },
-  ]
+  // Rail content follows whichever metal is currently selected — cross-link
+  // to the other metal first, then that metal's own real weight options
+  // (matches GOLD_COIN_WEIGHTS / SILVER_COIN_WEIGHTS exactly).
+  const coinQuickLinks = isGold
+    ? [
+        { label: 'Silver Coins', metal: 'silver', image: '/rail/silver-coins.png' },
+        { label: '50 mg', metal: 'gold', grade: '22k', weight: '50 mg', image: '/rail/gold-50mg.png' },
+        { label: '100 mg', metal: 'gold', grade: '22k', weight: '100 mg', image: '/rail/gold-100mg.png' },
+        { label: '200 mg', metal: 'gold', grade: '22k', weight: '200 mg', image: '/rail/gold-200mg.png' },
+        { label: '500 mg', metal: 'gold', grade: '22k', weight: '500 mg', image: '/rail/gold-500mg.png' },
+        { label: '1 g', metal: 'gold', grade: '22k', weight: '1 g', image: '/rail/gold-1g.png' },
+        { label: '2 g', metal: 'gold', grade: '22k', weight: '2 g', image: '/rail/gold-2g.png' },
+        { label: '4 g', metal: 'gold', grade: '22k', weight: '4 g', image: '/rail/gold-4g.png' },
+        { label: '8 g', metal: 'gold', grade: '22k', weight: '8 g', image: '/rail/gold-8g.png' },
+      ]
+    : metalFilter === 'silver'
+      ? [
+          { label: 'Gold Coins', metal: 'gold', grade: '22k', image: '/rail/gold-coins.png' },
+          { label: '250 mg', metal: 'silver', weight: '250 mg', image: '/rail/silver-250mg.png' },
+          { label: '500 mg', metal: 'silver', weight: '500 mg', image: '/rail/silver-500mg.png' },
+          { label: '1 g', metal: 'silver', weight: '1 g', image: '/rail/silver-1g.png' },
+          { label: '2 g', metal: 'silver', weight: '2 g', image: '/rail/silver-2g.png' },
+          { label: '5 g', metal: 'silver', weight: '5 g', image: '/rail/silver-5g.png' },
+          { label: '10 g', metal: 'silver', weight: '10 g', image: '/rail/silver-10g.png' },
+        ]
+      : [
+          { label: 'Gold Coins', metal: 'gold', grade: '22k', image: '/rail/gold-coins.png' },
+          { label: 'Silver Coins', metal: 'silver', image: '/rail/silver-coins.png' },
+        ]
 
   const selectWeight = weight => {
     const params = new URLSearchParams()
@@ -1378,6 +1408,12 @@ export default function CoinsCollection() {
 
           .coin-sort-filter-bar-mobile {
             display: block;
+            position: sticky;
+            top: 50px;
+            z-index: 30;
+            background: #FBFBF9;
+            padding-top: 8px;
+            padding-bottom: 8px;
             margin-bottom: 18px;
           }
 
@@ -1610,6 +1646,7 @@ export default function CoinsCollection() {
             selectPrice={selectPrice}
             clearWeightAndPrice={clearWeightAndPrice}
             coinWeights={coinWeights}
+            navigate={navigate}
           />
         </div>
 

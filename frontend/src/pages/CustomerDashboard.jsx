@@ -287,12 +287,25 @@ function HomeBannerSlider() {
     };
   }, []);
 
+  // Banners carry their own baked-in headline text at different positions,
+  // so a plain crossfade (both slides visible at once while opacity ramps)
+  // showed two overlapping headlines mid-transition. Fading fully out to
+  // nothing first, then fading the next slide in, keeps exactly one slide
+  // (or none, briefly) visible at any moment.
+  const activeRef = useRef(active);
+  activeRef.current = active;
+
+  const goTo = (next) => {
+    setActive(-1);
+    setTimeout(() => setActive(next), 360);
+  };
+
   useEffect(() => {
     if (banners.length < 2) return undefined;
-    const timer = setInterval(
-      () => setActive((i) => (i + 1) % banners.length),
-      4200,
-    );
+    const timer = setInterval(() => {
+      const current = activeRef.current === -1 ? 0 : activeRef.current;
+      goTo((current + 1) % banners.length);
+    }, 4200);
     return () => clearInterval(timer);
   }, [banners.length]);
 
@@ -318,7 +331,7 @@ function HomeBannerSlider() {
               key={banner.id || banner.slot}
               type="button"
               className={index === active ? "active" : ""}
-              onClick={() => setActive(index)}
+              onClick={() => goTo(index)}
             />
           ))}
         </div>
@@ -1315,7 +1328,7 @@ export default function CustomerDashboard() {
         .athirai-world-section { padding: clamp(38px, 4.5vw, 64px) 0 clamp(10px, 2vw, 20px); }
         .athirai-world-heading { text-align: center; margin: 0 auto clamp(22px, 2.6vw, 32px); }
         .athirai-world-heading h2 { color: #073B3F; font-family: Georgia, "Times New Roman", serif; font-size: clamp(26px, 2.6vw, 34px); font-weight: 700; }
-        .athirai-world-heading p { margin-top: 9px; color: #7A8987; font-size: 13.5px; }
+        .athirai-world-heading p { margin-top: 9px; color: #9F6130; font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: 14.5px; }
         /* Two independent columns instead of a shared-row grid, so
            diagonally-opposite cards (Casual/Modern = tall, Wedding/
            Traditional = short) can differ in height while cards stacked
@@ -1326,12 +1339,12 @@ export default function CustomerDashboard() {
         .athirai-world-card.card-tall { aspect-ratio: 16 / 11; }
         .athirai-world-card.card-short { aspect-ratio: 16 / 9.5; }
         .athirai-world-card img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .3s ease; }
-        .athirai-world-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 45%, rgba(7,59,63,.82) 100%); }
+        .athirai-world-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 45%, rgba(0,0,0,.6) 100%); }
         .athirai-world-card:hover img { transform: scale(1.04); }
         .athirai-world-card-label { position: absolute; left: 0; right: 0; bottom: 16px; z-index: 2; color: #fff; font-family: Georgia, "Times New Roman", serif; font-size: 19px; font-weight: 700; text-align: center; }
 
         @media (max-width: 680px) {
-          .athirai-world-grid { gap: 8px; }
+          .athirai-world-grid { gap: 8px; padding: 0 12px; }
           .athirai-world-col { gap: 8px; }
           .athirai-world-card { border-radius: 8px; }
           .athirai-world-card-label { font-size: 14px; bottom: 10px; }
@@ -1456,7 +1469,7 @@ export default function CustomerDashboard() {
           filter: none;
           animation: none;
           transform: none;
-          transition: opacity 700ms ease;
+          transition: opacity 350ms ease;
           display: block;
         }
 

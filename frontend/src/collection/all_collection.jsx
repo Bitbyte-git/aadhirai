@@ -8,26 +8,26 @@ import { getSubcategories, getGiftingSubcategories } from '../config/categoryCon
 
   const categoryTiles = [
     { label: 'Necklaces', category: 'necklaces', count: '478+', image: '/diamond_necklas.jpg' },
-    { label: 'Earrings', category: 'earrings', count: '965+', image: '/diamond Earings.jpg' },
-    { label: 'Rings', category: 'rings', count: '678+', image: '/diamond_ring.jpg' },
-    { label: 'Bracelets', category: 'bracelets', count: '412+', image: '/wedding_bracelet.jpg' },
-    { label: 'Pendants', category: 'pendants', count: '329+', image: '/platinum_necklas.jpg' },
-    { label: 'Chains', category: 'chains', count: '286+', image: '/wedding_chain.jpg' },
-    { label: 'Mangalsutra', category: 'mangalsutra', count: '193+', image: '/black_necklaces.png' },
-    { label: 'Bangles', category: 'bangles', count: '551+', image: '/wedding_bangesh.jpg' },
+    { label: 'Earrings', category: 'earrings', count: '965+', image: '/rail/gold-earrings.png' },
+    { label: 'Rings', category: 'rings', count: '678+', image: '/rail/gold-rings.png' },
+    { label: 'Bracelets', category: 'bracelets', count: '412+', image: '/rail/gold-bracelets.png' },
+    { label: 'Pendants', category: 'pendants', count: '329+', image: '/rail/gold-pendants.png' },
+    { label: 'Chains', category: 'chains', count: '286+', image: '/rail/gold-chains.png' },
+    { label: 'Mangalsutra', category: 'mangalsutra', count: '193+', image: '/rail/gold-mangalsutra.png' },
+    { label: 'Bangles', category: 'bangles', count: '551+', image: '/rail/gold-bangles.png' },
     { label: 'Necklace Set', category: 'necklaces', count: '241+', image: '/wedding_necklaces.jpg' },
     { label: 'Nose Pin', category: 'nosepin', count: '156+', image: '/diamond Earings.jpg' },
   ]
 
   const goldRail = [
     { label: 'Necklaces', category: 'necklaces', image: '/gold-women.png' },
-    { label: 'Earrings', category: 'earrings', image: '/diamond Earings.jpg' },
-    { label: 'Rings', category: 'rings', image: '/diamond_ring.jpg' },
-    { label: 'Bangles', category: 'bangles', image: '/wedding_bangesh.jpg' },
-    { label: 'Chains', category: 'chains', image: '/wedding_chain.jpg' },
-    { label: 'Pendants', category: 'pendants', image: '/wedding_necklaces.jpg' },
-    { label: 'Mangalsutra', category: 'mangalsutra', image: '/black_necklaces.png' },
-    { label: 'Gold Coins', route: '/collection/coins?metal=gold', image: '/gold-coin.jpg.jpeg' },
+    { label: 'Earrings', category: 'earrings', image: '/rail/gold-earrings.png' },
+    { label: 'Rings', category: 'rings', image: '/rail/gold-rings.png' },
+    { label: 'Bangles', category: 'bangles', image: '/rail/gold-bangles.png' },
+    { label: 'Chains', category: 'chains', image: '/rail/gold-chains.png' },
+    { label: 'Pendants', category: 'pendants', image: '/rail/gold-pendants.png' },
+    { label: 'Mangalsutra', category: 'mangalsutra', image: '/rail/gold-mangalsutra.png' },
+    { label: 'Gold Coins', route: '/collection/coins?metal=gold', image: '/rail/gold-coins.png' },
   ]
 
   const filterCategories = [
@@ -496,10 +496,88 @@ const CATEGORY_RAIL_IMAGES = {
   'Coin & Bars': '/coin/200mg.png',
   'Coins': '/coin/200mg.png',
   'Coins & Bars': '/coin/200mg.png',
-  'Gold Coins': '/coin/200mg.gold.png',
-  'Silver Coins': '/coin/silver5gm.png',
-  'Silver Jewellery': '/landing-img/silvers.png',
-  'Gold Jewellery': '/gold-women.png',
+  // Fresh custom rail set (frontend/public/rail/) — exact-label entries
+  // below take priority over the bareLabel fallbacks above, so metal-scoped
+  // items (e.g. "Gold Rings") get their own dedicated photo once supplied,
+  // while metal contexts still missing one (e.g. Silver Rings) keep falling
+  // back to the generic bareLabel image until their photo is added.
+  'All Jewellery': '/rail/all-jewellery.png',
+  'Gold Jewellery': '/rail/gold-jewellery.png',
+  'Silver Jewellery': '/rail/silver-jewellery.png',
+  'Gold Coins': '/rail/gold-coins.png',
+  'Silver Coins': '/rail/silver-coins.png',
+  'Gold Rings': '/rail/gold-rings.png',
+  'Gold Earrings': '/rail/gold-earrings.png',
+  'Gold Chains': '/rail/gold-chains.png',
+  'Gold Bracelets': '/rail/gold-bracelets.png',
+  'Gold Bangles': '/rail/gold-bangles.png',
+  'Gold Mangalsutra': '/rail/gold-mangalsutra.png',
+  'Gold Pendants': '/rail/gold-pendants.png',
+  'Silver Rings': '/rail/silver-rings.png',
+  'Silver Earrings': '/rail/silver-earrings.png',
+  'Silver Chains': '/rail/silver-chains.png',
+  'Silver Bracelets': '/rail/silver-bracelets.png',
+  'Silver Bangles': '/rail/silver-bangles.png',
+  'Silver Pendants': '/rail/silver-pendants.png',
+  'Silver Anklets': '/rail/silver-anklets.png',
+  'Daily Wear': '/dailywera.png',
+}
+
+// Curated, short lists for the horizontal icon rail specifically — separate
+// from goldFilterCategories/silverFilterCategories (which stay the long,
+// navbar-matching lists used by the full Filter page). Order and exact
+// labels per explicit request.
+const GOLD_RAIL_ITEMS = [
+  ['All Jewellery', '/collection/all', null],
+  ['Gold Jewellery', '/collection/all?metal=gold', null],
+  ['Silver Jewellery', '/collection/all?metal=silver', null],
+  ['Gold Coins', '/collection/coins?metal=gold', null],
+  ['Silver Coins', '/collection/coins?metal=silver', null],
+  ['Gold Rings', '/collection/all?metal=gold&category=rings', 'rings'],
+  ['Gold Earrings', '/collection/all?metal=gold&category=earrings', 'earrings'],
+  ['Gold Chains', '/collection/all?metal=gold&category=chains', 'chains'],
+  ['Gold Bracelets', '/collection/all?metal=gold&category=bracelets', 'bracelets'],
+  ['Gold Bangles', '/collection/all?metal=gold&category=bangles', 'bangles'],
+  ['Gold Mangalsutra', '/collection/all?metal=gold&category=mangalsutra', 'mangalsutra'],
+  ['Gold Pendants', '/collection/all?metal=gold&category=pendants', 'pendants'],
+]
+
+const SILVER_RAIL_ITEMS = [
+  ['All Jewellery', '/collection/all', null],
+  ['Gold Jewellery', '/collection/all?metal=gold', null],
+  ['Gold Coins', '/collection/coins?metal=gold', null],
+  ['Silver Coins', '/collection/coins?metal=silver', null],
+  ['Silver Anklets', '/collection/all?metal=silver&category=anklets', 'anklets'],
+  ['Silver Rings', '/collection/all?metal=silver&category=rings', 'rings'],
+  ['Silver Earrings', '/collection/all?metal=silver&category=earrings', 'earrings'],
+  ['Silver Bracelets', '/collection/all?metal=silver&category=bracelets', 'bracelets'],
+  ['Silver Bangles', '/collection/all?metal=silver&category=bangles', 'bangles'],
+  ['Silver Pendants', '/collection/all?metal=silver&category=pendants', 'pendants'],
+  ['Silver Chains', '/collection/all?metal=silver&category=chains', 'chains'],
+]
+
+// Rail for the base "All Jewellery" page (no metal selected) — metal +
+// coin cross-links first, then occasion shortcuts, per explicit request.
+const ALL_RAIL_ITEMS = [
+  ['All Jewellery', '/collection/all', null],
+  ['Gold Jewellery', '/collection/all?metal=gold', null],
+  ['Silver Jewellery', '/collection/all?metal=silver', null],
+  ['Gold Coins', '/collection/coins?metal=gold', null],
+  ['Silver Coins', '/collection/coins?metal=silver', null],
+  ['Wedding', '/collection/all?wedding=true', null],
+  ['Birthday', '/collection/all?occasion=Birthday', null],
+  ['Anniversary', '/collection/all?occasion=Anniversary', null],
+  ['Daily Wear', '/collection/all?dailywear=true', null],
+  ['Modern', '/collection/all?occasion=Modern%20Wear', null],
+  ['Traditional', '/collection/all?occasion=Traditional%20Wear', null],
+]
+
+// Shorter text under the rail icon for these three — the icon itself
+// already conveys "Jewellery", so the label stays a single word.
+const RAIL_SHORT_LABELS = {
+  'All Jewellery': 'All',
+  'Gold Jewellery': 'Gold',
+  'Silver Jewellery': 'Silver',
 }
 
 function CategoryRail({ categories, activeKey, navigate }) {
@@ -511,6 +589,7 @@ function CategoryRail({ categories, activeKey, navigate }) {
         const bareLabel = label.replace(/^(Gold|Silver)\s+/, '')
         const image = CATEGORY_RAIL_IMAGES[label] || CATEGORY_RAIL_IMAGES[bareLabel] || null
         const isActive = key ? key === activeKey : label.startsWith('All') && !activeKey
+        const displayLabel = RAIL_SHORT_LABELS[label] || label
         return (
           <button
             key={label}
@@ -525,7 +604,7 @@ function CategoryRail({ categories, activeKey, navigate }) {
                 <Icon type={label === 'All Jewellery' ? 'grid' : 'gem'} size={22} />
               )}
             </span>
-            <span>{label}</span>
+            <span>{displayLabel}</span>
           </button>
         )
       })}
@@ -546,6 +625,13 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
           ? silverFilterCategories
           : filterCategories
   const activeKey = isGifting ? giftTagFilter : categoryFilter
+  const railCategories = metalFilter === 'gold'
+    ? GOLD_RAIL_ITEMS
+    : metalFilter === 'silver'
+      ? SILVER_RAIL_ITEMS
+      : (!isWedding && !isGifting)
+        ? ALL_RAIL_ITEMS
+        : categories
   const [expandedKey, setExpandedKey] = useState(activeKey || null)
 
   useEffect(() => {
@@ -576,7 +662,7 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
     <div ref={wrapRef} className="an-filter-wrap">
       {/* Mobile-only horizontal category rail (Flipkart-style quick browse) */}
       <div className="an-cat-rail-mobile">
-        <CategoryRail categories={categories} activeKey={activeKey} navigate={navigate} />
+        <CategoryRail categories={railCategories} activeKey={activeKey} navigate={navigate} />
       </div>
 
       {/* Mobile Toggle Bar */}
@@ -1059,8 +1145,11 @@ function FilterFullPage({ categories, activeKey, activeSubFilter, isGifting, isW
           color: #073B3F;
           font-weight: 800;
         }
+        .an-fp-empty-wrap {
+          padding-top: 24px;
+        }
         .an-fp-empty {
-          padding: 40px 20px;
+          padding: 0 20px 24px;
           text-align: center;
           color: #8a8a8a;
           font-size: 13px;
@@ -1127,7 +1216,26 @@ function FilterFullPage({ categories, activeKey, activeSubFilter, isGifting, isW
               })}
             </>
           ) : (
-            <div className="an-fp-empty">Select a category to see its options</div>
+            <div className="an-fp-empty-wrap">
+              <div className="an-fp-empty">Select a category to see its options</div>
+              {[
+                ['Gold Jewellery', '/collection/all?metal=gold'],
+                ['Silver Jewellery', '/collection/all?metal=silver'],
+                ['Gold Coins', '/collection/coins?metal=gold'],
+                ['Silver Coins', '/collection/coins?metal=silver'],
+                ['Wedding Jewellery', '/collection/all?wedding=true'],
+                ['Daily Wear', '/collection/all?dailywear=true'],
+              ].map(([label, route]) => (
+                <button
+                  key={label}
+                  type="button"
+                  className="an-fp-sub-item all"
+                  onClick={() => navigate(route)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -2859,6 +2967,12 @@ export default function AllCollection() {
             }
             .an-sort-filter-bar-mobile {
               display: block;
+              position: sticky;
+              top: 50px;
+              z-index: 30;
+              background: #fff;
+              padding-top: 8px;
+              padding-bottom: 8px;
             }
 
             /* Same gap as above: index.css collapses .an-layout to a single
@@ -3234,23 +3348,30 @@ export default function AllCollection() {
                     </button>
                   )}
                 </div>
+              </div>
 
-                <div className="an-sort-filter-bar-mobile">
-                  <SortFilterBar
-                    priceFilter={priceFilter}
-                    genderFilter={genderFilter}
-                    ageFilter={ageFilter}
-                    occasionFilter={occasionFilter}
-                    onSelectPrice={(val) => updateFilterParam('price', val)}
-                    onSelectGender={onSelectGender}
-                    onSelectAge={(val) => updateFilterParam('age', val)}
-                    onSelectOccasion={(val) => updateFilterParam('occasion', val)}
-                    onResetQuickFilters={onResetQuickFilters}
-                    activeFilterTag={sheetActiveFilterTag}
-                    navigate={navigate}
-                    filterPageRoute={`${isGifting ? '/collection/gifting' : '/collection/all'}/filter${location.search}`}
-                  />
-                </div>
+              {/* Deliberately OUTSIDE .an-main-head — position:sticky only
+                  holds an element within its own parent's box, and
+                  .an-main-head is short (just the title/breadcrumb row), so
+                  the bar would stop sticking and scroll away the moment the
+                  page scrolled past that block. .an-content spans the whole
+                  product listing, so the bar now stays stuck the entire
+                  time the user is scrolling through products. */}
+              <div className="an-sort-filter-bar-mobile">
+                <SortFilterBar
+                  priceFilter={priceFilter}
+                  genderFilter={genderFilter}
+                  ageFilter={ageFilter}
+                  occasionFilter={occasionFilter}
+                  onSelectPrice={(val) => updateFilterParam('price', val)}
+                  onSelectGender={onSelectGender}
+                  onSelectAge={(val) => updateFilterParam('age', val)}
+                  onSelectOccasion={(val) => updateFilterParam('occasion', val)}
+                  onResetQuickFilters={onResetQuickFilters}
+                  activeFilterTag={sheetActiveFilterTag}
+                  navigate={navigate}
+                  filterPageRoute={`${isGifting ? '/collection/gifting' : '/collection/all'}/filter${location.search}`}
+                />
               </div>
 
               {metalFilter ? (

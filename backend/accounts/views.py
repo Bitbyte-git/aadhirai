@@ -9904,14 +9904,37 @@ class AffordableProductsView(APIView):
         wallet, _ = Wallet.objects.get_or_create(user=request.user)
         max_price_rupees = wallet.balance_coins / COIN_RATE_PER_RUPEE
 
-        products = JewelryProduct.objects.filter(
+        # prefetch_related('images') below turns this into 2 queries total
+        # instead of 1 + N — without it, p.images.first() on each product in
+        # the loop below re-queries the DB every single time, which is what
+        # was making this endpoint take 20-50s on a page of 30 products.
+        qs = JewelryProduct.objects.filter(
             is_active=True,
             price__lte=max_price_rupees
-        ).order_by('-price')
+        ).order_by('-price').prefetch_related('images')
+
+        # ── Infinite scroll (Amazon/Flipkart style) — 30 per page by default.
+        # `page`/`page_size` are optional so any older caller still works. ──
+        try:
+            page = max(1, int(request.query_params.get('page', 1)))
+        except ValueError:
+            page = 1
+        try:
+            page_size = max(1, min(100, int(request.query_params.get('page_size', 30))))
+        except ValueError:
+            page_size = 30
+
+        total = qs.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        products = qs[start:end]
 
         results = []
         for p in products:
-            first_image = p.images.first()
+            # .first() on p.images would ignore the prefetch cache and fire
+            # a fresh query per product — read from the prefetched list instead.
+            images = list(p.images.all())
+            first_image = images[0] if images else None
             results.append({
                 'id': p.id,
                 'name': p.name,
@@ -9926,7 +9949,9 @@ class AffordableProductsView(APIView):
             'wallet_coins': wallet.balance_coins,
             'max_affordable_price': round(max_price_rupees, 2),
             'products': results,
-        })        
+            'has_more': end < total,
+            'count': total,
+        })
 
 @api_view(['GET'])
 @permission_classes([AllowAny])

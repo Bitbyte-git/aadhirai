@@ -416,7 +416,7 @@ export default function App() {
           <Route path="/jewellery-requests" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><JewelleryRequests /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/jewellery-transactions" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><JewelleryTransactions /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/promotions/sales-order-list" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><PromotionSalesOrderList /></WithSuperAdminNavbar></ProtectedRoute>} />
-          <Route path="/coin-shop" element={<ProtectedRoute><AffordableProducts /></ProtectedRoute>} />
+          <Route path="/aug-products" element={<ProtectedRoute><AffordableProducts /></ProtectedRoute>} />
         </Routes>
       </Suspense>
     </BrowserRouter>

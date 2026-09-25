@@ -3328,7 +3328,7 @@ export default function CustomerNavbar() {
                   <Icon name="star" size={12} />
                   <span>AUG</span>
                 </button>
-                <button type="button" className="cn-compact-icon" onClick={() => requireLogin("/coin-shop")} aria-label="AUG Coins" title="Shop with Coins">
+                <button type="button" className="cn-compact-icon" onClick={() => requireLogin("/aug-products")} aria-label="AUG Coins" title="Shop with Coins">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                     <circle cx="12" cy="12" r="10" fill="url(#cnCompactGoldGrad)" stroke="#B5842F" strokeWidth="1.2"/>
                     <circle cx="12" cy="12" r="7.5" stroke="#FDE08D" strokeWidth="0.8" strokeDasharray="2 1.5"/>
@@ -3679,7 +3679,7 @@ export default function CustomerNavbar() {
                   <button
                     className="exact-coin-icon-btn"
                     type="button"
-                    onClick={() => requireLogin("/coin-shop")}
+                    onClick={() => requireLogin("/aug-products")}
                     title="Shop with Coins"
                     aria-label="AUG Coins"
                   >
@@ -3978,7 +3978,7 @@ export default function CustomerNavbar() {
                 className="mobile-service-item"
                 onClick={() => {
                   setMobileOpen(false);
-                  requireLogin("/coin-shop");
+                  requireLogin("/aug-products");
                 }}
               >
                 <div className="mobile-service-left">
@@ -4232,7 +4232,7 @@ export default function CustomerNavbar() {
                   type="button"
                   onClick={() => {
                     setRoleDrawerOpen(false);
-                    requireLogin("/coin-shop");
+                    requireLogin("/aug-products");
                   }}
                 >
                   <div className="role-drawer-item-left">

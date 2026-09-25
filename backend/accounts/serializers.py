@@ -668,6 +668,13 @@ class CoinRequestItemSerializer(serializers.ModelSerializer):
         fields = ['id', 'metal_type', 'weight_label', 'weight_grams', 'qty']
 
 
+def _profile_display_name(p):
+    """Person profiles have first/last name; ShopProfile has shop_name instead."""
+    if hasattr(p, 'shop_name'):
+        return p.shop_name or getattr(p, 'owner_name', '') or ''
+    return f"{getattr(p, 'first_name', '') or ''} {getattr(p, 'last_name', '') or ''}".strip()
+
+
 class CoinRequestSerializer(serializers.ModelSerializer):
     items = CoinRequestItemSerializer(many=True)
     requested_by_email = serializers.EmailField(source='requested_by.email', read_only=True)
@@ -704,6 +711,7 @@ class CoinRequestSerializer(serializers.ModelSerializer):
             'sub_dealer': 'sub_dealer_profile',
             'dealer': 'dealer_profile',
             'admin': 'admin_profile',
+            'shop': 'shop_profile',
         }
         attr = role_map.get(user.role)
         if not attr:
@@ -719,6 +727,7 @@ class CoinRequestSerializer(serializers.ModelSerializer):
             'sub_dealer': 'sub_dealer_id',
             'dealer': 'dealer_id',
             'admin': 'admin_id',
+            'shop': 'shop_id',
         }
         p = self._get_profile(obj)
         field = role_id_field.get(obj.requested_by.role)
@@ -729,7 +738,7 @@ class CoinRequestSerializer(serializers.ModelSerializer):
     def get_requested_by_name(self, obj):
         p = self._get_profile(obj)
         if p:
-            return f"{p.first_name} {p.last_name or ''}".strip()
+            return _profile_display_name(p)
         return None
 
     def get_requested_by_phone(self, obj):
@@ -746,6 +755,7 @@ class CoinRequestSerializer(serializers.ModelSerializer):
             'sub_dealer': 'sub_dealer_id',
             'dealer': 'dealer_id',
             'admin': 'admin_id',
+            'shop': 'shop_id',
         }
         p = self._get_profile_by_user(obj.requested_to)
         field = role_id_field.get(obj.requested_to.role)
@@ -758,7 +768,7 @@ class CoinRequestSerializer(serializers.ModelSerializer):
             return None
         p = self._get_profile_by_user(obj.requested_to)
         if p:
-            name = f"{p.first_name} {p.last_name or ''}".strip()
+            name = _profile_display_name(p)
             if name:
                 return name
         return getattr(obj.requested_to, 'email', None)
@@ -779,7 +789,7 @@ class CoinRequestSerializer(serializers.ModelSerializer):
             if getattr(obj.approved_by, 'role', None) == 'super_admin':
                 return 'Super Admin'
             return getattr(obj.approved_by, 'email', '')
-        return f"{getattr(p, 'first_name', '')} {getattr(p, 'last_name', '') or ''}".strip() or getattr(obj.approved_by, 'email', '')
+        return _profile_display_name(p) or getattr(obj.approved_by, 'email', '')
 
     def create(self, validated_data):
         items_data = validated_data.pop('items')
@@ -868,6 +878,7 @@ class JewelryRequestSerializer(serializers.ModelSerializer):
             'sub_dealer': 'sub_dealer_profile',
             'dealer': 'dealer_profile',
             'admin': 'admin_profile',
+            'shop': 'shop_profile',
         }
         attr = role_map.get(user.role)
         if not attr:
@@ -893,7 +904,7 @@ class JewelryRequestSerializer(serializers.ModelSerializer):
             if obj.requested_by.role == 'super_admin':
                 return 'Super Admin'
             return getattr(obj.requested_by, 'email', '')
-        return f"{getattr(p, 'first_name', '')} {getattr(p, 'last_name', '') or ''}".strip() or getattr(obj.requested_by, 'email', '')
+        return _profile_display_name(p) or getattr(obj.requested_by, 'email', '')
 
     def get_requested_by_phone(self, obj):
         if not obj.requested_by:
@@ -919,7 +930,7 @@ class JewelryRequestSerializer(serializers.ModelSerializer):
             if obj.requested_to.role == 'super_admin':
                 return 'Super Admin'
             return getattr(obj.requested_to, 'email', '')
-        return f"{getattr(p, 'first_name', '')} {getattr(p, 'last_name', '') or ''}".strip() or getattr(obj.requested_to, 'email', '')
+        return _profile_display_name(p) or getattr(obj.requested_to, 'email', '')
 
     def get_requested_to_phone(self, obj):
         if not obj.requested_to:
@@ -937,4 +948,4 @@ class JewelryRequestSerializer(serializers.ModelSerializer):
             if getattr(obj.approved_by, 'role', None) == 'super_admin':
                 return 'Super Admin'
             return getattr(obj.approved_by, 'email', '')
-        return f"{getattr(p, 'first_name', '')} {getattr(p, 'last_name', '') or ''}".strip() or getattr(obj.approved_by, 'email', '')
+        return _profile_display_name(p) or getattr(obj.approved_by, 'email', '')

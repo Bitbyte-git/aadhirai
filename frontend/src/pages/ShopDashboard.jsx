@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import api from '../api'
-import InternalRoleNavbar from '../collection/InternalRoleNavbar'
+import ShopNavbar from '../collection/ShopNavbar'
+import { IrdOrderTrendPanel, IrdDonutPanel, IrdIcon, irdPalette, IRD_STYLES } from './AdminDashboard'
+import '../components/skeleton.css'
+
+// ── Shop Dashboard — same layout as the Admin (Super Stockist) dashboard:
+// 4 quick-stat cards → Order Volume graph → Shop Types + Today's Login Status
+// → Shop Management (Hierarchy / Sales Report / Create Shop / Shop List) ──
 
 function SectionHeader({ icon, label }) {
   const paths = {
@@ -31,65 +36,99 @@ const PROFILE_FIELDS = [
   ['pan_no', 'PAN'], ['gst_no', 'GST'], ['msme_no', 'MSME'],
 ]
 
+// ── 4 cards — same look as AdminQuickStats ──
+function ShopQuickStats() {
+  const [stats, setStats] = useState({ yesterday_orders: 0, today_orders: 0, today_new_shops: 0, active_users: 0, total_sub_shops: 0 })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let current = true
+    api.get('/dashboard-quick-stats/')
+      .then(res => { if (current) setStats(prev => ({ ...prev, ...res.data })) })
+      .catch(() => {})
+      .finally(() => { if (current) setLoading(false) })
+    return () => { current = false }
+  }, [])
+
+  const cards = [
+    { label: 'Yesterday Order', value: stats.yesterday_orders, sub: 'orders', note: 'Compared to today', color: '#9B31FF', bg: '#F5EAFF' },
+    { label: 'Today Order', value: stats.today_orders, sub: 'orders', note: 'Orders placed today', color: '#00A767', bg: '#EAF8F0' },
+    { label: 'Today New Shop', value: stats.today_new_shops, sub: '', note: 'Joined your network today', color: '#00A767', bg: '#EAF8F0' },
+    { label: 'Active Shop', value: stats.active_users, sub: `of ${stats.total_sub_shops}`, note: 'Logged in today', color: '#2563EB', bg: '#EAF2FF' },
+  ]
+
+  return (
+    <div className="shd-qstats">
+      {loading ? (
+        Array.from({ length: 4 }).map((_, i) => (
+          <div key={`skel-${i}`} className="shd-qcard">
+            <div className="sa-kpi-skel-icon" style={{ width: '44px', height: '44px', borderRadius: '10px', marginBottom: '14px' }} />
+            <div className="sa-kpi-skel-line" style={{ width: '65%', height: '11px', marginBottom: '12px' }} />
+            <div className="sa-kpi-skel-line" style={{ width: '40%', height: '26px', marginBottom: '12px' }} />
+            <div className="sa-kpi-skel-line" style={{ width: '55%', height: '11px' }} />
+          </div>
+        ))
+      ) : (
+        cards.map(kpi => (
+          <div key={kpi.label} className="shd-qcard">
+            <div className="shd-qicon" style={{ background: kpi.bg, color: kpi.color }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 6h15l-2 9H8L6 3H3" /><circle cx="9" cy="20" r="1.5" /><circle cx="18" cy="20" r="1.5" /></svg>
+            </div>
+            <div className="shd-qlabel">{kpi.label}</div>
+            <div><span className="shd-qvalue">{kpi.value}</span>{kpi.sub ? <span className="shd-qsub">{kpi.sub}</span> : null}</div>
+            <div className="shd-qnote">{kpi.note}</div>
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
+
 export default function ShopDashboard() {
   const navigate = useNavigate()
   const [shop, setShop] = useState(null)
-  const [loading, setLoading] = useState(true)
   const [showProfile, setShowProfile] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [editForm, setEditForm] = useState({})
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
-  const [announcements, setAnnouncements] = useState([])
-  const [showAnnouncements, setShowAnnouncements] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [stats, setStats] = useState(null)
-  const [statsLoading, setStatsLoading] = useState(true)
+
+  const [typeCounts, setTypeCounts] = useState({ physical: 0, virtual: 0 })
+  const [typeLoading, setTypeLoading] = useState(true)
+  const [login, setLogin] = useState({ active: 0, inactive: 0 })
+  const [loginLoading, setLoginLoading] = useState(true)
 
   const text = '#111817'
   const subtext = '#7A8987'
-  const border = 'rgba(189,207,206,0.78)'
-  const inpBg = '#FDFDFC'
-  const inpBorder = '#BDCFCE'
-  const cardStyle = { background: '#FDFDFC', border: `1px solid ${border}`, borderRadius: '22px', padding: '34px 38px', marginBottom: '26px', boxShadow: '0 22px 58px rgba(7,59,63,0.08)' }
-  const secHead = { color: '#0C4044', fontSize: '13px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.16em', margin: '0 0 22px', paddingBottom: '15px', borderBottom: `1px solid ${border}` }
-  const inp = { width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box' }
+  const inp = { width: '100%', background: '#FDFDFC', border: '1px solid #BDCFCE', borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box' }
   const lbl = { display: 'block', color: subtext, fontSize: '11px', fontWeight: 800, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.09em' }
   const sectionCard = { background: '#FDFDFC', border: '1px solid rgba(189,207,206,0.55)', borderRadius: '16px', padding: '22px 24px', marginBottom: '4px' }
 
   const fetchShopInfo = async () => {
-    setLoading(true)
     try {
       const res = await api.get('/my-shop-profile/')
       setShop(res.data)
     } catch (err) {
       console.error('Shop profile fetch error:', err)
     }
-    setLoading(false)
   }
 
-  const fetchAnnouncements = async () => {
-    try {
-      const res = await api.get('/announcements/')
-      const sorted = res.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-      setAnnouncements(sorted)
-      const lastSeen = parseInt(localStorage.getItem('shopAnnouncementSeen') || '0')
-      setUnreadCount(sorted.filter(a => new Date(a.created_at).getTime() > lastSeen).length)
-    } catch { /* ignore */ }
-  }
+  useEffect(() => {
+    let current = true
+    fetchShopInfo()
+    api.get('/shop-dashboard-stats/')
+      .then(res => { if (current) setTypeCounts({ physical: res.data.physical_count || 0, virtual: res.data.virtual_count || 0 }) })
+      .catch(() => {})
+      .finally(() => { if (current) setTypeLoading(false) })
+    // sub-shops only — the logged-in shop itself isn't counted as "team" login
+    api.get('/shop-list/', { params: { limit: 1 } })
+      .then(res => { if (current) setLogin({ active: res.data.today_active_count || 0, inactive: res.data.today_inactive_count || 0 }) })
+      .catch(() => {})
+      .finally(() => { if (current) setLoginLoading(false) })
+    return () => { current = false }
+  }, [])
 
-  const fetchStats = async () => {
-    setStatsLoading(true)
-    try {
-      const res = await api.get('/shop-dashboard-stats/')
-      setStats(res.data)
-    } catch (err) {
-      console.error('Shop stats fetch error:', err)
-    }
-    setStatsLoading(false)
-  }
-
-  useEffect(() => { fetchShopInfo(); fetchAnnouncements(); fetchStats() }, [])
+  const openProfile = () => { setShowProfile(true); fetchShopInfo() }
 
   const openEdit = () => {
     const next = {}
@@ -116,163 +155,94 @@ export default function ShopDashboard() {
     setSaving(false)
   }
 
-  const handleLogout = () => { localStorage.clear(); navigate('/login') }
+  const typeData = [
+    { name: 'Physical', value: typeCounts.physical, color: irdPalette.teal },
+    { name: 'Virtual', value: typeCounts.virtual, color: irdPalette.gold },
+  ].filter(d => d.value > 0)
+  const loginData = [
+    { name: 'Active', value: login.active, color: irdPalette.teal },
+    { name: 'Inactive', value: login.inactive, color: irdPalette.red },
+  ]
+  const goShopList = status => navigate('/superadmin/manage-users/shops', { state: status ? { todayStatus: status } : undefined })
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)', color: text, fontFamily: '"Inter",system-ui,sans-serif' }}>
+      <ShopNavbar onProfile={openProfile} />
       <style>{`
-        @media (max-width: 760px) {
-          .shop-charts-grid { grid-template-columns: 1fr !important; }
+        ${IRD_STYLES}
+        .shd-head{max-width:1500px;margin:34px auto 0;padding:0 46px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;box-sizing:border-box}
+        .shd-head p{margin:0 0 6px;color:#BB8958;font-size:12px;font-weight:900;letter-spacing:.18em;text-transform:uppercase}
+        .shd-head h1{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-size:clamp(30px,4vw,44px);font-weight:700;color:#0C4044;line-height:1}
+        .shd-head small{display:block;margin-top:6px;color:#7A8987;font-size:12.5px;font-weight:700;font-family:monospace}
+        .shd-profile-btn{border:1px solid rgba(12,64,68,.28);background:#FDFDFC;color:#0C4044;border-radius:12px;padding:10px 18px;font-size:13px;font-weight:900;cursor:pointer}
+        .shd-profile-btn:hover{background:#0C4044;color:#FDFDFC}
+        .shd-qstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;max-width:1500px;margin:22px auto 0;padding:0 46px;box-sizing:border-box}
+        .shd-qcard{background:#FDFDFC;border:1px solid rgba(189,207,206,.78);border-radius:14px;padding:20px 22px;min-height:130px;box-shadow:0 18px 46px rgba(7,59,63,.07)}
+        .shd-qicon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+        .shd-qlabel{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#0C4044;margin-bottom:8px}
+        .shd-qvalue{font-size:26px;font-weight:900;color:#00152a}
+        .shd-qsub{margin-left:8px;font-size:15px;color:#111817}
+        .shd-qnote{font-size:12px;color:#009957;margin-top:8px}
+        .shd-body{max-width:1500px;margin:0 auto;padding-bottom:46px}
+        .shd-body .ird-shell{padding:24px 46px 0}
+        @media(max-width:1180px){.shd-qstats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media(max-width:760px){
+          .shd-head{padding:0 14px;margin-top:22px}
+          .shd-qstats{padding:0 14px}
+          .shd-qcard{padding:14px;min-height:0}
+          .shd-qicon{width:36px;height:36px;margin-bottom:8px}
+          .shd-qvalue{font-size:20px}
+          .shd-body .ird-shell{padding:18px 14px 0}
+          .shd-form-grid{grid-template-columns:1fr !important}
+          .shd-form-grid > div{grid-column:auto !important}
         }
       `}</style>
-      <InternalRoleNavbar
-        roleTitle="SHOP"
-        homePath="/shop-dashboard"
-        managementItems={[
-          { label: 'Dashboard', path: '/shop-dashboard' },
-          { label: 'My Profile', action: () => { setShowProfile(true); fetchShopInfo() } },
-          { label: 'Create Shop', path: '/add-shop' },
-          { label: 'My Network', path: '/shop-hierarchy-grid' },
-        ]}
-        celebrationItems={[]}
-        announcementItems={[
-          { label: 'View Announcements', action: () => { setShowAnnouncements(true); localStorage.setItem('shopAnnouncementSeen', Date.now().toString()); setUnreadCount(0) }, badge: unreadCount },
-        ]}
-        coinItems={[]}
-        reportItems={[{ label: 'Shop Report', path: '/shop-report' }, { label: 'Network Grid', path: '/shop-hierarchy-grid' }, { label: 'Network Tree', path: '/shop-hierarchy-tree' }]}
-        actionItems={[
-          { label: 'Profile', icon: 'user', action: () => { setShowProfile(true); fetchShopInfo() } },
-          { label: 'Create Shop', icon: 'rate', action: () => navigate('/add-shop') },
-          { label: 'My Network', icon: 'user', action: () => navigate('/shop-hierarchy-grid') },
-          { label: 'Announcements', icon: 'bell', action: () => { setShowAnnouncements(true); localStorage.setItem('shopAnnouncementSeen', Date.now().toString()); setUnreadCount(0) }, badge: unreadCount },
-          { label: 'Logout', icon: 'logout', variant: 'danger', action: handleLogout },
-        ]}
-      />
 
-      <div style={{ padding: '42px 46px 56px', maxWidth: '1100px', margin: '0 auto' }}>
-        <div style={{ marginBottom: '26px' }}>
-          <div style={{ color: '#BB8958', fontSize: '12px', fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '8px' }}>Shop Panel</div>
-          <h2 style={{ fontSize: 'clamp(30px,4vw,50px)', lineHeight: 0.95, fontFamily: 'Georgia, serif', color: '#0C4044', fontWeight: 500, margin: 0 }}>
-            {loading ? 'Loading...' : shop?.shop_name || 'Shop Dashboard'}
-          </h2>
+      <div className="shd-head">
+        <div>
+          <p>Shop Panel</p>
+          <h1>{shop?.shop_name || 'Shop Dashboard'}</h1>
+          {shop?.shop_id && <small>{shop.shop_id} · {shop.shop_type === 'virtual' ? 'Virtual Shop' : 'Physical Shop'}</small>}
         </div>
+        <button className="shd-profile-btn" onClick={openProfile}>My Profile</button>
+      </div>
 
-        <div style={cardStyle}>
-          <p style={secHead}>Network Overview</p>
-          {statsLoading ? (
-            <div style={{ textAlign: 'center', color: subtext, padding: '40px 0' }}>Loading...</div>
-          ) : (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '16px', marginBottom: '28px' }}>
-                {[
-                  ['Direct Sub-Shops', stats?.direct_children_count ?? 0, '#0C4044'],
-                  ['Total Network Size', stats?.total_descendants_count ?? 0, '#BB8958'],
-                  ['Physical Shops', stats?.physical_count ?? 0, '#0C4044'],
-                  ['Virtual Shops', stats?.virtual_count ?? 0, '#8A623D'],
-                ].map(([label, value, color]) => (
-                  <div key={label} style={{ padding: '18px', border: `1px solid ${border}`, borderRadius: '14px', background: 'rgba(189,207,206,0.06)' }}>
-                    <div style={{ fontSize: '10px', fontWeight: 800, color: subtext, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>{label}</div>
-                    <div style={{ fontSize: '28px', fontWeight: 800, color, fontFamily: 'monospace' }}>{value}</div>
-                  </div>
-                ))}
-              </div>
+      <ShopQuickStats />
 
-              <div className="shop-charts-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(240px,1fr) minmax(280px,2fr)', gap: '20px' }}>
-                <div style={{ border: `1px solid ${border}`, borderRadius: '16px', padding: '18px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#0C4044', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Physical vs Virtual</div>
-                  {(stats?.physical_count || 0) + (stats?.virtual_count || 0) === 0 ? (
-                    <div style={{ textAlign: 'center', color: subtext, fontSize: '13px', padding: '50px 0' }}>No sub-shops yet</div>
-                  ) : (
-                    <>
-                      <ResponsiveContainer width="100%" height={200}>
-                        <PieChart>
-                          <Pie
-                            data={[
-                              { name: 'Physical', value: stats?.physical_count || 0 },
-                              { name: 'Virtual', value: stats?.virtual_count || 0 },
-                            ]}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={50}
-                            outerRadius={80}
-                            paddingAngle={2}
-                          >
-                            <Cell fill="#0C4044" />
-                            <Cell fill="#CCA881" />
-                          </Pie>
-                          <Tooltip contentStyle={{ background: '#FDFDFC', border: '1px solid #BDCFCE', borderRadius: 8, fontSize: 12, color: '#111817' }} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '6px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#0C4044' }} />
-                          <span style={{ fontSize: '11px', color: subtext }}>Physical {stats?.physical_count || 0}</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#CCA881' }} />
-                          <span style={{ fontSize: '11px', color: subtext }}>Virtual {stats?.virtual_count || 0}</span>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                <div style={{ border: `1px solid ${border}`, borderRadius: '16px', padding: '18px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#0C4044', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sub-Shops Created (6 Months)</div>
-                  {!stats?.monthly_growth?.length ? (
-                    <div style={{ textAlign: 'center', color: subtext, fontSize: '13px', padding: '70px 0' }}>No sub-shops created yet</div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height={220}>
-                      <AreaChart data={stats.monthly_growth} margin={{ top: 10, right: 14, left: 0, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="shopGrowthGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#0C4044" stopOpacity={0.32} />
-                            <stop offset="100%" stopColor="#0C4044" stopOpacity={0.02} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 8" stroke="rgba(189,207,206,0.5)" vertical={false} />
-                        <XAxis dataKey="month" stroke={subtext} fontSize={11} tickLine={false} axisLine={{ stroke: border }} />
-                        <YAxis stroke={subtext} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-                        <Tooltip contentStyle={{ background: '#FDFDFC', border: '1px solid #BDCFCE', borderRadius: 8, fontSize: 12, color: '#111817' }} />
-                        <Area type="monotone" dataKey="count" stroke="#0C4044" strokeWidth={2.5} fill="url(#shopGrowthGrad)" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-
-        <div style={cardStyle}>
-          <p style={secHead}>Shop Overview</p>
-          {loading ? (
-            <div style={{ textAlign: 'center', color: subtext, padding: '40px 0' }}>Loading...</div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: '16px' }}>
-              {[
-                ['Shop ID', shop?.shop_id],
-                ['Shop Type', shop?.shop_type === 'live' ? 'Physical Shop' : 'Virtual Shop'],
-                ['Owner Name', shop?.owner_name],
-                ['Mobile Number', shop?.mobile_number],
-                ['WhatsApp Number', shop?.whatsapp_number],
-                ['Email', shop?.email],
-                ['City', shop?.city],
-                ['District', shop?.district],
-                ['State', shop?.state],
-              ].map(([label, value]) => (
-                <div key={label} style={{ padding: '16px', border: `1px solid ${border}`, borderRadius: '14px', background: 'rgba(189,207,206,0.06)' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 800, color: subtext, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>{label}</div>
-                  <div style={{ fontSize: '14px', color: text, fontWeight: 650 }}>{value || 'Not provided'}</div>
-                </div>
-              ))}
+      <div className="shd-body">
+        <div className="ird-shell">
+          <div className="ird-grid">
+            <IrdOrderTrendPanel title="Shop Order Volume" endpoint="/order-timeseries/" />
+            <div className="ird-side">
+              <IrdDonutPanel
+                title="Shop Types"
+                totalLabel={`${typeCounts.physical + typeCounts.virtual} sub-shops`}
+                data={typeData}
+                loading={typeLoading}
+                onSliceClick={() => goShopList()}
+              />
+              <IrdDonutPanel
+                title="Today's Login Status"
+                totalLabel={`${login.active + login.inactive} total shops`}
+                data={loginData}
+                login
+                loading={loginLoading}
+                onSliceClick={entry => goShopList(entry?.name === 'Active' ? 'active' : 'inactive')}
+              />
             </div>
-          )}
-          <button onClick={openEdit} style={{ marginTop: '20px', padding: '11px 24px', background: 'linear-gradient(90deg,#0C4044,#BDCFCE)', border: 'none', borderRadius: '12px', fontWeight: 800, color: '#FDFDFC', fontSize: '13px', cursor: 'pointer' }}>
-            ✎ Edit Profile
-          </button>
+          </div>
+
+          <section className="ird-actions">
+            <h3>Shop Management</h3>
+            <div className="ird-action-grid">
+              <button onClick={() => navigate('/shop-hierarchy-tree')}><IrdIcon type="store" />Hierarchy</button>
+              <button onClick={() => navigate('/shop-report')}><IrdIcon type="report" />Sales Report</button>
+            </div>
+            <div className="ird-create-split">
+              <button className="ird-create-action" onClick={() => navigate('/add-shop')}>+ Create Shop</button>
+              <button className="ird-create-action secondary" onClick={() => navigate('/superadmin/manage-users/shops')}>Shop List</button>
+            </div>
+          </section>
         </div>
       </div>
 
@@ -290,7 +260,7 @@ export default function ShopDashboard() {
                 <button onClick={() => setShowProfile(false)} style={{ background: 'rgba(201,32,53,0.1)', border: '1px solid rgba(201,32,53,0.3)', color: '#C92035', borderRadius: '8px', padding: '6px 14px', cursor: 'pointer', fontSize: '12px' }}>✕ Close</button>
               </div>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+            <div className="shd-form-grid" style={{ flex: 1, overflowY: 'auto', padding: '24px 28px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
               {[
                 ['Shop Name', shop?.shop_name], ['Owner Name', shop?.owner_name],
                 ['Shop Type', shop?.shop_type === 'live' ? 'Physical Shop' : 'Virtual Shop'],
@@ -326,7 +296,7 @@ export default function ShopDashboard() {
 
             <div style={sectionCard}>
               <SectionHeader icon="shop" label="Shop Info" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div className="shd-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div><label style={lbl}>Shop Name</label><input name="shop_name" value={editForm.shop_name || ''} onChange={handleEditChange} style={inp} /></div>
                 <div><label style={lbl}>Owner Name</label><input name="owner_name" value={editForm.owner_name || ''} onChange={handleEditChange} style={inp} /></div>
                 <div>
@@ -341,7 +311,7 @@ export default function ShopDashboard() {
 
             <div style={{ ...sectionCard, marginTop: '16px' }}>
               <SectionHeader icon="lock" label="Contact" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div className="shd-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div><label style={lbl}>Mobile Number</label><input name="mobile_number" maxLength={10} value={editForm.mobile_number || ''} onChange={handleEditChange} style={inp} /></div>
                 <div><label style={lbl}>WhatsApp Number</label><input name="whatsapp_number" maxLength={10} value={editForm.whatsapp_number || ''} onChange={handleEditChange} style={inp} /></div>
               </div>
@@ -349,7 +319,7 @@ export default function ShopDashboard() {
 
             <div style={{ ...sectionCard, marginTop: '16px' }}>
               <SectionHeader icon="pin" label="Address" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div className="shd-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div style={{ gridColumn: 'span 2' }}><label style={lbl}>Shop Address</label><input name="shop_address" value={editForm.shop_address || ''} onChange={handleEditChange} style={inp} /></div>
                 <div><label style={lbl}>Pincode</label><input name="pincode" maxLength={6} value={editForm.pincode || ''} onChange={handleEditChange} style={inp} /></div>
                 <div><label style={lbl}>Street Name</label><input name="street_name" value={editForm.street_name || ''} onChange={handleEditChange} style={inp} /></div>
@@ -361,7 +331,7 @@ export default function ShopDashboard() {
 
             <div style={{ ...sectionCard, marginTop: '16px' }}>
               <SectionHeader icon="briefcase" label="Identity (Optional)" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+              <div className="shd-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
                 <div><label style={lbl}>PAN</label><input name="pan_no" maxLength={10} value={editForm.pan_no || ''} onChange={handleEditChange} style={inp} /></div>
                 <div><label style={lbl}>GST</label><input name="gst_no" maxLength={15} value={editForm.gst_no || ''} onChange={handleEditChange} style={inp} /></div>
                 <div><label style={lbl}>MSME</label><input name="msme_no" maxLength={25} value={editForm.msme_no || ''} onChange={handleEditChange} style={inp} /></div>
@@ -372,28 +342,6 @@ export default function ShopDashboard() {
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
           </form>
-        </div>
-      )}
-
-      {/* ── ANNOUNCEMENTS MODAL ── */}
-      {showAnnouncements && (
-        <div onClick={() => setShowAnnouncements(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,23,0.82)', backdropFilter: 'blur(10px)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#FDFDFC', border: '1px solid rgba(12,64,68,0.3)', borderRadius: '24px', width: '95%', maxWidth: '560px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 32px 80px rgba(17,24,23,0.6)' }}>
-            <div style={{ padding: '24px 28px', borderBottom: `1px solid rgba(12,64,68,0.15)`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ color: '#0C4044', fontWeight: 800, fontSize: '14px' }}>ANNOUNCEMENTS</div>
-              <button onClick={() => setShowAnnouncements(false)} style={{ background: 'rgba(201,32,53,0.1)', border: '1px solid rgba(201,32,53,0.3)', color: '#C92035', borderRadius: '8px', padding: '6px 14px', cursor: 'pointer', fontSize: '12px' }}>✕ Close</button>
-            </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {announcements.length === 0 ? (
-                <div style={{ textAlign: 'center', color: subtext, padding: '60px 0' }}>No announcements yet.</div>
-              ) : announcements.map((ann, idx) => (
-                <div key={ann.id} style={{ background: idx === 0 ? 'rgba(12,64,68,0.05)' : '#FFFFFF', border: `1px solid ${idx === 0 ? 'rgba(12,64,68,0.3)' : border}`, borderRadius: '14px', padding: '16px 18px' }}>
-                  <div style={{ color: idx === 0 ? '#0C4044' : text, fontWeight: 700, fontSize: '14px', marginBottom: '6px' }}>{ann.title}</div>
-                  <div style={{ color: subtext, fontSize: '13px', lineHeight: 1.6 }}>{ann.message}</div>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       )}
     </div>

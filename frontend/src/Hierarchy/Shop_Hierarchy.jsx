@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import { SkeletonCard } from '../components/Skeleton'
 import '../components/skeleton.css'
-import InternalRoleNavbar from '../collection/InternalRoleNavbar'
 
 // ── Shop Hierarchy Tree — same top-down org-chart style as the other
 // *_Hierarchy.jsx tree pages, built on the shop created_by chain.
@@ -422,17 +421,22 @@ export default function ShopHierarchy() {
   const [treeZoom, setTreeZoom] = useState(DEFAULT_ZOOM)
   const treeWrapperRef = useRef(null)
   const scrollAreaRef = useRef(null)
-  const updateTreeZoom = z => setTreeZoom(Math.min(1.4, Math.max(0.3, Number(z.toFixed(2)))))
+  const updateTreeZoom = z => setTreeZoom(Math.min(1.4, Math.max(0.2, Number(z.toFixed(2)))))
   const zoomIn = () => updateTreeZoom(treeZoom + 0.1)
   const zoomOut = () => updateTreeZoom(treeZoom - 0.1)
   const resetZoom = () => updateTreeZoom(DEFAULT_ZOOM)
+  // CSS `zoom` (not transform) — it shrinks the real layout, so the scroll area
+  // shrinks with it and the cards never end up off in blank scrolled space.
+  // rect width = natural width × current zoom, so divide it back out.
   const fitHierarchy = () => {
     const el = scrollAreaRef.current
     const content = el?.firstElementChild
     if (!el || !content) return
-    const avail = el.clientWidth - 260
-    const natural = content.scrollWidth
-    if (natural > 0 && avail > 0) updateTreeZoom(Math.min(1, Math.max(0.3, avail / natural)))
+    const styles = getComputedStyle(el)
+    const avail = el.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight)
+    const natural = content.getBoundingClientRect().width / treeZoom
+    if (natural > 0 && avail > 0) updateTreeZoom(Math.min(1, Math.max(0.2, avail / natural)))
+    el.scrollTo({ left: 0, behavior: 'auto' })
   }
 
   const text = '#111817'
@@ -519,7 +523,6 @@ export default function ShopHierarchy() {
 
   const openInfo = (el, chain) => setChainPopup({ chain, rect: el.getBoundingClientRect() })
   const goReport = node => navigate(`/shop-report?shop=${encodeURIComponent(node.shop_id)}`)
-  const handleLogout = () => { localStorage.clear(); navigate('/login') }
 
   // left column = root (own shop, or Super Admin); tree area starts from its children
   const rootIsShop = !!tree?.shop_id
@@ -573,32 +576,6 @@ export default function ShopHierarchy() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#FFFFFF' }}>
-      {!isSuperAdmin && (
-        <InternalRoleNavbar
-          roleTitle="SHOP"
-          homePath="/shop-dashboard"
-          managementItems={[
-            { label: 'Dashboard', path: '/shop-dashboard' },
-            { label: 'Create Shop', path: '/add-shop' },
-            { label: 'My Network', path: '/shop-hierarchy-grid' },
-            { label: 'Network Tree', path: '/shop-hierarchy-tree' },
-          ]}
-          celebrationItems={[]}
-          announcementItems={[]}
-          coinItems={[]}
-          reportItems={[
-            { label: 'Shop Report', path: '/shop-report' },
-            { label: 'Network Grid', path: '/shop-hierarchy-grid' },
-            { label: 'Network Tree', path: '/shop-hierarchy-tree' },
-          ]}
-          actionItems={[
-            { label: 'Profile', icon: 'user', action: () => navigate('/shop-dashboard') },
-            { label: 'My Network', icon: 'user', action: () => navigate('/shop-hierarchy-grid') },
-            { label: 'Logout', icon: 'logout', variant: 'danger', action: handleLogout },
-          ]}
-        />
-      )}
-
       <div className="sh-page-wrap">
         <style>{`
           .sh-page-wrap{ min-height:100vh; background:#FFFFFF; color:${text}; font-family:"Inter",system-ui,sans-serif; padding:28px 32px; box-sizing:border-box; }
@@ -764,7 +741,7 @@ export default function ShopHierarchy() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <div className="sh-zoom-wrap">
-                <button className="hierarchy-zoom-btn" onClick={zoomOut} disabled={treeZoom <= 0.3} title="Zoom out"><IconMinus color="currentColor" /></button>
+                <button className="hierarchy-zoom-btn" onClick={zoomOut} disabled={treeZoom <= 0.2} title="Zoom out"><IconMinus color="currentColor" /></button>
                 <span className="hierarchy-zoom-chip">{Math.round(treeZoom * 100)}%</span>
                 <button className="hierarchy-zoom-btn" onClick={zoomIn} disabled={treeZoom >= 1.4} title="Zoom in"><IconPlus color="currentColor" /></button>
                 <button className="hierarchy-zoom-btn" onClick={fitHierarchy} title="Fit tree on screen"><IconFit color="currentColor" /> Fit</button>
@@ -858,7 +835,7 @@ export default function ShopHierarchy() {
           ) : (
             <div className="sh-tree-scroll" ref={scrollAreaRef}>
               <div className="otree-children otree-children-root"
-                style={{ '--lc': levelColor(firstDepth), minWidth: 'max-content', justifyContent: 'flex-start', transform: `scale(${treeZoom})`, transformOrigin: 'top left', width: `${100 / treeZoom}%` }}>
+                style={{ '--lc': levelColor(firstDepth), width: 'max-content', justifyContent: 'flex-start', zoom: treeZoom }}>
                 {topLevel.map(n => (
                   <div className="otree-item" key={n.shop_id} style={{ paddingTop: 0 }}>
                     <ShopTreeNode

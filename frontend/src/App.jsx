@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import CustomerNavbar from './collection/CustomerNavbar'
 import SuperAdminNavbar from './collection/SuperAdminNavbar'
 import InternalRoleNavbar from './collection/InternalRoleNavbar'
+import ShopNavbar from './collection/ShopNavbar'
 
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
@@ -67,6 +68,7 @@ const InternalTeamLoginRewards = lazy(() => import('./LoginRewardManagement/Inte
 const Commissions = lazy(() => import('./payments/Commissions'))
 const SuperAdminSendCoins = lazy(() => import('./payments/SuperAdminSendCoins'))
 const SuperStockist = lazy(() => import('./Superadmin/Manage_Users/Super_Stockist'))
+const ShopList = lazy(() => import('./Superadmin/Manage_Users/Shop_List'))
 const Distributor = lazy(() => import('./Superadmin/Manage_Users/Distributor'))
 const WholesaleDealer = lazy(() => import('./Superadmin/Manage_Users/Wholesale_Dealer'))
 const Retailer = lazy(() => import('./Superadmin/Manage_Users/Retailer'))
@@ -103,7 +105,7 @@ const collectionPath = (category, metal) => {
 }
 
 const coinsPath = metal => `/collection/coins?metal=${metal}`
-const INTERNAL_COIN_ROLES = ['super_admin', 'admin', 'dealer', 'sub_dealer', 'promotor']
+const INTERNAL_COIN_ROLES = ['super_admin', 'admin', 'dealer', 'sub_dealer', 'promotor', 'shop']
 
 function ProtectedRoute({ children, role }) {
   const token = localStorage.getItem('token')
@@ -182,6 +184,7 @@ function getInternalRoleChrome(role) {
 function WithInternalRoleNavbar({ children }) {
   const role = localStorage.getItem('role')
   if (role === 'super_admin') return <WithSuperAdminNavbar>{children}</WithSuperAdminNavbar>
+  if (role === 'shop') return <><ShopNavbar />{children}</>
   const cfg = getInternalRoleChrome(role)
   if (!cfg) return children
   return (
@@ -259,10 +262,11 @@ export default function App() {
           <Route path="/promotor-hierarchy-grid" element={<ProtectedRoute role="promotor"><WithInternalRoleNavbar><PromotorHierarchyGrid /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/customer" element={<WithCustomerNavbar><CustomerDashboard /></WithCustomerNavbar>} />
           <Route path="/shop-dashboard" element={<ProtectedRoute role="shop"><ShopDashboard /></ProtectedRoute>} />
-          <Route path="/shop-hierarchy-grid" element={<ProtectedRoute role={["shop", "super_admin"]}><WithSuperAdminNavbar><ShopHierarchyGrid /></WithSuperAdminNavbar></ProtectedRoute>} />
-          <Route path="/shop-hierarchy-tree" element={<ProtectedRoute role={["shop", "super_admin"]}><WithSuperAdminNavbar><ShopHierarchy /></WithSuperAdminNavbar></ProtectedRoute>} />
-          <Route path="/shop-report" element={<ProtectedRoute role={["shop", "super_admin"]}><WithSuperAdminNavbar><ShopReport /></WithSuperAdminNavbar></ProtectedRoute>} />
-          <Route path="/add-shop" element={<WithSuperAdminNavbar><AddShop /></WithSuperAdminNavbar>} />
+          <Route path="/shop-hierarchy-grid" element={<ProtectedRoute role={["shop", "super_admin"]}><WithInternalRoleNavbar><ShopHierarchyGrid /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/shop-hierarchy-tree" element={<ProtectedRoute role={["shop", "super_admin"]}><WithInternalRoleNavbar><ShopHierarchy /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/shop-report" element={<ProtectedRoute role={["shop", "super_admin"]}><WithInternalRoleNavbar><ShopReport /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/superadmin/manage-users/shops" element={<ProtectedRoute role={["shop", "super_admin"]}><WithInternalRoleNavbar><ShopList /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/add-shop" element={<WithInternalRoleNavbar><AddShop /></WithInternalRoleNavbar>} />
           <Route path="/contact" element={<Navigate to="/register" replace />} />
           <Route path="/profile" element={<WithCustomerNavbar><Profile /></WithCustomerNavbar>} />
           <Route path="/create-customer" element={<ProtectedRoute role={["customer", "promotor", "sub_dealer", "dealer", "admin", "super_admin"]}><WithAnyNavbar><CreateCustomer /></WithAnyNavbar></ProtectedRoute>} />

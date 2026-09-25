@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../api'
 import * as XLSX from 'xlsx'
 import { SkeletonCard } from '../components/Skeleton'
-import InternalRoleNavbar from '../collection/InternalRoleNavbar'
 
 // ── Shop Report — Sales Report (Report.jsx) oda shop version.
 // Sales = shop + adhu create pannina ella sub-shops place pannina orders.
@@ -644,37 +643,9 @@ export default function ShopReport() {
     }
   }
 
-  const handleLogout = () => { localStorage.clear(); navigate('/login') }
 
   return (
     <div className="sales-report-page" style={{ minHeight: '100vh', width: '100%', maxWidth: '100vw', background: bg, color: text, fontFamily: '"Manrope", "Segoe UI", system-ui, sans-serif', boxSizing: 'border-box' }}>
-      {!isSuperAdmin && (
-        <div className="no-print">
-          <InternalRoleNavbar
-            roleTitle="SHOP"
-            homePath="/shop-dashboard"
-            managementItems={[
-              { label: 'Dashboard', path: '/shop-dashboard' },
-              { label: 'Create Shop', path: '/add-shop' },
-              { label: 'My Network', path: '/shop-hierarchy-grid' },
-            ]}
-            celebrationItems={[]}
-            announcementItems={[]}
-            coinItems={[]}
-            reportItems={[
-              { label: 'Shop Report', path: '/shop-report' },
-              { label: 'Network Grid', path: '/shop-hierarchy-grid' },
-              { label: 'Network Tree', path: '/shop-hierarchy-tree' },
-            ]}
-            actionItems={[
-              { label: 'Profile', icon: 'user', action: () => navigate('/shop-dashboard') },
-              { label: 'My Network', icon: 'user', action: () => navigate('/shop-hierarchy-grid') },
-              { label: 'Logout', icon: 'logout', variant: 'danger', action: handleLogout },
-            ]}
-          />
-        </div>
-      )}
-
       <style>{`
         html,body{overflow-x:hidden!important;max-width:100vw!important;}
         .sales-report-page{position:relative;overflow-x:hidden;width:100%;max-width:100vw;box-sizing:border-box;}
@@ -695,7 +666,7 @@ export default function ShopReport() {
         .sr-crumb:hover{text-decoration:underline;}
         .sr-crumb[data-current="true"]{color:#1F1F1F;cursor:default;text-decoration:none;}
         @media print {
-          .no-print { display: none !important; }
+          .no-print, .irn-top, .irn-top-spacer { display: none !important; }
           body { background: #FFFCF8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .print-container { color: #1F1F1F !important; background: #FFFCF8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .print-card {

@@ -8,6 +8,7 @@ const ANN_ROLE_META = {
   DEALER: { seenKey: 'dealerAnnouncementSeen', idField: 'dealer_id' },
   'SUB DEALER': { seenKey: 'subDealerAnnouncementSeen', idField: 'sub_dealer_id' },
   PROMOTER: { seenKey: 'promotorAnnouncementSeen', idField: 'promotor_id' },
+  SHOP: { seenKey: 'shopAnnouncementSeen', idField: 'shop_id' },
 }
 
 function NavIcon({ type = 'dot', size = 17 }) {
@@ -225,15 +226,17 @@ export default function InternalRoleNavbar({
 
   const myRewardsItems = [{ label: 'AUG', path: '/recharge' }]
 
+  // Shops have no rewards / commission / customer-role switch — only their own groups
+  const isShop = roleTitle === 'SHOP'
   const groups = [
     { label: 'Management', items: finalManagementItems },
     { label: 'Announcements', items: [...announcementItems, ...celebrationItems] },
-    { label: 'My Rewards', items: myRewardsItems },
+    { label: 'My Rewards', items: isShop ? [] : myRewardsItems },
     { label: 'Coins', items: finalCoinItems },
     { label: 'Jewellery', items: finalJewelleryItems },
     { label: 'Reports', items: finalReportItems },
-    { label: 'Commissions', items: finalCommissionItems },
-    { label: 'Role', items: roleSwitchItems },
+    { label: 'Commissions', items: isShop ? [] : finalCommissionItems },
+    { label: 'Role', items: isShop ? [] : roleSwitchItems },
   ].filter(group => group.items.length)
 
   const callerActions = actionItems && actionItems.length > 0 ? actionItems : [

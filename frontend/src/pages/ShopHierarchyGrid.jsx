@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
-import InternalRoleNavbar from '../collection/InternalRoleNavbar'
 
 // ══════════════════════════════════════════════════════════════════
 // ICONS — copied 1:1 from Superadmin_Hierarchy_grid.jsx
@@ -462,32 +461,7 @@ export default function ShopHierarchyGrid() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)', color: '#111817', fontFamily: '"Inter",system-ui,sans-serif' }}>
-      {!isSuperAdmin && (
-        <InternalRoleNavbar
-          roleTitle="SHOP"
-          homePath="/shop-dashboard"
-          managementItems={[
-            { label: 'Dashboard', path: '/shop-dashboard' },
-            { label: 'My Profile', action: () => { setShowProfile(true); fetchShopProfile() } },
-            { label: 'Create Shop', path: '/add-shop' },
-            { label: 'My Network', path: '/shop-hierarchy-grid' },
-          ]}
-          celebrationItems={[]}
-          announcementItems={[
-            { label: 'View Announcements', action: openAnnouncements, badge: unreadCount },
-          ]}
-          coinItems={[]}
-          reportItems={[{ label: 'Shop Report', path: '/shop-report' }, { label: 'Network Grid', path: '/shop-hierarchy-grid' }, { label: 'Network Tree', path: '/shop-hierarchy-tree' }]}
-          actionItems={[
-            { label: 'Profile', icon: 'user', action: () => { setShowProfile(true); fetchShopProfile() } },
-            { label: 'Create Shop', icon: 'rate', action: () => navigate('/add-shop') },
-            { label: 'My Network', icon: 'user', action: () => navigate('/shop-hierarchy-grid') },
-            { label: 'Announcements', icon: 'bell', action: openAnnouncements, badge: unreadCount },
-            { label: 'Logout', icon: 'logout', variant: 'danger', action: handleLogout },
-          ]}
-        />
-      )}
-
+      {/* navbar comes from the route wrapper (ShopNavbar for shop, SuperAdminNavbar for super admin) */}
       <style>{`
         @keyframes shgGlow{0%,100%{box-shadow:0 0 0px rgba(34,197,94,0)}50%{box-shadow:0 0 20px rgba(34,197,94,0.22)}}
         @keyframes shgSlideIn{from{opacity:0;transform:translateX(18px) scale(0.95)}to{opacity:1;transform:translateX(0) scale(1)}}

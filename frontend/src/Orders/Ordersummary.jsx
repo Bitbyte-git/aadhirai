@@ -192,6 +192,8 @@ function OrderTimeline({ status, events, loading }) {
   )
 }
 
+const ORDERS_PAGE_SIZE = 30
+
 export default function OrderSummary() {
   const navigate = useNavigate()
   const [orders, setOrders] = useState([])
@@ -199,6 +201,18 @@ export default function OrderSummary() {
   const [selectedOrderId, setSelectedOrderId] = useState(null)
   const [statusFilter, setStatusFilter] = useState('all')
   const [query, setQuery] = useState('')
+  // Infinite scroll — a long-time customer's order history can genuinely
+  // grow into the hundreds over the years, so this is future-proofed the
+  // same way the product listing pages were. Stats (total spend, delivered
+  // count, etc.) come from the backend's own DB aggregate over the FULL
+  // order history, not just whatever page has loaded — so they stay
+  // correct even before the customer has scrolled through everything.
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [serverStats, setServerStats] = useState(null)
+  const [fetchingAll, setFetchingAll] = useState(false)
+  const loadMoreRef = useRef(null)
   const [downloadingId, setDownloadingId] = useState(null)
   const [trackingByOrder, setTrackingByOrder] = useState({})
   const [trackingLoading, setTrackingLoading] = useState({})
@@ -256,10 +270,15 @@ export default function OrderSummary() {
     const fetchOrders = async () => {
       try {
         const { default: api } = await import('../api')
-        const res = await api.get('/orders/')
+        const res = await api.get(`/orders/?page=1&page_size=${ORDERS_PAGE_SIZE}`)
         if (!mountedRef.current) return
-        const list = Array.isArray(res.data) ? res.data : []
+        // Backend may not have the paginated shape deployed yet — a plain
+        // array means "everything, no more pages" (old behavior).
+        const isPaginated = !Array.isArray(res.data)
+        const list = isPaginated ? (res.data.results || []) : res.data
         setOrders(list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)))
+        setHasMore(isPaginated ? Boolean(res.data.has_more) : false)
+        if (isPaginated) setServerStats(res.data.stats)
         setLoading(false)
       } catch {
         // A failed/timed-out request must never blank out orders that a
@@ -273,7 +292,61 @@ export default function OrderSummary() {
     return () => { mountedRef.current = false }
   }, [])
 
+  const loadMoreOrders = async () => {
+    if (loadingMore || !hasMore) return
+    setLoadingMore(true)
+    try {
+      const { default: api } = await import('../api')
+      const nextPage = page + 1
+      const res = await api.get(`/orders/?page=${nextPage}&page_size=${ORDERS_PAGE_SIZE}`)
+      const isPaginated = !Array.isArray(res.data)
+      const list = isPaginated ? (res.data.results || []) : res.data
+      setOrders(prev => [...prev, ...list].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)))
+      setHasMore(isPaginated ? Boolean(res.data.has_more) : false)
+      if (isPaginated) setServerStats(res.data.stats)
+      setPage(nextPage)
+    } catch {
+      setHasMore(false)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  useEffect(() => {
+    const el = loadMoreRef.current
+    if (!el || !hasMore || loading) return undefined
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMoreOrders() },
+      { rootMargin: '600px 0px' }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasMore, loading, page, loadingMore])
+
+  // Status filter / search need every order to match correctly — if only
+  // some pages have loaded so far, silently fetch the rest in the
+  // background the first time either one is used.
+  useEffect(() => {
+    const filterActive = statusFilter !== 'all' || query.trim() !== ''
+    if (!filterActive || !hasMore || fetchingAll) return
+    setFetchingAll(true)
+    ;(async () => {
+      try {
+        const { default: api } = await import('../api')
+        const res = await api.get('/orders/')
+        const list = Array.isArray(res.data) ? res.data : []
+        setOrders(list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)))
+        setHasMore(false)
+      } catch {
+        // keep whatever was already loaded — filtering just stays partial
+      } finally {
+        setFetchingAll(false)
+      }
+    })()
+  }, [statusFilter, query, hasMore, fetchingAll])
+
   const stats = useMemo(() => {
+    if (serverStats && statusFilter === 'all' && !query.trim()) return serverStats
     const totalSpend = orders.reduce((sum, order) => sum + (Number(order.total_price) || 0), 0)
     return {
       total: orders.length,
@@ -281,7 +354,7 @@ export default function OrderSummary() {
       delivered: orders.filter(order => order.status === 'delivered').length,
       spend: totalSpend,
     }
-  }, [orders])
+  }, [orders, serverStats, statusFilter, query])
 
   const filteredOrders = useMemo(() => {
     const term = query.trim().toLowerCase()
@@ -1390,6 +1463,17 @@ export default function OrderSummary() {
                   </article>
                 )
               })}
+            </div>
+          )}
+          {hasMore && (
+            <div ref={loadMoreRef} style={{ width: '100%', minHeight: 40, marginTop: 20 }}>
+              {loadingMore && (
+                <div className="os-list">
+                  {[1, 2].map(i => (
+                    <div key={i} className="os-order-card" style={{ opacity: 0.5 }} />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </section>

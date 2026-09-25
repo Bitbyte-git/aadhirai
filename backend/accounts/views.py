@@ -560,6 +560,29 @@ def _shop_subtree(root, children_by_creator):
     return result
 
 
+def _shop_parent_user(user):
+    """Who a shop's coin / jewellery requests go to: the shop that created it,
+    or Super Admin for a root shop (created by Super Admin / self-registered)."""
+    try:
+        creator = user.shop_profile.created_by
+    except ShopProfile.DoesNotExist:
+        creator = None
+    if creator is not None and creator.role == 'shop':
+        return creator
+    return User.objects.filter(role='super_admin').first()
+
+
+def _shop_network_user_ids(user, include_self=True):
+    """user_ids of every shop below this shop user (recursive), optionally + itself."""
+    try:
+        me = user.shop_profile
+    except ShopProfile.DoesNotExist:
+        return [user.id] if include_self else []
+    _, children_by_creator = _shop_children_map()
+    ids = [s.user_id for s in _shop_subtree(me, children_by_creator)]
+    return ids if include_self else [i for i in ids if i != user.id]
+
+
 def _resolve_shop_scope(request):
     """Returns (scope_shops, error_response). Super Admin = every shop;
     shop = own subtree. ?shop_id narrows to that shop's subtree, but only
@@ -802,6 +825,128 @@ class ShopLoginStatusView(APIView):
             }
             (active if s.user_id in active_ids else inactive).append(row)
         return Response({'active': active, 'inactive': inactive})
+
+
+class ShopListView(APIView):
+    """Shop List (Manage Users) — Super Admin: every shop; shop: only the shops
+    under it (recursive, excluding itself). ?search, ?today_status=active|inactive,
+    ?shop_type=live|virtual, ?offset/?limit."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        role = request.user.role
+        if role not in ('shop', 'super_admin'):
+            return Response({'error': 'Permission denied'}, status=403)
+
+        all_shops = list(ShopProfile.objects.select_related('user', 'created_by').all())
+        children_by_creator = {}
+        for s in all_shops:
+            children_by_creator.setdefault(s.created_by_id, []).append(s)
+        by_user = {s.user_id: s for s in all_shops}
+
+        if role == 'super_admin':
+            scope = all_shops
+        else:
+            try:
+                me = request.user.shop_profile
+            except ShopProfile.DoesNotExist:
+                return Response({'error': 'Shop profile not found'}, status=404)
+            scope = [s for s in _shop_subtree(me, children_by_creator) if s.id != me.id]
+
+        def level_of(shop):
+            depth, cur, seen = 1, shop, set()
+            while cur.created_by_id in by_user and cur.id not in seen:
+                seen.add(cur.id)
+                cur = by_user[cur.created_by_id]
+                depth += 1
+            return depth
+
+        def descendant_count(shop):
+            return len(_shop_subtree(shop, children_by_creator)) - 1
+
+        scope_ids = [s.user_id for s in scope]
+        active_ids = _shop_active_user_ids(scope_ids)
+        today_start = timezone.localtime(timezone.now()).replace(hour=0, minute=0, second=0, microsecond=0)
+        today_orders = JewelryOrder.objects.filter(user_id__in=scope_ids, created_at__gte=today_start).count()
+        order_stats = {
+            r['user_id']: r for r in JewelryOrder.objects.filter(user_id__in=scope_ids)
+            .values('user_id').annotate(orders=Count('id'), sales=Sum('total_price'))
+        }
+
+        stats = {
+            'total_count': len(scope),
+            'today_active_count': sum(1 for s in scope if s.user_id in active_ids),
+            'today_orders_count': today_orders,
+            'physical_count': sum(1 for s in scope if s.shop_type == 'live'),
+            'virtual_count': sum(1 for s in scope if s.shop_type == 'virtual'),
+        }
+        stats['today_inactive_count'] = stats['total_count'] - stats['today_active_count']
+
+        rows = scope
+        search = request.query_params.get('search', '').strip().lower()
+        if search:
+            rows = [s for s in rows if (
+                search in (s.shop_id or '').lower() or search in (s.shop_name or '').lower() or
+                search in (s.owner_name or '').lower() or search in (s.mobile_number or '') or
+                search in (s.user.email or '').lower() or search in (s.city or '').lower()
+            )]
+        today_status = request.query_params.get('today_status')
+        if today_status == 'active':
+            rows = [s for s in rows if s.user_id in active_ids]
+        elif today_status == 'inactive':
+            rows = [s for s in rows if s.user_id not in active_ids]
+        shop_type = request.query_params.get('shop_type')
+        if shop_type in ('live', 'virtual'):
+            rows = [s for s in rows if s.shop_type == shop_type]
+
+        rows.sort(key=lambda s: s.created_at, reverse=True)
+        filtered_count = len(rows)
+        try:
+            offset = max(0, int(request.query_params.get('offset', 0)))
+            limit = min(500, max(1, int(request.query_params.get('limit', 300))))
+        except ValueError:
+            offset, limit = 0, 300
+        page = rows[offset:offset + limit]
+
+        results = []
+        for s in page:
+            parent = by_user.get(s.created_by_id)
+            st = order_stats.get(s.user_id, {})
+            results.append({
+                'id': s.id,
+                'user_id': s.user_id,
+                'shop_id': s.shop_id,
+                'shop_name': s.shop_name,
+                'owner_name': s.owner_name,
+                'email': s.user.email,
+                'mobile_number': s.mobile_number,
+                'whatsapp_number': s.whatsapp_number,
+                'shop_address': s.shop_address,
+                'pincode': s.pincode,
+                'street_name': s.street_name,
+                'city': s.city,
+                'district': s.district,
+                'state': s.state,
+                'shop_type': s.shop_type,
+                'pan_no': s.pan_no,
+                'gst_no': s.gst_no,
+                'msme_no': s.msme_no,
+                'created_at': s.created_at,
+                'level': level_of(s),
+                'sub_shop_count': descendant_count(s),
+                'parent_shop_id': parent.shop_id if parent else None,
+                'parent_shop_name': parent.shop_name if parent else 'Super Admin',
+                'is_active_today': s.user_id in active_ids,
+                'total_orders': st.get('orders', 0) or 0,
+                'total_sales': float(st.get('sales') or 0),
+            })
+
+        return Response({
+            **stats,
+            'filtered_count': filtered_count,
+            'has_more': offset + limit < filtered_count,
+            'shops': results,
+        })
 
 
 class CreateDealerView(APIView):
@@ -2968,9 +3113,33 @@ class WishlistView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        items = Wishlist.objects.filter(user=request.user).select_related('product').prefetch_related('product__images')
-        serializer = WishlistItemSerializer(items, many=True, context={'request': request})
-        return Response({'count': items.count(), 'items': serializer.data})
+        qs = Wishlist.objects.filter(user=request.user).select_related('product').prefetch_related('product__images').order_by('-id')
+        total = qs.count()
+
+        # ── Opt-in pagination (infinite scroll) — a wishlist can keep growing
+        # over time, so this future-proofs it the same way the product
+        # listing pages were done. No `page` param = old behavior, unchanged. ──
+        page_param = request.query_params.get('page')
+        if page_param:
+            try:
+                page = max(1, int(page_param))
+            except ValueError:
+                page = 1
+            try:
+                page_size = max(1, min(100, int(request.query_params.get('page_size', 30))))
+            except ValueError:
+                page_size = 30
+            start = (page - 1) * page_size
+            end = start + page_size
+            serializer = WishlistItemSerializer(qs[start:end], many=True, context={'request': request})
+            return Response({
+                'count': total,
+                'items': serializer.data,
+                'has_more': end < total,
+            })
+
+        serializer = WishlistItemSerializer(qs, many=True, context={'request': request})
+        return Response({'count': total, 'items': serializer.data})
 
     def post(self, request):
         """Toggle wishlist — add if not exists, remove if exists"""
@@ -3086,7 +3255,43 @@ class JewelryOrderView(APIView):
             orders = base_qs.all().order_by('-created_at')
         else:
             orders = base_qs.filter(user=request.user).order_by('-created_at')
-        
+
+        # ── Opt-in pagination (infinite scroll) for the customer's own order
+        # history — a loyal customer's orders can grow unbounded over years.
+        # Stats are computed via DB aggregates over the FULL matching set
+        # (never just the current page), so "Total Spend" etc. stay correct
+        # no matter how many pages have loaded on the frontend. ──
+        page_param = request.query_params.get('page')
+        if page_param:
+            try:
+                page = max(1, int(page_param))
+            except ValueError:
+                page = 1
+            try:
+                page_size = max(1, min(100, int(request.query_params.get('page_size', 30))))
+            except ValueError:
+                page_size = 30
+
+            total = orders.count()
+            total_spend = orders.aggregate(s=Sum('total_price'))['s'] or 0
+            delivered_count = orders.filter(status='delivered').count()
+            active_count = orders.exclude(status__in=['delivered', 'cancelled']).count()
+
+            start = (page - 1) * page_size
+            end = start + page_size
+            serializer = JewelryOrderSerializer(orders[start:end], many=True, context={'request': request})
+            return Response({
+                'results': serializer.data,
+                'has_more': end < total,
+                'count': total,
+                'stats': {
+                    'total': total,
+                    'active': active_count,
+                    'delivered': delivered_count,
+                    'spend': float(total_spend),
+                },
+            })
+
         serializer = JewelryOrderSerializer(orders, many=True, context={'request': request})
         return Response(serializer.data)
 
@@ -4725,6 +4930,8 @@ def _resolve_scope_user_ids(user, role, node_id):
         elif u_role == 'promotor':
             p = PromotorProfile.objects.prefetch_related('assigned_customers').get(user=user)
             return [c.user_id for c in p.assigned_customers.all()] + [p.user_id]
+        elif u_role == 'shop':
+            return _shop_network_user_ids(user)
         return [user.id]
 
 
@@ -4839,7 +5046,7 @@ class OrderTimeSeriesView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if request.user.role not in ['super_admin', 'admin', 'dealer', 'sub_dealer', 'promotor']:
+        if request.user.role not in ['super_admin', 'admin', 'dealer', 'sub_dealer', 'promotor', 'shop']:
             return Response({'error': 'Permission denied'}, status=403)
 
         period = request.query_params.get('period', 'today')
@@ -5302,6 +5509,21 @@ class DashboardQuickStatsView(APIView):
     INTERNAL_ROLES = {'admin', 'dealer', 'sub_dealer', 'promotor'}
 
     def get(self, request):
+        if request.user.role == 'shop':
+            # Shop dashboard: orders across own shop + every sub-shop; "new" = sub-shops created today
+            network_ids = _shop_network_user_ids(request.user)
+            sub_ids = [i for i in network_ids if i != request.user.id]
+            today_start = timezone.localtime(timezone.now()).replace(hour=0, minute=0, second=0, microsecond=0)
+            today_end = today_start + timedelta(days=1)
+            yesterday_start = today_start - timedelta(days=1)
+            return Response({
+                'yesterday_orders': JewelryOrder.objects.filter(user_id__in=network_ids, created_at__gte=yesterday_start, created_at__lt=today_start).count(),
+                'today_orders': JewelryOrder.objects.filter(user_id__in=network_ids, created_at__gte=today_start, created_at__lt=today_end).count(),
+                'today_new_shops': ShopProfile.objects.filter(user_id__in=sub_ids, created_at__gte=today_start, created_at__lt=today_end).count(),
+                'active_users': len(_shop_active_user_ids(sub_ids)),
+                'total_sub_shops': len(sub_ids),
+            })
+
         if request.user.role in self.INTERNAL_ROLES:
             downline_ids = _collect_full_downline_user_ids(request.user)
             today = timezone.localdate()
@@ -5403,6 +5625,12 @@ class CoinRequestView(APIView):
             if not target_user:
                 return Response({'error': 'Super admin account not found'}, status=404)
 
+        elif role == 'shop':
+            # sub-shop → the shop that created it; root shop → Super Admin
+            target_user = _shop_parent_user(request.user)
+            if not target_user:
+                return Response({'error': 'Super admin account not found'}, status=404)
+
         else:
             return Response({'error': 'Your role cannot request coins'}, status=403)
 
@@ -5429,7 +5657,7 @@ class CoinRequestView(APIView):
     def get(self, request):
         role = request.user.role
         box = request.query_params.get('box')  # optional override: 'sent', 'received', or 'history'
-        receiver_roles = ['sub_dealer', 'dealer', 'admin', 'super_admin']
+        receiver_roles = ['sub_dealer', 'dealer', 'admin', 'super_admin', 'shop']
 
         # ── NEW: history box — DB level pagination + status filter + aggregate counts ──
         if box == 'history':
@@ -5458,6 +5686,10 @@ class CoinRequestView(APIView):
                     Q(requested_by__admin_profile__admin_id__icontains=search) |
                     Q(requested_by__admin_profile__first_name__icontains=search) |
                     Q(requested_by__admin_profile__mobile_number__icontains=search) |
+                    Q(requested_by__shop_profile__shop_id__icontains=search) |
+                    Q(requested_by__shop_profile__shop_name__icontains=search) |
+                    Q(requested_by__shop_profile__mobile_number__icontains=search) |
+                    Q(requested_to__shop_profile__shop_id__icontains=search) |
                     Q(requested_to__email__icontains=search) |
                     Q(requested_to__promotor_profile__promotor_id__icontains=search) |
                     Q(requested_to__sub_dealer_profile__sub_dealer_id__icontains=search) |
@@ -5815,6 +6047,7 @@ class CoinStockView(APIView):
                         'sub_dealer': 'sub_dealer_id',
                         'dealer': 'dealer_id',
                         'admin': 'admin_id',
+                        'shop': 'shop_id',
                     }.get(u.role)
                     id_str = getattr(prof, id_field, '') if (prof and id_field) else ''
                     if prof:
@@ -5957,6 +6190,7 @@ class JewelryStockView(APIView):
                         'sub_dealer': 'sub_dealer_id',
                         'dealer': 'dealer_id',
                         'admin': 'admin_id',
+                        'shop': 'shop_id',
                     }.get(u.role)
                     id_str = getattr(prof, id_field, '') if (prof and id_field) else ''
                     if prof:
@@ -6073,6 +6307,7 @@ class MemberHoldingsDetailView(APIView):
             'sub_dealer': 'sub_dealer_id',
             'dealer': 'dealer_id',
             'admin': 'admin_id',
+            'shop': 'shop_id',
         }.get(target_user.role)
         id_str = getattr(prof, id_field, '') if (prof and id_field) else ''
 
@@ -6491,6 +6726,9 @@ class JewelryRequestView(APIView):
         elif role == 'admin':
             target_user = User.objects.filter(role='super_admin').first()
 
+        elif role == 'shop':
+            target_user = _shop_parent_user(request.user)
+
         elif role == 'super_admin':
             return Response({'error': 'Super Admin is the root master authority and cannot send buy requests.'}, status=400)
         else:
@@ -6543,6 +6781,8 @@ class JewelryRequestView(APIView):
                     Q(requested_by__dealer_profile__dealer_id__icontains=search) |
                     Q(requested_by__dealer_profile__first_name__icontains=search) |
                     Q(requested_by__admin_profile__admin_id__icontains=search) |
+                    Q(requested_by__shop_profile__shop_id__icontains=search) |
+                    Q(requested_by__shop_profile__shop_name__icontains=search) |
                     Q(items__product__name__icontains=search) |
                     Q(items__product__product_code__icontains=search)
                 ).distinct()
@@ -8332,7 +8572,7 @@ class GenericTablePDFView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        if request.user.role not in ['super_admin', 'admin', 'dealer', 'sub_dealer', 'promotor']:
+        if request.user.role not in ['super_admin', 'admin', 'dealer', 'sub_dealer', 'promotor', 'shop']:
             return Response({'error': 'Permission denied'}, status=403)
 
         data = request.data

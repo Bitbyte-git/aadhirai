@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import CustomerFooter from '../collection/CustomerFooter'
@@ -36,16 +36,26 @@ function money(value) {
   return amount.toLocaleString('en-IN')
 }
 
+const WISHLIST_PAGE_SIZE = 30
+
 export default function WishlistPage() {
   const navigate = useNavigate()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [removingId, setRemovingId] = useState(null)
+  // Infinite scroll — a wishlist can grow unbounded over time as the user
+  // keeps saving items, so this is future-proofed the same way the product
+  // listing pages were, even though most wishlists are small today.
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const loadMoreRef = useRef(null)
 
   const fetchWishlist = async () => {
     try {
-      const res = await api.get('/wishlist/')
+      const res = await api.get(`/wishlist/?page=1&page_size=${WISHLIST_PAGE_SIZE}`)
       setItems(Array.isArray(res.data.items) ? res.data.items : [])
+      setHasMore(Boolean(res.data.has_more))
     } catch {
       setItems([])
     } finally {
@@ -54,6 +64,33 @@ export default function WishlistPage() {
   }
 
   useEffect(() => { fetchWishlist() }, [])
+
+  const loadMoreWishlist = async () => {
+    if (loadingMore || !hasMore) return
+    setLoadingMore(true)
+    try {
+      const nextPage = page + 1
+      const res = await api.get(`/wishlist/?page=${nextPage}&page_size=${WISHLIST_PAGE_SIZE}`)
+      setItems(prev => [...prev, ...(Array.isArray(res.data.items) ? res.data.items : [])])
+      setHasMore(Boolean(res.data.has_more))
+      setPage(nextPage)
+    } catch {
+      setHasMore(false)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  useEffect(() => {
+    const el = loadMoreRef.current
+    if (!el || !hasMore || loading) return undefined
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMoreWishlist() },
+      { rootMargin: '600px 0px' }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasMore, loading, page, loadingMore])
 
   const grouped = useMemo(() => {
     const metals = new Set(items.map(item => item.product_metal).filter(Boolean))
@@ -516,6 +553,19 @@ export default function WishlistPage() {
               )
             })}
           </section>
+        )}
+        {hasMore && (
+          <div ref={loadMoreRef} style={{ width: '100%', minHeight: 40, marginTop: 20 }}>
+            {loadingMore && (
+              <section className="wishlist-grid">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="wishlist-card" style={{ padding: 12 }}>
+                    <div className="wishlist-image bb-skel" style={{ minHeight: 180, borderRadius: 16 }} />
+                  </div>
+                ))}
+              </section>
+            )}
+          </div>
         )}
       </main>
 

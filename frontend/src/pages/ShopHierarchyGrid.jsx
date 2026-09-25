@@ -477,7 +477,7 @@ export default function ShopHierarchyGrid() {
             { label: 'View Announcements', action: openAnnouncements, badge: unreadCount },
           ]}
           coinItems={[]}
-          reportItems={[]}
+          reportItems={[{ label: 'Shop Report', path: '/shop-report' }, { label: 'Network Grid', path: '/shop-hierarchy-grid' }, { label: 'Network Tree', path: '/shop-hierarchy-tree' }]}
           actionItems={[
             { label: 'Profile', icon: 'user', action: () => { setShowProfile(true); fetchShopProfile() } },
             { label: 'Create Shop', icon: 'rate', action: () => navigate('/add-shop') },
@@ -582,9 +582,17 @@ export default function ShopHierarchyGrid() {
       <div className="shg-page-wrap">
         <div style={{ marginBottom: '26px' }}>
           <div style={{ color: '#BB8958', fontSize: '12px', fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '8px' }}>Shop Panel</div>
-          <h2 style={{ fontSize: 'clamp(28px,4vw,44px)', lineHeight: 0.95, fontFamily: 'Georgia, serif', color: '#0C4044', fontWeight: 500, margin: 0 }}>
-            {isSuperAdmin ? 'Shop Hierarchy' : 'My Network'}
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <h2 style={{ fontSize: 'clamp(28px,4vw,44px)', lineHeight: 0.95, fontFamily: 'Georgia, serif', color: '#0C4044', fontWeight: 500, margin: 0 }}>
+              {isSuperAdmin ? 'Shop Hierarchy' : 'My Network'}
+            </h2>
+            <button
+              onClick={() => navigate('/shop-hierarchy-tree')}
+              style={{ background: '#FFFFFF', border: '1.5px solid #0C4044', color: '#0C4044', borderRadius: 10, padding: '8px 16px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+            >
+              Tree view
+            </button>
+          </div>
           <p style={{ color: '#7A8987', fontSize: 13, marginTop: 10 }}>
             {isSuperAdmin
               ? 'Every shop in the system, and everyone they\'ve created — Physical or Virtual, clearly marked.'

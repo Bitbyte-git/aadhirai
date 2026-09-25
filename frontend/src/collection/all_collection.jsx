@@ -520,7 +520,12 @@ const CATEGORY_RAIL_IMAGES = {
   'Silver Bangles': '/rail/silver-bangles.png',
   'Silver Pendants': '/rail/silver-pendants.png',
   'Silver Anklets': '/rail/silver-anklets.png',
-  'Daily Wear': '/dailywera.png',
+  'Wedding': '/rail/occasion-wedding.png',
+  'Birthday': '/rail/occasion-birthday.png',
+  'Anniversary': '/rail/occasion-anniversary.png',
+  'Daily Wear': '/rail/occasion-dailywear..png',
+  'Modern': '/rail/occasion-modern.png',
+  'Traditional': '/rail/occasion-traditiona.png',
 }
 
 // Curated, short lists for the horizontal icon rail specifically — separate
@@ -1291,6 +1296,15 @@ export default function AllCollection() {
   const [activeScrollSub, setActiveScrollSub] = useState(null)
   const [wishlistedIds, setWishlistedIds] = useState(new Set())
   const sectionRefs = useRef({})
+  // Infinite scroll (Amazon/Flipkart style) — 30 products per page, next
+  // page loads automatically when the sentinel at the bottom of the grid
+  // scrolls into view. Only applies to the flat product grid, not the
+  // subcategory-accordion view (that one groups everything up front).
+  const PAGE_SIZE = 30
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const loadMoreRef = useRef(null)
 
   useEffect(() => {
     if (!localStorage.getItem('token')) return
@@ -1341,27 +1355,40 @@ export default function AllCollection() {
         .catch(() => {})
     }, [])
 
+    const buildProductParams = (pageNum) => {
+      const params = new URLSearchParams()
+      if (metalFilter) params.set('metal', metalFilter)
+      if (categoryFilter) params.set('category', categoryFilter)
+      if (subcategoryFilter) params.set('subcategory', subcategoryFilter)
+      if (genderFilter) params.set('gender', genderFilter)
+      if (ageFilter) params.set('age', ageFilter)
+      if (occasionFilter) params.set('occasion', occasionFilter)
+      if (giftTagFilter) params.set('gift_tag', giftTagFilter)
+      if (giftTypeFilter) params.set('gift_type', giftTypeFilter)
+      if (priceFilter) params.set('price', priceFilter)
+      if (searchFilter) params.set('search', searchFilter)
+      if (isWedding) params.set('occasion', 'Wedding')
+      if (isDailywear) params.set('occasion', 'Casual Wear')
+      params.set('page', pageNum)
+      params.set('page_size', PAGE_SIZE)
+      return params
+    }
+
     useEffect(() => {
       const loadProducts = async () => {
         setLoading(true)
+        setPage(1)
+        setHasMore(false)
         try {
-          const params = new URLSearchParams()
-                  if (metalFilter) params.set('metal', metalFilter)
-          if (categoryFilter) params.set('category', categoryFilter)
-          if (subcategoryFilter) params.set('subcategory', subcategoryFilter)
-          if (genderFilter) params.set('gender', genderFilter)
-          if (ageFilter) params.set('age', ageFilter)
-          if (occasionFilter) params.set('occasion', occasionFilter)
-          if (giftTagFilter) params.set('gift_tag', giftTagFilter)
-          if (giftTypeFilter) params.set('gift_type', giftTypeFilter)
-          if (priceFilter) params.set('price', priceFilter)
-          if (searchFilter) params.set('search', searchFilter)
-          if (isWedding) params.set('occasion', 'Wedding')
-          if (isDailywear) params.set('occasion', 'Casual Wear')
-          const res = await api.get(`/jewelry-products/${params.toString() ? `?${params.toString()}` : ''}`)
-  const allProducts = normalizeProductList(res.data)
-  const filteredProducts = allProducts.filter(p => p.metal !== 'diamond' && p.metal !== 'platinum')
-  setProducts(filteredProducts)
+          const params = buildProductParams(1)
+          const res = await api.get(`/jewelry-products/?${params.toString()}`)
+          // Backend may not have the paginated response shape deployed yet —
+          // fall back to treating a plain array as "everything, no more pages".
+          const isPaginated = !Array.isArray(res.data)
+          const allProducts = normalizeProductList(isPaginated ? res.data.results : res.data)
+          const filteredProducts = allProducts.filter(p => p.metal !== 'diamond' && p.metal !== 'platinum')
+          setProducts(filteredProducts)
+          setHasMore(isPaginated ? Boolean(res.data.has_more) : false)
         } catch {
           setProducts([])
         } finally {
@@ -1371,6 +1398,42 @@ export default function AllCollection() {
 
           loadProducts()
     }, [metalFilter, categoryFilter, subcategoryFilter, genderFilter, ageFilter, occasionFilter, giftTagFilter, giftTypeFilter, priceFilter, searchFilter, isWedding, isDailywear])
+
+    const loadMoreProducts = async () => {
+      if (loadingMore || !hasMore) return
+      setLoadingMore(true)
+      try {
+        const nextPage = page + 1
+        const params = buildProductParams(nextPage)
+        const res = await api.get(`/jewelry-products/?${params.toString()}`)
+        const isPaginated = !Array.isArray(res.data)
+        const allProducts = normalizeProductList(isPaginated ? res.data.results : res.data)
+        const filteredProducts = allProducts.filter(p => p.metal !== 'diamond' && p.metal !== 'platinum')
+        setProducts(prev => [...prev, ...filteredProducts])
+        setHasMore(isPaginated ? Boolean(res.data.has_more) : false)
+        setPage(nextPage)
+      } catch {
+        setHasMore(false)
+      } finally {
+        setLoadingMore(false)
+      }
+    }
+
+    // Sentinel div at the bottom of the flat product grid — scrolling it
+    // into view auto-loads the next 30 products (Amazon/Flipkart pattern),
+    // instead of fetching every matching product up front.
+    useEffect(() => {
+      const el = loadMoreRef.current
+      if (!el || !hasMore) return undefined
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting) loadMoreProducts()
+        },
+        { rootMargin: '600px 0px' }
+      )
+      observer.observe(el)
+      return () => observer.disconnect()
+    }, [hasMore, page, loadingMore, metalFilter, categoryFilter, subcategoryFilter, genderFilter, ageFilter, occasionFilter, giftTagFilter, giftTypeFilter, priceFilter, searchFilter, isWedding, isDailywear])
 
     // subcategory scroll — clicked subcategory first, remaining subcategories
     // (same category, navbar order) follow one after another below it.
@@ -1609,11 +1672,18 @@ export default function AllCollection() {
   const productResults = loading ? (
     <SkeletonGrid count={8} />
   ) : visibleProducts.length ? (
-    <section className="an-products">
-      {visibleProducts.map(product => (
-        <ProductCard key={product.id} product={product} rates={rates} navigate={navigate} wishlisted={wishlistedIds.has(product.id)} onWishlist={toggleWishlist} />
-      ))}
-    </section>
+    <>
+      <section className="an-products">
+        {visibleProducts.map(product => (
+          <ProductCard key={product.id} product={product} rates={rates} navigate={navigate} wishlisted={wishlistedIds.has(product.id)} onWishlist={toggleWishlist} />
+        ))}
+      </section>
+      {hasMore && (
+        <div ref={loadMoreRef} className="an-load-more-sentinel">
+          {loadingMore && <SkeletonGrid count={4} />}
+        </div>
+      )}
+    </>
   ) : (
       emptyState
     )
@@ -2679,6 +2749,12 @@ export default function AllCollection() {
             gap: clamp(22px, 2.2vw, 34px);
             margin-top: 30px;
             align-items: start;
+          }
+
+          .an-load-more-sentinel {
+            width: 100%;
+            min-height: 40px;
+            margin-top: 20px;
           }
 
           .an-product-card {

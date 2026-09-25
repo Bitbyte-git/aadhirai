@@ -28,6 +28,7 @@ const PromotorHierarchyGrid = lazy(() => import('./Grid/Promotor_Hierarchy_grid'
 const CustomerDashboard = lazy(() => import('./pages/CustomerDashboard'))
 const ShopDashboard = lazy(() => import('./pages/ShopDashboard'))
 const ShopHierarchyGrid = lazy(() => import('./pages/ShopHierarchyGrid'))
+const ShopHierarchy = lazy(() => import('./Hierarchy/Shop_Hierarchy'))
 const AddShop = lazy(() => import('./Superadmin/AddShop'))
 const Profile = lazy(() => import('./collection/profile'))
 const CreateCustomer = lazy(() => import('./Create_Users/create_customer'))
@@ -73,6 +74,7 @@ const CustomerManage = lazy(() => import('./Superadmin/Manage_Users/Customer'))
 const SuperAdminAutopayList = lazy(() => import('./payments/SuperAdminAutopayList'))
 const AdminOrdersPage = lazy(() => import('./Orders/Adminorderspage'))
 const Report = lazy(() => import('./Orders/Report'))
+const ShopReport = lazy(() => import('./Orders/ShopReport'))
 const LoginActive = lazy(() => import('./Orders/login_active'))
 const LoginInactive = lazy(() => import('./Orders/login_inactive'))
 const CoinsReward = lazy(() => import('./payments/Coins_Reward'))
@@ -258,6 +260,8 @@ export default function App() {
           <Route path="/customer" element={<WithCustomerNavbar><CustomerDashboard /></WithCustomerNavbar>} />
           <Route path="/shop-dashboard" element={<ProtectedRoute role="shop"><ShopDashboard /></ProtectedRoute>} />
           <Route path="/shop-hierarchy-grid" element={<ProtectedRoute role={["shop", "super_admin"]}><WithSuperAdminNavbar><ShopHierarchyGrid /></WithSuperAdminNavbar></ProtectedRoute>} />
+          <Route path="/shop-hierarchy-tree" element={<ProtectedRoute role={["shop", "super_admin"]}><WithSuperAdminNavbar><ShopHierarchy /></WithSuperAdminNavbar></ProtectedRoute>} />
+          <Route path="/shop-report" element={<ProtectedRoute role={["shop", "super_admin"]}><WithSuperAdminNavbar><ShopReport /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/add-shop" element={<WithSuperAdminNavbar><AddShop /></WithSuperAdminNavbar>} />
           <Route path="/contact" element={<Navigate to="/register" replace />} />
           <Route path="/profile" element={<WithCustomerNavbar><Profile /></WithCustomerNavbar>} />

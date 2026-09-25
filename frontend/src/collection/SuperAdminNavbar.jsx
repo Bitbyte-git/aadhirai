@@ -382,6 +382,8 @@ export default function SuperAdminNavbar({
     ['Hierarchy Grid', () => navigate('/superadmin-hierarchy-grid')],
     ['Hierarchy Tree', () => navigate('/superadmin-hierarchy')],
     ['Shop Hierarchy', () => navigate('/shop-hierarchy-grid')],
+    ['Shop Hierarchy Tree', () => navigate('/shop-hierarchy-tree')],
+    ['Shop Report', () => navigate('/shop-report')],
     ['Super Stockists', () => navigate('/superadmin/manage-users/super-stockist')],
     ['Distributors', () => navigate('/superadmin/manage-users/distributor')],
     ['Wholesale Dealers', () => navigate('/superadmin/manage-users/wholesale-dealer')],

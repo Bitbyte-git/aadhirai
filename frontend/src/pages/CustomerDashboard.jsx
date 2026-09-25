@@ -1361,7 +1361,7 @@ export default function CustomerDashboard() {
         .gender-heading p { margin-top: 9px; color: #7A8987; font-size: 13.5px; }
         .gender-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(14px, 1.6vw, 24px); }
         .gender-card { border: 0; background: none; padding: 0; cursor: pointer; text-align: center; display: flex; flex-direction: column; gap: 14px; }
-        .gender-card-image { display: block; border-radius: 18px; overflow: hidden; aspect-ratio: 4 / 5; background: linear-gradient(160deg,#f5f2ec,#ecefeb); box-shadow: 0 14px 34px rgba(7,59,63,.09); transition: transform .3s ease, box-shadow .3s ease; }
+        .gender-card-image { display: block; border-radius: 18px; overflow: hidden; aspect-ratio: 4 / 4.5; background: linear-gradient(160deg,#f5f2ec,#ecefeb); box-shadow: 0 14px 34px rgba(7,59,63,.09); transition: transform .3s ease, box-shadow .3s ease; }
         .gender-card-image img { width: 100%; height: 100%; object-fit: cover; }
         .gender-card:hover .gender-card-image { transform: translateY(-6px); box-shadow: 0 22px 48px rgba(7,59,63,.16); }
         .gender-card-label { font-family: Georgia, "Times New Roman", serif; font-size: 15px; font-weight: 700; color: #9F6130; }
@@ -2417,7 +2417,7 @@ export default function CustomerDashboard() {
                 onClick={() => navigate(item.route)}
               >
                 <span className="gender-card-image">
-                  <img src={item.image} alt="" />
+                  <img src={item.image} alt="" style={item.position ? { objectPosition: item.position } : undefined} />
                 </span>
                 <span className="gender-card-label">{item.label}</span>
               </button>

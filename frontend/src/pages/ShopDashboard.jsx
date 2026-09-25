@@ -139,7 +139,7 @@ export default function ShopDashboard() {
           { label: 'View Announcements', action: () => { setShowAnnouncements(true); localStorage.setItem('shopAnnouncementSeen', Date.now().toString()); setUnreadCount(0) }, badge: unreadCount },
         ]}
         coinItems={[]}
-        reportItems={[]}
+        reportItems={[{ label: 'Shop Report', path: '/shop-report' }, { label: 'Network Grid', path: '/shop-hierarchy-grid' }, { label: 'Network Tree', path: '/shop-hierarchy-tree' }]}
         actionItems={[
           { label: 'Profile', icon: 'user', action: () => { setShowProfile(true); fetchShopInfo() } },
           { label: 'Create Shop', icon: 'rate', action: () => navigate('/add-shop') },

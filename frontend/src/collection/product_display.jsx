@@ -587,9 +587,13 @@ export default function ProductDisplay() {
       return
     }
     import('../api').then(({ default: api }) => {
-      api.get(`/jewelry-products/?category=${category}&metal=${metal}`)
+      // "More from this Collection" is a small preview row with its own
+      // "View All" escape hatch to the full paginated listing — no need to
+      // fetch every matching product just to show a handful of cards here.
+      api.get(`/jewelry-products/?category=${category}&metal=${metal}&page=1&page_size=10`)
         .then(res => {
-          setProducts(Array.isArray(res.data) ? res.data : [])
+          const list = Array.isArray(res.data) ? res.data : (res.data?.results || [])
+          setProducts(list)
           setLoading(false)
         })
         .catch(err => {

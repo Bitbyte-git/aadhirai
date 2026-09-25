@@ -528,6 +528,282 @@ class ShopDashboardStatsView(APIView):
         })
 
 
+# ══════════════════════════════════════════════════════════════════
+# SHOP REPORT — Sales Report page oda shop version.
+# Shop oda sales = andha shop user + avanga create pannina ella sub-shops
+# (ShopProfile.created_by chain) place pannina JewelryOrder-கள்.
+# Ellா endpoints-um ?shop_id=BBJS... scope-a requester oda own network
+# kulla irukka nu check pannும் — vera shop network data leak aagaadhu.
+# ══════════════════════════════════════════════════════════════════
+SHOP_REPORT_PERIODS = ('today', 'week', 'month', 'year')
+
+
+def _shop_children_map():
+    all_shops = list(ShopProfile.objects.all())
+    children_by_creator = {}
+    for shop in all_shops:
+        children_by_creator.setdefault(shop.created_by_id, []).append(shop)
+    return all_shops, children_by_creator
+
+
+def _shop_subtree(root, children_by_creator):
+    """root + every shop below it (recursive), cycle-safe."""
+    result, seen = [], set()
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        if node.id in seen:
+            continue
+        seen.add(node.id)
+        result.append(node)
+        stack.extend(children_by_creator.get(node.user_id, []))
+    return result
+
+
+def _resolve_shop_scope(request):
+    """Returns (scope_shops, error_response). Super Admin = every shop;
+    shop = own subtree. ?shop_id narrows to that shop's subtree, but only
+    if it sits inside what the requester is allowed to see."""
+    role = request.user.role
+    if role not in ('shop', 'super_admin'):
+        return None, Response({'error': 'Permission denied'}, status=403)
+
+    all_shops, children_by_creator = _shop_children_map()
+    if role == 'super_admin':
+        allowed = all_shops
+    else:
+        try:
+            me = request.user.shop_profile
+        except ShopProfile.DoesNotExist:
+            return None, Response({'error': 'Shop profile not found'}, status=404)
+        allowed = _shop_subtree(me, children_by_creator)
+
+    shop_id = request.query_params.get('shop_id')
+    if not shop_id:
+        return allowed, None
+    target = next((s for s in allowed if s.shop_id == shop_id), None)
+    if target is None:
+        return None, Response({'error': 'Shop not in your network'}, status=403)
+    return _shop_subtree(target, children_by_creator), None
+
+
+def _shop_period_start(period):
+    """IST (local time) based period start — 'year' = current month + previous 11 months."""
+    now = timezone.localtime(timezone.now())
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    if period == 'today':
+        return now, today_start
+    if period == 'week':
+        return now, today_start - timedelta(days=6)
+    if period == 'month':
+        return now, today_start - timedelta(days=27)
+    year, month = now.year, now.month - 11
+    if month <= 0:
+        month += 12
+        year -= 1
+    return now, today_start.replace(year=year, month=month, day=1)
+
+
+def _shop_period_param(request):
+    period = request.query_params.get('period', 'week')
+    return period if period in SHOP_REPORT_PERIODS else 'week'
+
+
+class ShopSalesSummaryView(APIView):
+    """Shop Report summary cards — total sales / orders / buying shops + shop counts."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        shops, err = _resolve_shop_scope(request)
+        if err:
+            return err
+        period = _shop_period_param(request)
+        _, start = _shop_period_start(period)
+
+        user_ids = [s.user_id for s in shops]
+        qs = JewelryOrder.objects.filter(user_id__in=user_ids, created_at__gte=start)
+        agg = qs.aggregate(total_sales=Sum('total_price'), total_orders=Count('id'))
+
+        return Response({
+            'period': period,
+            'total_sales': float(agg['total_sales'] or 0),
+            'total_orders': agg['total_orders'] or 0,
+            'shops_with_orders': qs.values('user_id').distinct().count(),
+            'total_shops': len(shops),
+            'physical_count': sum(1 for s in shops if s.shop_type == 'live'),
+            'virtual_count': sum(1 for s in shops if s.shop_type == 'virtual'),
+        })
+
+
+class ShopSalesTrendView(APIView):
+    """Shop Report trend graph — today (4h buckets) / week (days) / month (weeks) / year (months)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        shops, err = _resolve_shop_scope(request)
+        if err:
+            return err
+        period = _shop_period_param(request)
+        _, start = _shop_period_start(period)
+
+        # One query, then bucket in Python — no per-bucket DB round trips
+        orders = JewelryOrder.objects.filter(
+            user_id__in=[s.user_id for s in shops], created_at__gte=start
+        ).values_list('created_at', 'total_price')
+
+        if period == 'year':
+            months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            buckets, keys = [], []
+            y, m = start.year, start.month
+            for _ in range(12):
+                keys.append((y, m))
+                buckets.append({'label': months[m - 1], 'total': 0.0, 'count': 0})
+                m += 1
+                if m > 12:
+                    m, y = 1, y + 1
+            index = {k: i for i, k in enumerate(keys)}
+            for created_at, price in orders:
+                local = timezone.localtime(created_at)
+                i = index.get((local.year, local.month))
+                if i is not None:
+                    buckets[i]['total'] += float(price or 0)
+                    buckets[i]['count'] += 1
+        else:
+            if period == 'today':
+                step, n = timedelta(hours=4), 6
+            elif period == 'week':
+                step, n = timedelta(days=1), 7
+            else:
+                step, n = timedelta(weeks=1), 4
+            buckets = []
+            for i in range(n):
+                cursor = start + step * i
+                if period == 'today':
+                    label = f'{cursor.hour}:00'
+                elif period == 'week':
+                    label = cursor.strftime('%a')
+                else:
+                    label = f'Week {i + 1}'
+                buckets.append({'label': label, 'total': 0.0, 'count': 0})
+            for created_at, price in orders:
+                i = int((timezone.localtime(created_at) - start) // step)
+                if 0 <= i < n:
+                    buckets[i]['total'] += float(price or 0)
+                    buckets[i]['count'] += 1
+
+        return Response({'period': period, 'data': buckets})
+
+
+def _shop_active_user_ids(user_ids):
+    today = timezone.localdate()
+    return set(
+        User.objects.filter(id__in=user_ids, last_login__date=today).values_list('id', flat=True)
+    ) | set(
+        DailyLoginLog.objects.filter(user_id__in=user_ids, login_date=today).values_list('user_id', flat=True)
+    )
+
+
+class ShopReportTreeView(APIView):
+    """Shop network tree for the Shop Report page — same shape as
+    /shop-hierarchy/ plus per-node sales for the selected period:
+    own_* = that shop's own orders, network_* = shop + all sub-shops."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        role = request.user.role
+        if role not in ('shop', 'super_admin'):
+            return Response({'error': 'Permission denied'}, status=403)
+
+        # 'all' = lifetime totals (Shop Hierarchy Tree page); others match the report periods
+        if request.query_params.get('period') == 'all':
+            period, start = 'all', None
+        else:
+            period = _shop_period_param(request)
+            _, start = _shop_period_start(period)
+        all_shops, children_by_creator = _shop_children_map()
+
+        if role == 'super_admin':
+            shop_user_ids = {s.user_id for s in all_shops}
+            roots = [s for s in all_shops if s.created_by_id not in shop_user_ids]
+            scope_shops = all_shops
+        else:
+            try:
+                me = request.user.shop_profile
+            except ShopProfile.DoesNotExist:
+                return Response({'error': 'Shop profile not found'}, status=404)
+            roots = [me]
+            scope_shops = _shop_subtree(me, children_by_creator)
+
+        user_ids = [s.user_id for s in scope_shops]
+        order_qs = JewelryOrder.objects.filter(user_id__in=user_ids)
+        if start is not None:
+            order_qs = order_qs.filter(created_at__gte=start)
+        sales_by_user = {
+            row['user_id']: row for row in
+            order_qs.values('user_id').annotate(orders=Count('id'), sales=Sum('total_price'))
+        }
+        active_ids = _shop_active_user_ids(user_ids)
+
+        def build(shop, visiting):
+            visiting = visiting | {shop.id}
+            kids = [build(c, visiting) for c in children_by_creator.get(shop.user_id, []) if c.id not in visiting]
+            own = sales_by_user.get(shop.user_id, {})
+            own_orders = own.get('orders', 0) or 0
+            own_sales = float(own.get('sales') or 0)
+            return {
+                'id': shop.id,
+                'user_id': shop.user_id,
+                'shop_id': shop.shop_id,
+                'shop_name': shop.shop_name,
+                'owner_name': shop.owner_name,
+                'shop_type': shop.shop_type,
+                'mobile_number': shop.mobile_number,
+                'city': shop.city,
+                'created_at': shop.created_at,
+                'active_today': shop.user_id in active_ids,
+                'own_orders': own_orders,
+                'own_sales': own_sales,
+                'network_orders': own_orders + sum(k['network_orders'] for k in kids),
+                'network_sales': own_sales + sum(k['network_sales'] for k in kids),
+                'descendant_count': len(kids) + sum(k['descendant_count'] for k in kids),
+                'children': kids,
+            }
+
+        nodes = [build(r, set()) for r in roots]
+        if role == 'super_admin':
+            tree = {
+                'id': None, 'user_id': None, 'shop_id': None, 'shop_name': 'All Shops',
+                'owner_name': '', 'shop_type': None, 'mobile_number': '', 'city': '',
+                'created_at': None, 'active_today': False, 'own_orders': 0, 'own_sales': 0.0,
+                'network_orders': sum(n['network_orders'] for n in nodes),
+                'network_sales': sum(n['network_sales'] for n in nodes),
+                'descendant_count': len(nodes) + sum(n['descendant_count'] for n in nodes),
+                'children': nodes,
+            }
+        else:
+            tree = nodes[0]
+        return Response({'period': period, 'tree': tree})
+
+
+class ShopLoginStatusView(APIView):
+    """Today's active / inactive shops inside the selected scope."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        shops, err = _resolve_shop_scope(request)
+        if err:
+            return err
+        active_ids = _shop_active_user_ids([s.user_id for s in shops])
+        active, inactive = [], []
+        for s in sorted(shops, key=lambda x: x.shop_name.lower()):
+            row = {
+                'shop_id': s.shop_id, 'shop_name': s.shop_name, 'owner_name': s.owner_name,
+                'mobile_number': s.mobile_number, 'city': s.city, 'shop_type': s.shop_type,
+            }
+            (active if s.user_id in active_ids else inactive).append(row)
+        return Response({'active': active, 'inactive': inactive})
+
+
 class CreateDealerView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -2344,6 +2620,31 @@ class JewelryProductView(APIView):
                 )
 
         qs = qs.order_by('-created_at')
+
+        # ── Opt-in pagination (infinite scroll) — only kicks in when the
+        # caller passes `page`. Every existing caller that doesn't pass it
+        # keeps getting the old plain-array response, unchanged. ──
+        page_param = request.query_params.get('page')
+        if page_param:
+            try:
+                page = max(1, int(page_param))
+            except ValueError:
+                page = 1
+            try:
+                page_size = max(1, min(100, int(request.query_params.get('page_size', 30))))
+            except ValueError:
+                page_size = 30
+
+            total = qs.count()
+            start = (page - 1) * page_size
+            end = start + page_size
+            serializer = JewelryProductSerializer(qs[start:end], many=True, context={'request': request})
+            return Response({
+                'results': serializer.data,
+                'has_more': end < total,
+                'count': total,
+            })
+
         serializer = JewelryProductSerializer(qs, many=True, context={'request': request})
         return Response(serializer.data)
 

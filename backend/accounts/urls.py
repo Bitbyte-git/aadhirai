@@ -3,6 +3,7 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     LoginView, CreateAdminView, CreateShopView, MyShopProfileView, ShopHierarchyView, ShopDashboardStatsView, CreateDealerView,
+    ShopSalesSummaryView, ShopSalesTrendView, ShopReportTreeView, ShopLoginStatusView,
     CreateSubDealerView, CreatePromotorView, CreateCustomerView, GeneralCustomerListView, ReferralCustomerListView,
     DashboardView, AdminListForAdminView, DealerListForDealerView,
     SubDealerListForView, PromotorListForView,  FullHierarchyView, AnnouncementView, AnnouncementReplyView, DashboardQuickStatsView,ProfileUpdateRequestView, ProfileUpdateApproveView,MetalRateView,MetalOrderView, MetalOrderSummaryView, JewelryProductView, JewelryProductDetailView, SoldOutProductsView,StockNotifyRequestView, JewelryProductImageDeleteView, HomeBannerView, HomeBannerDetailView, CartView, CartItemQtyView, WishlistView, JewelryOrderView, create_razorpay_order, verify_payment, ping,
@@ -25,6 +26,10 @@ urlpatterns = [
     path('my-shop-profile/', MyShopProfileView.as_view()),
     path('shop-hierarchy/', ShopHierarchyView.as_view()),
     path('shop-dashboard-stats/', ShopDashboardStatsView.as_view()),
+    path('shop-report/summary/', ShopSalesSummaryView.as_view()),
+    path('shop-report/trend/', ShopSalesTrendView.as_view()),
+    path('shop-report/tree/', ShopReportTreeView.as_view()),
+    path('shop-report/login-status/', ShopLoginStatusView.as_view()),
     path('dealers/', CreateDealerView.as_view()),         
     path('dealers/list/', DealerListForDealerView.as_view()),  
     path('sub-dealers/', CreateSubDealerView.as_view()),   

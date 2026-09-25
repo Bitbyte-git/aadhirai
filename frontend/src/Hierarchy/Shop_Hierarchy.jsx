@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import { SkeletonCard } from '../components/Skeleton'
@@ -323,20 +323,22 @@ function ChainPopup({ chain, rect, onClose }) {
 // ══════════════════════════════════════════════════════════════════
 // TREE NODE — card + (if expanded) its children row with connectors
 // ══════════════════════════════════════════════════════════════════
-function ShopTreeNode({ node, depth, chain, expanded, onToggle, onInfo, onPrint, onReport, highlightId }) {
+// oru parent-ku keela ore oru child mattum open aagum — sibling B click pannina A-oda sub-shops hide aagum
+function ShopTreeNode({ node, depth, chain, parentKey, openMap, onToggle, onInfo, onPrint, onReport, highlightId }) {
   const c = levelColor(depth)
   const kids = node.children || []
   const hasKids = kids.length > 0
-  const isOpen = hasKids && expanded.has(node.shop_id)
+  const isOpen = hasKids && openMap[parentKey] === node.shop_id
   const myChain = [...chain, node]
 
   return (
     <div className="otree-node-wrap">
       <div
         id={`shop-node-${node.shop_id}`}
+        data-depth={depth}
         className={`otree-card ${highlightId === node.shop_id ? 'stree-hl' : ''}`}
         style={{ '--nc': c, cursor: hasKids ? 'pointer' : 'default' }}
-        onClick={() => hasKids && onToggle(node.shop_id)}
+        onClick={() => hasKids && onToggle(parentKey, node.shop_id)}
         title={hasKids ? (isOpen ? 'Hide sub-shops' : 'Show sub-shops') : 'No sub-shops under this one'}
       >
         <button className="stree-info" style={{ '--nc': c }} title="View hierarchy chain"
@@ -386,7 +388,7 @@ function ShopTreeNode({ node, depth, chain, expanded, onToggle, onInfo, onPrint,
             <div className="otree-item" key={k.shop_id}>
               <ShopTreeNode
                 node={k} depth={depth + 1} chain={myChain}
-                expanded={expanded} onToggle={onToggle} onInfo={onInfo}
+                parentKey={node.shop_id} openMap={openMap} onToggle={onToggle} onInfo={onInfo}
                 onPrint={onPrint} onReport={onReport} highlightId={highlightId}
               />
             </div>
@@ -408,25 +410,29 @@ export default function ShopHierarchy() {
   const [tree, setTree] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [expanded, setExpanded] = useState(() => new Set())
+  // openMap[parentKey] = the one child shop_id open under that parent ('root' = level-1 row)
+  const [openMap, setOpenMap] = useState({})
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [highlightId, setHighlightId] = useState(null)
   const [chainPopup, setChainPopup] = useState(null)
   const [printTarget, setPrintTarget] = useState(null)
 
-  const [treeZoom, setTreeZoom] = useState(1)
+  const DEFAULT_ZOOM = 0.85
+  const [treeZoom, setTreeZoom] = useState(DEFAULT_ZOOM)
+  const treeWrapperRef = useRef(null)
   const scrollAreaRef = useRef(null)
-  const zoomIn = () => setTreeZoom(z => Math.min(1.4, parseFloat((z + 0.1).toFixed(1))))
-  const zoomOut = () => setTreeZoom(z => Math.max(0.3, parseFloat((z - 0.1).toFixed(1))))
-  const resetZoom = () => setTreeZoom(1)
+  const updateTreeZoom = z => setTreeZoom(Math.min(1.4, Math.max(0.3, Number(z.toFixed(2)))))
+  const zoomIn = () => updateTreeZoom(treeZoom + 0.1)
+  const zoomOut = () => updateTreeZoom(treeZoom - 0.1)
+  const resetZoom = () => updateTreeZoom(DEFAULT_ZOOM)
   const fitHierarchy = () => {
     const el = scrollAreaRef.current
     const content = el?.firstElementChild
     if (!el || !content) return
-    const avail = el.clientWidth - 40
+    const avail = el.clientWidth - 260
     const natural = content.scrollWidth
-    if (natural > 0 && avail > 0) setTreeZoom(Math.min(1, Math.max(0.3, parseFloat((avail / natural).toFixed(2)))))
+    if (natural > 0 && avail > 0) updateTreeZoom(Math.min(1, Math.max(0.3, avail / natural)))
   }
 
   const text = '#111817'
@@ -483,21 +489,20 @@ export default function ShopHierarchy() {
     ).slice(0, 40)
   }, [debouncedSearch, flat])
 
-  const toggle = shopId => setExpanded(prev => {
-    const next = new Set(prev)
-    if (next.has(shopId)) next.delete(shopId); else next.add(shopId)
-    return next
-  })
-  const expandAll = () => setExpanded(new Set(flat.filter(f => (f.node.children || []).length).map(f => f.node.shop_id)))
-  const collapseAll = () => setExpanded(new Set())
+  const toggle = (parentKey, shopId) => setOpenMap(prev => ({
+    ...prev,
+    [parentKey]: prev[parentKey] === shopId ? null : shopId,
+  }))
+  const collapseAll = () => setOpenMap({})
 
-  // search result click → open every ancestor, highlight + scroll to the card
+  // search result click → open the path down to that shop (one per level), highlight + scroll to it
   const revealShop = ({ node, chain }) => {
-    setExpanded(prev => {
-      const next = new Set(prev)
-      chain.slice(0, -1).forEach(a => next.add(a.shop_id))
-      return next
-    })
+    const treeChain = tree?.shop_id ? chain.slice(1) : chain   // own root shop sits in the left column
+    const next = {}
+    for (let i = 0; i < treeChain.length - 1; i++) {
+      next[i === 0 ? 'root' : treeChain[i - 1].shop_id] = treeChain[i].shop_id
+    }
+    setOpenMap(next)
     setHighlightId(node.shop_id)
     setSearch('')
     setDebouncedSearch('')
@@ -516,8 +521,55 @@ export default function ShopHierarchy() {
   const goReport = node => navigate(`/shop-report?shop=${encodeURIComponent(node.shop_id)}`)
   const handleLogout = () => { localStorage.clear(); navigate('/login') }
 
+  // left column = root (own shop, or Super Admin); tree area starts from its children
   const rootIsShop = !!tree?.shop_id
-  const topLevel = tree ? (rootIsShop ? [tree] : (tree.children || [])) : []
+  const topLevel = tree ? (tree.children || []) : []
+  const firstDepth = rootIsShop ? 2 : 1
+  const rootChain = rootIsShop ? [tree] : []
+  const rootColor = rootIsShop ? levelColor(1) : '#0C4044'
+
+  // ── same measuring as Superadmin_Hierarchy: "Level N" labels in the left column
+  // + the bridge line from the root card across to every level-1 card ──
+  const [levelTops, setLevelTops] = useState({})
+  const [rowAnchors, setRowAnchors] = useState([])
+  const [rootAnchor, setRootAnchor] = useState(null)
+
+  useLayoutEffect(() => {
+    const wrapper = treeWrapperRef.current
+    if (!wrapper) return
+    const measure = () => {
+      const wr = wrapper.getBoundingClientRect()
+      const tops = {}
+      for (let d = firstDepth; d <= firstDepth + 30; d++) {
+        const el = wrapper.querySelector(`.sh-tree-scroll [data-depth="${d}"]`)
+        if (!el) break
+        const r = el.getBoundingClientRect()
+        tops[d] = (r.top - wr.top) + r.height / 2
+      }
+      setLevelTops(tops)
+      setRowAnchors(Array.from(wrapper.querySelectorAll(`.sh-tree-scroll [data-depth="${firstDepth}"]`)).map(el => {
+        const r = el.getBoundingClientRect()
+        return { x: (r.left - wr.left) + r.width / 2, top: r.top - wr.top }
+      }))
+      const rootEl = wrapper.querySelector('[data-role="shop-root"]')
+      if (rootEl) {
+        const r = rootEl.getBoundingClientRect()
+        setRootAnchor({ x: r.right - wr.left, y: (r.top - wr.top) + r.height / 2 })
+      }
+    }
+    measure()
+    requestAnimationFrame(() => requestAnimationFrame(measure))
+    const ro = new ResizeObserver(measure)
+    ro.observe(wrapper)
+    const scrollEl = scrollAreaRef.current
+    scrollEl?.addEventListener('scroll', measure)
+    window.addEventListener('resize', measure)
+    return () => {
+      ro.disconnect()
+      scrollEl?.removeEventListener('scroll', measure)
+      window.removeEventListener('resize', measure)
+    }
+  }, [tree, loading, openMap, treeZoom, firstDepth])
 
   return (
     <div style={{ minHeight: '100vh', background: '#FFFFFF' }}>
@@ -559,9 +611,12 @@ export default function ShopHierarchy() {
           .sh-search-item{ display:block; width:100%; text-align:left; background:none; border:none; border-radius:10px; padding:9px 12px; cursor:pointer; font-family:inherit; }
           .sh-search-item:hover{ background:#E6F1EF; }
           .sh-zoom-wrap{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:rgba(255,255,255,0.94); border:1px solid rgba(12,64,68,0.16); border-radius:14px; padding:6px; box-shadow:0 12px 28px rgba(7,59,63,0.12); }
-          .sh-canvas{ background:#FFFFFF; border:1.5px solid ${border}; border-radius:20px; padding:28px 0; overflow:hidden; min-height:70vh; position:relative; box-shadow:0 18px 42px rgba(7,59,63,0.08); }
-          .sh-tree-scroll{ overflow:auto; padding:20px 32px 40px; -webkit-overflow-scrolling:touch; }
-          .sh-tree-inner{ display:inline-flex; min-width:100%; justify-content:center; }
+          .sh-canvas{ background:#FFFFFF; border:1.5px solid ${border}; border-radius:20px; padding:28px 0; overflow:hidden; min-height:80vh; position:relative; box-shadow:0 18px 42px rgba(7,59,63,0.08); }
+          .sh-superadmin-col{ position:absolute; top:0; left:0; bottom:0; width:200px; z-index:40; background:#FFFFFF; display:flex; flex-direction:column; align-items:center; padding-top:20px; }
+          .sh-superadmin-line{ width:2px; flex:1; margin-top:6px; }
+          .sh-level-labels{ position:absolute; left:0; top:0; width:200px; height:100%; z-index:45; pointer-events:none; }
+          .sh-svg-bridge{ position:absolute; top:0; left:0; width:100%; height:100%; z-index:44; pointer-events:none; }
+          .sh-tree-scroll{ overflow-x:auto; overflow-y:hidden; padding:72px 32px 40px 220px; -webkit-overflow-scrolling:touch; }
           .sh-chip{ display:flex; align-items:center; gap:6px; border-radius:20px; padding:4px 14px; }
 
           .otree-node-wrap{ display:flex; flex-direction:column; align-items:center; }
@@ -590,6 +645,8 @@ export default function ShopHierarchy() {
           .otree-item:first-child::after{ border-radius:20px 0 0 0; }
           .otree-children-root{ padding-top:0; }
           .otree-children-root::before{ display:none; }
+          .otree-children-root > .otree-item::before,
+          .otree-children-root > .otree-item::after{ display:none; }
 
           .stree-type{ display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:800; padding:2px 8px; border-radius:20px; border:1px solid; text-transform:uppercase; letter-spacing:0.04em; }
           .stree-dot{ width:9px; height:9px; border-radius:50%; box-shadow:0 0 0 3px #FFFFFF, 0 0 0 4px rgba(12,64,68,0.12); flex-shrink:0; }
@@ -624,7 +681,9 @@ export default function ShopHierarchy() {
             .sh-search-wrap{ width:100% !important; }
             .sh-search-results{ left:0; right:auto; width:100%; }
             .sh-canvas{ border-radius:14px; padding:14px 0; min-height:auto; }
-            .sh-tree-scroll{ padding:12px 8px 30px !important; }
+            .sh-superadmin-col{ position:static !important; width:100% !important; padding:10px 10px 14px !important; border-bottom:1.5px dashed rgba(12,64,68,0.15); }
+            .sh-superadmin-line, .sh-level-labels, .sh-svg-bridge{ display:none !important; }
+            .sh-tree-scroll{ padding:16px 8px 30px !important; }
             .hierarchy-zoom-chip{ min-width:48px; }
           }
           @media (max-width: 480px) {
@@ -710,8 +769,7 @@ export default function ShopHierarchy() {
                 <button className="hierarchy-zoom-btn" onClick={zoomIn} disabled={treeZoom >= 1.4} title="Zoom in"><IconPlus color="currentColor" /></button>
                 <button className="hierarchy-zoom-btn" onClick={fitHierarchy} title="Fit tree on screen"><IconFit color="currentColor" /> Fit</button>
                 <button className="hierarchy-zoom-btn" onClick={resetZoom}>Reset</button>
-                <button className="hierarchy-zoom-btn" onClick={expandAll} disabled={!tree}>Expand all</button>
-                <button className="hierarchy-zoom-btn" onClick={collapseAll} disabled={expanded.size === 0}>Collapse</button>
+                <button className="hierarchy-zoom-btn" onClick={collapseAll} disabled={!Object.values(openMap).some(Boolean)}>Collapse</button>
               </div>
               <button onClick={() => navigate(isSuperAdmin ? '/super-admin' : '/shop-dashboard')}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(220,38,38,0.35)', color: '#DC2626', borderRadius: '10px', padding: '9px 16px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
@@ -725,41 +783,92 @@ export default function ShopHierarchy() {
           <div style={{ background: 'rgba(201,32,53,0.08)', border: '1px solid rgba(201,32,53,0.3)', color: '#C92035', borderRadius: 12, padding: '14px 18px', fontSize: 13, marginBottom: 20 }}>{error}</div>
         )}
 
-        <div className="sh-canvas">
+        <div ref={treeWrapperRef} className="sh-canvas">
+          {/* ── LEFT-TOP: Super Admin (or own root shop) — stays fixed while the tree scrolls right ── */}
+          <div className="sh-superadmin-col">
+            {tree && rootIsShop ? (
+              <div className="otree-card" id={`shop-node-${tree.shop_id}`} data-role="shop-root"
+                style={{ '--nc': rootColor, minWidth: 160, maxWidth: 176, cursor: 'default', padding: '10px 12px' }}>
+                <button className="stree-info" style={{ '--nc': rootColor }} title="View hierarchy chain"
+                  onClick={e => openInfo(e.currentTarget, [tree])}>i</button>
+                <div style={{ paddingLeft: 22, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className="stree-type" style={{ color: rootColor, borderColor: rootColor, background: '#FFFFFF' }}><IconShield color={rootColor} size={10} /> ROOT SHOP</span>
+                </div>
+                <div className="otree-id" style={{ color: rootColor }}>{tree.shop_id}</div>
+                <div className="otree-name" style={{ fontSize: 12.5, marginBottom: 4 }}>{tree.shop_name}</div>
+                <div className="otree-sub" style={{ fontSize: 11 }}><IconPhone color={subtext} /> {tree.mobile_number}</div>
+                <div className="stree-sales" style={{ color: rootColor, fontSize: 12 }}>
+                  {formatINR(tree.network_sales)}<span>{tree.network_orders} orders</span>
+                </div>
+                <div className="otree-actions">
+                  <button className="otree-btn" style={{ '--nc': rootColor }}
+                    onClick={() => setPrintTarget({ node: tree, depth: 1, chain: [tree] })}>
+                    <IconPrinter color={rootColor} /> PRINT
+                  </button>
+                  <button className="otree-btn otree-btn-sales" onClick={() => navigate('/shop-report')}>
+                    <IconChart color="#0284C7" /> REPORT
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="otree-card" data-role="shop-root" style={{ '--nc': rootColor, minWidth: 150, cursor: 'default' }}>
+                <div className="stree-type" style={{ color: rootColor, borderColor: rootColor, background: '#FFFFFF', marginBottom: 8 }}>
+                  <IconShield color={rootColor} size={10} /> SUPER ADMIN
+                </div>
+                <div className="otree-name" style={{ fontSize: 12.5, marginBottom: 2 }}>All Shops</div>
+                <div style={{ fontSize: 11, color: subtext }}>{topLevel.length} root shop{topLevel.length === 1 ? '' : 's'}</div>
+              </div>
+            )}
+            <div className="sh-superadmin-line" style={{ background: rootColor }} />
+          </div>
+
+          {/* ── "Level N" labels beside the left column ── */}
+          {!loading && tree && (
+            <div className="sh-level-labels">
+              {Object.entries(levelTops).map(([d, top]) => (
+                <div key={d} style={{ position: 'absolute', top, left: 118, transform: 'translateY(-50%)', fontSize: 11, fontWeight: 700, color: levelColor(Number(d)), letterSpacing: '0.04em', whiteSpace: 'nowrap', background: '#FFFFFF', padding: '0 4px' }}>
+                  Level {d}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── bridge: root card → every level-1 card ── */}
+          {!loading && tree && rowAnchors.length > 0 && rootAnchor && (() => {
+            const farthestX = Math.max(...rowAnchors.map(a => a.x))
+            const lc = levelColor(firstDepth)
+            return (
+              <svg className="sh-svg-bridge">
+                <line x1={rootAnchor.x} y1={rootAnchor.y} x2={Math.max(farthestX, rootAnchor.x)} y2={rootAnchor.y} stroke={lc} strokeWidth="2" />
+                {rowAnchors.map((a, i) => (
+                  <line key={i} x1={a.x} y1={rootAnchor.y} x2={a.x} y2={a.top} stroke={lc} strokeWidth="2" />
+                ))}
+              </svg>
+            )
+          })()}
+
           {loading ? (
-            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', padding: '20px' }}>
-              <SkeletonCard color="#0C4044" /><SkeletonCard color="#16A34A" /><SkeletonCard color="#0284C7" />
+            <div className="sh-tree-scroll" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+              <SkeletonCard color="#16A34A" /><SkeletonCard color="#16A34A" /><SkeletonCard color="#16A34A" />
             </div>
           ) : !tree ? null : topLevel.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '80px 0', color: subtext, fontSize: 13 }}>No shops yet.</div>
+            <div className="sh-tree-scroll" style={{ color: subtext, fontSize: 13, paddingTop: 90 }}>
+              {rootIsShop ? 'No sub-shops created under your shop yet.' : 'No shops yet.'}
+            </div>
           ) : (
             <div className="sh-tree-scroll" ref={scrollAreaRef}>
-              <div className="sh-tree-inner" style={{ zoom: treeZoom }}>
-                <div className="otree-node-wrap">
-                  {!rootIsShop && (
-                    <>
-                      <div className="otree-card" style={{ '--nc': '#0C4044', cursor: 'default', minWidth: 170, textAlign: 'center' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}><IconShield color="#0C4044" size={18} /></div>
-                        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: 1.4, color: '#0C4044' }}>SUPER ADMIN</div>
-                        <div className="otree-name" style={{ marginBottom: 2 }}>All Shops</div>
-                        <div style={{ fontSize: 11, color: subtext }}>{topLevel.length} root shop{topLevel.length === 1 ? '' : 's'}</div>
-                      </div>
-                      <div style={{ width: 2, height: 28, background: levelColor(1) }} />
-                    </>
-                  )}
-                  <div className={`otree-children ${rootIsShop ? 'otree-children-root' : ''}`} style={{ '--lc': levelColor(1), paddingTop: rootIsShop ? 0 : undefined }}>
-                    {topLevel.map(n => (
-                      <div className="otree-item" key={n.shop_id}>
-                        <ShopTreeNode
-                          node={n} depth={1} chain={[]}
-                          expanded={expanded} onToggle={toggle} onInfo={openInfo}
-                          onPrint={(node, depth, chain) => setPrintTarget({ node, depth, chain })}
-                          onReport={goReport} highlightId={highlightId}
-                        />
-                      </div>
-                    ))}
+              <div className="otree-children otree-children-root"
+                style={{ '--lc': levelColor(firstDepth), minWidth: 'max-content', justifyContent: 'flex-start', transform: `scale(${treeZoom})`, transformOrigin: 'top left', width: `${100 / treeZoom}%` }}>
+                {topLevel.map(n => (
+                  <div className="otree-item" key={n.shop_id} style={{ paddingTop: 0 }}>
+                    <ShopTreeNode
+                      node={n} depth={firstDepth} chain={rootChain}
+                      parentKey="root" openMap={openMap} onToggle={toggle} onInfo={openInfo}
+                      onPrint={(node, depth, chain) => setPrintTarget({ node, depth, chain })}
+                      onReport={goReport} highlightId={highlightId}
+                    />
                   </div>
-                </div>
+                ))}
               </div>
             </div>
           )}

@@ -498,7 +498,9 @@ export default function CustomerDashboard() {
           hasToken ? api.get("/dashboard/") : Promise.resolve({ data: null }),
           api.get("/metal-rates/"),
           hasToken ? api.get("/announcements/") : Promise.resolve({ data: [] }),
-          api.get("/jewelry-products/"),
+          // Only ever slices to 16 items below (Featured + Fast Moving) —
+          // no need to fetch the entire catalog for a small preview row.
+          api.get("/jewelry-products/?page=1&page_size=20"),
           hasToken ? api.get("/wishlist/") : Promise.resolve({ data: [] }),
         ]);
 
@@ -521,16 +523,17 @@ export default function CustomerDashboard() {
       }
 
       // (this is hide for daimond and platinum )
-      if (
-  productRes.status === "fulfilled" &&
-  Array.isArray(productRes.value.data)
-) {
-  const activeProducts = productRes.value.data.filter(
-    (p) => p.is_active !== false && p.metal !== "diamond" && p.metal !== "platinum",
-  );
-  setFeatured(activeProducts.slice(0, 10));
-  setFastMoving(activeProducts.slice(10, 16));
-}
+      if (productRes.status === "fulfilled") {
+        const raw = productRes.value.data;
+        // Backend returns {results, has_more} when `page` is passed, or a
+        // plain array on older/un-deployed backends — handle both.
+        const list = Array.isArray(raw) ? raw : Array.isArray(raw?.results) ? raw.results : [];
+        const activeProducts = list.filter(
+          (p) => p.is_active !== false && p.metal !== "diamond" && p.metal !== "platinum",
+        );
+        setFeatured(activeProducts.slice(0, 10));
+        setFastMoving(activeProducts.slice(10, 16));
+      }
       if (wishRes.status === "fulfilled") {
         const items = Array.isArray(wishRes.value.data?.items)
           ? wishRes.value.data.items

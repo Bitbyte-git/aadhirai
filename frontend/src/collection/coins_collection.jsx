@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../api'
 import goldCoin from '../assets/gold-coin-transparent.png'
@@ -402,6 +402,16 @@ export default function CoinsCollection() {
   const [rates, setRates] = useState({})
   const [wishlistedIds, setWishlistedIds] = useState(new Set())
   const [sortBy, setSortBy] = useState('featured')
+  // Infinite scroll — only when browsing without a specific weight selected.
+  // Weight matching happens client-side (coinMatchesWeight), so a weight
+  // filter needs the full matching set fetched at once to stay correct;
+  // pagination there could hide a match that would only show up on a later
+  // un-fetched page.
+  const COIN_PAGE_SIZE = 30
+  const [coinPage, setCoinPage] = useState(1)
+  const [coinHasMore, setCoinHasMore] = useState(false)
+  const [coinLoadingMore, setCoinLoadingMore] = useState(false)
+  const coinLoadMoreRef = useRef(null)
 
   const isGold = metalFilter === 'gold'
   const isAllMetals = !metalFilter
@@ -429,16 +439,27 @@ export default function CoinsCollection() {
   useEffect(() => {
     const loadCoins = async () => {
       setLoading(true)
+      setCoinPage(1)
+      setCoinHasMore(false)
       try {
+        // Weight matching (coinMatchesWeight, below) runs client-side across
+        // whatever we fetched — pagination would risk hiding a matching coin
+        // that only lives on a later page, so a weight filter always fetches
+        // everything up front (that result set is small anyway).
+        const paginate = !weightFilter
         let url = '/jewelry-products/?category=coins'
         if (metalFilter) url += `&metal=${encodeURIComponent(metalFilter)}`
         if (gradeFilter) url += `&grade=${encodeURIComponent(gradeFilter)}`
+        if (paginate) url += `&page=1&page_size=${COIN_PAGE_SIZE}`
         const res = await api.get(url)
-        let list = normalizeProductList(res.data)
+        const isPaginated = paginate && !Array.isArray(res.data)
+        let list = normalizeProductList(isPaginated ? res.data.results : res.data)
 
         if (!list.length) {
           const fallbackRes = await api.get('/jewelry-products/')
           list = normalizeProductList(fallbackRes.data)
+        } else if (isPaginated) {
+          setCoinHasMore(Boolean(res.data.has_more))
         }
 
         list = list.filter(product => productIsCoin(product) && productMatchesMetal(product, metalFilter))
@@ -462,6 +483,43 @@ export default function CoinsCollection() {
 
     loadCoins()
   }, [metalFilter, gradeFilter, weightFilter])
+
+  const loadMoreCoins = async () => {
+    if (coinLoadingMore || !coinHasMore) return
+    setCoinLoadingMore(true)
+    try {
+      const nextPage = coinPage + 1
+      let url = `/jewelry-products/?category=coins&page=${nextPage}&page_size=${COIN_PAGE_SIZE}`
+      if (metalFilter) url += `&metal=${encodeURIComponent(metalFilter)}`
+      if (gradeFilter) url += `&grade=${encodeURIComponent(gradeFilter)}`
+      const res = await api.get(url)
+      const isPaginated = !Array.isArray(res.data)
+      let list = normalizeProductList(isPaginated ? res.data.results : res.data)
+      list = list.filter(product => productIsCoin(product) && productMatchesMetal(product, metalFilter))
+      if (gradeFilter) {
+        const grade = gradeFilter.toLowerCase()
+        list = list.filter(product => textValue(product.grade).toLowerCase().includes(grade))
+      }
+      setProducts(prev => [...prev, ...list])
+      setCoinHasMore(isPaginated ? Boolean(res.data.has_more) : false)
+      setCoinPage(nextPage)
+    } catch {
+      setCoinHasMore(false)
+    } finally {
+      setCoinLoadingMore(false)
+    }
+  }
+
+  useEffect(() => {
+    const el = coinLoadMoreRef.current
+    if (!el || !coinHasMore || loading) return undefined
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMoreCoins() },
+      { rootMargin: '600px 0px' }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [coinHasMore, loading, coinPage, coinLoadingMore, metalFilter, gradeFilter])
 
   const sortedProducts = useMemo(() => {
     let list = [...products]
@@ -1783,6 +1841,17 @@ export default function CoinsCollection() {
                   />
                 ))}
               </section>
+            )}
+            {coinHasMore && (
+              <div ref={coinLoadMoreRef} style={{ width: '100%', minHeight: 40, marginTop: 20 }}>
+                {coinLoadingMore && (
+                  <section className="coins-grid">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} style={{ aspectRatio: '1/1.15', borderRadius: 18, background: 'linear-gradient(90deg, #EAEFEF 25%, #F7F9F9 50%, #EAEFEF 75%)', backgroundSize: '200% 100%', animation: 'skelShimmer 1.5s infinite ease-in-out' }} />
+                    ))}
+                  </section>
+                )}
+              </div>
             )}
           </div>
         </div>

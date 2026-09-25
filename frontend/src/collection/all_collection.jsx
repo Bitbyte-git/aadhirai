@@ -1680,7 +1680,7 @@ export default function AllCollection() {
       </section>
       {hasMore && (
         <div ref={loadMoreRef} className="an-load-more-sentinel">
-          {loadingMore && <SkeletonGrid count={4} />}
+          {loadingMore && <SkeletonGrid count={8} />}
         </div>
       )}
     </>

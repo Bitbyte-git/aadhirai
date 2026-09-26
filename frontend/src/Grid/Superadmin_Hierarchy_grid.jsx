@@ -607,14 +607,22 @@ let _chainHideTimer = null
 function removeChainPopup() {
   document.querySelectorAll('#chain-popup').forEach(el => el.remove())
 }
+function isChainPopupPinned() {
+  return !!document.querySelector('#chain-popup[data-pinned]')
+}
 function scheduleHideChainPopup() {
   clearTimeout(_chainHideTimer)
+  // ── "i" click-la open aana (pinned) popup hover leave-la close aaga koodadhu ──
+  if (isChainPopupPinned()) return
   _chainHideTimer = setTimeout(() => removeChainPopup(), 200)
 }
 
-function showChainPopup(anchorEl, ancestors, current, dark, superAdminEmail) {
-  // Mobile responsive la mattum chain popup open aaga koodadhu
-  if (typeof window !== 'undefined' && window.innerWidth <= 860) return
+// pinned = "i" button click-la open pannadhu — mobile-layum kaatum, ✕ / outside tap-la mattum close aagum
+function showChainPopup(anchorEl, ancestors, current, dark, superAdminEmail, pinned = false) {
+  // Hover popup mobile-la open aaga koodadhu; pinned popup mattum allowed
+  if (!pinned && typeof window !== 'undefined' && window.innerWidth <= 860) return
+  // Pinned popup open-la irukkumbodhu vera card hover pannaa replace aaga koodadhu
+  if (!pinned && isChainPopupPinned()) return
   clearTimeout(_chainHideTimer)
   removeChainPopup()
 
@@ -841,12 +849,22 @@ function showChainPopup(anchorEl, ancestors, current, dark, superAdminEmail) {
   el.style.width = popW + 'px'
   el.style.boxSizing = 'border-box'
 
+  if (pinned) {
+    el.dataset.pinned = '1'
+    // Mobile media query-la irukura display:none !important-ah inline !important override pannum
+    el.style.setProperty('display', 'block', 'important')
+    el.style.setProperty('visibility', 'visible', 'important')
+    el.style.setProperty('pointer-events', 'auto', 'important')
+  }
+
   el.querySelector('.chain-close-btn')?.addEventListener('click', (e) => {
     e.stopPropagation()
     removeChainPopup()
   })
 
   const onDocClick = (e) => {
+    // Indha popup already remove aayiduchu-na (hover leave / vera popup), stale listener pudhu popup-ah close panna koodadhu
+    if (!el.isConnected) { document.removeEventListener('pointerdown', onDocClick); return }
     if (!el.contains(e.target) && !anchorEl.contains(e.target)) {
       removeChainPopup()
       document.removeEventListener('pointerdown', onDocClick)
@@ -942,8 +960,9 @@ const Icon = cfg.Icon
       <button
         onClick={e => {
           e.stopPropagation()
-          if (document.getElementById('chain-popup')) { removeChainPopup(); return }
-          showChainPopup(e.currentTarget.closest('.gcard'), ancestors, { node, role }, dark, superAdminEmail)
+          // Hover popup already open-na adha pinned-ah maathum; pinned popup open-na close pannum
+          if (isChainPopupPinned()) { removeChainPopup(); return }
+          showChainPopup(e.currentTarget.closest('.gcard'), ancestors, { node, role }, dark, superAdminEmail, true)
         }}
         className="gcard-info-btn"
         style={{ '--nc': c }}
@@ -1071,7 +1090,8 @@ function LaneRow({ role, items, activeId, onSelect, ancestors, superAdminEmail, 
               ancestors={ancestors}
               superAdminEmail={superAdminEmail}
               dark={dark} text={text} subtext={subtext}
-              showChildCount={role !== 'customer'}
+              // Customer card-kum keezha refer panna customers count pill kaatum (backend child_count tharudhu)
+              showChildCount={true}
               onMessage={onMessage}
               onPrint={onPrint}
               activeStatusFilter={activeStatusFilter}
@@ -1460,7 +1480,7 @@ const selectAdmin = (node) => {
           transition:background .2s ease, transform .2s ease;
         }
         .gcard-info-btn:hover{ background:var(--nc); color:#FFFFFF; transform:scale(1.1); }
-        .gcard-active{ opacity:1; transform:translateY(-4px); box-shadow:0 0 0 3px #0C4044, 0 18px 36px rgba(7,59,63,0.25); }
+        .gcard-active{ opacity:1; transform:translateY(-4px); box-shadow:0 0 0 3px #BB8958, 0 0 18px rgba(187,137,88,0.45), 0 18px 36px rgba(187,137,88,0.22); }
         .gcard-dim{ opacity:1; }
         .gcard-dim:hover{ opacity:1; }
         .gcard-badge{ display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:900; padding:2px 8px; border-radius:20px; margin-bottom:8px; color:var(--nc); background:#FFFFFF; border:1.5px solid var(--nc); }

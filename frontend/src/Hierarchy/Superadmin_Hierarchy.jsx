@@ -146,8 +146,13 @@ let _chainHideTimer = null
 function removeChainPopup() {
   document.querySelectorAll('#chain-popup').forEach(el => el.remove())
 }
+function isChainPopupPinned() {
+  return !!document.querySelector('#chain-popup[data-pinned]')
+}
 function scheduleHideChainPopup() {
   clearTimeout(_chainHideTimer)
+  // ── "i" click-la open aana (pinned) popup hover leave-la close aaga koodadhu ──
+  if (isChainPopupPinned()) return
   _chainHideTimer = setTimeout(() => removeChainPopup(), 200)
 }
 
@@ -614,9 +619,13 @@ function printHorizontalBracketTree(adminNode, role, ancestors, superAdminEmail,
   printWindow.document.close()
 }
 
-function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, superAdminEmail) {
+// pinned = "i" button click-la open pannadhu — mobile-layum kaatum, ✕ / outside tap-la mattum close aagum
+function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, superAdminEmail, pinned = false) {
   // Mobile responsive la mattum chain popup open aaga koodadhu
-  if (typeof window !== 'undefined' && window.innerWidth <= 860) return
+  // Hover popup mobile-la open aaga koodadhu; pinned popup mattum allowed
+  if (!pinned && typeof window !== 'undefined' && window.innerWidth <= 860) return
+  // Pinned popup open-la irukkumbodhu vera card hover pannaa replace aaga koodadhu
+  if (!pinned && isChainPopupPinned()) return
   clearTimeout(_chainHideTimer)
   removeChainPopup()
 
@@ -829,12 +838,22 @@ function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, super
   el.style.width = popW + 'px'
   el.style.boxSizing = 'border-box'
 
+  if (pinned) {
+    el.dataset.pinned = '1'
+    // Mobile media query-la irukura display:none !important-ah inline !important override pannum
+    el.style.setProperty('display', 'block', 'important')
+    el.style.setProperty('visibility', 'visible', 'important')
+    el.style.setProperty('pointer-events', 'auto', 'important')
+  }
+
   el.querySelector('.chain-close-btn')?.addEventListener('click', (e) => {
     e.stopPropagation()
     removeChainPopup()
   })
 
   const onDocClick = (e) => {
+    // Indha popup already remove aayiduchu-na (hover leave / vera popup), stale listener pudhu popup-ah close panna koodadhu
+    if (!el.isConnected) { document.removeEventListener('pointerdown', onDocClick); return }
     if (!el.contains(e.target) && !anchorEl.contains(e.target)) {
       removeChainPopup()
       document.removeEventListener('pointerdown', onDocClick)
@@ -869,6 +888,18 @@ function TreeNode({ node, role, depth = 0, dark, text, subtext, ancestors = [], 
         onMouseEnter={e => showChainPopup(e.currentTarget, ancestors, { node, role }, dark, text, subtext, superAdminEmail)}
         onMouseLeave={() => scheduleHideChainPopup()}
       >
+        {/* ── "i" tap — mobile-la hover illa, adhanala idhu click-la chain popup-ah pinned-ah kaatum ── */}
+        <button
+          onClick={e => {
+            e.stopPropagation()
+            if (isChainPopupPinned()) { removeChainPopup(); return }
+            showChainPopup(e.currentTarget.closest('.otree-card'), ancestors, { node, role }, dark, text, subtext, superAdminEmail, true)
+          }}
+          className="otree-info-btn"
+          title="View hierarchy chain"
+        >
+          i
+        </button>
         <div className="otree-badge" style={{ '--nc': c }}>
           <Icon color={c} size={11} /> {cfg.label}
         </div>
@@ -916,7 +947,8 @@ function TreeNode({ node, role, depth = 0, dark, text, subtext, ancestors = [], 
             <IconChevronDown color={c} />
           </div>
         )}
-        {hasChildren && (
+        {/* Count pill ellaa card-kum — 0 customer-um kaatum (expand arrow mattum children irundha) */}
+        {!flatMode && !!childRole && (
           <div className="otree-count" style={{ background: c }}>
             {childCount} {childRole.replace('_', ' ')}
           </div>
@@ -1247,6 +1279,8 @@ useLayoutEffect(() => {
         }
         .otree-card:hover{ transform:translateY(-3px); box-shadow:0 14px 30px rgba(7,59,63,0.16); }
         .otree-badge{ display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:900; padding:2px 8px; border-radius:20px; margin-bottom:8px; color:var(--nc); background:#FFFFFF; border:1.5px solid var(--nc); }
+        .otree-info-btn{ position:absolute; top:-10px; left:-10px; z-index:3; width:22px; height:22px; border-radius:50%; background:#FFFFFF; border:1.5px solid var(--nc); color:var(--nc); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; font-size:12px; font-weight:900; font-style:italic; font-family:Georgia,serif; box-shadow:0 4px 10px rgba(7,59,63,0.14); transition:background .2s ease, color .2s ease, transform .2s ease; }
+        .otree-info-btn:hover{ background:var(--nc); color:#FFFFFF; transform:scale(1.1); }
         .otree-id{ font-family:monospace; font-size:11px; font-weight:800; margin-bottom:6px; word-break:break-all; }
         .otree-name{ font-weight:900; font-size:14px; margin-bottom:8px; line-height:1.35; }
         .otree-sub{ display:flex; align-items:center; gap:4px; font-size:12px; font-weight:650; margin-bottom:4px; }

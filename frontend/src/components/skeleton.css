@@ -1,7 +1,10 @@
 @keyframes skelShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
 @keyframes skelShimmerDark{0%{background-position:-200% 0}100%{background-position:200% 0}}
 
-.gcard-skeleton{ cursor:default; }
+/* Base card frame — .gcard style grid pages-la mattum define aagirukku, adhanaala tree / report pages-layum
+   skeleton card sariyaa theriyanum-na inga frame venum (grid pages-oda .gcard idha override pannidum) */
+.gcard-skeleton{ cursor:default; background:#FFFFFF; border:2.5px dashed var(--sc, #BDCFCE); border-radius:16px; padding:14px 18px; min-width:172px; max-width:210px; flex-shrink:0; box-sizing:border-box; position:relative; }
+@media(max-width:480px){ .gcard-skeleton{ min-width:130px; max-width:155px; padding:10px 12px; } }
 .gcard-skeleton:hover{ transform:none; box-shadow:none; }
 
 .skel-badge{ width:70px; height:20px; border-radius:20px; margin-bottom:8px; background:linear-gradient(90deg,#E7EDEC 25%,#F3F3F0 50%,#E7EDEC 75%); background-size:200% 100%; animation:skelShimmer 1.4s ease-in-out infinite; }

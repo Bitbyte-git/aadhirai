@@ -350,8 +350,13 @@ let _chainHideTimer = null
 function removeChainPopup() {
   document.querySelectorAll('#chain-popup').forEach(el => el.remove())
 }
+function isChainPopupPinned() {
+  return !!document.querySelector('#chain-popup[data-pinned]')
+}
 function scheduleHideChainPopup() {
   clearTimeout(_chainHideTimer)
+  // ── "i" click-la open aana (pinned) popup hover leave-la close aaga koodadhu ──
+  if (isChainPopupPinned()) return
   _chainHideTimer = setTimeout(() => removeChainPopup(), 200)
 }
 
@@ -394,8 +399,12 @@ function printPersonCard(node, role, cfg, color, ancestors) {
   printWindow.document.close()
 }
 
-function showChainPopup(anchorEl, ancestors, current, dark) {
-  if (typeof window !== 'undefined' && window.innerWidth <= 860) return
+// pinned = "i" button click-la open pannadhu — mobile-layum kaatum, ✕ / outside tap-la mattum close aagum
+function showChainPopup(anchorEl, ancestors, current, dark, pinned = false) {
+  // Hover popup mobile-la open aaga koodadhu; pinned popup mattum allowed
+  if (!pinned && typeof window !== 'undefined' && window.innerWidth <= 860) return
+  // Pinned popup open-la irukkumbodhu vera card hover pannaa replace aaga koodadhu
+  if (!pinned && isChainPopupPinned()) return
   clearTimeout(_chainHideTimer)
   removeChainPopup()
 
@@ -545,12 +554,22 @@ function showChainPopup(anchorEl, ancestors, current, dark) {
   el.style.width = popW + 'px'
   el.style.boxSizing = 'border-box'
 
+  if (pinned) {
+    el.dataset.pinned = '1'
+    // Mobile media query-la irukura display:none !important-ah inline !important override pannum
+    el.style.setProperty('display', 'block', 'important')
+    el.style.setProperty('visibility', 'visible', 'important')
+    el.style.setProperty('pointer-events', 'auto', 'important')
+  }
+
   el.querySelector('.chain-close-btn')?.addEventListener('click', (e) => {
     e.stopPropagation()
     removeChainPopup()
   })
 
   const onDocClick = (e) => {
+    // Indha popup already remove aayiduchu-na (hover leave / vera popup), stale listener pudhu popup-ah close panna koodadhu
+    if (!el.isConnected) { document.removeEventListener('pointerdown', onDocClick); return }
     if (!el.contains(e.target) && !anchorEl.contains(e.target)) {
       removeChainPopup()
       document.removeEventListener('pointerdown', onDocClick)
@@ -609,8 +628,9 @@ function LaneCard({ node, role, active, onClick, ancestors, dark, text, subtext,
       <button
         onClick={e => {
           e.stopPropagation()
-          if (document.getElementById('chain-popup')) { removeChainPopup(); return }
-          showChainPopup(e.currentTarget.closest('.gcard'), ancestors, { node, role }, dark)
+          // Pinned popup open-na close pannum; illana (hover popup irundhaalum) pinned-ah open pannum
+          if (isChainPopupPinned()) { removeChainPopup(); return }
+          showChainPopup(e.currentTarget.closest('.gcard'), ancestors, { node, role }, dark, true)
         }}
         className="gcard-info-btn"
         style={{ '--nc': c }}
@@ -688,7 +708,7 @@ function LaneCard({ node, role, active, onClick, ancestors, dark, text, subtext,
         </div>
       )}
 
-      {childCount !== null && (role !== 'customer' || childCount > 0) && (
+      {childCount !== null && (
         <div className="gcard-count" style={{ background: c }}>
           {childCount} {childRole.replace('_', ' ')}
         </div>
@@ -1066,7 +1086,7 @@ export default function Admin_Hierarchy_grid() {
             transition:background .2s ease, transform .2s ease;
           }
           .gcard-info-btn:hover{ background:var(--nc); color:#FFFFFF; transform:scale(1.1); }
-          .gcard-active{ opacity:1; transform:translateY(-4px); box-shadow:0 0 0 3px #0C4044, 0 18px 36px rgba(7,59,63,0.25); }
+          .gcard-active{ opacity:1; transform:translateY(-4px); box-shadow:0 0 0 3px #BB8958, 0 0 18px rgba(187,137,88,0.45), 0 18px 36px rgba(187,137,88,0.22); }
           .gcard-dim{ opacity:1; }
           .gcard-badge{ display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:900; padding:2px 8px; border-radius:20px; margin-bottom:8px; color:var(--nc); background:#FFFFFF; border:1.5px solid var(--nc); }
           .gcard-id{ font-family:monospace; font-size:11px; font-weight:800; margin-bottom:6px; word-break:break-all; }

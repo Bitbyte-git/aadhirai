@@ -178,7 +178,7 @@ export default function ShopList() {
       <style>{`
         .mu-root{min-height:100vh;width:100%;overflow-x:hidden;background:#F8FAF9;background-image:radial-gradient(at 0% 0%,rgba(7,59,63,.05) 0px,transparent 50%),radial-gradient(at 100% 100%,rgba(204,168,129,.06) 0px,transparent 50%);color:#111817;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;box-sizing:border-box}
         .mu-root *{box-sizing:border-box}
-        .mu-shell{max-width:1440px;margin:0 auto;padding:24px 48px 64px}
+        .mu-shell{max-width:1720px;margin:0 auto;padding:24px 24px 64px}
         .mu-topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:12px}
         .mu-breadcrumb{display:flex;align-items:center;gap:8px;font-size:13px;color:#728A87;font-weight:500}
         .mu-back-btn{display:inline-flex;align-items:center;gap:8px;background:#FFFFFF;border:1px solid #D9E4E3;padding:8px 16px;border-radius:12px;font-size:13px;font-weight:700;color:#073B3F;cursor:pointer;transition:all 140ms ease;box-shadow:0 1px 2px rgba(0,0,0,.03)}

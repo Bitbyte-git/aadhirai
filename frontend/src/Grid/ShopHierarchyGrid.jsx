@@ -153,15 +153,18 @@ function printShopChain(chainNodes) {
 // injection, and reworked to shop fields (shop_id/owner/city/mobile).
 // ══════════════════════════════════════════════════════════════════
 function ChainPopup({ chainNodes, rect, onClose }) {
+  // Mobile-la "i" tap pannaa popup screen center-la kaatum (munnaadi mobile-la null return aagi popup varave illa)
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 860
-  if (isMobile) return null
 
-  const popW = 280
+  const popW = isMobile ? Math.min(270, window.innerWidth - 24) : 280
   const estH = 130 + chainNodes.length * 150
   const popH = Math.min(estH, window.innerHeight * 0.85)
   let left = rect.right + 18
   let top = rect.top + rect.height / 2 - popH / 2
-  if (left + popW > window.innerWidth - 16) left = rect.left - popW - 18
+  if (isMobile) {
+    left = (window.innerWidth - popW) / 2
+    top = (window.innerHeight - popH) / 2
+  } else if (left + popW > window.innerWidth - 16) left = rect.left - popW - 18
   if (left < 12) left = 12
   if (left + popW > window.innerWidth - 12) left = Math.max(12, window.innerWidth - popW - 12)
   if (top < 12) top = 12
@@ -291,7 +294,8 @@ function ShopCard({ node, depth, active, onSelect, chainNodes, onOpenChain }) {
         </button>
       </div>
 
-      {node.descendant_count > 0 && (
+      {/* Ellaa shop card-kum count pill kaatum — 0 sub-shops-um (mathha grid customer pill maari) */}
+      {node.descendant_count != null && (
         <div className="shg-card-count" style={{ background: color }}>
           {node.descendant_count} sub-shop{node.descendant_count === 1 ? '' : 's'}
         </div>
@@ -476,7 +480,7 @@ export default function ShopHierarchyGrid() {
           flex-shrink:0;
         }
         .shg-card-clickable:hover{ transform:translateY(-3px); box-shadow:0 16px 34px rgba(7,59,63,0.20); }
-        .shg-card-active{ box-shadow:0 0 0 2px var(--lc), 0 18px 36px rgba(7,59,63,0.20); transform:translateY(-3px); }
+        .shg-card-active{ box-shadow:0 0 0 3px #BB8958, 0 0 18px rgba(187,137,88,0.45), 0 18px 36px rgba(187,137,88,0.22); transform:translateY(-3px); }
         .shg-info-btn{
           position:absolute; top:8px; left:8px; z-index:2;
           width:20px; height:20px; border-radius:50%;
@@ -534,7 +538,6 @@ export default function ShopHierarchyGrid() {
 
         .shg-page-wrap{ width:min(1500px,calc(100% - 48px)); margin:0 auto; padding:42px 0 56px; box-sizing:border-box; }
 
-        @media(max-width:860px){ .shg-popup{ display:none !important; } }
         @media(max-width:768px){
           .shg-page-wrap{ width:calc(100% - 28px); padding:24px 0 40px; }
           .shg-card{ min-width:160px !important; max-width:190px !important; }
@@ -549,7 +552,6 @@ export default function ShopHierarchyGrid() {
           .shg-badge{ font-size:9.5px !important; padding:2px 8px !important; }
           .shg-root-card{ padding:10px 14px !important; gap:8px !important; }
           .shg-lane-label{ gap:6px !important; margin-bottom:6px !important; }
-          .shg-popup{ display:none !important; }
         }
       `}</style>
 
@@ -596,7 +598,40 @@ export default function ShopHierarchyGrid() {
         )}
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '80px 0', color: '#7A8987' }}>Loading your network...</div>
+          // "Loading your network..." text ku pathila — root card + level lanes skeleton (real layout maariye)
+          <div style={{ background: '#FFFFFF', border: '1.5px solid rgba(12,64,68,0.22)', borderRadius: 20, padding: '24px 28px', minHeight: '50vh', boxShadow: '0 18px 42px rgba(7,59,63,0.08)' }}>
+            <div className="shg-root-card" style={{ minWidth: 220 }}>
+              <div className="skel-line" style={{ width: 18, height: 18, borderRadius: 6, marginBottom: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div className="skel-line" style={{ width: 110, height: 9 }} />
+                <div className="skel-line" style={{ width: 150, height: 13, marginBottom: 0 }} />
+              </div>
+            </div>
+            {[2, 3].map(depth => (
+              <div key={depth} className="shg-lane">
+                <div className="shg-lane-label">
+                  <div className="skel-line" style={{ width: 60, height: 11, marginBottom: 0 }} />
+                  <div className="skel-line" style={{ width: 90, height: 15, marginBottom: 0 }} />
+                </div>
+                <div className="shg-lane-track" style={{ overflow: 'hidden' }}>
+                  {[0, 1, 2, 3].map(i => (
+                    <div key={i} className="shg-card" style={{ '--lc': 'rgba(12,64,68,0.18)', borderStyle: 'dashed', cursor: 'default' }}>
+                      <div className="skel-badge" style={{ marginTop: 14 }} />
+                      <div className="skel-line" style={{ width: '60%', height: 10 }} />
+                      <div className="skel-line" style={{ width: '85%', height: 14 }} />
+                      <div className="skel-line" style={{ width: '55%', height: 11 }} />
+                      <div className="skel-line" style={{ width: '45%', height: 10 }} />
+                      <div className="skel-actions">
+                        <div className="skel-btn" />
+                        <div className="skel-btn" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="shg-lane-divider skel-line" style={{ marginBottom: 0 }} />
+              </div>
+            ))}
+          </div>
         ) : tree ? (
           <div style={{ background: '#FFFFFF', border: '1.5px solid rgba(12,64,68,0.22)', borderRadius: 20, padding: '24px 28px', minHeight: '50vh', boxShadow: '0 18px 42px rgba(7,59,63,0.08)' }}>
             <div className="shg-root-card">

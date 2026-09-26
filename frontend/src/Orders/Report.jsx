@@ -304,7 +304,14 @@ function TrendLineChart({ buckets, color }) {
   const [hoverIdx, setHoverIdx] = useState(null)
   // ── NEW: buckets empty ah irundha (data varum munnadi), crash aagama guard pannurom ──
   if (!buckets || buckets.length === 0) {
-    return <div style={{ height: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B6B6B', fontSize: '13px' }}>Loading trend...</div>
+    // "Loading trend..." text ku pathila skeleton bars
+    return (
+      <div style={{ height: '220px', display: 'flex', alignItems: 'flex-end', gap: '10px', padding: '0 20px 10px' }}>
+        {[0.5, 0.8, 0.4, 0.9, 0.6, 0.7, 0.3].map((h, i) => (
+          <div key={i} className="skel-line" style={{ flex: 1, height: `${h * 180}px`, marginBottom: 0, borderRadius: '6px 6px 0 0' }} />
+        ))}
+      </div>
+    )
   }
   const width = 700, height = 220, padding = 36
   const max = Math.max(1, ...buckets.map(b => b.total))
@@ -894,27 +901,112 @@ export default function Report() {
     window.print()
   }
 
+  // ── Spinner + "Loading report..." ku pathila, real page layout maariye skeleton
+  // (header, 3 KPI cards, trend chart, network lanes, right sidebar) ──
   if (loading) {
+    const skelCard = { background: '#FFFFFF', border: '1px solid rgba(14,90,87,0.12)', borderRadius: '16px', boxShadow: '0 14px 34px rgba(14,90,87,0.06)' }
     return (
-      <div style={{ minHeight: '100vh', background: bg, color: text, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Manrope, Segoe UI, system-ui, sans-serif', gap: '18px' }}>
+      <div className="sr-skel-page" style={{ minHeight: '100vh', background: bg, color: text, fontFamily: 'Manrope, Segoe UI, system-ui, sans-serif', boxSizing: 'border-box', overflowX: 'hidden' }}>
         <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes pulseText { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
-      `}</style>
-        <div style={{
-          width: '46px', height: '46px',
-          border: '3px solid rgba(34,211,238,0.15)',
-          borderTop: '3px solid #0E5A57',
-          borderRadius: '50%',
-          animation: 'spin 0.9s linear infinite',
-        }} />
-        <div style={{
-          fontSize: '14px',
-          color: '#6B6B6B',
-          letterSpacing: '0.05em',
-          animation: 'pulseText 1.6s ease-in-out infinite',
-        }}>
-          Loading report...
+          .sr-skel-page *{box-sizing:border-box;}
+          .sr-skel-top{padding:24px 40px 0;max-width:1500px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+          .sr-skel-main{padding:32px 40px;max-width:1500px;margin:0 auto;display:flex;gap:24px;align-items:flex-start;}
+          .sr-skel-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px;}
+          .sr-skel-side{width:320px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;}
+          .sr-skel-lane{display:flex;gap:14px;overflow:hidden;}
+          @media(max-width:900px){
+            .sr-skel-main{flex-direction:column;padding:20px 16px;}
+            .sr-skel-side{width:100%;}
+            .sr-skel-top{padding:20px 16px 0;}
+          }
+          @media(max-width:640px){
+            .sr-skel-kpis{grid-template-columns:1fr;gap:10px;}
+            .sr-skel-main{padding:16px 12px;}
+            .sr-skel-top{padding:16px 12px 0;}
+          }
+        `}</style>
+
+        {/* Header — title + export buttons */}
+        <div className="sr-skel-top">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="skel-line" style={{ width: '26px', height: '26px', borderRadius: '8px', marginBottom: 0 }} />
+            <div className="skel-line" style={{ width: '220px', height: '20px', marginBottom: 0 }} />
+          </div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <div className="skel-line" style={{ width: '120px', height: '36px', borderRadius: '10px', marginBottom: 0 }} />
+            <div className="skel-line" style={{ width: '110px', height: '36px', borderRadius: '10px', marginBottom: 0 }} />
+            <div className="skel-line" style={{ width: '64px', height: '36px', borderRadius: '8px', marginBottom: 0 }} />
+          </div>
+        </div>
+
+        <div className="sr-skel-main">
+          <div style={{ flex: '1 1 0%', minWidth: 0 }}>
+            {/* KPI cards */}
+            <div className="sr-skel-kpis">
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{ ...skelCard, padding: '18px 20px' }}>
+                  <div className="skel-line" style={{ width: '55%', height: '11px', marginBottom: '12px' }} />
+                  <div className="skel-line" style={{ width: '40%', height: '24px', marginBottom: 0 }} />
+                </div>
+              ))}
+            </div>
+
+            {/* Trend chart */}
+            <div style={{ ...skelCard, padding: '20px 24px', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', gap: '10px', flexWrap: 'wrap' }}>
+                <div className="skel-line" style={{ width: '130px', height: '26px', borderRadius: '10px', marginBottom: 0 }} />
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {[0, 1, 2, 3].map(i => <div key={i} className="skel-line" style={{ width: '46px', height: '26px', borderRadius: '8px', marginBottom: 0 }} />)}
+                </div>
+              </div>
+              <div style={{ height: '220px', display: 'flex', alignItems: 'flex-end', gap: '10px', padding: '0 20px 10px' }}>
+                {[0.5, 0.8, 0.4, 0.9, 0.6, 0.7, 0.3].map((h, i) => (
+                  <div key={i} className="skel-line" style={{ flex: 1, height: `${h * 180}px`, marginBottom: 0, borderRadius: '6px 6px 0 0' }} />
+                ))}
+              </div>
+            </div>
+
+            {/* Network breakdown lanes */}
+            <div style={{ ...skelCard, padding: '24px 28px' }}>
+              <div className="skel-line" style={{ width: '170px', height: '26px', borderRadius: '10px', marginBottom: '20px' }} />
+              {[0, 1].map(row => (
+                <div key={row} style={{ marginBottom: row === 0 ? '22px' : 0 }}>
+                  <div className="skel-line" style={{ width: '110px', height: '12px', marginBottom: '12px' }} />
+                  <div className="sr-skel-lane">
+                    {[0, 1, 2, 3].map(i => (
+                      <div key={i} style={{ minWidth: '160px', flex: '0 0 auto', border: '1.5px dashed rgba(14,90,87,0.18)', borderRadius: '14px', padding: '14px 16px' }}>
+                        <div className="skel-badge" />
+                        <div className="skel-line" style={{ width: '80%', height: '13px' }} />
+                        <div className="skel-line" style={{ width: '55%', height: '10px' }} />
+                        <div className="skel-line" style={{ width: '65%', height: '18px', marginTop: '10px', marginBottom: 0 }} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right sidebar */}
+          <div className="sr-skel-side">
+            {[0, 1, 2].map(i => (
+              <div key={i} style={{ ...skelCard, padding: '18px 20px' }}>
+                <div className="skel-line" style={{ width: '50%', height: '14px', marginBottom: '16px' }} />
+                {i === 0 ? (
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '6px 0' }}>
+                    <div className="skel-line" style={{ width: '140px', height: '140px', borderRadius: '50%', marginBottom: 0 }} />
+                  </div>
+                ) : (
+                  [0, 1, 2].map(r => (
+                    <div key={r} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginBottom: r === 2 ? 0 : '10px' }}>
+                      <div className="skel-line" style={{ width: '55%', height: '12px', marginBottom: 0 }} />
+                      <div className="skel-line" style={{ width: '20%', height: '12px', marginBottom: 0 }} />
+                    </div>
+                  ))
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     )

@@ -309,8 +309,13 @@ let _chainHideTimer = null
 function removeChainPopup() {
   document.querySelectorAll('#chain-popup').forEach(el => el.remove())
 }
+function isChainPopupPinned() {
+  return !!document.querySelector('#chain-popup[data-pinned]')
+}
 function scheduleHideChainPopup() {
   clearTimeout(_chainHideTimer)
+  // ── "i" click-la open aana (pinned) popup hover leave-la close aaga koodadhu ──
+  if (isChainPopupPinned()) return
   _chainHideTimer = setTimeout(() => removeChainPopup(), 200)
 }
 
@@ -353,8 +358,12 @@ function printPersonCard(node, role, cfg, color, ancestors) {
   printWindow.document.close()
 }
 
-function showChainPopup(anchorEl, ancestors, current) {
-  if (typeof window !== 'undefined' && window.innerWidth <= 860) return
+// pinned = "i" button click-la open pannadhu — mobile-layum kaatum, ✕ / outside tap-la mattum close aagum
+function showChainPopup(anchorEl, ancestors, current, pinned = false) {
+  // Hover popup mobile-la open aaga koodadhu; pinned popup mattum allowed
+  if (!pinned && typeof window !== 'undefined' && window.innerWidth <= 860) return
+  // Pinned popup open-la irukkumbodhu vera card hover pannaa replace aaga koodadhu
+  if (!pinned && isChainPopupPinned()) return
   clearTimeout(_chainHideTimer)
   removeChainPopup()
 
@@ -475,6 +484,26 @@ function showChainPopup(anchorEl, ancestors, current) {
   document.body.appendChild(el)
   el.style.scrollBehavior = 'auto'
 
+  if (pinned) {
+    el.dataset.pinned = '1'
+    // Mobile media query-la irukura display:none !important-ah inline !important override pannum
+    // (measure panradhukku munnadiye visible aaganum, illana rect 0 varum)
+    el.style.setProperty('display', 'block', 'important')
+    el.style.setProperty('visibility', 'visible', 'important')
+    el.style.setProperty('pointer-events', 'auto', 'important')
+    if (window.innerWidth <= 860) el.style.width = Math.min(270, window.innerWidth - 24) + 'px'
+    el.style.boxSizing = 'border-box'
+
+    const onDocClick = (e) => {
+      if (!el.isConnected) { document.removeEventListener('pointerdown', onDocClick); return }
+      if (!el.contains(e.target) && !anchorEl.contains(e.target)) {
+        removeChainPopup()
+        document.removeEventListener('pointerdown', onDocClick)
+      }
+    }
+    setTimeout(() => document.addEventListener('pointerdown', onDocClick), 50)
+  }
+
   const closeBtn = el.querySelector('.chain-close-btn')
   if (closeBtn) {
     closeBtn.addEventListener('click', (e) => {
@@ -494,9 +523,14 @@ function showChainPopup(anchorEl, ancestors, current) {
   if (left + popupRect.width > window.innerWidth - 10) {
     left = rect.left - popupRect.width - pad
   }
+  let top = rect.top
+  // Mobile-la pinned popup screen center-la kaatum
+  if (window.innerWidth <= 860) {
+    left = (window.innerWidth - popupRect.width) / 2
+    top = (window.innerHeight - popupRect.height) / 2
+  }
   if (left < 10) left = 10
 
-  let top = rect.top
   if (top + popupRect.height > window.innerHeight - 10) {
     top = window.innerHeight - popupRect.height - 10
   }
@@ -553,8 +587,9 @@ function LaneCard({ node, role, active, onClick, ancestors, text, subtext, onMes
       <button
         onClick={e => {
           e.stopPropagation()
-          if (document.getElementById('chain-popup')) { removeChainPopup(); return }
-          showChainPopup(e.currentTarget.closest('.gcard'), ancestors, { node, role })
+          // Pinned popup open-na close pannum; illana (hover popup irundhaalum) pinned-ah open pannum
+          if (isChainPopupPinned()) { removeChainPopup(); return }
+          showChainPopup(e.currentTarget.closest('.gcard'), ancestors, { node, role }, true)
         }}
         className="gcard-info-btn"
         style={{ '--nc': c }}
@@ -632,7 +667,7 @@ function LaneCard({ node, role, active, onClick, ancestors, text, subtext, onMes
         </div>
       )}
 
-      {childCount !== null && (role !== 'customer' || childCount > 0) && (
+      {childCount !== null && (
         <div className="gcard-count" style={{ background: c }}>
           {childCount} {childRole.replace('_', ' ')}
         </div>
@@ -945,7 +980,7 @@ export default function Promotor_Hierarchy_grid() {
           .gcard-active{
             opacity: 1;
             transform: translateY(-4px);
-            box-shadow: 0 0 0 3px #0C4044, 0 18px 36px rgba(7,59,63,0.25);
+            box-shadow: 0 0 0 3px #BB8958, 0 0 18px rgba(187,137,88,0.45), 0 18px 36px rgba(187,137,88,0.22);
           }
           .gcard-dim{
             opacity: 0.94;

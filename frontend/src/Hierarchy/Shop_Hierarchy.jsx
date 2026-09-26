@@ -374,7 +374,8 @@ function ShopTreeNode({ node, depth, chain, parentKey, openMap, onToggle, onInfo
             <IconChevronDown color={c} />
           </div>
         )}
-        {hasKids && (
+        {/* Ellaa shop card-kum count pill kaatum — 0 sub-shops-um */}
+        {node.descendant_count != null && (
           <div className="otree-count" style={{ background: c }}>
             {node.descendant_count} sub-shop{node.descendant_count === 1 ? '' : 's'}
           </div>

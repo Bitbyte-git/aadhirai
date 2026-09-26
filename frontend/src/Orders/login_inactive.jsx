@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import api from "../api";
 import SuperAdminNavbar from "../collection/SuperAdminNavbar";
 import InternalRoleNavbar from "../collection/InternalRoleNavbar";
+import ShopNavbar from "../collection/ShopNavbar";
 import { SkeletonText } from "../components/Skeleton";
 
 const INTERNAL_ROLE_CHROME = {
@@ -28,6 +29,7 @@ const ROLE_DISPLAY = {
   "Sub Dealer": "Wholesale Dealer",
   Promotor: "Retailer",
   Customer: "Customer",
+  Shop: "Shop",
 };
 
 const ROLE_CARD_TITLE = {
@@ -37,6 +39,7 @@ const ROLE_CARD_TITLE = {
   "Sub Dealer": "All Wholesale Dealer",
   Promotor: "All Retailer",
   Customer: "All Customer",
+  Shop: "All Shops",
 };
 
 const INACTIVE_PERIOD_LABEL = {
@@ -64,7 +67,9 @@ export default function LoginInactive() {
   const scopeLabel = location.state?.scopeLabel || null;
   // Other pages (e.g. Super Stockist directory's "Today Inactive" stat card)
   // can deep-link straight into a role-filtered view here.
-  const initialRoleFilter = location.state?.roleFilter || "all";
+  // Shop login-la avanga sub-shops mattum dhaan varum — Shop filter default, role dropdown hide
+  const isShopViewer = viewerRole === 'shop';
+  const initialRoleFilter = isShopViewer ? "Shop" : (location.state?.roleFilter || "all");
 
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -184,7 +189,7 @@ export default function LoginInactive() {
     const q = searchTerm.toLowerCase().trim();
     return data.filter((u) => {
       const id = (u.id || "").toLowerCase();
-      const name = (u.name || "").toLowerCase();
+      const name = `${u.name || ""} ${u.owner_name || ""}`.toLowerCase();
       const phone = (u.phone || "").toLowerCase();
       const role = (u.level_role || "").toLowerCase();
       return id.includes(q) || name.includes(q) || phone.includes(q) || role.includes(q);
@@ -231,7 +236,7 @@ export default function LoginInactive() {
     const rowsHtml = filtered.map((u, i) => `
       <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f8fbfb'};">
         <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; text-align: center; font-size: 9.5pt;">${i + 1}</td>
-        <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; text-align: center; font-size: 9.5pt;">${u.level || "-"}</td>
+        <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; text-align: center; font-size: 9.5pt;">${u.level_role === "Shop" ? "Shop" : (u.level || "-")}</td>
         <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; font-weight: bold; color: #073B3F; font-size: 9.5pt;">${ROLE_DISPLAY[u.level_role] || u.level_role || "-"}</td>
         <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; font-family: 'Courier New', monospace; font-size: 9pt;">${u.id || "-"}</td>
         <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; font-weight: 600; font-size: 9.5pt;">${u.name || "-"}</td>
@@ -407,7 +412,7 @@ export default function LoginInactive() {
     const rowsHtml = filtered.map((u, i) => `
       <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f8fbfb'};">
         <td style="padding: 7px 6px; border: 1px solid #d1dfde; text-align: center;">${i + 1}</td>
-        <td style="padding: 7px 6px; border: 1px solid #d1dfde; text-align: center;">${u.level || "-"}</td>
+        <td style="padding: 7px 6px; border: 1px solid #d1dfde; text-align: center;">${u.level_role === "Shop" ? "Shop" : (u.level || "-")}</td>
         <td style="padding: 7px 6px; border: 1px solid #d1dfde; font-weight: bold; color: #073B3F;">${ROLE_DISPLAY[u.level_role] || u.level_role || "-"}</td>
         <td style="padding: 7px 6px; border: 1px solid #d1dfde; font-family: monospace; font-size: 11px;">${u.id || "-"}</td>
         <td style="padding: 7px 6px; border: 1px solid #d1dfde; font-weight: 600;">${u.name || "-"}</td>
@@ -546,7 +551,9 @@ export default function LoginInactive() {
 
   return (
     <>
-      {viewerChrome ? (
+      {isShopViewer ? (
+        <ShopNavbar />
+      ) : viewerChrome ? (
         <InternalRoleNavbar roleTitle={viewerChrome.title} homePath={viewerChrome.home} />
       ) : (
         <SuperAdminNavbar />
@@ -1023,6 +1030,7 @@ export default function LoginInactive() {
               <select
                 className="pil-select"
                 value={roleFilter}
+                style={isShopViewer ? { display: "none" } : undefined}
                 onChange={(e) => setRoleFilter(e.target.value)}
               >
                 <option value="all">All Roles</option>
@@ -1031,6 +1039,7 @@ export default function LoginInactive() {
                 <option value="Sub Dealer">Wholesale Dealer</option>
                 <option value="Promotor">Retailer</option>
                 <option value="Customer">Customer</option>
+                <option value="Shop">Shop</option>
               </select>
 
               {PERIOD_OPTIONS.map((p) => (
@@ -1149,7 +1158,7 @@ export default function LoginInactive() {
                     filtered.map((u, i) => (
                       <tr key={u.id || i}>
                         <td style={{ color: "#7A8987", fontWeight: 700 }}>{i + 1}</td>
-                        <td style={{ fontWeight: 700, color: "#5C706E" }}>Level {u.level}</td>
+                        <td style={{ fontWeight: 700, color: "#5C706E" }}>{u.level_role === "Shop" ? "Shop" : `Level ${u.level}`}</td>
                         <td>
                           <span className="pil-role-pill">{ROLE_DISPLAY[u.level_role] || u.level_role || "User"}</span>
                         </td>
@@ -1167,7 +1176,14 @@ export default function LoginInactive() {
                             )}
                           </span>
                         </td>
-                        <td style={{ fontWeight: 800, color: "#073B3F" }}>{u.name || "Unknown"}</td>
+                        <td style={{ fontWeight: 800, color: "#073B3F" }}>
+                          {u.name || "Unknown"}
+                          {u.owner_name && (
+                            <div style={{ fontSize: "11.5px", color: "#7A8987", fontWeight: 600, marginTop: 2 }}>
+                              {u.owner_name}{u.shop_type ? ` · ${u.shop_type === "virtual" ? "Virtual" : "Physical"}` : ""}
+                            </div>
+                          )}
+                        </td>
                         <td style={{ color: "#5C706E", fontWeight: 600 }}>{u.phone || "—"}</td>
                         <td>
                           <span className="pil-days-pill">{formatDays(u.days_inactive)}</span>

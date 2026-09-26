@@ -5369,18 +5369,23 @@ class TodayLoginStatusView(APIView):
         'sub_dealer': ('sub_dealer_id', 'Sub Dealer', 4),
         'promotor':   ('promotor_id', 'Promotor', 5),
         'customer':   ('customer_id', 'Customer', 6),
+        # ── NEW: shop network — Super Admin "Shop" tab-la, shop login-la avanga sub-shops ──
+        'shop':       ('shop_id', 'Shop', 7),
     }
-    LABEL_TO_ROLE_KEY = {'Admin': 'admin', 'Dealer': 'dealer', 'Sub Dealer': 'sub_dealer', 'Promotor': 'promotor', 'Customer': 'customer'}
+    LABEL_TO_ROLE_KEY = {'Admin': 'admin', 'Dealer': 'dealer', 'Sub Dealer': 'sub_dealer', 'Promotor': 'promotor', 'Customer': 'customer', 'Shop': 'shop'}
 
     def get(self, request):
-        if request.user.role not in ['super_admin', 'admin', 'dealer', 'sub_dealer', 'promotor']:
+        if request.user.role not in ['super_admin', 'admin', 'dealer', 'sub_dealer', 'promotor', 'shop']:
             return Response({'error': 'Permission denied'}, status=403)
 
         period = request.query_params.get('period', 'today')
         scope_role = request.query_params.get('scope_role')
         scope_id = request.query_params.get('scope_id')
         scope_user_ids = None
-        if scope_role and scope_id:
+        if request.user.role == 'shop':
+            # Shop = own sub-shops mattum (self illama) — Shop dashboard donut count-oda match aagum
+            scope_user_ids = set(_shop_network_user_ids(request.user, include_self=False))
+        elif scope_role and scope_id:
             try:
                 scope_user_ids = set(_resolve_scope_user_ids(request.user, scope_role, scope_id))
             except Exception:
@@ -5400,11 +5405,12 @@ class TodayLoginStatusView(APIView):
         level_case = Case(
             When(role='admin', then=Value(2)), When(role='dealer', then=Value(3)),
             When(role='sub_dealer', then=Value(4)), When(role='promotor', then=Value(5)),
-            When(role='customer', then=Value(6)), default=Value(99), output_field=IntegerField(),
+            When(role='customer', then=Value(6)), When(role='shop', then=Value(7)),
+            default=Value(99), output_field=IntegerField(),
         )
 
         base_qs = User.objects.exclude(role='super_admin').annotate(level=level_case).select_related(
-            'admin_profile', 'dealer_profile', 'sub_dealer_profile', 'promotor_profile', 'customer_profile'
+            'admin_profile', 'dealer_profile', 'sub_dealer_profile', 'promotor_profile', 'customer_profile', 'shop_profile'
         ).order_by('level', 'id')
 
         # ── NEW: role filter DB level-ல ──
@@ -5421,6 +5427,8 @@ class TodayLoginStatusView(APIView):
         # ── NEW: active/inactive/never DB level-ல split ──
         if period == 'today':
             active_q = Q(last_login__date=today)
+            # Shop dashboard donut (_shop_active_user_ids) DailyLoginLog-um paakudhu — shops-ku adhe rule, count match aaga
+            active_q |= Q(role='shop', id__in=DailyLoginLog.objects.filter(login_date=today).values('user_id'))
         else:
             days_needed = self.PERIOD_DAYS.get(period, 0)
             active_q = Q(last_login__date__gte=today - timedelta(days=days_needed))
@@ -5454,7 +5462,19 @@ class TodayLoginStatusView(APIView):
             total_count = inactive_total
 
         # ── NEW: DB level la LIMIT/OFFSET — idhu than real pagination ──
-        page_users = target_qs[offset:offset + limit]
+        page_users = list(target_qs[offset:offset + limit])
+
+        # ── Shop rows: rollup-la shops illa — indha page shops-oda own orders (period) + today DailyLoginLog ──
+        page_shop_ids = [u.id for u in page_users if u.role == 'shop']
+        shop_order_counts, shop_daily_ids = {}, set()
+        if page_shop_ids:
+            shop_orders_qs = JewelryOrder.objects.filter(user_id__in=page_shop_ids)
+            if period == 'today':
+                shop_orders_qs = shop_orders_qs.filter(created_at__date=today)
+                shop_daily_ids = set(DailyLoginLog.objects.filter(user_id__in=page_shop_ids, login_date=today).values_list('user_id', flat=True))
+            else:
+                shop_orders_qs = shop_orders_qs.filter(created_at__date__gte=today - timedelta(days=self.PERIOD_DAYS.get(period, 0)))
+            shop_order_counts = dict(shop_orders_qs.values('user_id').annotate(c=Count('id')).values_list('user_id', 'c'))
 
         def build_entry(u):
             role_key = u.role
@@ -5470,6 +5490,20 @@ class TodayLoginStatusView(APIView):
             reference_date = last_login_date or (u.created_at.date() if u.created_at else today)
             days_inactive = (today - reference_date).days
             is_active = bool(last_login_date and last_login_date >= (today - timedelta(days=self.PERIOD_DAYS.get(period, 0)))) if period != 'today' else bool(last_login_date and last_login_date == today)
+
+            if role_key == 'shop':
+                return {
+                    'level': level, 'level_role': role_label,
+                    'id': profile.shop_id, 'db_id': profile.id,
+                    'name': profile.shop_name, 'owner_name': profile.owner_name,
+                    'shop_type': profile.shop_type,
+                    'email': u.email, 'phone': profile.mobile_number, 'location': profile.city,
+                    'active': is_active or u.id in shop_daily_ids,
+                    'last_login': u.last_login.isoformat() if u.last_login else None,
+                    'created_at': u.created_at.isoformat() if u.created_at else None,
+                    'days_inactive': days_inactive,
+                    'order_count': shop_order_counts.get(u.id, 0),
+                }
 
             lookup_key = u.id if role_key == 'customer' else profile.id
             return {

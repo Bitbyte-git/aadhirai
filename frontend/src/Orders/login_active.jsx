@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import api from "../api";
 import SuperAdminNavbar from "../collection/SuperAdminNavbar";
 import InternalRoleNavbar from "../collection/InternalRoleNavbar";
+import ShopNavbar from "../collection/ShopNavbar";
 import { SkeletonText } from "../components/Skeleton";
 
 const INTERNAL_ROLE_CHROME = {
@@ -37,6 +38,7 @@ const ROLE_DISPLAY = {
   "Sub Dealer": "Wholesale Dealer",
   Promotor: "Retailer",
   Customer: "Customer",
+  Shop: "Shop",
 };
 
 const ROLE_CARD_TITLE = {
@@ -46,6 +48,7 @@ const ROLE_CARD_TITLE = {
   "Sub Dealer": "All Wholesale Dealer",
   Promotor: "All Retailer",
   Customer: "All Customer",
+  Shop: "All Shops",
 };
 
 const PERIOD_OPTIONS = [
@@ -66,7 +69,9 @@ export default function LoginActive() {
   const scopeLabel = location.state?.scopeLabel || null;
   // Other pages (e.g. Super Stockist directory's "Today Active"/"Today Inactive"
   // stat cards) can deep-link straight into a role + active/inactive view here.
-  const initialRoleFilter = location.state?.roleFilter || "all";
+  // Shop login-la avanga sub-shops mattum dhaan varum — Shop filter default, role dropdown hide
+  const isShopViewer = viewerRole === 'shop';
+  const initialRoleFilter = isShopViewer ? "Shop" : (location.state?.roleFilter || "all");
   const initialViewMode = location.state?.viewMode || "active";
 
   const [data, setData] = useState([]);
@@ -180,7 +185,7 @@ export default function LoginActive() {
       if (searchTerm.trim()) {
         const q = searchTerm.toLowerCase();
         const matchId = String(u.id || "").toLowerCase().includes(q);
-        const matchName = (u.name || "").toLowerCase().includes(q);
+        const matchName = (u.name || "").toLowerCase().includes(q) || (u.owner_name || "").toLowerCase().includes(q);
         const matchPhone = (u.phone || "").toLowerCase().includes(q);
         const matchRole = (u.level_role || "").toLowerCase().includes(q);
         if (!matchId && !matchName && !matchPhone && !matchRole) return false;
@@ -210,6 +215,8 @@ export default function LoginActive() {
   };
 
   const goToOrders = (u) => {
+    // Shop row-na Shop Sales Report open aagum
+    if (u.level_role === "Shop") { navigate(`/shop-report?shop=${encodeURIComponent(u.id)}`); return; }
     const slug = ROLE_SLUG[u.level_role];
     if (!slug) return;
     navigate(`/hierarchy-sales-count?role=${slug}&id=${u.db_id}&period=today`);
@@ -256,7 +263,7 @@ export default function LoginActive() {
     const rowsHtml = filtered.map((u, i) => `
       <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f8fbfb'};">
         <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; text-align: center; font-size: 9.5pt;">${i + 1}</td>
-        <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; text-align: center; font-size: 9.5pt;">${u.level || "-"}</td>
+        <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; text-align: center; font-size: 9.5pt;">${u.level_role === "Shop" ? "Shop" : (u.level || "-")}</td>
         <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; font-weight: bold; color: #073B3F; font-size: 9.5pt;">${ROLE_DISPLAY[u.level_role] || u.level_role || "-"}</td>
         <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; font-family: 'Courier New', monospace; font-size: 9pt;">${u.id || "-"}</td>
         <td style="padding: 8pt 6pt; border: 1pt solid #d1dfde; font-weight: 600; font-size: 9.5pt;">${u.name || "-"}</td>
@@ -432,7 +439,7 @@ export default function LoginActive() {
     const rowsHtml = filtered.map((u, i) => `
       <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f8fbfb'};">
         <td style="padding: 7px 6px; border: 1px solid #d1dfde; text-align: center;">${i + 1}</td>
-        <td style="padding: 7px 6px; border: 1px solid #d1dfde; text-align: center;">${u.level || "-"}</td>
+        <td style="padding: 7px 6px; border: 1px solid #d1dfde; text-align: center;">${u.level_role === "Shop" ? "Shop" : (u.level || "-")}</td>
         <td style="padding: 7px 6px; border: 1px solid #d1dfde; font-weight: bold; color: #073B3F;">${ROLE_DISPLAY[u.level_role] || u.level_role || "-"}</td>
         <td style="padding: 7px 6px; border: 1px solid #d1dfde; font-family: monospace; font-size: 11px;">${u.id || "-"}</td>
         <td style="padding: 7px 6px; border: 1px solid #d1dfde; font-weight: 600;">${u.name || "-"}</td>
@@ -571,7 +578,9 @@ export default function LoginActive() {
 
   return (
     <>
-      {viewerChrome ? (
+      {isShopViewer ? (
+        <ShopNavbar />
+      ) : viewerChrome ? (
         <InternalRoleNavbar roleTitle={viewerChrome.title} homePath={viewerChrome.home} />
       ) : (
         <SuperAdminNavbar />
@@ -993,7 +1002,7 @@ export default function LoginActive() {
                 {scopeLabel && <span className="psl-scope-badge">{scopeLabel}</span>}
               </h1>
               <p className="psl-header-sub">
-                Live sessions across internal hierarchy levels.
+                {isShopViewer ? "Login activity across your shop network." : "Live sessions across internal hierarchy levels."}
               </p>
             </div>
             <div className="psl-header-actions" style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
@@ -1058,6 +1067,7 @@ export default function LoginActive() {
               <select
                 className="psl-select"
                 value={roleFilter}
+                style={isShopViewer ? { display: "none" } : undefined}
                 onChange={(e) => { setRoleFilter(e.target.value); setSelectedCard(""); }}
               >
                 <option value="all">All Roles</option>
@@ -1066,6 +1076,7 @@ export default function LoginActive() {
                 <option value="Sub Dealer">Wholesale Dealer</option>
                 <option value="Promotor">Retailer</option>
                 <option value="Customer">Customer</option>
+                <option value="Shop">Shop</option>
               </select>
 
               <select
@@ -1193,7 +1204,7 @@ export default function LoginActive() {
                     filtered.map((u, i) => (
                       <tr key={u.id || i}>
                         <td style={{ color: "#7A8987", fontWeight: 700 }}>{i + 1}</td>
-                        <td style={{ fontWeight: 700, color: "#5C706E" }}>Level {u.level}</td>
+                        <td style={{ fontWeight: 700, color: "#5C706E" }}>{u.level_role === "Shop" ? "Shop" : `Level ${u.level}`}</td>
                         <td>
                           <span className="psl-role-pill">{ROLE_DISPLAY[u.level_role] || u.level_role || "User"}</span>
                         </td>
@@ -1211,7 +1222,14 @@ export default function LoginActive() {
                             )}
                           </span>
                         </td>
-                        <td style={{ fontWeight: 800, color: "#073B3F" }}>{u.name || "Unknown"}</td>
+                        <td style={{ fontWeight: 800, color: "#073B3F" }}>
+                          {u.name || "Unknown"}
+                          {u.owner_name && (
+                            <div style={{ fontSize: "11.5px", color: "#7A8987", fontWeight: 600, marginTop: 2 }}>
+                              {u.owner_name}{u.shop_type ? ` · ${u.shop_type === "virtual" ? "Virtual" : "Physical"}` : ""}
+                            </div>
+                          )}
+                        </td>
                         <td style={{ color: "#5C706E", fontWeight: 600 }}>{u.phone || "—"}</td>
                         <td>
                           <button

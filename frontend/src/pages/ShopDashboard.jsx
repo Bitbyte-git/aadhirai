@@ -227,7 +227,8 @@ export default function ShopDashboard() {
                 data={loginData}
                 login
                 loading={loginLoading}
-                onSliceClick={entry => goShopList(entry?.name === 'Active' ? 'active' : 'inactive')}
+                // Active → Login Active page, Inactive → Login Inactive page (shops mattum kaatum)
+                onSliceClick={entry => navigate(entry?.name === 'Active' ? '/login-active' : '/login-inactive')}
               />
             </div>
           </div>

@@ -384,6 +384,47 @@ export default function SuperAdminHierarchySalesCount() {
     return () => obs.disconnect()
   }, [hasMoreOrders, ordersLoading, groupedList.length])
 
+  // ── Left tree panel navbar-ku keezha 16px gap-oda nikkanum. Navbar height screen size & role-ku
+  // yetha maari maarum (Super Admin 82/104/136px, internal 74px) — adhanaala live-a measure pannurom ──
+  useEffect(() => {
+    const root = document.documentElement
+    const update = () => {
+      const nav = document.querySelector('.san-top-shell, .irn-top')
+      const bottom = nav ? Math.max(0, nav.getBoundingClientRect().bottom) : 0
+      root.style.setProperty('--shc-nav-offset', `${Math.round(bottom) + 16}px`)
+    }
+    update()
+    const nav = document.querySelector('.san-top-shell, .irn-top')
+    const ro = nav && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null
+    if (ro) ro.observe(nav)
+    window.addEventListener('resize', update)
+    return () => {
+      if (ro) ro.disconnect()
+      window.removeEventListener('resize', update)
+      root.style.removeProperty('--shc-nav-offset')
+    }
+  }, [])
+
+  // ── Product grid-la ippo evlo columns (4/3/2/1 — screen size-ku yetha maari) nu measure pannurom,
+  // skeleton cards eppovume full rows-a fill aaganum (half row varakoodaadhu) ──
+  const rightColRef = useRef(null)
+  const [gridCols, setGridCols] = useState(4)
+  useEffect(() => {
+    const col = rightColRef.current
+    if (!col) return
+    const measure = () => {
+      const grid = col.querySelector('.sprod-grid')
+      if (!grid) return
+      const n = getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length
+      if (n > 0) setGridCols(n)
+    }
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    if (ro) ro.observe(col)
+    return () => { if (ro) ro.disconnect() }
+  }, [ordersLoading, root])
+  const moreSkeletonCount = ((gridCols - (groupedList.length % gridCols)) % gridCols) + gridCols
+
   const text = '#111817'
   const subtext = '#7A8987'
 
@@ -673,17 +714,15 @@ export default function SuperAdminHierarchySalesCount() {
         .shier-grid{ position:relative; }
         .stree-panel-fixed{
           position: fixed;
-          top: 88px;
+          top: var(--shc-nav-offset, 120px);
           left: 32px;
           width: 340px;
-          max-height: calc(100vh - 108px);
+          max-height: calc(100vh - var(--shc-nav-offset, 120px) - 20px);
           overflow-y: auto;
           z-index: 40;
           box-sizing: border-box;
         }
         .shier-right-col{ margin-left: 362px; box-sizing: border-box; }
-        @media (max-width: 1500px) { .stree-panel-fixed{ top:88px; max-height:calc(100vh - 108px); } }
-        @media (max-width: 1100px) { .stree-panel-fixed{ top:84px; max-height:calc(100vh - 100px); } }
 
         @media (max-width: 960px) {
           .shier-content{ padding:16px 12px 60px !important; }
@@ -747,7 +786,7 @@ export default function SuperAdminHierarchySalesCount() {
           </div>
 
           {/* ══════════════════ RIGHT SIDE — skeleton while loading fix ══════════════════ */}
-          <div className="shier-right-col" style={{ background: 'rgba(253,253,252,0.97)', border: '1px solid rgba(189,207,206,0.72)', borderRadius: 16, padding: 24, boxShadow: '0 22px 58px rgba(7,59,63,0.06)' }}>
+          <div ref={rightColRef} className="shier-right-col" style={{ background: 'rgba(253,253,252,0.97)', border: '1px solid rgba(189,207,206,0.72)', borderRadius: 16, padding: 24, boxShadow: '0 22px 58px rgba(7,59,63,0.06)' }}>
             {/* ── Sales period: Month (default) / 3 Months / 6 Months ── */}
             {selected && (
               <div className="speriod-bar">
@@ -789,8 +828,9 @@ export default function SuperAdminHierarchySalesCount() {
                     </div>
                   ))}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-                  {[0, 1, 2].map(i => (
+                {/* 2 full rows — screen-la evlo columns-o adhukku yetha maari */}
+                <div className="sprod-grid">
+                  {Array.from({ length: gridCols * 2 }, (_, i) => i).map(i => (
                     <div key={i} style={{ background: 'rgba(253,253,252,0.85)', border: '1px solid rgba(189,207,206,0.6)', borderRadius: 14, padding: 16 }}>
                       <div style={{ width: '100%', height: 130, borderRadius: 10, background: 'rgba(189,207,206,0.18)', marginBottom: 12 }} />
                       <SkeletonText width="70%" height="14px" />
@@ -884,13 +924,22 @@ export default function SuperAdminHierarchySalesCount() {
                         </div>
                       )
                     })}
-                    {/* Scroll pannumbodhu adutha 30 products load aagura skeleton */}
-                    {loadingMoreOrders && [0, 1, 2].map(i => (
+                    {/* Scroll pannumbodhu adutha 30 products load aagura skeleton — kadaisi row gap fill + innum oru full row */}
+                    {loadingMoreOrders && Array.from({ length: moreSkeletonCount }, (_, i) => i).map(i => (
                       <div key={`more-skel-${i}`} className="sprod-card" style={{ animation: 'none' }}>
                         <div className="sprod-img" style={{ border: 0 }}><div className="skel-line" style={{ width: '100%', height: '100%', marginBottom: 0, borderRadius: 10 }} /></div>
-                        <SkeletonText width="70%" height="14px" />
-                        <div style={{ marginTop: 10 }}><SkeletonText width="100%" height="10px" /></div>
-                        <div style={{ marginTop: 6 }}><SkeletonText width="100%" height="10px" /></div>
+                        <SkeletonText width="55%" height="20px" style={{ borderRadius: 20, marginBottom: 8 }} />
+                        <SkeletonText width="75%" height="14px" />
+                        <div style={{ marginTop: 6, marginBottom: 10, display: 'flex', gap: 6 }}>
+                          <SkeletonText width="54px" height="18px" style={{ borderRadius: 20 }} />
+                          <SkeletonText width="34px" height="18px" style={{ borderRadius: 20 }} />
+                        </div>
+                        {[0, 1, 2, 3].map(j => (
+                          <div key={j} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0' }}>
+                            <SkeletonText width="35%" height="10px" style={{ marginBottom: 0 }} />
+                            <SkeletonText width="28%" height="10px" style={{ marginBottom: 0 }} />
+                          </div>
+                        ))}
                       </div>
                     ))}
                   </div>

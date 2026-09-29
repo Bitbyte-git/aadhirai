@@ -3926,6 +3926,24 @@ class HierarchySubtreeOrdersView(APIView):
         return Response({'root': root})
 
 
+def _order_snapshot_image_url(url):
+    """Order-la save aana image path-a full URL-a maathum. Neraya orders-la
+    '/media/media/jewelry_products/X' maari relative path irukku — adhu storage
+    name 'media/jewelry_products/X'; storage (Cloudinary) vachi proper URL build pannurom."""
+    if not url:
+        return None
+    if url.startswith('http'):
+        return url
+    from django.core.files.storage import default_storage
+    name = url.lstrip('/')
+    if name.startswith('media/'):
+        name = name[len('media/'):]
+    try:
+        return default_storage.url(name)
+    except Exception:
+        return None
+
+
 # ── NEW: Selected node kila irukka orders ah product-wise group panni,
 # DB level offset/limit pagination kudukum. Right panel (product cards) ku idha use pannuvom ──
 class HierarchyNodeOrdersView(APIView):
@@ -3993,10 +4011,13 @@ class HierarchyNodeOrdersView(APIView):
             o['id']: o for o in JewelryOrder.objects.filter(id__in=[g['latest_order_id'] for g in page])
             .values('id', 'unit_price', 'product_net_weight', 'product_image_url')
         }
-        # Pazhaya orders-la image save aagalana mattum product image fallback
+        snapshot_imgs = {
+            oid: _order_snapshot_image_url(o.get('product_image_url')) for oid, o in latest_orders.items()
+        }
+        # Order image illana / URL build aagalana mattum product image fallback
         missing_img_product_ids = [
             g['product_id'] for g in page
-            if g['product_id'] and not (latest_orders.get(g['latest_order_id']) or {}).get('product_image_url')
+            if g['product_id'] and not snapshot_imgs.get(g['latest_order_id'])
         ]
         fallback_imgs = {}
         if missing_img_product_ids:
@@ -4014,7 +4035,7 @@ class HierarchyNodeOrdersView(APIView):
                 'product_name': g['product_name'], 'metal': g['product_metal'],
                 'grade': g['product_grade'], 'category': g['product_category'],
                 'net_weight': format(weight.normalize(), 'f') if weight is not None else None,
-                'image': last.get('product_image_url') or fallback_imgs.get(g['product_id']),
+                'image': snapshot_imgs.get(g['latest_order_id']) or fallback_imgs.get(g['product_id']),
                 'total_qty': g['total_qty'], 'total_amount': float(g['total_amount']),
                 'last_rate': float(last.get('unit_price') or 0), 'latest_at': g['latest_at'],
                 # ── NEW: user_id add pண்ணுறோம் — front-end path-to-node lookup ku thevai ──

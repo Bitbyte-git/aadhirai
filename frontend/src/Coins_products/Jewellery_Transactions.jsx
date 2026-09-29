@@ -32,6 +32,43 @@ const ROLE_BADGE_CONFIG = {
   shop: { bg: "#FFF7ED", color: "#9A3412", border: "#FED7AA", label: "Shop" },
 };
 
+// ── Forward chain path (Retailer → ... → Super Admin) — ovvoru hop ✓ / ⏳ / ✕ ──
+function JtChainStepper({ chain }) {
+  if (!chain || chain.length < 2) return null;
+  const nodes = [
+    { name: chain[0].from_name, role: chain[0].from_role },
+    ...chain.map((h) => ({ name: h.to_name, role: h.to_role })),
+  ];
+  const hopCfg = {
+    sent: { icon: "✓", color: "#047857", bg: "#ECFDF5", border: "#A7F3D0", label: "Stock moved" },
+    pending: { icon: "⏳", color: "#B45309", bg: "#FFFBEB", border: "#FDE68A", label: "Pending" },
+    rejected: { icon: "✕", color: "#B91C1C", bg: "#FEF2F2", border: "#FECACA", label: "Declined" },
+  };
+  return (
+    <div className="jt-chain">
+      <div className="jt-chain-title">Forward chain</div>
+      <div className="jt-chain-track">
+        {nodes.map((n, i) => {
+          const hop = i > 0 ? chain[i - 1] : null;
+          const cfg = hop ? hopCfg[hop.status] || hopCfg.pending : null;
+          return (
+            <div key={i} className="jt-chain-step">
+              {hop && (
+                <span className="jt-chain-link" style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }} title={hop.reject_reason || cfg.label}>
+                  {cfg.icon}
+                </span>
+              )}
+              <span className={`jt-chain-node${hop?.is_current || (i === 0 && chain[0].is_current) ? " current" : ""}`}>
+                <strong>{n.name || "—"}</strong>
+                <small>{ROLE_BADGE_CONFIG[n.role]?.label || n.role}</small>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 const STATUS_CFG = {
   pending: { color: "#0369A1", bg: "#F0F9FF", border: "#BAE6FD", label: "Pending", icon: ClockIcon },
   sent: { color: "#166534", bg: "#E6F4EA", border: "#BBF7D0", label: "Approved", icon: CheckIcon },
@@ -76,6 +113,7 @@ export default function JewelleryTransactions() {
   // Backend-computed, full-dataset (not just the currently loaded page) headline counts
   const [myTxCount, setMyTxCount] = useState(0);
   const [leaderTxCount, setLeaderTxCount] = useState(0);
+  const [chainTxCount, setChainTxCount] = useState(0);
 
   const handleCopy = (text, id) => {
     if (!text) return;
@@ -89,7 +127,7 @@ export default function JewelleryTransactions() {
   const historyParams = (offsetVal, searchVal) => {
     const params = {
       box: "board", view: "transactions",
-      card: activeCard === "my_transactions" ? "my" : "leader",
+      card: activeCard === "my_transactions" ? "my" : activeCard === "chain_transactions" ? "chain" : "leader",
       role: leaderRoleFilter, status: filter, period, offset: offsetVal, limit: 30,
     };
     if (period === "custom") {
@@ -122,6 +160,7 @@ export default function JewelleryTransactions() {
       });
       setMyTxCount(d.counts?.my || 0);
       setLeaderTxCount(d.counts?.leader || 0);
+      setChainTxCount(d.counts?.chain || 0);
       setRoleCounts(d.role_counts || {});
       setHasMore(!!d.has_more);
       nextOffsetRef.current = (d.items || []).length;
@@ -655,10 +694,10 @@ export default function JewelleryTransactions() {
           outline: none;
         }
 
-        /* Stats Grid - 2 Interactive Cards */
+        /* Stats Grid - 3 Interactive Cards (My / Leader / Forward Chains) */
         .jt-stats-grid {
           display: grid;
-          grid-template-columns: repeat(2, 1fr);
+          grid-template-columns: repeat(3, 1fr);
           gap: 18px;
           margin-bottom: 24px;
         }
@@ -748,6 +787,39 @@ export default function JewelleryTransactions() {
         .jt-stat-icon-wrap.leader {
           background: #E0F2FE;
         }
+
+        /* Forward Chains card + chain path */
+        .jt-stat-card.active-chain {
+          border-color: #BB8958;
+          background: linear-gradient(180deg, #FFFAF1 0%, #FFFFFF 100%);
+          box-shadow: 0 8px 24px rgba(187, 137, 88, 0.16);
+        }
+        .jt-stat-pill-active.chain { background: #BB8958; color: #FFFFFF; }
+        .jt-stat-icon-wrap.chain { background: #FDF3E4; }
+        .jt-chain {
+          background: #F8FBFB;
+          border: 1px dashed #CFE0DE;
+          border-radius: 14px;
+          padding: 10px 12px;
+        }
+        .jt-chain-title {
+          font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+          color: #7A8987; margin-bottom: 8px;
+        }
+        .jt-chain-track { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+        .jt-chain-step { display: flex; align-items: center; gap: 5px; }
+        .jt-chain-link {
+          width: 22px; height: 22px; border-radius: 50%;
+          display: inline-flex; align-items: center; justify-content: center;
+          font-size: 11px; font-weight: 900; border: 1.5px solid;
+        }
+        .jt-chain-node {
+          display: flex; flex-direction: column; padding: 4px 8px; border-radius: 8px;
+          background: #FFFFFF; border: 1px solid #E1EBEA;
+        }
+        .jt-chain-node strong { font-size: 11px; color: #073B3F; }
+        .jt-chain-node small { font-size: 9.5px; color: #7A8987; font-weight: 700; }
+        .jt-chain-node.current { border-color: #BB8958; box-shadow: 0 0 0 2px rgba(187, 137, 88, 0.18); }
 
         .jt-stat-val {
           font-size: 32px;
@@ -1174,6 +1246,26 @@ export default function JewelleryTransactions() {
                 : "Transfers across downline team hierarchy"}
             </div>
           </div>
+
+          {/* Card 3: Forward Chains — Super Admin product leader-to-leader forward tracking (thaniya) */}
+          <div
+            className={`jt-stat-card ${activeCard === "chain_transactions" ? "active-chain" : ""}`}
+            onClick={() => setActiveCard("chain_transactions")}
+          >
+            <div className="jt-stat-top">
+              <div className="jt-stat-label-wrap">
+                <span className="jt-stat-label">Forward Chains</span>
+                {activeCard === "chain_transactions" && (
+                  <span className="jt-stat-pill-active chain">Active View</span>
+                )}
+              </div>
+              <div className="jt-stat-icon-wrap chain">
+                <span style={{ fontSize: "18px", fontWeight: 900, color: "#A0713F" }}>↑</span>
+              </div>
+            </div>
+            <div className="jt-stat-val" style={{ color: "#A0713F" }}>{chainTxCount}</div>
+            <div className="jt-stat-sub">Super Admin products forwarded leader to leader — full path</div>
+          </div>
         </div>
 
         {/* Leader Role Sub-Filter Bar (Shown when Leader Transactions card is selected) */}
@@ -1443,6 +1535,8 @@ export default function JewelleryTransactions() {
                   )}
 
                   {/* Items list */}
+                  <JtChainStepper chain={r.chain} />
+
                   <div className="jt-items-list">
                     {r.items?.map((item, idx) => {
                       const p = item.product;

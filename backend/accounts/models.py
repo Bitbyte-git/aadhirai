@@ -1005,6 +1005,11 @@ class JewelryRequest(models.Model):
     reject_reason = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     sent_at = models.DateTimeField(null=True, blank=True)
+    # Forward chain — leader-kitta stock illana, avanga idha adhe product-kaaga THEIR leader-ku forward pannuvaanga.
+    # Mela pogura request-la keezha irukura request-oda link. Stock ovvoru level-a keezha varum (skip aagaadhu).
+    forwarded_for = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, null=True, blank=True, related_name='upstream_requests'
+    )
 
     class Meta:
         indexes = [models.Index(fields=['requested_to', 'status', 'created_at'])]

@@ -33,6 +33,45 @@ const ROLE_BADGE_CONFIG = {
 
 const PAGE_SIZE = 20;
 
+// ── Forward chain path: Retailer → Wholesale → Distributor → Super Stockist → Super Admin ──
+// Ovvoru hop-um: ✓ approved (stock vandhuchu) / ⏳ pending / ✕ declined
+function ForwardChainStepper({ chain }) {
+  if (!chain || chain.length < 2) return null;
+  const nodes = [
+    { name: chain[0].from_name, role: chain[0].from_role },
+    ...chain.map((h) => ({ name: h.to_name, role: h.to_role })),
+  ];
+  const hopCfg = {
+    sent: { icon: "✓", color: "#047857", bg: "#ECFDF5", border: "#A7F3D0", label: "Stock moved" },
+    pending: { icon: "⏳", color: "#B45309", bg: "#FFFBEB", border: "#FDE68A", label: "Pending" },
+    rejected: { icon: "✕", color: "#B91C1C", bg: "#FEF2F2", border: "#FECACA", label: "Declined" },
+  };
+  return (
+    <div className="jr-chain">
+      <div className="jr-chain-title">Forward chain · stock moves one level at a time</div>
+      <div className="jr-chain-track">
+        {nodes.map((n, i) => {
+          const hop = i > 0 ? chain[i - 1] : null;
+          const cfg = hop ? hopCfg[hop.status] || hopCfg.pending : null;
+          return (
+            <div key={i} className="jr-chain-step">
+              {hop && (
+                <span className="jr-chain-link" style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }} title={hop.reject_reason || cfg.label}>
+                  {cfg.icon}
+                </span>
+              )}
+              <span className={`jr-chain-node${hop?.is_current || (i === 0 && chain[0].is_current) ? " current" : ""}`}>
+                <strong>{n.name || "—"}</strong>
+                <small>{ROLE_BADGE_CONFIG[n.role]?.label || n.role}</small>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const PERIOD_OPTIONS = [
   { key: "all", label: "All Time" },
   { key: "today", label: "Today" },
@@ -178,6 +217,22 @@ export default function JewelleryRequests() {
   }, [activeCard, period, leaderRoleFilter, refreshKey]);
 
   const fetchRequests = () => setRefreshKey((k) => k + 1);
+
+  // En kaila illadha (Super Admin) product — shortfall qty-ai en leader-ku forward pannum
+  const [forwardingId, setForwardingId] = useState(null);
+  const handleForward = async (req) => {
+    if (!window.confirm(`Forward request #${req.id} to your leader? You can approve it once the stock reaches you.`)) return;
+    setForwardingId(req.id);
+    try {
+      const res = await api.post(`/jewelry-requests/${req.id}/forward/`);
+      showToast(res.data?.message || "Forwarded to your leader.");
+      fetchRequests();
+    } catch (err) {
+      showToast(err.response?.data?.error || "Failed to forward request.");
+    } finally {
+      setForwardingId(null);
+    }
+  };
 
   const loadMore = () => {
     if (loadingMoreRef.current) return;
@@ -868,6 +923,66 @@ export default function JewelleryRequests() {
           transform: translateY(-1px);
         }
 
+        /* Forward chain — Super Admin product leader-ku forward */
+        .jr-btn-forward {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 9px 16px;
+          border-radius: 10px;
+          border: none;
+          background: linear-gradient(135deg, #BB8958, #A0713F);
+          color: #FFFFFF;
+          font-size: 13px;
+          font-weight: 800;
+          cursor: pointer;
+          box-shadow: 0 6px 16px rgba(187, 137, 88, 0.3);
+          transition: transform 150ms ease, box-shadow 150ms ease;
+        }
+        .jr-btn-forward:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(187, 137, 88, 0.38); }
+        .jr-btn-forward:disabled { opacity: 0.6; cursor: wait; }
+        .jr-fwd-note {
+          font-size: 12px;
+          font-weight: 700;
+          padding: 7px 12px;
+          border-radius: 8px;
+          border: 1px solid;
+          line-height: 1.45;
+        }
+        .jr-fwd-note.sa { color: #8A5A2B; background: #FFFAF1; border-color: rgba(187, 137, 88, 0.45); }
+        .jr-fwd-note.waiting { color: #92400E; background: #FFFBEB; border-color: #FDE68A; flex: 1; }
+        .jr-fwd-note.declined { color: #991B1B; background: #FEF2F2; border-color: #FECACA; }
+        .jr-fwd-note.arrived { color: #047857; background: #ECFDF5; border-color: #A7F3D0; margin-right: auto; }
+        .jr-chain {
+          background: #F8FBFB;
+          border: 1px dashed #CFE0DE;
+          border-radius: 14px;
+          padding: 12px 14px;
+        }
+        .jr-chain-title {
+          font-size: 10.5px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #7A8987;
+          margin-bottom: 10px;
+        }
+        .jr-chain-track { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+        .jr-chain-step { display: flex; align-items: center; gap: 6px; }
+        .jr-chain-link {
+          width: 26px; height: 26px; border-radius: 50%;
+          display: inline-flex; align-items: center; justify-content: center;
+          font-size: 12px; font-weight: 900; border: 1.5px solid;
+        }
+        .jr-chain-node {
+          display: flex; flex-direction: column; gap: 1px;
+          padding: 6px 10px; border-radius: 10px;
+          background: #FFFFFF; border: 1px solid #E1EBEA;
+        }
+        .jr-chain-node strong { font-size: 12px; color: #073B3F; }
+        .jr-chain-node small { font-size: 10px; color: #7A8987; font-weight: 700; }
+        .jr-chain-node.current { border-color: #BB8958; box-shadow: 0 0 0 2px rgba(187, 137, 88, 0.18); }
+
         .jr-btn-reject {
           padding: 8px 16px;
           background: #FFF5F5;
@@ -1250,10 +1365,62 @@ export default function JewelleryRequests() {
                     })}
                   </div>
 
+                  <ForwardChainStepper chain={req.chain} />
+
                   {/* Footer actions / status message */}
                   <div className="jr-req-footer">
-                    {canApproveThis ? (
+                    {canApproveThis && !isSuperAdmin && req.forward_info?.status === "pending" ? (
+                      // Mela forward pannirukken — stock varra varaikkum wait
+                      <div className="jr-fwd-note waiting">
+                        ⏳ Forwarded to <strong>{req.forward_info.to_name}</strong> ({ROLE_BADGE_CONFIG[req.forward_info.to_role]?.label || req.forward_info.to_role}) — approve this once the stock reaches you.
+                      </div>
+                    ) : canApproveThis && !isSuperAdmin && req.stock_shortfall?.length > 0 ? (
+                      // En kaila stock illa (Super Admin product) — en leader-ku forward pannalaam
                       <>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                          <div className="jr-fwd-note sa">
+                            ★ Super Admin Product · Not in your stock —{" "}
+                            {req.stock_shortfall.map((s) => `${s.name}: need ${s.need}, you have ${s.have}`).join(" · ")}
+                          </div>
+                          {req.forward_info?.status === "rejected" && (
+                            <div className="jr-fwd-note declined">
+                              ✕ Your leader declined: {req.forward_info.reject_reason || "No reason given"}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: "10px" }}>
+                          <button
+                            type="button"
+                            className="jr-btn-forward"
+                            disabled={forwardingId === req.id}
+                            onClick={() => handleForward(req)}
+                          >
+                            ↑ {forwardingId === req.id ? "Forwarding..." : req.forward_info?.status === "rejected" ? "Forward Again" : "Forward to My Leader"}
+                          </button>
+                          <button
+                            type="button"
+                            className="jr-btn-reject"
+                            onClick={() => {
+                              const reason = window.prompt(
+                                "Please enter rejection reason:",
+                                req.forward_info?.status === "rejected"
+                                  ? `My leader declined: ${req.forward_info.reject_reason || "not available"}`
+                                  : "Stock unavailable"
+                              );
+                              if (reason && reason.trim()) handleDirectResolve("reject", req.id, reason.trim());
+                            }}
+                          >
+                            <CloseIcon size={14} color="#DC2626" /> Decline
+                          </button>
+                        </div>
+                      </>
+                    ) : canApproveThis ? (
+                      <>
+                        {req.forward_info?.status === "sent" && !isSuperAdmin && (
+                          <div className="jr-fwd-note arrived">
+                            ✓ Stock arrived from {req.forward_info.to_name} — approve now to pass it down
+                          </div>
+                        )}
                         <div style={{ fontSize: "12px", color: "#5C706E" }}>
                           Approving will deduct piece(s) from your stock and disburse to requester.
                         </div>
@@ -1307,7 +1474,9 @@ export default function JewelleryRequests() {
                       </div>
                     ) : (
                       <div style={{ fontSize: "12px", color: "#5C706E", fontWeight: 600, padding: "6px 12px", background: "#F8FAFA", borderRadius: "8px", border: "1px solid #EAEFEF" }}>
-                        Awaiting Leader Approval
+                        {req.forward_info?.status === "pending"
+                          ? `Your leader forwarded this to ${req.forward_info.to_name} — stock is on the way`
+                          : "Awaiting Leader Approval"}
                       </div>
                     )}
                   </div>

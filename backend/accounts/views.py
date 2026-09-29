@@ -5780,8 +5780,17 @@ def _request_board(request, model, serializer_cls, item_model, prefetch, extra_s
             my_q = Q(requested_by=user) | Q(requested_to=user) | Q(approved_by=user)
         card = qp.get('card', 'my')
         counts = base.aggregate(my=Count('id', filter=my_q), leader=Count('id', filter=~my_q))
-        card_qs = base.filter(my_q) if card == 'my' else base.filter(~my_q)
-        if card != 'my':
+        # Jewellery forward chain — forward aana request illa forward-ku karanamaana request (thani tracking)
+        chain_q = None
+        if any(f.name == 'forwarded_for' for f in model._meta.get_fields()):
+            chain_q = Q(forwarded_for__isnull=False) | Q(id__in=model.objects.filter(
+                forwarded_for__isnull=False).values('forwarded_for_id'))
+            counts['chain'] = base.filter(chain_q).count()
+        if card == 'chain' and chain_q is not None:
+            card_qs = base.filter(chain_q)
+        else:
+            card_qs = base.filter(my_q) if card == 'my' else base.filter(~my_q)
+        if card == 'leader':
             role_counts = card_qs.aggregate(all=Count('id'), **{k: Count('id', filter=_board_role_q(k)) for k in BOARD_ROLE_KEYS})
             if role_key != 'all':
                 card_qs = card_qs.filter(_board_role_q(role_key))
@@ -7155,56 +7164,121 @@ class JewelryStockDetailView(APIView):
         })
 
 
+def _jewelry_request_target(user):
+    """Jewellery request yaarukku pogum — direct leader (illana Super Admin).
+    Super Admin / customer-ku None."""
+    role = user.role
+    target_user = None
+    chain = {
+        'promotor': ('promotor_profile', 'assigned_sub_dealer'),
+        'sub_dealer': ('sub_dealer_profile', 'assigned_dealer'),
+        'dealer': ('dealer_profile', 'assigned_admin'),
+    }
+    if role in chain:
+        prof_attr, parent_attr = chain[role]
+        try:
+            parent = getattr(getattr(user, prof_attr), parent_attr)
+            if parent and parent.user:
+                target_user = parent.user
+        except Exception:
+            pass
+    elif role == 'shop':
+        target_user = _shop_parent_user(user)
+    elif role != 'admin':
+        return None
+    return target_user or User.objects.filter(role='super_admin').first()
+
+
+def _jewelry_available_qty(user, product_ids):
+    """{product_id: qty} — user kaila irukura jewellery. Super Admin-ku vault stock
+    (JewelryStock illana internal product stock_quantity — approve logic maariye)."""
+    qty = dict(JewelryStock.objects.filter(user=user, product_id__in=product_ids).values_list('product_id', 'qty'))
+    if user.role == 'super_admin':
+        for pid, sq in JewelryProduct.objects.filter(id__in=product_ids, is_internal_asset=True).values_list('id', 'stock_quantity'):
+            qty[pid] = max(qty.get(pid, 0), sq or 0)
+    return qty
+
+
+class JewelryBuyCatalogView(APIView):
+    """Buy Jewellery page — 2 sections:
+    'leader' = en direct leader kaila stock irukura designs (approve udane pannalaam),
+    'super_admin' = Super Admin vault-la mattum irukura designs (leader forward panni vaangi tharuvaanga)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        leader = _jewelry_request_target(request.user)
+        if leader is None:
+            return Response({'error': 'Your role cannot request jewellery'}, status=403)
+        sa = User.objects.filter(role='super_admin').first()
+
+        sa_ids = set(JewelryStock.objects.filter(user=sa, qty__gt=0).values_list('product_id', flat=True)) if sa else set()
+        sa_ids |= set(JewelryProduct.objects.filter(is_internal_asset=True, stock_quantity__gt=0).values_list('id', flat=True))
+        leader_ids = set(JewelryStock.objects.filter(user=leader, qty__gt=0).values_list('product_id', flat=True))
+        all_ids = sa_ids | leader_ids
+
+        leader_qty = _jewelry_available_qty(leader, all_ids)
+        sa_qty = _jewelry_available_qty(sa, all_ids) if sa else {}
+        products = JewelryProduct.objects.filter(id__in=all_ids).prefetch_related('images').order_by('-id')
+        data = JewelryProductSerializer(products, many=True, context={'request': request}).data
+        for row in data:
+            lq = leader_qty.get(row['id'], 0)
+            row['leader_qty'] = lq
+            row['super_admin_qty'] = sa_qty.get(row['id'], 0)
+            row['source'] = 'leader' if lq > 0 else 'super_admin'
+
+        _, leader_name, _ = _holder_info(leader)
+        return Response({
+            'leader': {'user_id': leader.id, 'name': leader_name, 'role': leader.role},
+            'products': data,
+        })
+
+
+class JewelryRequestForwardView(APIView):
+    """Leader kaila stock illana — adhe product-kaaga (shortfall qty mattum) THEIR leader-ku forward.
+    Stock vandhadhum leader thaan keezha approve pannanum — ovvoru level-um manual approve."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        user = request.user
+        if user.role == 'super_admin':
+            return Response({'error': 'Super Admin approves directly from the vault.'}, status=400)
+        try:
+            req = JewelryRequest.objects.prefetch_related('items__product').get(id=pk, requested_to=user, status='pending')
+        except JewelryRequest.DoesNotExist:
+            return Response({'error': 'Request not found or already resolved'}, status=404)
+        if req.upstream_requests.filter(status='pending').exists():
+            return Response({'error': 'Already forwarded — waiting for your leader.'}, status=400)
+
+        items = list(req.items.all())
+        have = _jewelry_available_qty(user, [i.product_id for i in items])
+        shortfall = [(i.product, i.qty - have.get(i.product_id, 0)) for i in items if i.qty > have.get(i.product_id, 0)]
+        if not shortfall:
+            return Response({'error': 'You already have enough stock — approve it directly.'}, status=400)
+
+        target = _jewelry_request_target(user)
+        if target is None:
+            return Response({'error': 'No leader found to forward to.'}, status=400)
+        upstream = JewelryRequest.objects.create(requested_by=user, requested_to=target, forwarded_for=req)
+        for product, qty in shortfall:
+            JewelryRequestItem.objects.create(request=upstream, product=product, qty=qty)
+
+        _, target_name, _ = _holder_info(target)
+        return Response({
+            'message': f'Forwarded to {target_name}. Approve this request once the stock reaches you.',
+            'forward_request_id': upstream.id,
+        }, status=201)
+
+
 class JewelryRequestView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         role = request.user.role
-        target_user = None
-
-        if role == 'promotor':
-            try:
-                profile = request.user.promotor_profile
-                if profile.assigned_sub_dealer and profile.assigned_sub_dealer.user:
-                    target_user = profile.assigned_sub_dealer.user
-            except Exception:
-                pass
-            if not target_user:
-                target_user = User.objects.filter(role='super_admin').first()
-
-        elif role == 'sub_dealer':
-            try:
-                profile = request.user.sub_dealer_profile
-                if profile.assigned_dealer and profile.assigned_dealer.user:
-                    target_user = profile.assigned_dealer.user
-            except Exception:
-                pass
-            if not target_user:
-                target_user = User.objects.filter(role='super_admin').first()
-
-        elif role == 'dealer':
-            try:
-                profile = request.user.dealer_profile
-                if profile.assigned_admin and profile.assigned_admin.user:
-                    target_user = profile.assigned_admin.user
-            except Exception:
-                pass
-            if not target_user:
-                target_user = User.objects.filter(role='super_admin').first()
-
-        elif role == 'admin':
-            target_user = User.objects.filter(role='super_admin').first()
-
-        elif role == 'shop':
-            target_user = _shop_parent_user(request.user)
-
-        elif role == 'super_admin':
+        if role == 'super_admin':
             return Response({'error': 'Super Admin is the root master authority and cannot send buy requests.'}, status=400)
-        else:
+        target_user = _jewelry_request_target(request.user)
+        if target_user is None:
             return Response({'error': 'Your role cannot request jewelry'}, status=403)
-
-        if not target_user:
-            target_user = User.objects.filter(role='super_admin').first()
 
         items = request.data.get('items', [])
         if not items:
@@ -7421,6 +7495,11 @@ class JewelryRequestApproveView(APIView):
         except JewelryRequest.DoesNotExist:
             return Response({'error': 'Request not found or already resolved'}, status=404)
 
+        # Forward chain: mela forward pending-a irundha stock innum varala — wait pannanum
+        if req.upstream_requests.filter(status='pending').exists():
+            return Response({'error': 'Forwarded to your leader — approve once the stock reaches you.'}, status=400)
+        in_chain = bool(req.forwarded_for_id) or req.upstream_requests.exists()
+
         approver = req.requested_to if req.requested_to else request.user
         if request.user.role == 'super_admin':
             has_parent_stock = True
@@ -7429,6 +7508,10 @@ class JewelryRequestApproveView(APIView):
                 if not stk or stk.qty < item.qty:
                     has_parent_stock = False
                     break
+            # Chain request-la Super Admin vault-la irundhu direct-a keezha anuppa koodaadhu (level skip aagum)
+            if in_chain and not has_parent_stock and approver != request.user:
+                return Response({'error': 'This is a forwarded chain request — stock must move one level at a time. '
+                                          'Approve the request that reached Super Admin instead.'}, status=400)
             stock_user = approver if has_parent_stock else request.user
         else:
             stock_user = request.user
@@ -7492,6 +7575,10 @@ class JewelryRequestRejectView(APIView):
                 req = JewelryRequest.objects.get(id=pk, requested_to=request.user, status='pending')
         except JewelryRequest.DoesNotExist:
             return Response({'error': 'Request not found or already resolved'}, status=404)
+
+        # Forward pending-a irukumbodhu decline panna koodaadhu — mela irukura leader reply varattum
+        if req.upstream_requests.filter(status='pending').exists():
+            return Response({'error': 'Forwarded to your leader — wait for their reply before declining.'}, status=400)
 
         req.status = 'rejected'
         req.reject_reason = message

@@ -52,12 +52,23 @@ const GENDERS = [
   { key: "kids", label: "Kids" },
 ];
 
+// Request yaarukku pogum (fallback label — real leader per catalog API-la irundhu varum)
 const ROLE_TARGET = {
   admin: "Super Admin",
-  dealer: "Admin",
-  sub_dealer: "Dealer",
-  promotor: "Sub Dealer",
+  dealer: "Super Stockist",
+  sub_dealer: "Distributor",
+  promotor: "Wholesale Dealer",
+  shop: "Parent Shop",
   super_admin: "Vault Inventory",
+};
+
+const ROLE_NAME = {
+  super_admin: "Super Admin",
+  admin: "Super Stockist",
+  dealer: "Distributor",
+  sub_dealer: "Wholesale Dealer",
+  promotor: "Retailer",
+  shop: "Shop",
 };
 
 export default function AddJewellery() {
@@ -115,6 +126,9 @@ export default function AddJewellery() {
   const [qtyMap, setQtyMap] = useState({}); // { [productId]: number }
   const [cartModalOpen, setCartModalOpen] = useState(false);
   const [submittingRequest, setSubmittingRequest] = useState(false);
+  // Buy catalog 2 sections: 'leader' = en leader kaila irukkuradhu, 'super_admin' = Super Admin vault product
+  const [catalogLeader, setCatalogLeader] = useState(null); // { name, role }
+  const [catalogSource, setCatalogSource] = useState("leader");
 
   const showToast = (msg) => {
     setToast(msg);
@@ -143,12 +157,21 @@ export default function AddJewellery() {
     fetchRates();
   }, []);
 
-  // Fetch catalog products for Buy Mode
+  // Fetch catalog products — Buy mode: en leader stock + Super Admin products; Super Admin manage: master list
   const fetchCatalog = async () => {
     setCatalogLoading(true);
     try {
-      const res = await api.get("/jewelry-products/?internal=true");
-      setCatalogProducts(Array.isArray(res.data) ? res.data : []);
+      if (isBuyMode) {
+        const res = await api.get("/jewelry-requests/catalog/");
+        const prods = res.data?.products || [];
+        setCatalogProducts(prods);
+        setCatalogLeader(res.data?.leader || null);
+        // Leader kaila edhuvum illana default-a Super Admin products section kaatum
+        setCatalogSource(prods.some((p) => p.source === "leader") ? "leader" : "super_admin");
+      } else {
+        const res = await api.get("/jewelry-products/?internal=true");
+        setCatalogProducts(Array.isArray(res.data) ? res.data : []);
+      }
     } catch {
       // ignore
     }
@@ -365,9 +388,9 @@ export default function AddJewellery() {
 
       setSuccessModal({
         title: "Jewellery Request Sent!",
-        message: `Your allocation request has been routed to ${ROLE_TARGET[currentRole] || "Super Admin"} for authorization.`,
+        message: `Your allocation request has been routed to ${leaderLabel} for authorization.`,
         details: [
-          { label: "Target Recipient", value: ROLE_TARGET[currentRole] || "Super Admin" },
+          { label: "Target Recipient", value: leaderLabel },
           { label: "Total Pieces", value: `${totalCartPieces} pieces`, highlight: true },
           { label: "Total Metal Weight", value: `${totalCartWeight.toFixed(2)}g` },
           { label: "Est. Total Amount", value: `₹${totalCartPrice.toLocaleString()}` },
@@ -388,11 +411,24 @@ export default function AddJewellery() {
   // Reset pagination limit when category/metal/search changes
   useEffect(() => {
     setVisibleLimit(100);
-  }, [catalogCategory, catalogMetal, catalogSearch]);
+  }, [catalogCategory, catalogMetal, catalogSearch, catalogSource]);
+
+  // Leader-e Super Admin-na (Super Stockist login) — ore section dhaan
+  const leaderIsSuperAdmin = catalogLeader?.role === "super_admin";
+  const leaderLabel = catalogLeader
+    ? `${catalogLeader.name}${catalogLeader.role !== "super_admin" ? ` (${ROLE_NAME[catalogLeader.role] || catalogLeader.role})` : ""}`
+    : ROLE_TARGET[currentRole] || "Super Admin";
+  const sourceCounts = useMemo(() => ({
+    leader: catalogProducts.filter((p) => p.source === "leader").length,
+    super_admin: catalogProducts.filter((p) => p.source === "super_admin").length,
+  }), [catalogProducts]);
 
   // Filtered Catalog
   const filteredCatalog = useMemo(() => {
     return catalogProducts.filter((p) => {
+      if (isBuyMode && !leaderIsSuperAdmin && p.source && p.source !== catalogSource) {
+        return false;
+      }
       if (catalogCategory !== "all" && p.category !== catalogCategory) {
         return false;
       }
@@ -412,7 +448,7 @@ export default function AddJewellery() {
       }
       return true;
     });
-  }, [catalogProducts, catalogCategory, catalogMetal, catalogSearch]);
+  }, [catalogProducts, catalogCategory, catalogMetal, catalogSearch, catalogSource, isBuyMode, leaderIsSuperAdmin]);
 
   const totalCartPieces = cart.reduce((sum, item) => sum + item.qty, 0);
   const totalCartWeight = cart.reduce(
@@ -534,6 +570,61 @@ export default function AddJewellery() {
           border-radius: 10px;
           font-size: 12.5px;
           font-weight: 700;
+        }
+
+        /* Buy catalog 2 sections — leader stock vs Super Admin products */
+        .aj-source-bar {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+        .aj-source-btn {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          text-align: left;
+          padding: 14px 16px;
+          border-radius: 16px;
+          border: 1.5px solid #E1EBEA;
+          background: #FFFFFF;
+          cursor: pointer;
+          transition: all 180ms ease;
+          font-family: inherit;
+        }
+        .aj-source-btn:hover { border-color: #B4CECC; transform: translateY(-1px); }
+        .aj-source-btn.leader.active {
+          border-color: #0F766E;
+          background: linear-gradient(135deg, #F0FDFA, #FFFFFF);
+          box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1), 0 8px 20px rgba(15, 118, 110, 0.1);
+        }
+        .aj-source-btn.sa.active {
+          border-color: #BB8958;
+          background: linear-gradient(135deg, #FFFAF1, #FFFFFF);
+          box-shadow: 0 0 0 3px rgba(187, 137, 88, 0.14), 0 8px 20px rgba(187, 137, 88, 0.12);
+        }
+        .aj-source-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+        .aj-source-dot.leader { background: #10B981; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15); }
+        .aj-source-dot.sa { background: #BB8958; box-shadow: 0 0 0 4px rgba(187, 137, 88, 0.18); }
+        .aj-source-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+        .aj-source-text strong { font-size: 13.5px; color: #073B3F; }
+        .aj-source-text small { font-size: 11.5px; color: #7A8987; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .aj-source-count {
+          min-width: 32px; padding: 4px 10px; border-radius: 999px; text-align: center;
+          background: #EEF4F4; color: #073B3F; font-size: 12.5px; font-weight: 800;
+        }
+        .aj-stock-note {
+          margin: -2px 0 10px;
+          padding: 5px 10px;
+          border-radius: 8px;
+          font-size: 11.5px;
+          font-weight: 700;
+        }
+        .aj-stock-note.leader { background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0; }
+        .aj-stock-note.sa { background: #FFFAF1; color: #8A5A2B; border: 1px solid rgba(187, 137, 88, 0.45); }
+        @media (max-width: 640px) {
+          .aj-source-bar { grid-template-columns: 1fr; gap: 8px; }
+          .aj-source-btn { padding: 11px 13px; }
         }
 
         /* Catalog Filters */
@@ -1022,7 +1113,7 @@ export default function AddJewellery() {
 
           <div className="aj-target-badge">
             <SparkleIcon size={14} color="#073B3F" />
-            <span>Request Target: <strong>{ROLE_TARGET[currentRole] || "Super Admin"}</strong></span>
+            <span>Request Target: <strong>{isBuyMode ? leaderLabel : ROLE_TARGET[currentRole] || "Super Admin"}</strong></span>
           </div>
         </div>
 
@@ -1071,6 +1162,36 @@ export default function AddJewellery() {
         {/* ── MODE 1: BUY JEWELLERY CATALOG (NON-SUPER ADMIN ONLY) ── */}
         {!isSuperAdmin ? (
           <div>
+            {/* 2 sections: en leader kaila irukkuradhu vs Super Admin products (leader forward panni vaangi tharuvaanga) */}
+            {!leaderIsSuperAdmin && (
+              <div className="aj-source-bar">
+                <button
+                  type="button"
+                  className={`aj-source-btn leader ${catalogSource === "leader" ? "active" : ""}`}
+                  onClick={() => setCatalogSource("leader")}
+                >
+                  <span className="aj-source-dot leader" />
+                  <span className="aj-source-text">
+                    <strong>Available with your leader</strong>
+                    <small>{catalogLeader?.name || "Your leader"} can approve instantly</small>
+                  </span>
+                  <span className="aj-source-count">{sourceCounts.leader}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`aj-source-btn sa ${catalogSource === "super_admin" ? "active" : ""}`}
+                  onClick={() => setCatalogSource("super_admin")}
+                >
+                  <span className="aj-source-dot sa" />
+                  <span className="aj-source-text">
+                    <strong>Super Admin Products</strong>
+                    <small>Your leader will arrange it from their upline</small>
+                  </span>
+                  <span className="aj-source-count">{sourceCounts.super_admin}</span>
+                </button>
+              </div>
+            )}
+
             {/* Filter Bar */}
             <div className="aj-filter-bar">
               <div className="aj-metal-pills">
@@ -1226,6 +1347,19 @@ export default function AddJewellery() {
                           )}
                         </div>
                         <h3 className="aj-card-title">{product.name}</h3>
+
+                        {/* Stock source — leader kaila evlo irukku / Super Admin product (buy mode mattum) */}
+                        {isBuyMode && product.source && (
+                          product.source === "leader" ? (
+                            <div className="aj-stock-note leader">
+                              ● {leaderIsSuperAdmin ? "Super Admin vault" : catalogLeader?.name || "Your leader"} has <strong>{product.leader_qty}</strong> pcs
+                            </div>
+                          ) : (
+                            <div className="aj-stock-note sa">
+                              ★ Super Admin Product · your leader will arrange it
+                            </div>
+                          )
+                        )}
 
                         <div className="aj-spec-row">
                           <div>
@@ -1777,6 +1911,19 @@ export default function AddJewellery() {
                         </div>
 
                         <h3 className="aj-card-title">{product.name}</h3>
+
+                        {/* Stock source — leader kaila evlo irukku / Super Admin product (buy mode mattum) */}
+                        {isBuyMode && product.source && (
+                          product.source === "leader" ? (
+                            <div className="aj-stock-note leader">
+                              ● {leaderIsSuperAdmin ? "Super Admin vault" : catalogLeader?.name || "Your leader"} has <strong>{product.leader_qty}</strong> pcs
+                            </div>
+                          ) : (
+                            <div className="aj-stock-note sa">
+                              ★ Super Admin Product · your leader will arrange it
+                            </div>
+                          )
+                        )}
 
                         <div className="aj-spec-row">
                           <div>

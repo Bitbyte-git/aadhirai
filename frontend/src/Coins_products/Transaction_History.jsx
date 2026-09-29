@@ -22,6 +22,7 @@ import {
   CrownIcon,
   UsersIcon,
   PackageIcon,
+  SparkleIcon,
 } from "../components/SvgIcons";
 
 const COIN_METAL_LABELS_TEXT = {
@@ -1755,7 +1756,7 @@ export default function TransactionHistory() {
                   return (
                     <article className={`ct-tx-card${req.highlight ? " ct-tx-highlight" : ""}`} key={req.id}>
                       {/* En sondha request / Super Admin (en leader) approve pannadhu — highlight */}
-                      {req.highlight && <div className="ct-highlight-tag">★ {req.highlight_label}</div>}
+                      {req.highlight && <div className="ct-highlight-tag"><SparkleIcon size={12} color="#8A5A2B" /> {req.highlight_label}</div>}
                       {/* Card Header */}
                       <div className="ct-tx-header">
                         <div className="ct-tx-id-group">

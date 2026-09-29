@@ -17,6 +17,7 @@ import {
   LockIcon,
   EyeIcon,
   EyeOffIcon,
+  SparkleIcon,
 } from "../components/SvgIcons";
 
 const COIN_METAL_LABELS_TEXT = {
@@ -1396,7 +1397,7 @@ export default function CoinRequests() {
                 <article className={`cr-req-card${req.highlight ? " cr-req-highlight" : ""}`} key={req.id}>
                   {/* En sondha request / Super Admin (en leader) approve pannadhu — highlight */}
                   {req.highlight && (
-                    <div className="cr-highlight-tag">★ {req.highlight_label}</div>
+                    <div className="cr-highlight-tag"><SparkleIcon size={12} color="#8A5A2B" /> {req.highlight_label}</div>
                   )}
                   <div className="cr-req-head">
                     <div className="cr-req-main-info">

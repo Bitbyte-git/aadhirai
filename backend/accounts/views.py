@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from rest_framework.decorators import api_view, permission_classes
-from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink, EmailOTP, Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent
+from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink, EmailOTP, Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent, StockSale
 from django.db.models import Prefetch, Count, Q, Sum, Max, Min, F, Value
 from django.core.cache import cache   # ── NEW: for month_rollup/status caching ──
 from django.db.models.functions import TruncHour, TruncDate, TruncWeek, TruncMonth
@@ -7267,6 +7267,263 @@ class JewelryRequestForwardView(APIView):
             'message': f'Forwarded to {target_name}. Approve this request once the stock reaches you.',
             'forward_request_id': upstream.id,
         }, status=201)
+
+
+# ══════════════════════════════════════════════════════════════════
+# STOCK SALES — kaila irukura jewellery / coin-ai customer-ku vikkuradhu (sales count mattum).
+# Price e-commerce formula maariye SERVER-la calculate (frontend number-a nambaadhu):
+#   unit = (net_wt × rate × (1 + (making% − discount%)) + stone + die) × 1.03 GST
+#   — discount making charge-la irundhu mattum kuraiyum, metal value full.
+# Discount max = making %-la paadhi (10% making → 5% max). Coins-ku making illa → discount illa.
+# ══════════════════════════════════════════════════════════════════
+SALE_SELLER_ROLES = ('admin', 'dealer', 'sub_dealer', 'promotor')
+SALE_GST = Decimal('0.03')
+
+
+def _sale_rate(metal, grade):
+    r = MetalRate.objects.order_by('-date').first()
+    if not r:
+        return Decimal('0')
+    metal = (metal or '').lower()
+    if metal == 'silver' or metal == 'silver_999':
+        return Decimal(r.silver_999 or 0)
+    if '24' in (grade or '') or metal == 'gold_24k':
+        return Decimal(r.gold_24k or 0)
+    return Decimal(r.gold_22k or 0)
+
+
+def _money(v):
+    # e-commerce / frontend Math.round maariye rupee-ku round (.5 → mela)
+    from decimal import ROUND_HALF_UP
+    return Decimal(v).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+
+
+def _jewellery_sale_quote(product, qty, discount_pct):
+    """(fields dict, error). Ovvoru amount-um qty-ku total."""
+    making = Decimal(product.making_charge or 0)
+    max_disc = (making / 2).quantize(Decimal('0.01'))
+    disc = Decimal(str(discount_pct or 0))
+    if disc < 0 or disc > max_disc:
+        return None, f'Discount can be 0 to {max_disc}% for this design (half of {making}% making).'
+    net = Decimal(product.net_weight or product.cross_weight or 0)
+    rate = _sale_rate(product.metal, product.grade)
+    stone = Decimal(product.stone_value or 0)
+    die = Decimal(getattr(product, 'die_charge', 0) or 0)
+    if rate and net:
+        # Discount MAKING charge-la irundhu mattum — metal value-ku eppovume full rate
+        # (making 10%, discount 5% → making 5% aagum)
+        metal_value = net * rate
+        unit_mrp = (metal_value * (1 + making / 100) + stone + die) * (1 + SALE_GST)
+        unit_final = (metal_value * (1 + (making - disc) / 100) + stone + die) * (1 + SALE_GST)
+    else:
+        unit_mrp = Decimal(product.price or 0)
+        unit_final = unit_mrp * (1 - disc / 100)
+    mrp, final = _money(unit_mrp * qty), _money(unit_final * qty)
+    return {
+        'metal': product.metal or '', 'grade': product.grade or '',
+        'gross_weight': Decimal(product.cross_weight or 0), 'net_weight': net,
+        'rate_per_gram': rate, 'making_percent': making, 'stone_value': stone, 'die_charge': die,
+        'mrp_amount': mrp, 'discount_percent': disc, 'discount_amount': mrp - final, 'final_amount': final,
+    }, None
+
+
+def _coin_sale_quote(coin_stock, qty):
+    grams = Decimal(coin_stock.weight_grams or 0)
+    rate = _sale_rate(coin_stock.metal_type, coin_stock.metal_type)
+    total = _money(grams * rate * (1 + SALE_GST) * qty)
+    metal = 'silver' if coin_stock.metal_type.startswith('silver') else 'gold'
+    grade = coin_stock.metal_type.split('_')[-1]
+    return {
+        'metal': metal, 'grade': grade, 'gross_weight': grams, 'net_weight': grams,
+        'rate_per_gram': rate, 'making_percent': Decimal('0'), 'stone_value': Decimal('0'), 'die_charge': Decimal('0'),
+        'mrp_amount': total, 'discount_percent': Decimal('0'), 'discount_amount': Decimal('0'), 'final_amount': total,
+    }
+
+
+def _stock_sale_row(s, seller_info=None):
+    id_str, seller_name, _ = seller_info or _holder_info(s.seller)
+    return {
+        'id': s.id, 'kind': s.kind, 'status': s.status, 'created_at': s.created_at, 'cancelled_at': s.cancelled_at,
+        'seller_id': s.seller_id, 'seller_name': seller_name, 'seller_id_str': id_str, 'seller_role': s.seller.role,
+        'customer_name': s.customer_name, 'customer_phone': s.customer_phone,
+        'product_id': s.product_id, 'product_name': s.product_name, 'product_code': s.product_code,
+        'image': s.product_image_url or None,
+        'category': s.category, 'coin_metal_type': s.coin_metal_type, 'coin_weight_label': s.coin_weight_label,
+        'metal': s.metal, 'grade': s.grade, 'qty': s.qty,
+        'gross_weight': float(s.gross_weight), 'net_weight': float(s.net_weight),
+        'rate_per_gram': float(s.rate_per_gram), 'making_percent': float(s.making_percent),
+        'stone_value': float(s.stone_value), 'die_charge': float(s.die_charge),
+        'mrp_amount': float(s.mrp_amount), 'discount_percent': float(s.discount_percent),
+        'discount_amount': float(s.discount_amount), 'final_amount': float(s.final_amount),
+        'can_cancel': False,
+    }
+
+
+class StockSaleView(APIView):
+    """POST = vikkuradhu (stock atomic-a kuraiyum). GET = team-scoped sales list + summary + top sellers."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from django.db import transaction
+        user = request.user
+        if user.role not in SALE_SELLER_ROLES:
+            return Response({'error': 'Only Super Stockist, Distributor, Wholesale Dealer and Retailer can sell.'}, status=403)
+        d = request.data
+        kind = d.get('kind')
+        name = (d.get('customer_name') or '').strip()
+        phone = ''.join(ch for ch in str(d.get('customer_phone') or '') if ch.isdigit())
+        try:
+            qty = int(d.get('qty') or 0)
+        except (TypeError, ValueError):
+            qty = 0
+        if not name:
+            return Response({'error': 'Customer name is required.'}, status=400)
+        if len(phone) != 10:
+            return Response({'error': 'Enter a valid 10-digit phone number.'}, status=400)
+        if qty < 1:
+            return Response({'error': 'Quantity must be at least 1.'}, status=400)
+
+        with transaction.atomic():
+            if kind == 'jewellery':
+                stock = JewelryStock.objects.select_for_update().filter(user=user, product_id=d.get('product_id')).select_related('product').first()
+                if not stock or stock.qty < qty:
+                    return Response({'error': f'Only {stock.qty if stock else 0} piece(s) in your stock.'}, status=400)
+                p = stock.product
+                try:
+                    disc = Decimal(str(d.get('discount_percent') or 0))
+                except Exception:
+                    return Response({'error': 'Invalid discount.'}, status=400)
+                fields, err = _jewellery_sale_quote(p, qty, disc)
+                if err:
+                    return Response({'error': err}, status=400)
+                imgs = list(p.images.all()[:1])
+                img_url = ''
+                if imgs and imgs[0].image:
+                    try:
+                        img_url = imgs[0].image.url
+                        if not img_url.startswith('http'):
+                            img_url = request.build_absolute_uri(img_url)
+                    except Exception:
+                        img_url = ''
+                sale = StockSale.objects.create(
+                    kind='jewellery', seller=user, customer_name=name, customer_phone=phone, qty=qty,
+                    product=p, product_name=p.name, product_code=p.product_code or '', category=p.category or '',
+                    product_image_url=img_url, **fields,
+                )
+            elif kind == 'coin':
+                stock = CoinStock.objects.select_for_update().filter(user=user, id=d.get('coin_stock_id')).first()
+                if not stock or stock.qty < qty:
+                    return Response({'error': f'Only {stock.qty if stock else 0} coin(s) in your stock.'}, status=400)
+                sale = StockSale.objects.create(
+                    kind='coin', seller=user, customer_name=name, customer_phone=phone, qty=qty,
+                    coin_metal_type=stock.metal_type, coin_weight_label=stock.weight_label,
+                    product_name=f"{stock.metal_type.replace('_', ' ').upper()} Coin {stock.weight_label}",
+                    **_coin_sale_quote(stock, qty),
+                )
+            else:
+                return Response({'error': 'kind must be jewellery or coin'}, status=400)
+            stock.qty -= qty
+            stock.save(update_fields=['qty'])
+
+        row = _stock_sale_row(sale)
+        row['can_cancel'] = True
+        return Response({'message': 'Sale recorded', 'sale': row}, status=201)
+
+    def get(self, request):
+        user = request.user
+        qp = request.query_params
+        kind = qp.get('kind', 'jewellery')
+        team = _team_user_ids(user)
+        qs = StockSale.objects.filter(kind=kind)
+        if team is not None:
+            qs = qs.filter(seller_id__in=team | {user.id})
+
+        date_q = _board_date_q('created_at', (qp.get('period') or 'all').lower(),
+                               (qp.get('start_date') or '').strip(), (qp.get('end_date') or '').strip())
+        qs = qs.filter(date_q)
+        scope = qp.get('scope') or 'all'           # all | mine | team
+        if scope == 'mine':
+            qs = qs.filter(seller=user)
+        elif scope == 'team':
+            qs = qs.exclude(seller=user)
+        search = (qp.get('search') or '').strip()
+        if search:
+            qs = qs.filter(_board_person_search_q('seller', search) | Q(customer_name__icontains=search) |
+                           Q(customer_phone__icontains=search) | Q(product_name__icontains=search) |
+                           Q(product_code__icontains=search))
+
+        done = qs.filter(status='completed')
+        agg = done.aggregate(count=Count('id'), pieces=Sum('qty'), amount=Sum('final_amount'),
+                             discount=Sum('discount_amount'), mrp=Sum('mrp_amount'))
+        summary = {k: float(v or 0) if k in ('amount', 'discount', 'mrp') else int(v or 0) for k, v in agg.items()}
+        summary['cancelled'] = qs.filter(status='cancelled').count()
+        role_counts = dict(done.values('seller__role').annotate(c=Count('id')).values_list('seller__role', 'c'))
+
+        top = list(done.values('seller_id').annotate(sales=Count('id'), pieces=Sum('qty'), amount=Sum('final_amount'))
+                   .order_by('-amount')[:5])
+        top_users = {u.id: u for u in User.objects.filter(id__in=[t['seller_id'] for t in top]).select_related(
+            'admin_profile', 'dealer_profile', 'sub_dealer_profile', 'promotor_profile', 'shop_profile')}
+        top_sellers = []
+        for t in top:
+            u = top_users.get(t['seller_id'])
+            if not u:
+                continue
+            id_str, nm, _ = _holder_info(u)
+            top_sellers.append({'seller_id': u.id, 'name': nm, 'id_str': id_str, 'role': u.role,
+                                'sales': t['sales'], 'pieces': t['pieces'] or 0, 'amount': float(t['amount'] or 0)})
+
+        role = qp.get('role') or 'all'
+        list_qs = qs.filter(seller__role=role) if role != 'all' else qs
+        status_f = qp.get('status') or 'all'
+        if status_f != 'all':
+            list_qs = list_qs.filter(status=status_f)
+        try:
+            offset = max(0, int(qp.get('offset', 0)))
+            limit = max(1, min(60, int(qp.get('limit', 24))))
+        except ValueError:
+            offset, limit = 0, 24
+        list_total = list_qs.count()
+        page = list(list_qs.select_related('seller', 'seller__admin_profile', 'seller__dealer_profile',
+                                           'seller__sub_dealer_profile', 'seller__promotor_profile')
+                    .order_by('-created_at', '-id')[offset:offset + limit + 1])
+        has_more = len(page) > limit
+        today = timezone.localdate()
+        rows = []
+        for s in page[:limit]:
+            row = _stock_sale_row(s)
+            row['can_cancel'] = (s.seller_id == user.id and s.status == 'completed'
+                                 and timezone.localtime(s.created_at).date() == today)
+            rows.append(row)
+        return Response({'items': rows, 'has_more': has_more, 'list_total': list_total,
+                         'summary': summary, 'role_counts': role_counts, 'top_sellers': top_sellers})
+
+
+class StockSaleCancelView(APIView):
+    """Seller mattum, adhe naal cancel pannalaam — stock thirumba seller kaila."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        from django.db import transaction
+        with transaction.atomic():
+            sale = StockSale.objects.select_for_update().filter(id=pk, seller=request.user, status='completed').first()
+            if not sale:
+                return Response({'error': 'Sale not found or already cancelled.'}, status=404)
+            if timezone.localtime(sale.created_at).date() != timezone.localdate():
+                return Response({'error': 'Only same-day sales can be cancelled.'}, status=400)
+            if sale.kind == 'jewellery':
+                if not sale.product_id:
+                    return Response({'error': 'Product no longer exists — cannot restore stock.'}, status=400)
+                stk, _ = JewelryStock.objects.select_for_update().get_or_create(user=sale.seller, product_id=sale.product_id, defaults={'qty': 0})
+            else:
+                stk, _ = CoinStock.objects.select_for_update().get_or_create(
+                    user=sale.seller, metal_type=sale.coin_metal_type, weight_label=sale.coin_weight_label,
+                    defaults={'weight_grams': sale.net_weight, 'qty': 0})
+            stk.qty += sale.qty
+            stk.save(update_fields=['qty'])
+            sale.status = 'cancelled'
+            sale.cancelled_at = timezone.now()
+            sale.save(update_fields=['status', 'cancelled_at'])
+        return Response({'message': 'Sale cancelled — stock returned.'})
 
 
 class JewelryRequestView(APIView):

@@ -91,6 +91,7 @@ const MemberHoldingsDetail = lazy(() => import('./Coins_products/MemberHoldingsD
 const JewelryStockDetail = lazy(() => import('./Coins_products/JewelryStockDetail'))
 const JewelleryRequests = lazy(() => import('./Coins_products/Jewellery_Requests'))
 const JewelleryTransactions = lazy(() => import('./Coins_products/Jewellery_Transactions'))
+const StockSales = lazy(() => import('./Coins_products/Stock_Sales'))
 const RetailerPromotions = lazy(() => import('./Promotions/Retailer_Promotions'))
 const WholesaleDealerPromotions = lazy(() => import('./Promotions/WholesaleDealer_Promotions'))
 const DistributorPromotions = lazy(() => import('./Promotions/Distributor'))
@@ -420,6 +421,9 @@ export default function App() {
           <Route path="/jewellery-stock-detail/:productId" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><JewelryStockDetail /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/jewellery-requests" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><JewelleryRequests /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/jewellery-transactions" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><JewelleryTransactions /></WithInternalRoleNavbar></ProtectedRoute>} />
+          {/* Sales — kaila irukura jewellery / coin customer-ku vitha sales (seller + team + Super Admin paakalaam) */}
+          <Route path="/jewellery-sales" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><StockSales key="jewellery" kind="jewellery" /></WithInternalRoleNavbar></ProtectedRoute>} />
+          <Route path="/coin-sales" element={<ProtectedRoute role={INTERNAL_COIN_ROLES}><WithInternalRoleNavbar><StockSales key="coin" kind="coin" /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/promotions/sales-order-list" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><PromotionSalesOrderList /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/aug-products" element={<ProtectedRoute><AffordableProducts /></ProtectedRoute>} />
         </Routes>

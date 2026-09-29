@@ -614,6 +614,9 @@ export default function AddJewellery() {
           background: #EEF4F4; color: #073B3F; font-size: 12.5px; font-weight: 800;
         }
         .aj-stock-note {
+          display: flex;
+          align-items: center;
+          gap: 6px;
           margin: -2px 0 10px;
           padding: 5px 10px;
           border-radius: 8px;
@@ -1172,8 +1175,8 @@ export default function AddJewellery() {
                 >
                   <span className="aj-source-dot leader" />
                   <span className="aj-source-text">
-                    <strong>Available with your leader</strong>
-                    <small>{catalogLeader?.name || "Your leader"} can approve instantly</small>
+                    <strong>With your leader</strong>
+                    <small>{catalogLeader?.name || "Your leader"}</small>
                   </span>
                   <span className="aj-source-count">{sourceCounts.leader}</span>
                 </button>
@@ -1185,7 +1188,7 @@ export default function AddJewellery() {
                   <span className="aj-source-dot sa" />
                   <span className="aj-source-text">
                     <strong>Super Admin Products</strong>
-                    <small>Your leader will arrange it from their upline</small>
+                    <small>Leader will arrange</small>
                   </span>
                   <span className="aj-source-count">{sourceCounts.super_admin}</span>
                 </button>
@@ -1352,11 +1355,11 @@ export default function AddJewellery() {
                         {isBuyMode && product.source && (
                           product.source === "leader" ? (
                             <div className="aj-stock-note leader">
-                              ● {leaderIsSuperAdmin ? "Super Admin vault" : catalogLeader?.name || "Your leader"} has <strong>{product.leader_qty}</strong> pcs
+                              <CheckIcon size={12} color="#047857" /> {leaderIsSuperAdmin ? "Vault" : catalogLeader?.name || "Leader"}: <strong>{product.leader_qty}</strong> pcs
                             </div>
                           ) : (
                             <div className="aj-stock-note sa">
-                              ★ Super Admin Product · your leader will arrange it
+                              <SparkleIcon size={12} color="#8A5A2B" /> Super Admin product
                             </div>
                           )
                         )}
@@ -1916,11 +1919,11 @@ export default function AddJewellery() {
                         {isBuyMode && product.source && (
                           product.source === "leader" ? (
                             <div className="aj-stock-note leader">
-                              ● {leaderIsSuperAdmin ? "Super Admin vault" : catalogLeader?.name || "Your leader"} has <strong>{product.leader_qty}</strong> pcs
+                              <CheckIcon size={12} color="#047857" /> {leaderIsSuperAdmin ? "Vault" : catalogLeader?.name || "Leader"}: <strong>{product.leader_qty}</strong> pcs
                             </div>
                           ) : (
                             <div className="aj-stock-note sa">
-                              ★ Super Admin Product · your leader will arrange it
+                              <SparkleIcon size={12} color="#8A5A2B" /> Super Admin product
                             </div>
                           )
                         )}

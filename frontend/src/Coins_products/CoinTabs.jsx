@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { PlusIcon, CoinIcon, InboxIcon, HistoryIcon, ArrowRightIcon, JewelryIcon, SparkleIcon } from "../components/SvgIcons";
+import { PlusIcon, CoinIcon, InboxIcon, HistoryIcon, ArrowRightIcon, JewelryIcon, SparkleIcon, CartIcon } from "../components/SvgIcons";
 
 export const COIN_TABS = [
   { label: "Add Coins", path: "/buy-coin", icon: PlusIcon },
@@ -29,6 +29,7 @@ export default function CoinTabs({ activeTab }) {
     currentPath.startsWith("/available-jewellery") ||
     currentPath.startsWith("/jewellery-requests") ||
     currentPath.startsWith("/jewellery-transactions") ||
+    currentPath.startsWith("/jewellery-sales") ||
     activeTab?.toLowerCase().includes("jewel");
 
   const currentHub = isJewelleryRoute ? "jewellery" : "coins";
@@ -38,6 +39,7 @@ export default function CoinTabs({ activeTab }) {
     { label: "Available Coins", path: "/available-coins", icon: CoinIcon },
     { label: isPromotor ? "My Requests" : "Requests Coins", path: "/coin-requests-page", icon: InboxIcon },
     { label: isSuperAdmin ? "Transaction Coins History" : "My Coin Transactions", path: "/coin-transactions", icon: HistoryIcon },
+    { label: "Coin Sales", path: "/coin-sales", icon: CartIcon },
   ];
 
   const dynamicJewelleryTabs = [
@@ -45,6 +47,7 @@ export default function CoinTabs({ activeTab }) {
     { label: "Available Jewellery", path: "/available-jewellery", icon: JewelryIcon },
     { label: isPromotor ? "My Requests" : "Requests Jewellery", path: "/jewellery-requests", icon: InboxIcon },
     { label: isSuperAdmin ? "Jewellery Transactions" : "My Transactions", path: "/jewellery-transactions", icon: HistoryIcon },
+    { label: "Jewellery Sales", path: "/jewellery-sales", icon: CartIcon },
   ];
 
   const activeTabsList = currentHub === "jewellery" ? dynamicJewelleryTabs : dynamicCoinTabs;
@@ -56,12 +59,14 @@ export default function CoinTabs({ activeTab }) {
       if (currentPath === "/buy-coin") navigate(isSuperAdmin ? "/add-jewellery" : "/buy-jewellery");
       else if (currentPath === "/coin-requests-page") navigate("/jewellery-requests");
       else if (currentPath === "/coin-transactions") navigate("/jewellery-transactions");
+      else if (currentPath === "/coin-sales") navigate("/jewellery-sales");
       else navigate("/available-jewellery");
     } else {
       // Switch to corresponding coins page
       if (currentPath === "/add-jewellery" || currentPath === "/buy-jewellery") navigate("/buy-coin");
       else if (currentPath === "/jewellery-requests") navigate("/coin-requests-page");
       else if (currentPath === "/jewellery-transactions") navigate("/coin-transactions");
+      else if (currentPath === "/jewellery-sales") navigate("/coin-sales");
       else navigate("/available-coins");
     }
   };

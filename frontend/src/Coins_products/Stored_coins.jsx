@@ -19,6 +19,10 @@ import {
   CopyIcon,
   CheckIcon,
   ShieldIcon,
+  CartIcon,
+  CloseIcon,
+  MinusIcon,
+  UserIcon,
 } from "../components/SvgIcons";
 
 // Anything under 1g reads clearer as milligrams (e.g. 0.2g -> 200 mg) than as a decimal gram.
@@ -127,6 +131,61 @@ export default function StoredCoins() {
   const [hierarchyLoading, setHierarchyLoading] = useState(false);
   const [roleFilter, setRoleFilter] = useState("all");
   const [copiedId, setCopiedId] = useState(null);
+
+  // ── SELL coin (customer-ku nerla) — Super Stockist / Distributor / Wholesale / Retailer mattum.
+  // Price = weight × innaiku rate + 3% GST. Coins-ku making illa → discount illa ──
+  const canSell = ["admin", "dealer", "sub_dealer", "promotor"].includes(currentRole);
+  const [rates, setRates] = useState({ gold_22k: 0, gold_24k: 0, silver_999: 0 });
+  const [sellCoin, setSellCoin] = useState(null); // coin stock row
+  const [sellForm, setSellForm] = useState({ qty: 1, name: "", phone: "" });
+  const [sellBusy, setSellBusy] = useState(false);
+  const [sellError, setSellError] = useState("");
+  const [sellDone, setSellDone] = useState(null);
+
+  useEffect(() => {
+    api.get("/metal-rates/").then((res) => {
+      const d = res.data || {};
+      setRates({
+        gold_22k: Number(d.gold_22k_rate || d.gold_22k || 0),
+        gold_24k: Number(d.gold_24k_rate || d.gold_24k || 0),
+        silver_999: Number(d.silver_rate || d.silver_999 || 0),
+      });
+    }).catch(() => {});
+  }, []);
+
+  const coinQuote = (c, qty) => {
+    const rate = Number(rates[c.metal_type]) || 0;
+    const grams = Number(c.weight_grams) || 0;
+    const metalValue = grams * rate * qty;
+    const gst = metalValue * 0.03;
+    return { rate, grams, metalValue, gst, final: Math.round(metalValue + gst) };
+  };
+
+  const openCoinSell = (c) => {
+    setSellCoin(c);
+    setSellForm({ qty: 1, name: "", phone: "" });
+    setSellError("");
+    setSellDone(null);
+  };
+
+  const submitCoinSell = async () => {
+    if (!sellForm.name.trim()) return setSellError("Enter customer name");
+    if (!/^\d{10}$/.test(sellForm.phone)) return setSellError("Enter 10-digit phone");
+    setSellBusy(true);
+    setSellError("");
+    try {
+      const res = await api.post("/stock-sales/", {
+        kind: "coin", coin_stock_id: sellCoin.id, qty: sellForm.qty,
+        customer_name: sellForm.name.trim(), customer_phone: sellForm.phone,
+      });
+      setSellDone(res.data?.sale || {});
+      fetchStock();
+    } catch (err) {
+      setSellError(err.response?.data?.error || "Sale failed. Try again.");
+    } finally {
+      setSellBusy(false);
+    }
+  };
 
   // ── Team Member Holdings — ellaa roles-kum, avanga KEEZHA irukura team mattum (backend scope).
   // Summary / role counts full team-ku backend; members 24-24-a infinite scroll ──
@@ -704,6 +763,70 @@ export default function StoredCoins() {
           bottom: 0;
           width: 4px;
           background: var(--accent-bar);
+        }
+
+        /* ── Coin Sell button + popup ── */
+        .sc-sell-btn {
+          margin-top: 8px; display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 10px;
+          border: none; border-radius: 999px; cursor: pointer; font-size: 11.5px; font-weight: 800; font-family: inherit;
+          color: #FFFFFF; background: linear-gradient(135deg, #BB8958, #A0713F); box-shadow: 0 4px 10px rgba(187, 137, 88, 0.3);
+        }
+        .sc-sell-overlay {
+          position: fixed; inset: 0; z-index: 1300; background: rgba(7, 32, 34, 0.5); backdrop-filter: blur(4px);
+          display: flex; align-items: center; justify-content: center; padding: 16px; animation: scSellFade 160ms ease;
+        }
+        .sc-sell-card {
+          position: relative; width: 100%; max-width: 420px; max-height: 92vh; overflow-y: auto; box-sizing: border-box;
+          background: #FFFFFF; border-radius: 22px; padding: 22px; box-shadow: 0 28px 70px rgba(7, 59, 63, 0.3);
+          animation: scSellPop 220ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        @keyframes scSellFade { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes scSellPop { from { opacity: 0; transform: scale(0.95) translateY(8px); } to { opacity: 1; transform: none; } }
+        .sc-sell-close {
+          position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border-radius: 50%;
+          border: none; background: #F0F4F4; color: #5C706E; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .sc-sell-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; padding-right: 30px; }
+        .sc-sell-coin {
+          width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+          background: radial-gradient(circle at 35% 30%, #FFF7E6, #F3DDB8); box-shadow: inset 0 0 0 3px rgba(187, 137, 88, 0.35);
+        }
+        .sc-sell-sub { font-size: 11px; font-weight: 800; color: #7A8987; text-transform: uppercase; }
+        .sc-sell-title { margin: 2px 0 4px; font-size: 18px; font-weight: 850; color: #073B3F; }
+        .sc-sell-stock { font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: #ECFDF5; color: #047857; }
+        .sc-sell-specs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
+        .sc-sell-specs div { background: #F8FAFA; border: 1px solid #EEF3F3; border-radius: 10px; padding: 7px 8px; display: flex; flex-direction: column; gap: 2px; }
+        .sc-sell-specs small { font-size: 10px; color: #7A8987; font-weight: 700; text-transform: uppercase; }
+        .sc-sell-specs strong { font-size: 13px; color: #073B3F; }
+        .sc-sell-bill { border: 1px solid #E1EBEA; border-radius: 14px; padding: 10px 14px; margin-bottom: 12px; }
+        .sc-sell-bill > div { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: #5C706E; padding: 5px 0; }
+        .sc-sell-bill > div.note { font-size: 12px; color: #A0713F; }
+        .sc-sell-bill > div.final { border-top: 1px solid #E1EBEA; margin-top: 4px; padding-top: 10px; font-size: 16px; font-weight: 900; color: #073B3F; }
+        .sc-sell-form { display: grid; grid-template-columns: auto 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+        .sc-sell-form label { display: flex; align-items: center; gap: 6px; height: 42px; padding: 0 10px; border: 1px solid #D6E2E1; border-radius: 12px; }
+        .sc-sell-form input { border: none; outline: none; width: 100%; font-size: 13px; font-family: inherit; background: transparent; }
+        .sc-sell-qty { display: flex; flex-direction: column; justify-content: center; }
+        .sc-sell-qty small { font-size: 10px; font-weight: 800; color: #7A8987; text-transform: uppercase; margin-bottom: 2px; }
+        .sc-sell-qty > div { display: flex; align-items: center; gap: 8px; }
+        .sc-sell-qty button { width: 26px; height: 26px; border-radius: 8px; border: 1px solid #D6E2E1; background: #F8FAFA; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #073B3F; }
+        .sc-sell-qty strong { min-width: 16px; text-align: center; color: #073B3F; }
+        .sc-sell-error { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #B91C1C; background: #FEF2F2; border: 1px solid #FECACA; border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; }
+        .sc-sell-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; }
+        .sc-sell-cancel, .sc-sell-ok { height: 44px; border-radius: 12px; font-size: 13.5px; font-weight: 800; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        .sc-sell-cancel { background: #FFFFFF; border: 1px solid #D6E2E1; color: #5C706E; }
+        .sc-sell-ok { border: none; color: #FFFFFF; background: linear-gradient(135deg, #073B3F, #0C4E53); box-shadow: 0 6px 16px rgba(7, 59, 63, 0.22); }
+        .sc-sell-ok:disabled, .sc-sell-cancel:disabled { opacity: 0.55; cursor: not-allowed; }
+        .sc-sell-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35); border-top-color: #FFFFFF; animation: scSellSpin 0.7s linear infinite; }
+        @keyframes scSellSpin { to { transform: rotate(360deg); } }
+        .sc-sell-done { text-align: center; padding: 10px 4px 2px; }
+        .sc-sell-done-icon { width: 68px; height: 68px; border-radius: 50%; margin: 0 auto 12px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #10B981, #047857); box-shadow: 0 10px 25px rgba(16, 185, 129, 0.35); }
+        .sc-sell-done h3 { margin: 0; font-size: 18px; font-weight: 850; color: #073B3F; }
+        .sc-sell-done-amt { font-size: 28px; font-weight: 900; color: #073B3F; margin: 6px 0 4px; }
+        .sc-sell-done p { margin: 0 0 18px; font-size: 13px; color: #5C706E; }
+        @media (max-width: 480px) {
+          .sc-sell-card { padding: 18px 14px; }
+          .sc-sell-form { grid-template-columns: 1fr; }
+          .sc-sell-qty { flex-direction: row; align-items: center; justify-content: space-between; }
         }
 
         .sc-coin-weight {
@@ -1350,6 +1473,11 @@ export default function StoredCoins() {
                               <div style={{ textAlign: "right" }}>
                                 <div className="sc-coin-qty">{s.qty}</div>
                                 <div className="sc-coin-unit">Available</div>
+                                {canSell && (Number(s.qty) || 0) > 0 && (
+                                  <button type="button" className="sc-sell-btn" onClick={() => openCoinSell(s)}>
+                                    <CartIcon size={12} color="#FFFFFF" /> Sell
+                                  </button>
+                                )}
                               </div>
                             </article>
                           ))}
@@ -1761,6 +1889,87 @@ export default function StoredCoins() {
           </>
         )}
       </div>
+
+      {/* ── SELL COIN POPUP — coin details + price (rate × weight + GST), discount illa ── */}
+      {sellCoin && (() => {
+        const q = coinQuote(sellCoin, sellForm.qty);
+        const fmt = (n) => `₹${Math.round(n || 0).toLocaleString("en-IN")}`;
+        const label = COIN_METAL_LABELS_TEXT[sellCoin.metal_type] || sellCoin.metal_type;
+        return (
+          <div className="sc-sell-overlay" onClick={() => !sellBusy && setSellCoin(null)}>
+            <div className="sc-sell-card" onClick={(e) => e.stopPropagation()}>
+              <button type="button" className="sc-sell-close" onClick={() => !sellBusy && setSellCoin(null)}>
+                <CloseIcon size={16} />
+              </button>
+              {sellDone ? (
+                <div className="sc-sell-done">
+                  <div className="sc-sell-done-icon"><CheckIcon size={34} color="#FFFFFF" /></div>
+                  <h3>Sale recorded</h3>
+                  <div className="sc-sell-done-amt">{fmt(sellDone.final_amount)}</div>
+                  <p>{sellDone.qty} × {label} {sellCoin.weight_label} · {sellDone.customer_name}</p>
+                  <div className="sc-sell-actions">
+                    <button type="button" className="sc-sell-cancel" onClick={() => navigate("/coin-sales")}>View Sales</button>
+                    <button type="button" className="sc-sell-ok" onClick={() => setSellCoin(null)}>Done</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="sc-sell-head">
+                    <div className="sc-sell-coin"><CoinIcon size={30} color="#A0713F" /></div>
+                    <div>
+                      <div className="sc-sell-sub">{label}</div>
+                      <h3 className="sc-sell-title">{sellCoin.weight_label} Coin</h3>
+                      <span className="sc-sell-stock">{sellCoin.qty} in stock</span>
+                    </div>
+                  </div>
+
+                  <div className="sc-sell-specs">
+                    <div><small>Weight</small><strong>{formatWeight(q.grams)}</strong></div>
+                    <div><small>Rate/g</small><strong>{fmt(q.rate)}</strong></div>
+                    <div><small>Purity</small><strong>{label.split(" ").slice(-1)[0]}</strong></div>
+                  </div>
+
+                  <div className="sc-sell-bill">
+                    <div><span>Metal value</span><span>{fmt(q.metalValue)}</span></div>
+                    <div><span>GST 3%</span><span>{fmt(q.gst)}</span></div>
+                    <div className="note"><span>Discount</span><span>Not applicable on coins</span></div>
+                    <div className="final"><span>Final Price</span><span>{fmt(q.final)}</span></div>
+                  </div>
+
+                  <div className="sc-sell-form">
+                    <div className="sc-sell-qty">
+                      <small>Qty</small>
+                      <div>
+                        <button type="button" onClick={() => setSellForm((f) => ({ ...f, qty: Math.max(1, f.qty - 1) }))}><MinusIcon size={13} /></button>
+                        <strong>{sellForm.qty}</strong>
+                        <button type="button" onClick={() => setSellForm((f) => ({ ...f, qty: Math.min(Number(sellCoin.qty) || 1, f.qty + 1) }))}><PlusIcon size={13} /></button>
+                      </div>
+                    </div>
+                    <label>
+                      <UserIcon size={14} color="#7A8987" />
+                      <input placeholder="Customer name" value={sellForm.name} onChange={(e) => setSellForm((f) => ({ ...f, name: e.target.value }))} />
+                    </label>
+                    <label>
+                      <PhoneIcon size={14} color="#7A8987" />
+                      <input placeholder="Phone" inputMode="numeric" maxLength={10} value={sellForm.phone}
+                        onChange={(e) => setSellForm((f) => ({ ...f, phone: e.target.value.replace(/\D/g, "").slice(0, 10) }))} />
+                    </label>
+                  </div>
+
+                  {sellError && <div className="sc-sell-error"><CloseIcon size={13} color="#B91C1C" /> {sellError}</div>}
+
+                  <div className="sc-sell-actions">
+                    <button type="button" className="sc-sell-cancel" disabled={sellBusy} onClick={() => setSellCoin(null)}>Cancel</button>
+                    <button type="button" className="sc-sell-ok" disabled={sellBusy} onClick={submitCoinSell}>
+                      {sellBusy ? <><span className="sc-sell-spin" /> Selling…</> : <><CheckIcon size={14} color="#FFFFFF" /> Confirm Sale</>}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

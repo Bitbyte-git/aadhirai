@@ -21,6 +21,8 @@ import {
   ArrowUpRightIcon,
   ArrowDownLeftIcon,
   UsersIcon,
+  SparkleIcon,
+  ArrowLeftIcon,
 } from "../components/SvgIcons";
 
 const ROLE_BADGE_CONFIG = {
@@ -40,13 +42,20 @@ function JtChainStepper({ chain }) {
     ...chain.map((h) => ({ name: h.to_name, role: h.to_role })),
   ];
   const hopCfg = {
-    sent: { icon: "✓", color: "#047857", bg: "#ECFDF5", border: "#A7F3D0", label: "Stock moved" },
-    pending: { icon: "⏳", color: "#B45309", bg: "#FFFBEB", border: "#FDE68A", label: "Pending" },
-    rejected: { icon: "✕", color: "#B91C1C", bg: "#FEF2F2", border: "#FECACA", label: "Declined" },
+    // Request mela pogudhu → (Super Admin pakkam) · Stock thirumba keezha varudhu ← (requester pakkam)
+    sent: { Icon: ArrowLeftIcon, color: "#047857", bg: "#ECFDF5", border: "#A7F3D0", label: "Stock came back" },
+    pending: { Icon: ArrowRightIcon, color: "#B45309", bg: "#FFFBEB", border: "#FDE68A", label: "Request going up" },
+    rejected: { Icon: CloseIcon, color: "#B91C1C", bg: "#FEF2F2", border: "#FECACA", label: "Declined" },
   };
   return (
     <div className="jt-chain">
-      <div className="jt-chain-title">Forward chain</div>
+      <div className="jt-chain-title">
+        <span>Forward chain</span>
+        <span className="jt-chain-legend">
+          <span style={{ color: "#B45309" }}><ArrowRightIcon size={11} color="#B45309" /> Request</span>
+          <span style={{ color: "#047857" }}><ArrowLeftIcon size={11} color="#047857" /> Stock</span>
+        </span>
+      </div>
       <div className="jt-chain-track">
         {nodes.map((n, i) => {
           const hop = i > 0 ? chain[i - 1] : null;
@@ -55,7 +64,7 @@ function JtChainStepper({ chain }) {
             <div key={i} className="jt-chain-step">
               {hop && (
                 <span className="jt-chain-link" style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }} title={hop.reject_reason || cfg.label}>
-                  {cfg.icon}
+                  <cfg.Icon size={11} color={cfg.color} />
                 </span>
               )}
               <span className={`jt-chain-node${hop?.is_current || (i === 0 && chain[0].is_current) ? " current" : ""}`}>
@@ -802,7 +811,10 @@ export default function JewelleryTransactions() {
           border-radius: 14px;
           padding: 10px 12px;
         }
+        .jt-chain-legend { display: inline-flex; gap: 10px; text-transform: none; letter-spacing: 0; }
+        .jt-chain-legend span { display: inline-flex; align-items: center; gap: 3px; font-weight: 800; }
         .jt-chain-title {
+          display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
           font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
           color: #7A8987; margin-bottom: 8px;
         }
@@ -1260,11 +1272,11 @@ export default function JewelleryTransactions() {
                 )}
               </div>
               <div className="jt-stat-icon-wrap chain">
-                <span style={{ fontSize: "18px", fontWeight: 900, color: "#A0713F" }}>↑</span>
+                <ArrowUpRightIcon size={20} color="#A0713F" />
               </div>
             </div>
             <div className="jt-stat-val" style={{ color: "#A0713F" }}>{chainTxCount}</div>
-            <div className="jt-stat-sub">Super Admin products forwarded leader to leader — full path</div>
+            <div className="jt-stat-sub">Leader-to-leader forwards</div>
           </div>
         </div>
 
@@ -1390,7 +1402,7 @@ export default function JewelleryTransactions() {
               return (
                 <div key={r.id} className={`jt-tx-card${r.highlight ? " jt-tx-highlight" : ""}`}>
                   {/* En sondha request / Super Admin (en leader) approve pannadhu — highlight */}
-                  {r.highlight && <div className="jt-highlight-tag">★ {r.highlight_label}</div>}
+                  {r.highlight && <div className="jt-highlight-tag"><SparkleIcon size={12} color="#8A5A2B" /> {r.highlight_label}</div>}
                   <div className="jt-tx-header">
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                       <span className="jt-tx-id">Transfer #{r.id}</span>

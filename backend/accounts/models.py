@@ -1027,6 +1027,58 @@ class JewelryRequestItem(models.Model):
         return f"{self.product.name} x {self.qty}"
 
 
+# ── STOCK SALES — Super Stockist / Distributor / Wholesale / Retailer avanga kaila irukura
+# jewellery / coin-ai customer-ku nerla vikkuradhu. Sale nerathu rate, weight, making, discount,
+# final amount ellaam SNAPSHOT — apram rate maarinaalum maaraadhu. Sales count mattum (commission illa). ──
+class StockSale(models.Model):
+    KIND_CHOICES = [('jewellery', 'Jewellery'), ('coin', 'Coin')]
+    STATUS_CHOICES = [('completed', 'Completed'), ('cancelled', 'Cancelled')]
+
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES, db_index=True)
+    seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='stock_sales')
+    customer_name = models.CharField(max_length=120)
+    customer_phone = models.CharField(max_length=15)
+
+    # Jewellery sale
+    product = models.ForeignKey('JewelryProduct', on_delete=models.SET_NULL, null=True, blank=True, related_name='stock_sales')
+    product_name = models.CharField(max_length=200, blank=True)
+    product_code = models.CharField(max_length=50, blank=True)
+    product_image_url = models.TextField(blank=True)
+    category = models.CharField(max_length=30, blank=True)
+    # Coin sale
+    coin_metal_type = models.CharField(max_length=20, blank=True)
+    coin_weight_label = models.CharField(max_length=20, blank=True)
+
+    metal = models.CharField(max_length=20, blank=True)       # gold / silver
+    grade = models.CharField(max_length=10, blank=True)       # 22k / 24k / 999
+    gross_weight = models.DecimalField(max_digits=10, decimal_places=4, default=0)   # per piece
+    net_weight = models.DecimalField(max_digits=10, decimal_places=4, default=0)     # per piece
+    qty = models.PositiveIntegerField(default=1)
+
+    rate_per_gram = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    making_percent = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    stone_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)   # per piece
+    die_charge = models.DecimalField(max_digits=12, decimal_places=2, default=0)    # per piece
+    gst_percent = models.DecimalField(max_digits=5, decimal_places=2, default=3)
+    mrp_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)       # total, discount-ku munnadi
+    discount_percent = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    discount_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    final_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='completed', db_index=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['seller', 'kind', 'created_at']),
+            models.Index(fields=['kind', 'status', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"Sale #{self.id} — {self.kind} x{self.qty} by {self.seller} ({self.status})"
+
+
 # ── WALLET RECHARGE SYSTEM (1 Rs = 100 coins) ──
 class Wallet(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='wallet')

@@ -20,6 +20,10 @@ import {
   UsersIcon,
   CoinIcon,
   HistoryIcon,
+  ArrowUpRightIcon,
+  ArrowRightIcon,
+  SparkleIcon,
+  ArrowLeftIcon,
 } from "../components/SvgIcons";
 
 const ROLE_BADGE_CONFIG = {
@@ -42,13 +46,20 @@ function ForwardChainStepper({ chain }) {
     ...chain.map((h) => ({ name: h.to_name, role: h.to_role })),
   ];
   const hopCfg = {
-    sent: { icon: "✓", color: "#047857", bg: "#ECFDF5", border: "#A7F3D0", label: "Stock moved" },
-    pending: { icon: "⏳", color: "#B45309", bg: "#FFFBEB", border: "#FDE68A", label: "Pending" },
-    rejected: { icon: "✕", color: "#B91C1C", bg: "#FEF2F2", border: "#FECACA", label: "Declined" },
+    // Request mela pogudhu → (Super Admin pakkam) · Stock thirumba keezha varudhu ← (requester pakkam)
+    sent: { Icon: ArrowLeftIcon, color: "#047857", bg: "#ECFDF5", border: "#A7F3D0", label: "Stock came back" },
+    pending: { Icon: ArrowRightIcon, color: "#B45309", bg: "#FFFBEB", border: "#FDE68A", label: "Request going up" },
+    rejected: { Icon: CloseIcon, color: "#B91C1C", bg: "#FEF2F2", border: "#FECACA", label: "Declined" },
   };
   return (
     <div className="jr-chain">
-      <div className="jr-chain-title">Forward chain · stock moves one level at a time</div>
+      <div className="jr-chain-title">
+        <span>Forward chain</span>
+        <span className="jr-chain-legend">
+          <span style={{ color: "#B45309" }}><ArrowRightIcon size={11} color="#B45309" /> Request</span>
+          <span style={{ color: "#047857" }}><ArrowLeftIcon size={11} color="#047857" /> Stock</span>
+        </span>
+      </div>
       <div className="jr-chain-track">
         {nodes.map((n, i) => {
           const hop = i > 0 ? chain[i - 1] : null;
@@ -57,7 +68,7 @@ function ForwardChainStepper({ chain }) {
             <div key={i} className="jr-chain-step">
               {hop && (
                 <span className="jr-chain-link" style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }} title={hop.reject_reason || cfg.label}>
-                  {cfg.icon}
+                  <cfg.Icon size={12} color={cfg.color} />
                 </span>
               )}
               <span className={`jr-chain-node${hop?.is_current || (i === 0 && chain[0].is_current) ? " current" : ""}`}>
@@ -220,8 +231,23 @@ export default function JewelleryRequests() {
 
   // En kaila illadha (Super Admin) product — shortfall qty-ai en leader-ku forward pannum
   const [forwardingId, setForwardingId] = useState(null);
+  // Browser alert-ku badhila custom confirm popup: { type: 'forward' | 'approve' | 'decline', req, reason }
+  const [confirmBox, setConfirmBox] = useState(null);
+  // Click panna udane popup-laye spinner (instant feedback) — server reply vandhadhum close + success popup
+  const handleConfirmBox = async () => {
+    const box = confirmBox;
+    if (!box || box.busy) return;
+    if (box.type === "decline" && !(box.reason || "").trim()) return;
+    setConfirmBox({ ...box, busy: true });
+    try {
+      if (box.type === "forward") await handleForward(box.req);
+      else if (box.type === "approve") await handleDirectResolve("approve", box.req.id);
+      else await handleDirectResolve("reject", box.req.id, box.reason.trim());
+    } finally {
+      setConfirmBox(null);
+    }
+  };
   const handleForward = async (req) => {
-    if (!window.confirm(`Forward request #${req.id} to your leader? You can approve it once the stock reaches you.`)) return;
     setForwardingId(req.id);
     try {
       const res = await api.post(`/jewelry-requests/${req.id}/forward/`);
@@ -942,13 +968,72 @@ export default function JewelleryRequests() {
         .jr-btn-forward:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(187, 137, 88, 0.38); }
         .jr-btn-forward:disabled { opacity: 0.6; cursor: wait; }
         .jr-fwd-note {
-          font-size: 12px;
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          font-size: 12.5px;
           font-weight: 700;
           padding: 7px 12px;
           border-radius: 8px;
           border: 1px solid;
-          line-height: 1.45;
+          line-height: 1.4;
         }
+        /* Custom confirm popup (browser alert illa) */
+        .jr-cf-overlay {
+          position: fixed; inset: 0; z-index: 1200;
+          background: rgba(7, 32, 34, 0.45); backdrop-filter: blur(4px);
+          display: flex; align-items: center; justify-content: center; padding: 16px;
+          animation: jrCfFade 160ms ease;
+        }
+        .jr-cf-card {
+          width: 100%; max-width: 360px; background: #FFFFFF; border-radius: 20px;
+          padding: 24px 22px 20px; text-align: center;
+          box-shadow: 0 24px 60px rgba(7, 59, 63, 0.28);
+          animation: jrCfPop 200ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        @keyframes jrCfFade { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes jrCfPop { from { opacity: 0; transform: scale(0.94) translateY(6px); } to { opacity: 1; transform: none; } }
+        .jr-cf-icon {
+          width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 12px;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .jr-cf-icon.gold { background: #FDF3E4; box-shadow: 0 0 0 6px rgba(187, 137, 88, 0.12); }
+        .jr-cf-icon.green { background: #ECFDF5; box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.1); }
+        .jr-cf-icon.red { background: #FEF2F2; box-shadow: 0 0 0 6px rgba(220, 38, 38, 0.08); }
+        .jr-cf-title { margin: 0 0 8px; font-size: 17px; font-weight: 850; color: #073B3F; }
+        .jr-cf-sub {
+          display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;
+          font-size: 12.5px; color: #5C706E; font-weight: 600;
+        }
+        .jr-cf-sub span { display: inline-flex; align-items: center; gap: 4px; }
+        .jr-cf-chip {
+          font-family: monospace; font-weight: 800; color: #073B3F;
+          background: #EEF4F4; border: 1px solid #D6E2E1; border-radius: 6px; padding: 1px 6px;
+        }
+        .jr-cf-input {
+          width: 100%; box-sizing: border-box; margin-top: 14px; padding: 10px 12px;
+          border: 1px solid #D6E2E1; border-radius: 12px; font-size: 13px; font-family: inherit;
+          resize: none; outline: none;
+        }
+        .jr-cf-input:focus { border-color: #073B3F; box-shadow: 0 0 0 3px rgba(7, 59, 63, 0.08); }
+        .jr-cf-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+        .jr-cf-cancel, .jr-cf-ok {
+          height: 42px; border-radius: 12px; font-size: 13.5px; font-weight: 800; cursor: pointer;
+          display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit;
+        }
+        .jr-cf-cancel { background: #FFFFFF; border: 1px solid #D6E2E1; color: #5C706E; }
+        .jr-cf-ok { border: none; color: #FFFFFF; }
+        .jr-cf-ok.gold { background: linear-gradient(135deg, #BB8958, #A0713F); }
+        .jr-cf-ok.green { background: #073B3F; }
+        .jr-cf-ok.red { background: #DC2626; }
+        .jr-cf-ok:disabled { opacity: 0.5; cursor: not-allowed; }
+        .jr-cf-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
+        .jr-cf-spin {
+          width: 14px; height: 14px; border-radius: 50%;
+          border: 2px solid rgba(255, 255, 255, 0.35); border-top-color: #FFFFFF;
+          animation: jrCfSpin 0.7s linear infinite;
+        }
+        @keyframes jrCfSpin { to { transform: rotate(360deg); } }
         .jr-fwd-note.sa { color: #8A5A2B; background: #FFFAF1; border-color: rgba(187, 137, 88, 0.45); }
         .jr-fwd-note.waiting { color: #92400E; background: #FFFBEB; border-color: #FDE68A; flex: 1; }
         .jr-fwd-note.declined { color: #991B1B; background: #FEF2F2; border-color: #FECACA; }
@@ -959,7 +1044,10 @@ export default function JewelleryRequests() {
           border-radius: 14px;
           padding: 12px 14px;
         }
+        .jr-chain-legend { display: inline-flex; gap: 10px; text-transform: none; letter-spacing: 0; }
+        .jr-chain-legend span { display: inline-flex; align-items: center; gap: 3px; font-weight: 800; }
         .jr-chain-title {
+          display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
           font-size: 10.5px;
           font-weight: 800;
           letter-spacing: 0.06em;
@@ -1219,7 +1307,7 @@ export default function JewelleryRequests() {
                 <div key={req.id} className={`jr-req-card${req.highlight ? " jr-req-highlight" : ""}`}>
                   {/* En sondha request / Super Admin (en leader) approve pannadhu — highlight */}
                   {req.highlight && (
-                    <div className="jr-highlight-tag">★ {req.highlight_label}</div>
+                    <div className="jr-highlight-tag"><SparkleIcon size={12} color="#8A5A2B" /> {req.highlight_label}</div>
                   )}
                   <div className="jr-req-header">
                     <div className="jr-req-title">
@@ -1372,19 +1460,21 @@ export default function JewelleryRequests() {
                     {canApproveThis && !isSuperAdmin && req.forward_info?.status === "pending" ? (
                       // Mela forward pannirukken — stock varra varaikkum wait
                       <div className="jr-fwd-note waiting">
-                        ⏳ Forwarded to <strong>{req.forward_info.to_name}</strong> ({ROLE_BADGE_CONFIG[req.forward_info.to_role]?.label || req.forward_info.to_role}) — approve this once the stock reaches you.
+                        <ClockIcon size={14} color="#B45309" />
+                        <span>Waiting for <strong>{req.forward_info.to_name}</strong></span>
                       </div>
                     ) : canApproveThis && !isSuperAdmin && req.stock_shortfall?.length > 0 ? (
                       // En kaila stock illa (Super Admin product) — en leader-ku forward pannalaam
                       <>
                         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                           <div className="jr-fwd-note sa">
-                            ★ Super Admin Product · Not in your stock —{" "}
-                            {req.stock_shortfall.map((s) => `${s.name}: need ${s.need}, you have ${s.have}`).join(" · ")}
+                            <SparkleIcon size={14} color="#A0713F" />
+                            <span>Super Admin product · you have {req.stock_shortfall[0].have} / {req.stock_shortfall[0].need}</span>
                           </div>
                           {req.forward_info?.status === "rejected" && (
                             <div className="jr-fwd-note declined">
-                              ✕ Your leader declined: {req.forward_info.reject_reason || "No reason given"}
+                              <CloseIcon size={13} color="#B91C1C" />
+                              <span>Leader declined: {req.forward_info.reject_reason || "—"}</span>
                             </div>
                           )}
                         </div>
@@ -1393,22 +1483,20 @@ export default function JewelleryRequests() {
                             type="button"
                             className="jr-btn-forward"
                             disabled={forwardingId === req.id}
-                            onClick={() => handleForward(req)}
+                            onClick={() => setConfirmBox({ type: "forward", req })}
                           >
-                            ↑ {forwardingId === req.id ? "Forwarding..." : req.forward_info?.status === "rejected" ? "Forward Again" : "Forward to My Leader"}
+                            <ArrowUpRightIcon size={14} color="#FFFFFF" />
+                            {forwardingId === req.id ? "Forwarding..." : req.forward_info?.status === "rejected" ? "Forward Again" : "Forward to Leader"}
                           </button>
                           <button
                             type="button"
                             className="jr-btn-reject"
-                            onClick={() => {
-                              const reason = window.prompt(
-                                "Please enter rejection reason:",
-                                req.forward_info?.status === "rejected"
-                                  ? `My leader declined: ${req.forward_info.reject_reason || "not available"}`
-                                  : "Stock unavailable"
-                              );
-                              if (reason && reason.trim()) handleDirectResolve("reject", req.id, reason.trim());
-                            }}
+                            onClick={() => setConfirmBox({
+                              type: "decline", req,
+                              reason: req.forward_info?.status === "rejected"
+                                ? `Leader declined: ${req.forward_info.reject_reason || "not available"}`
+                                : "Stock unavailable",
+                            })}
                           >
                             <CloseIcon size={14} color="#DC2626" /> Decline
                           </button>
@@ -1416,27 +1504,24 @@ export default function JewelleryRequests() {
                       </>
                     ) : canApproveThis ? (
                       <>
-                        {req.forward_info?.status === "sent" && !isSuperAdmin && (
+                        {req.forward_info?.status === "sent" && !isSuperAdmin ? (
                           <div className="jr-fwd-note arrived">
-                            ✓ Stock arrived from {req.forward_info.to_name} — approve now to pass it down
+                            <CheckIcon size={14} color="#047857" />
+                            <span>Stock arrived · approve now</span>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: "12px", color: "#5C706E" }}>
+                            Approving will deduct piece(s) from your stock and disburse to requester.
                           </div>
                         )}
-                        <div style={{ fontSize: "12px", color: "#5C706E" }}>
-                          Approving will deduct piece(s) from your stock and disburse to requester.
-                        </div>
 
                         <div style={{ display: "flex", gap: "10px" }}>
                           <button
                             type="button"
                             className="jr-btn-approve"
                             onClick={() => {
-                              if (isSuperAdmin) {
-                                openAuthModal("approve", req.id);
-                              } else {
-                                if (window.confirm(`Approve request #${req.id} and disburse jewellery pieces to ${req.requested_by_name || "requester"}?`)) {
-                                  handleDirectResolve("approve", req.id);
-                                }
-                              }
+                              if (isSuperAdmin) openAuthModal("approve", req.id);
+                              else setConfirmBox({ type: "approve", req });
                             }}
                           >
                             <CheckIcon size={14} color="#FFFFFF" /> Approve & Disburse
@@ -1445,14 +1530,8 @@ export default function JewelleryRequests() {
                             type="button"
                             className="jr-btn-reject"
                             onClick={() => {
-                              if (isSuperAdmin) {
-                                openAuthModal("reject", req.id);
-                              } else {
-                                const reason = window.prompt("Please enter rejection reason:", "Stock unavailable or pending verification");
-                                if (reason && reason.trim()) {
-                                  handleDirectResolve("reject", req.id, reason.trim());
-                                }
-                              }
+                              if (isSuperAdmin) openAuthModal("reject", req.id);
+                              else setConfirmBox({ type: "decline", req, reason: "Stock unavailable" });
                             }}
                           >
                             <CloseIcon size={14} color="#DC2626" /> Decline
@@ -1461,7 +1540,7 @@ export default function JewelleryRequests() {
                       </>
                     ) : req.status === "sent" ? (
                       <div style={{ fontSize: "12px", color: "#166534", fontWeight: 700, padding: "6px 12px", background: "#F0FDF4", borderRadius: "8px", border: "1px solid #DCFCE7", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                        <span>✓ Disbursed & added to requester stock</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}><CheckIcon size={13} color="#166534" /> Disbursed</span>
                         {req.approved_by_name && (
                           <span style={{ color: "#15803D", fontWeight: 600, fontSize: "11.5px" }}>
                             • Approved by <strong>{req.approved_by_name}</strong> {req.approved_by_role && `(${ROLE_BADGE_CONFIG[req.approved_by_role]?.label || (req.approved_by_role === 'super_admin' ? 'Super Admin' : req.approved_by_role)})`}
@@ -1475,7 +1554,7 @@ export default function JewelleryRequests() {
                     ) : (
                       <div style={{ fontSize: "12px", color: "#5C706E", fontWeight: 600, padding: "6px 12px", background: "#F8FAFA", borderRadius: "8px", border: "1px solid #EAEFEF" }}>
                         {req.forward_info?.status === "pending"
-                          ? `Your leader forwarded this to ${req.forward_info.to_name} — stock is on the way`
+                          ? `Forwarded to ${req.forward_info.to_name}`
                           : "Awaiting Leader Approval"}
                       </div>
                     )}
@@ -1489,6 +1568,64 @@ export default function JewelleryRequests() {
           </div>
         )}
       </div>
+
+      {/* Confirm popup — Forward / Approve / Decline (short text + SVG icon) */}
+      {confirmBox && (() => {
+        const cfg = {
+          forward: { title: "Forward to your leader?", btn: "Forward", busyText: "Forwarding…", tone: "gold", Icon: ArrowUpRightIcon, color: "#A0713F" },
+          approve: { title: "Approve & send?", btn: "Approve", busyText: "Approving…", tone: "green", Icon: CheckIcon, color: "#047857" },
+          decline: { title: "Decline request?", btn: "Decline", busyText: "Declining…", tone: "red", Icon: CloseIcon, color: "#B91C1C" },
+        }[confirmBox.type];
+        const r = confirmBox.req;
+        const firstItem = r.items?.[0];
+        const itemText = firstItem ? `${firstItem.product?.name || "Jewellery"} × ${firstItem.qty}${r.items.length > 1 ? ` +${r.items.length - 1}` : ""}` : "";
+        return (
+          <div className="jr-cf-overlay" onClick={() => !confirmBox.busy && setConfirmBox(null)}>
+            <div className="jr-cf-card" onClick={(e) => e.stopPropagation()}>
+              <div className={`jr-cf-icon ${cfg.tone}`}>
+                <cfg.Icon size={26} color={cfg.color} />
+              </div>
+              <h3 className="jr-cf-title">{cfg.title}</h3>
+              <div className="jr-cf-sub">
+                <span className="jr-cf-chip">#{r.id}</span>
+                <span>{itemText}</span>
+              </div>
+              <div className="jr-cf-sub" style={{ marginTop: 4 }}>
+                {confirmBox.type === "forward" ? (
+                  <span>{r.requested_by_name} <ArrowRightIcon size={12} /> you <ArrowRightIcon size={12} /> your leader</span>
+                ) : (
+                  <span>{confirmBox.type === "approve" ? "To" : "From"} <strong>{r.requested_by_name || "requester"}</strong></span>
+                )}
+              </div>
+              {confirmBox.type === "decline" && (
+                <textarea
+                  className="jr-cf-input"
+                  rows={2}
+                  autoFocus
+                  placeholder="Reason"
+                  value={confirmBox.reason || ""}
+                  onChange={(e) => setConfirmBox((b) => ({ ...b, reason: e.target.value }))}
+                />
+              )}
+              <div className="jr-cf-actions">
+                <button type="button" className="jr-cf-cancel" disabled={confirmBox.busy} onClick={() => setConfirmBox(null)}>Cancel</button>
+                <button
+                  type="button"
+                  className={`jr-cf-ok ${cfg.tone}`}
+                  disabled={confirmBox.busy || (confirmBox.type === "decline" && !(confirmBox.reason || "").trim())}
+                  onClick={handleConfirmBox}
+                >
+                  {confirmBox.busy ? (
+                    <><span className="jr-cf-spin" /> {cfg.busyText}</>
+                  ) : (
+                    <><cfg.Icon size={14} color="#FFFFFF" /> {cfg.btn}</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal: Create Request */}
       {createModalOpen && (

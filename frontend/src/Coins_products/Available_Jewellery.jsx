@@ -17,6 +17,9 @@ import {
   MailIcon,
   ArrowRightIcon,
   EyeIcon,
+  CartIcon,
+  MinusIcon,
+  UserIcon,
 } from "../components/SvgIcons";
 
 const ROLE_BADGE_CONFIG = {
@@ -66,6 +69,80 @@ export default function AvailableJewellery() {
     if (!url) return null;
     if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
     return `https://bitbyte-backend-f66f.onrender.com/${url.replace(/^\/+/, "")}`;
+  };
+
+  // ── SELL (customer-ku nerla vikkuradhu) — Super Stockist / Distributor / Wholesale / Retailer mattum ──
+  const canSell = ["admin", "dealer", "sub_dealer", "promotor"].includes(currentRole);
+  const [rates, setRates] = useState({ gold_22k: 0, gold_24k: 0, silver_999: 0 });
+  const [sellItem, setSellItem] = useState(null); // { product, stockQty }
+  const [sellForm, setSellForm] = useState({ qty: 1, discount: "0", name: "", phone: "" });
+  const [sellBusy, setSellBusy] = useState(false);
+  const [sellError, setSellError] = useState("");
+  const [sellDone, setSellDone] = useState(null); // server sale row
+
+  useEffect(() => {
+    api.get("/metal-rates/").then((res) => {
+      const d = res.data || {};
+      setRates({
+        gold_22k: Number(d.gold_22k_rate || d.gold_22k || 0),
+        gold_24k: Number(d.gold_24k_rate || d.gold_24k || 0),
+        silver_999: Number(d.silver_rate || d.silver_999 || 0),
+      });
+    }).catch(() => {});
+  }, []);
+
+  // E-commerce formula maariye (backend-um idhe formula-la final price calculate pannum)
+  const sellQuote = (p, qty, discPct) => {
+    const metal = (p.metal || "").toLowerCase();
+    const rate = metal === "silver" ? rates.silver_999 : (p.grade || "").includes("24") ? rates.gold_24k : rates.gold_22k;
+    const net = parseFloat(p.net_weight || p.cross_weight) || 0;
+    const making = parseFloat(p.making_charge) || 0;
+    const stone = parseFloat(p.stone_value) || 0;
+    const die = parseFloat(p.die_charge) || 0;
+    const disc = Math.min(Math.max(parseFloat(discPct) || 0, 0), making / 2);
+    const metalValue = net * rate;
+    const makingValue = metalValue * (making / 100);
+    const base = metalValue + makingValue + stone + die;
+    const gst = base * 0.03;
+    const unitMrp = rate && net ? base + gst : parseFloat(p.price) || 0;
+    // Discount making charge-la irundhu mattum (making 10%, discount 5% → making 5%) — backend-um idhe
+    const unitFinal = rate && net
+      ? (metalValue * (1 + (making - disc) / 100) + stone + die) * 1.03
+      : unitMrp * (1 - disc / 100);
+    const mrp = Math.round(unitMrp * qty);
+    const final = Math.round(unitFinal * qty);
+    return { rate, net, making, stone, die, maxDisc: making / 2, metalValue: metalValue * qty, makingValue: makingValue * qty,
+      stoneTotal: (stone + die) * qty, gst: gst * qty, mrp, final, discountAmount: mrp - final };
+  };
+
+  const openSell = (s) => {
+    setSellItem({ product: s.product, stockQty: Number(s.qty) || 0 });
+    setSellForm({ qty: 1, discount: "0", name: "", phone: "" });
+    setSellError("");
+    setSellDone(null);
+  };
+
+  const submitSell = async () => {
+    const p = sellItem.product;
+    const q = sellQuote(p, sellForm.qty, sellForm.discount);
+    if (!sellForm.name.trim()) return setSellError("Enter customer name");
+    if (!/^\d{10}$/.test(sellForm.phone)) return setSellError("Enter 10-digit phone");
+    if ((parseFloat(sellForm.discount) || 0) > q.maxDisc) return setSellError(`Max discount ${q.maxDisc}%`);
+    setSellBusy(true);
+    setSellError("");
+    try {
+      const res = await api.post("/stock-sales/", {
+        kind: "jewellery", product_id: p.id, qty: sellForm.qty,
+        discount_percent: parseFloat(sellForm.discount) || 0,
+        customer_name: sellForm.name.trim(), customer_phone: sellForm.phone,
+      });
+      setSellDone(res.data?.sale || {});
+      fetchMyStock();
+    } catch (err) {
+      setSellError(err.response?.data?.error || "Sale failed. Try again.");
+    } finally {
+      setSellBusy(false);
+    }
   };
 
   // Fetch logged in user's jewelry stock
@@ -520,6 +597,115 @@ export default function AvailableJewellery() {
         .aj-vault-card:hover .aj-card-view-spec-chip {
           background: #073B3F;
           color: #FFFFFF;
+        }
+
+        /* ── Sell button + Sell popup ── */
+        .aj-sell-btn {
+          display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 12px;
+          border: none; border-radius: 999px; cursor: pointer; font-size: 12px; font-weight: 800; font-family: inherit;
+          color: #FFFFFF; background: linear-gradient(135deg, #BB8958, #A0713F);
+          box-shadow: 0 4px 12px rgba(187, 137, 88, 0.3); transition: transform 150ms ease;
+        }
+        .aj-sell-btn:hover { transform: translateY(-1px); }
+        .aj-sell-overlay {
+          position: fixed; inset: 0; z-index: 1300; background: rgba(7, 32, 34, 0.5); backdrop-filter: blur(4px);
+          display: flex; align-items: center; justify-content: center; padding: 16px; animation: ajSellFade 160ms ease;
+        }
+        .aj-sell-card {
+          position: relative; width: 100%; max-width: 460px; max-height: 92vh; overflow-y: auto;
+          background: #FFFFFF; border-radius: 22px; padding: 22px; box-shadow: 0 28px 70px rgba(7, 59, 63, 0.3);
+          animation: ajSellPop 220ms cubic-bezier(0.22, 1, 0.36, 1); box-sizing: border-box;
+        }
+        @keyframes ajSellFade { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes ajSellPop { from { opacity: 0; transform: scale(0.95) translateY(8px); } to { opacity: 1; transform: none; } }
+        .aj-sell-close {
+          position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border-radius: 50%;
+          border: none; background: #F0F4F4; color: #5C706E; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .aj-sell-head { display: flex; gap: 14px; align-items: center; padding-right: 30px; margin-bottom: 14px; }
+        .aj-sell-img {
+          width: 76px; height: 76px; border-radius: 14px; overflow: hidden; flex-shrink: 0;
+          background: #F4F8F8; border: 1px solid #E1EBEA; display: flex; align-items: center; justify-content: center;
+        }
+        .aj-sell-img img { width: 100%; height: 100%; object-fit: cover; }
+        .aj-sell-code { font-family: monospace; font-size: 11px; font-weight: 800; color: #7A8987; }
+        .aj-sell-title { margin: 2px 0 6px; font-size: 16px; font-weight: 850; color: #073B3F; line-height: 1.25; }
+        .aj-sell-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+        .aj-sell-tags span {
+          font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px;
+          background: #EEF4F4; color: #073B3F; text-transform: capitalize;
+        }
+        .aj-sell-tags span.stock { background: #ECFDF5; color: #047857; }
+        .aj-sell-specs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+        .aj-sell-specs div {
+          background: #F8FAFA; border: 1px solid #EEF3F3; border-radius: 10px; padding: 7px 8px;
+          display: flex; flex-direction: column; gap: 2px;
+        }
+        .aj-sell-specs small { font-size: 10px; color: #7A8987; font-weight: 700; text-transform: uppercase; }
+        .aj-sell-specs strong { font-size: 12.5px; color: #073B3F; }
+        .aj-sell-bill { border: 1px solid #E1EBEA; border-radius: 14px; padding: 10px 14px; margin-bottom: 12px; }
+        .aj-sell-bill > div {
+          display: flex; justify-content: space-between; align-items: center; gap: 10px;
+          font-size: 13px; color: #5C706E; padding: 5px 0;
+        }
+        .aj-sell-bill > div.mrp { border-top: 1px dashed #D6E2E1; margin-top: 4px; padding-top: 8px; color: #073B3F; font-weight: 800; }
+        .aj-sell-bill > div.disc { color: #8A5A2B; font-weight: 700; }
+        .aj-sell-bill > div.final {
+          border-top: 1px solid #E1EBEA; margin-top: 4px; padding-top: 10px;
+          font-size: 16px; font-weight: 900; color: #073B3F;
+        }
+        .aj-sell-disc-input { display: inline-flex; align-items: center; gap: 5px; }
+        .aj-sell-disc-input input {
+          width: 56px; height: 30px; border: 1.5px solid #BB8958; border-radius: 8px; text-align: center;
+          font-size: 13px; font-weight: 800; color: #073B3F; outline: none; font-family: inherit;
+        }
+        .aj-sell-disc-input input.over { border-color: #DC2626; background: #FEF2F2; }
+        .aj-sell-disc-input b { font-size: 12px; }
+        .aj-sell-disc-input em { font-style: normal; font-size: 10.5px; color: #A0713F; background: #FDF3E4; padding: 1px 6px; border-radius: 6px; }
+        .aj-sell-form { display: grid; grid-template-columns: auto 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+        .aj-sell-form label {
+          display: flex; align-items: center; gap: 6px; height: 42px; padding: 0 10px;
+          border: 1px solid #D6E2E1; border-radius: 12px; background: #FFFFFF;
+        }
+        .aj-sell-form input { border: none; outline: none; width: 100%; font-size: 13px; font-family: inherit; background: transparent; }
+        .aj-sell-qty { display: flex; flex-direction: column; justify-content: center; }
+        .aj-sell-qty small { font-size: 10px; font-weight: 800; color: #7A8987; text-transform: uppercase; margin-bottom: 2px; }
+        .aj-sell-qty > div { display: flex; align-items: center; gap: 8px; }
+        .aj-sell-qty button {
+          width: 26px; height: 26px; border-radius: 8px; border: 1px solid #D6E2E1; background: #F8FAFA;
+          cursor: pointer; display: flex; align-items: center; justify-content: center; color: #073B3F;
+        }
+        .aj-sell-qty strong { min-width: 16px; text-align: center; color: #073B3F; }
+        .aj-sell-error {
+          display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #B91C1C;
+          background: #FEF2F2; border: 1px solid #FECACA; border-radius: 10px; padding: 8px 10px; margin-bottom: 10px;
+        }
+        .aj-sell-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; }
+        .aj-sell-cancel, .aj-sell-ok {
+          height: 44px; border-radius: 12px; font-size: 13.5px; font-weight: 800; cursor: pointer; font-family: inherit;
+          display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .aj-sell-cancel { background: #FFFFFF; border: 1px solid #D6E2E1; color: #5C706E; }
+        .aj-sell-ok { border: none; color: #FFFFFF; background: linear-gradient(135deg, #073B3F, #0C4E53); box-shadow: 0 6px 16px rgba(7, 59, 63, 0.22); }
+        .aj-sell-ok:disabled, .aj-sell-cancel:disabled { opacity: 0.55; cursor: not-allowed; }
+        .aj-sell-spin {
+          width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35); border-top-color: #FFFFFF;
+          animation: ajSellSpin 0.7s linear infinite;
+        }
+        @keyframes ajSellSpin { to { transform: rotate(360deg); } }
+        .aj-sell-done { text-align: center; padding: 10px 4px 2px; }
+        .aj-sell-done-icon {
+          width: 68px; height: 68px; border-radius: 50%; margin: 0 auto 12px; display: flex; align-items: center; justify-content: center;
+          background: linear-gradient(135deg, #10B981, #047857); box-shadow: 0 10px 25px rgba(16, 185, 129, 0.35);
+        }
+        .aj-sell-done h3 { margin: 0; font-size: 18px; font-weight: 850; color: #073B3F; }
+        .aj-sell-done-amt { font-size: 28px; font-weight: 900; color: #073B3F; margin: 6px 0 4px; }
+        .aj-sell-done p { margin: 0 0 18px; font-size: 13px; color: #5C706E; }
+        @media (max-width: 480px) {
+          .aj-sell-card { padding: 18px 14px; border-radius: 18px; }
+          .aj-sell-specs { grid-template-columns: repeat(2, 1fr); }
+          .aj-sell-form { grid-template-columns: 1fr; }
+          .aj-sell-qty { flex-direction: row; align-items: center; justify-content: space-between; }
         }
 
         .aj-vault-card {
@@ -1282,10 +1468,21 @@ export default function AvailableJewellery() {
                           <div style={{ fontSize: "11px", color: "#7A8987" }}>with 3% tax</div>
                         </div>
 
-                        <span className="aj-card-view-spec-chip">
-                          <span>Details</span>
-                          <ArrowRightIcon size={12} />
-                        </span>
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                          {canSell && (s.qty || 0) > 0 && (
+                            <button
+                              type="button"
+                              className="aj-sell-btn"
+                              onClick={(e) => { e.stopPropagation(); openSell(s); }}
+                            >
+                              <CartIcon size={13} color="#FFFFFF" /> Sell
+                            </button>
+                          )}
+                          <span className="aj-card-view-spec-chip">
+                            <span>Details</span>
+                            <ArrowRightIcon size={12} />
+                          </span>
+                        </div>
                       </div>
 
                     </div>
@@ -1296,6 +1493,123 @@ export default function AvailableJewellery() {
           )
         )}
       </div>
+
+      {/* ── SELL POPUP — product full details + price breakdown + discount (max making/2) ── */}
+      {sellItem && (() => {
+        const p = sellItem.product;
+        const q = sellQuote(p, sellForm.qty, sellForm.discount);
+        const img = p.images?.[0]?.image;
+        const fmt = (n) => `₹${Math.round(n || 0).toLocaleString("en-IN")}`;
+        const discOver = (parseFloat(sellForm.discount) || 0) > q.maxDisc;
+        return (
+          <div className="aj-sell-overlay" onClick={() => !sellBusy && setSellItem(null)}>
+            <div className="aj-sell-card" onClick={(e) => e.stopPropagation()}>
+              <button type="button" className="aj-sell-close" onClick={() => !sellBusy && setSellItem(null)}>
+                <CloseIcon size={16} />
+              </button>
+
+              {sellDone ? (
+                <div className="aj-sell-done">
+                  <div className="aj-sell-done-icon"><CheckIcon size={34} color="#FFFFFF" /></div>
+                  <h3>Sale recorded</h3>
+                  <div className="aj-sell-done-amt">{fmt(sellDone.final_amount)}</div>
+                  <p>{sellDone.qty} × {sellDone.product_name} · {sellDone.customer_name}</p>
+                  <div className="aj-sell-actions">
+                    <button type="button" className="aj-sell-cancel" onClick={() => navigate("/jewellery-sales")}>View Sales</button>
+                    <button type="button" className="aj-sell-ok" onClick={() => setSellItem(null)}>Done</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="aj-sell-head">
+                    <div className="aj-sell-img">
+                      {img ? <img src={img} alt={p.name} /> : <JewelryIcon size={36} color="#B4CECC" />}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div className="aj-sell-code">{p.product_code || `JWL-#${p.id}`}</div>
+                      <h3 className="aj-sell-title">{p.name}</h3>
+                      <div className="aj-sell-tags">
+                        <span>{(p.metal || "").toUpperCase()} {(p.grade || "").toUpperCase()}</span>
+                        <span>{p.category}</span>
+                        <span className="stock">{sellItem.stockQty} in stock</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="aj-sell-specs">
+                    <div><small>Gross</small><strong>{parseFloat(p.cross_weight || 0).toFixed(2)}g</strong></div>
+                    <div><small>Stone</small><strong>{parseFloat(p.stone_weight || 0).toFixed(2)}g</strong></div>
+                    <div><small>Net</small><strong>{q.net.toFixed(2)}g</strong></div>
+                    <div><small>Rate/g</small><strong>{fmt(q.rate)}</strong></div>
+                  </div>
+
+                  <div className="aj-sell-bill">
+                    <div><span>Metal value</span><span>{fmt(q.metalValue)}</span></div>
+                    <div><span>Making ({q.making}%)</span><span>{fmt(q.makingValue)}</span></div>
+                    {q.stoneTotal > 0 && <div><span>Stone / Die</span><span>{fmt(q.stoneTotal)}</span></div>}
+                    <div><span>GST 3%</span><span>{fmt(q.gst)}</span></div>
+                    <div className="mrp"><span>MRP</span><span>{fmt(q.mrp)}</span></div>
+                    <div className="disc">
+                      <span>
+                        Making discount
+                        {!discOver && (parseFloat(sellForm.discount) || 0) > 0 && (
+                          <small style={{ display: "block", fontSize: "10.5px", color: "#7A8987", fontWeight: 600 }}>
+                            Making {q.making}% → {Math.max(q.making - (parseFloat(sellForm.discount) || 0), 0)}%
+                          </small>
+                        )}
+                      </span>
+                      <span className="aj-sell-disc-input">
+                        <input
+                          type="number"
+                          min="0"
+                          max={q.maxDisc}
+                          step="0.5"
+                          value={sellForm.discount}
+                          onChange={(e) => setSellForm((f) => ({ ...f, discount: e.target.value }))}
+                          className={discOver ? "over" : ""}
+                        />
+                        <b>%</b>
+                        <em>max {q.maxDisc}%</em>
+                        <span>− {fmt(discOver ? 0 : q.discountAmount)}</span>
+                      </span>
+                    </div>
+                    <div className="final"><span>Final Price</span><span>{fmt(discOver ? q.mrp : q.final)}</span></div>
+                  </div>
+
+                  <div className="aj-sell-form">
+                    <div className="aj-sell-qty">
+                      <small>Qty</small>
+                      <div>
+                        <button type="button" onClick={() => setSellForm((f) => ({ ...f, qty: Math.max(1, f.qty - 1) }))}><MinusIcon size={13} /></button>
+                        <strong>{sellForm.qty}</strong>
+                        <button type="button" onClick={() => setSellForm((f) => ({ ...f, qty: Math.min(sellItem.stockQty, f.qty + 1) }))}><PlusIcon size={13} /></button>
+                      </div>
+                    </div>
+                    <label>
+                      <UserIcon size={14} color="#7A8987" />
+                      <input placeholder="Customer name" value={sellForm.name} onChange={(e) => setSellForm((f) => ({ ...f, name: e.target.value }))} />
+                    </label>
+                    <label>
+                      <PhoneIcon size={14} color="#7A8987" />
+                      <input placeholder="Phone" inputMode="numeric" maxLength={10} value={sellForm.phone}
+                        onChange={(e) => setSellForm((f) => ({ ...f, phone: e.target.value.replace(/\D/g, "").slice(0, 10) }))} />
+                    </label>
+                  </div>
+
+                  {sellError && <div className="aj-sell-error"><CloseIcon size={13} color="#B91C1C" /> {sellError}</div>}
+
+                  <div className="aj-sell-actions">
+                    <button type="button" className="aj-sell-cancel" disabled={sellBusy} onClick={() => setSellItem(null)}>Cancel</button>
+                    <button type="button" className="aj-sell-ok" disabled={sellBusy || discOver} onClick={submitSell}>
+                      {sellBusy ? <><span className="aj-sell-spin" /> Selling…</> : <><CheckIcon size={14} color="#FFFFFF" /> Confirm Sale</>}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* FULL PRODUCT PREVIEW LIGHTBOX MODAL */}
       {previewItem && (

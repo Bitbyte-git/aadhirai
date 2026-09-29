@@ -7744,71 +7744,91 @@ class JewelryRequestApproveView(APIView):
             if not password or not request.user.check_password(password):
                 return Response({'error': 'Invalid Super Admin password. Action unauthorized.'}, status=401)
 
-        try:
+        # ── Fast path: ore transaction, stock rows bulk-a lock + bulk update (remote DB-la ~14 → ~7 queries).
+        # select_for_update — rendu per ore nerathula approve pannaalum double transfer aagaadhu ──
+        from django.db import transaction
+        with transaction.atomic():
+            base_qs = JewelryRequest.objects.select_for_update().select_related('requested_to', 'requested_by')
+            try:
+                if request.user.role == 'super_admin':
+                    req = base_qs.get(id=pk, status='pending')
+                else:
+                    req = base_qs.get(id=pk, requested_to=request.user, status='pending')
+            except JewelryRequest.DoesNotExist:
+                return Response({'error': 'Request not found or already resolved'}, status=404)
+
+            items = list(req.items.select_related('product'))
+            up_statuses = list(req.upstream_requests.values_list('status', flat=True))
+            # Forward chain: mela forward pending-a irundha stock innum varala — wait pannanum
+            if 'pending' in up_statuses:
+                return Response({'error': 'Forwarded to your leader — approve once the stock reaches you.'}, status=400)
+            in_chain = bool(req.forwarded_for_id) or bool(up_statuses)
+
+            approver = req.requested_to if req.requested_to else request.user
+            pids = [i.product_id for i in items]
+            stocks = {
+                (s.user_id, s.product_id): s
+                for s in JewelryStock.objects.select_for_update().filter(
+                    user_id__in={approver.id, request.user.id, req.requested_by_id}, product_id__in=pids)
+            }
+
             if request.user.role == 'super_admin':
-                req = JewelryRequest.objects.prefetch_related('items__product').get(id=pk, status='pending')
+                has_parent_stock = all(
+                    (stocks.get((approver.id, i.product_id)) is not None and stocks[(approver.id, i.product_id)].qty >= i.qty)
+                    for i in items
+                )
+                # Chain request-la Super Admin vault-la irundhu direct-a keezha anuppa koodaadhu (level skip aagum)
+                if in_chain and not has_parent_stock and approver != request.user:
+                    return Response({'error': 'This is a forwarded chain request — stock must move one level at a time. '
+                                              'Approve the request that reached Super Admin instead.'}, status=400)
+                stock_user = approver if has_parent_stock else request.user
             else:
-                req = JewelryRequest.objects.prefetch_related('items__product').get(id=pk, requested_to=request.user, status='pending')
-        except JewelryRequest.DoesNotExist:
-            return Response({'error': 'Request not found or already resolved'}, status=404)
+                stock_user = request.user
+            is_vault = getattr(stock_user, 'role', None) == 'super_admin'
 
-        # Forward chain: mela forward pending-a irundha stock innum varala — wait pannanum
-        if req.upstream_requests.filter(status='pending').exists():
-            return Response({'error': 'Forwarded to your leader — approve once the stock reaches you.'}, status=400)
-        in_chain = bool(req.forwarded_for_id) or req.upstream_requests.exists()
+            for item in items:
+                key = (stock_user.id, item.product_id)
+                stk = stocks.get(key)
+                if is_vault:
+                    prod_qty = item.product.stock_quantity or 0
+                    if (not stk or stk.qty < item.qty) and prod_qty >= item.qty:
+                        if not stk:
+                            stk = JewelryStock.objects.create(user=stock_user, product=item.product, qty=prod_qty)
+                            stocks[key] = stk
+                        else:
+                            stk.qty = max(stk.qty, prod_qty)
+                available = stk.qty if stk else 0
+                if available < item.qty:
+                    return Response({
+                        'error': f'Insufficient stock for {item.product.name}. Available: {available}, Requested: {item.qty}'
+                    }, status=400)
 
-        approver = req.requested_to if req.requested_to else request.user
-        if request.user.role == 'super_admin':
-            has_parent_stock = True
-            for item in req.items.all():
-                stk = JewelryStock.objects.filter(user=approver, product=item.product).first()
-                if not stk or stk.qty < item.qty:
-                    has_parent_stock = False
-                    break
-            # Chain request-la Super Admin vault-la irundhu direct-a keezha anuppa koodaadhu (level skip aagum)
-            if in_chain and not has_parent_stock and approver != request.user:
-                return Response({'error': 'This is a forwarded chain request — stock must move one level at a time. '
-                                          'Approve the request that reached Super Admin instead.'}, status=400)
-            stock_user = approver if has_parent_stock else request.user
-        else:
-            stock_user = request.user
+            changed, created = {}, []
+            for item in items:
+                stk = stocks[(stock_user.id, item.product_id)]
+                stk.qty -= item.qty
+                changed[stk.id] = stk
+                if is_vault:
+                    item.product.stock_quantity = max(0, (item.product.stock_quantity or 0) - item.qty)
+                    item.product.save(update_fields=['stock_quantity'])
+                rkey = (req.requested_by_id, item.product_id)
+                rs = stocks.get(rkey)
+                if rs is None:
+                    rs = JewelryStock(user_id=req.requested_by_id, product_id=item.product_id, qty=0)
+                    stocks[rkey] = rs
+                    created.append(rs)
+                rs.qty += item.qty
+                if rs.pk:
+                    changed[rs.id] = rs
+            if changed:
+                JewelryStock.objects.bulk_update(list(changed.values()), ['qty'])
+            if created:
+                JewelryStock.objects.bulk_create(created)
 
-        for item in req.items.all():
-            stk = JewelryStock.objects.filter(user=stock_user, product=item.product).first()
-            if getattr(stock_user, 'role', None) == 'super_admin':
-                prod_qty = item.product.stock_quantity or 0
-                if (not stk or stk.qty < item.qty) and prod_qty >= item.qty:
-                    if not stk:
-                        stk = JewelryStock.objects.create(user=stock_user, product=item.product, qty=prod_qty)
-                    else:
-                        stk.qty = max(stk.qty, prod_qty)
-                        stk.save(update_fields=['qty'])
-
-            available = stk.qty if stk else 0
-            if available < item.qty:
-                return Response({
-                    'error': f'Insufficient stock for {item.product.name}. Available: {available}, Requested: {item.qty}'
-                }, status=400)
-
-        for item in req.items.all():
-            stk = JewelryStock.objects.get(user=stock_user, product=item.product)
-            stk.qty -= item.qty
-            stk.save()
-
-            if getattr(stock_user, 'role', None) == 'super_admin':
-                item.product.stock_quantity = max(0, (item.product.stock_quantity or 0) - item.qty)
-                item.product.save(update_fields=['stock_quantity'])
-
-            req_stk, _ = JewelryStock.objects.get_or_create(
-                user=req.requested_by, product=item.product, defaults={'qty': 0}
-            )
-            req_stk.qty += item.qty
-            req_stk.save()
-
-        req.status = 'sent'
-        req.sent_at = timezone.now()
-        req.approved_by = request.user
-        req.save()
+            req.status = 'sent'
+            req.sent_at = timezone.now()
+            req.approved_by = request.user
+            req.save(update_fields=['status', 'sent_at', 'approved_by'])
         return Response({'message': 'Jewelry request approved and stock transferred successfully!'})
 
 

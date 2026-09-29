@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import api from '../api'
 import { SkeletonText } from '../components/Skeleton'
@@ -83,6 +83,14 @@ const ROLE_CFG = {
   customer:   { color: '#C92035', label: 'CUSTOMER',          singular: 'Customer',         Icon: IconUser,   idKey: 'customer_id',   childRole: 'customer' },
 }
 
+// ── Sales period buttons — default Month; yaarai click pannaalum Month-la irundhu start ──
+const PERIODS = [
+  { value: 'month', label: 'Month', statLabel: "This Month's Orders" },
+  { value: '3months', label: '3 Months', statLabel: 'Last 3 Months Orders' },
+  { value: '6months', label: '6 Months', statLabel: 'Last 6 Months Orders' },
+]
+const ORDERS_PAGE_SIZE = 30
+
 function hexToRgb(hex) {
   const r = parseInt(hex.slice(1, 3), 16)
   const g = parseInt(hex.slice(3, 5), 16)
@@ -146,7 +154,7 @@ function TreeItem({ node, selectedId, onSelect, pulseId, expandedChildren, loadi
           )}
         </div>
         <div className="stree-ordercount">
-          <IconChart color="#0C4044" size={11} /> {node.order_count ?? 0} order{(node.order_count ?? 0) !== 1 ? 's' : ''}
+          <IconChart color="#0C4044" size={11} /> {node.order_count ?? 0} order{(node.order_count ?? 0) !== 1 ? 's' : ''} this month
         </div>
         {/* ── CHANGED: plain "Loading..." text ku pathila skeleton bar ── */}
         {isLoadingThis && (
@@ -182,7 +190,8 @@ export default function SuperAdminHierarchySalesCount() {
   const navigate = useNavigate()
   const role = searchParams.get('role')
   const id = searchParams.get('id')
-  const period = searchParams.get('period')
+  // URL period ignore — ellaa page-la irundhu vandhaalum Month dhaan default
+  const [period, setPeriod] = useState('month')
 
   // ── Aggregate mode: role given but no specific person id (e.g. any Manage
   // Users directory's "Today Order" card) — the rest of this page is a
@@ -220,6 +229,7 @@ export default function SuperAdminHierarchySalesCount() {
         const rootNode = { type: role, ...res.data }
         setRoot(rootNode)
         setSelected(rootNode)
+        setPeriod('month')
       })
       .catch(() => setRoot(null))
       .finally(() => setLoading(false))
@@ -258,8 +268,14 @@ export default function SuperAdminHierarchySalesCount() {
     }
   }
 
+  // Tree-la yaarai click pannaalum period Month-ku reset
+  const selectPerson = (node) => {
+    setSelected(node)
+    setPeriod('month')
+  }
+
   const jumpToCustomer = (custNode) => {
-    setSelected(custNode)
+    selectPerson(custNode)
     setPulseId(`${custNode.type || 'customer'}-${custNode.id}`)
     setTimeout(() => {
       const el = document.getElementById(`streeid-${custNode.type || 'customer'}-${custNode.id}`)
@@ -301,19 +317,72 @@ export default function SuperAdminHierarchySalesCount() {
   const [overallCount, setOverallCount] = useState(0)
   const [overallAmount, setOverallAmount] = useState(0)
   const [ordersLoading, setOrdersLoading] = useState(false)
+  // ── Infinite scroll: first 30 products + full count/amount, scroll pannaa adutha 30 ──
+  const [hasMoreOrders, setHasMoreOrders] = useState(false)
+  const [loadingMoreOrders, setLoadingMoreOrders] = useState(false)
+  const ordersReqRef = useRef(0)          // pazhaya person / period response late-a vandhaa ignore panna
+  const nextOffsetRef = useRef(0)
+  const loadingMoreRef = useRef(false)
+  const sentinelRef = useRef(null)
 
   useEffect(() => {
     if (!selected) return
+    const reqId = ++ordersReqRef.current
     setOrdersLoading(true)
-    api.get('/hierarchy/node-orders/', { params: { role: selected.type, id: selected.id, period } })
+    setHasMoreOrders(false)
+    nextOffsetRef.current = 0
+    loadingMoreRef.current = false
+    setLoadingMoreOrders(false)
+    api.get('/hierarchy/node-orders/', { params: { role: selected.type, id: selected.id, period, offset: 0, limit: ORDERS_PAGE_SIZE } })
       .then(res => {
-        setGroupedList(res.data.items || [])
+        if (reqId !== ordersReqRef.current) return
+        const items = res.data.items || []
+        setGroupedList(items)
         setOverallCount(res.data.overall_count || 0)
         setOverallAmount(res.data.overall_amount || 0)
+        setHasMoreOrders(!!res.data.has_more)
+        nextOffsetRef.current = items.length
       })
-      .catch(() => { setGroupedList([]); setOverallCount(0); setOverallAmount(0) })
-      .finally(() => setOrdersLoading(false))
+      .catch(() => {
+        if (reqId !== ordersReqRef.current) return
+        setGroupedList([]); setOverallCount(0); setOverallAmount(0); setHasMoreOrders(false)
+      })
+      .finally(() => { if (reqId === ordersReqRef.current) setOrdersLoading(false) })
   }, [selected, period])
+
+  const loadMoreOrders = () => {
+    if (!selected || loadingMoreRef.current) return
+    const reqId = ordersReqRef.current
+    loadingMoreRef.current = true
+    setLoadingMoreOrders(true)
+    api.get('/hierarchy/node-orders/', { params: { role: selected.type, id: selected.id, period, offset: nextOffsetRef.current, limit: ORDERS_PAGE_SIZE } })
+      .then(res => {
+        if (reqId !== ordersReqRef.current) return
+        const items = res.data.items || []
+        setGroupedList(prev => [...prev, ...items])
+        nextOffsetRef.current += items.length
+        setHasMoreOrders(!!res.data.has_more && items.length > 0)
+      })
+      .catch(() => { if (reqId === ordersReqRef.current) setHasMoreOrders(false) })
+      .finally(() => {
+        if (reqId !== ordersReqRef.current) return
+        loadingMoreRef.current = false
+        setLoadingMoreOrders(false)
+      })
+  }
+  const loadMoreRef = useRef(loadMoreOrders)
+  loadMoreRef.current = loadMoreOrders
+
+  // Bottom sentinel screen-ku 500px munnadiye vandhaale adutha page fetch — user wait panna vendaam
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el || !hasMoreOrders || ordersLoading) return
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) loadMoreRef.current()
+    }, { rootMargin: '500px 0px' })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [hasMoreOrders, ordersLoading, groupedList.length])
 
   const text = '#111817'
   const subtext = '#7A8987'
@@ -590,6 +659,15 @@ export default function SuperAdminHierarchySalesCount() {
         .sprod-row + .sprod-row{ border-top:1px solid rgba(189,207,206,0.4); }
         .sprod-label{ color:#7A8987; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; }
 
+        /* Sales period buttons — selected period gold ring + teal fill-la highlight */
+        .speriod-bar{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid rgba(189,207,206,0.5); }
+        .speriod-title{ font-size:11px; font-weight:800; letter-spacing:1px; color:#7A8987; text-transform:uppercase; }
+        .speriod-group{ display:inline-flex; gap:4px; padding:4px; background:rgba(231,237,236,0.7); border:1px solid rgba(189,207,206,0.72); border-radius:14px; }
+        .speriod-btn{ border:0; background:transparent; color:#53615F; font-size:12.5px; font-weight:800; padding:8px 18px; border-radius:10px; cursor:pointer; transition:background .18s ease, color .18s ease, box-shadow .18s ease; font-family:inherit; }
+        .speriod-btn:hover:not(.active){ background:rgba(255,255,255,0.8); color:#0C4044; }
+        .speriod-btn.active{ background:linear-gradient(135deg,#0C4044,#145C61); color:#FFFFFF; box-shadow:0 0 0 2px #BB8958, 0 6px 16px rgba(12,64,68,0.28); }
+        .speriod-btn:disabled{ cursor:wait; }
+
         /* ══════════════ RESPONSIVE ══════════════ */
         .shier-content{ padding:28px 32px; box-sizing:border-box; width:100%; max-width:100vw; overflow-x:hidden; }
         .shier-grid{ position:relative; }
@@ -632,6 +710,8 @@ export default function SuperAdminHierarchySalesCount() {
           .stree-item{ padding:10px 12px !important; }
           .sstat-card{ min-width:100% !important; padding:14px 16px !important; }
           .sprod-grid{ grid-template-columns:1fr !important; gap:12px !important; }
+          .speriod-group{ width:100%; }
+          .speriod-btn{ flex:1; padding:8px 6px; }
           .sprod-card{ padding:12px !important; }
           .sprod-img{ height:120px !important; }
         }
@@ -655,7 +735,7 @@ export default function SuperAdminHierarchySalesCount() {
             <TreeItem
               node={root}
               selectedId={selected ? `${selected.type}-${selected.id}` : null}
-              onSelect={setSelected}
+              onSelect={selectPerson}
               pulseId={pulseId}
               expandedChildren={expandedChildren}
               loadingNode={loadingNode}
@@ -668,6 +748,26 @@ export default function SuperAdminHierarchySalesCount() {
 
           {/* ══════════════════ RIGHT SIDE — skeleton while loading fix ══════════════════ */}
           <div className="shier-right-col" style={{ background: 'rgba(253,253,252,0.97)', border: '1px solid rgba(189,207,206,0.72)', borderRadius: 16, padding: 24, boxShadow: '0 22px 58px rgba(7,59,63,0.06)' }}>
+            {/* ── Sales period: Month (default) / 3 Months / 6 Months ── */}
+            {selected && (
+              <div className="speriod-bar">
+                <span className="speriod-title">Sales period</span>
+                <div className="speriod-group" role="tablist" aria-label="Sales period">
+                  {PERIODS.map(p => (
+                    <button
+                      key={p.value}
+                      type="button"
+                      role="tab"
+                      aria-selected={period === p.value}
+                      className={`speriod-btn${period === p.value ? ' active' : ''}`}
+                      onClick={() => setPeriod(p.value)}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {selected && (ordersLoading ? (
               // ── NEW: role/id change aana udanE, old data kaamikkama skeleton kaatuvom ──
               <div key={`skeleton-${selected.type}-${selected.id}`} className="sfade-in">
@@ -727,7 +827,7 @@ export default function SuperAdminHierarchySalesCount() {
                       <IconBox color="#0C4044" />
                     </div>
                     <div>
-                      <div style={{ color: subtext, fontSize: 11 }}>{period === 'today' ? "Today's Orders" : 'Total Orders'}</div>
+                      <div style={{ color: subtext, fontSize: 11 }}>{(PERIODS.find(p => p.value === period) || PERIODS[0]).statLabel}</div>
                       <div style={{ fontSize: 24, fontWeight: 900, color: '#0C4044' }}>{overallCount}</div>
                     </div>
                   </div>
@@ -745,7 +845,7 @@ export default function SuperAdminHierarchySalesCount() {
                 {groupedList.length === 0 && !ordersLoading ? (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '48px 0', color: subtext }}>
                     <IconEmpty color={subtext} />
-                    <span style={{ fontSize: 13 }}>Idhu kku keela orders illa.</span>
+                    <span style={{ fontSize: 13 }}>No orders in this period.</span>
                   </div>
                 ) : (
                   <div className="sprod-grid">
@@ -759,7 +859,7 @@ export default function SuperAdminHierarchySalesCount() {
                         >
                           <div className="sprod-img">
                             {imgUrl ? (
-                              <img src={imgUrl} alt={g.product_name} onError={e => { e.currentTarget.style.display = 'none' }} />
+                              <img src={imgUrl} alt={g.product_name} loading="lazy" decoding="async" onError={e => { e.currentTarget.style.display = 'none' }} />
                             ) : (
                               <IconBox color="#7A8987" size={32} />
                             )}
@@ -784,8 +884,18 @@ export default function SuperAdminHierarchySalesCount() {
                         </div>
                       )
                     })}
+                    {/* Scroll pannumbodhu adutha 30 products load aagura skeleton */}
+                    {loadingMoreOrders && [0, 1, 2].map(i => (
+                      <div key={`more-skel-${i}`} className="sprod-card" style={{ animation: 'none' }}>
+                        <div className="sprod-img" style={{ border: 0 }}><div className="skel-line" style={{ width: '100%', height: '100%', marginBottom: 0, borderRadius: 10 }} /></div>
+                        <SkeletonText width="70%" height="14px" />
+                        <div style={{ marginTop: 10 }}><SkeletonText width="100%" height="10px" /></div>
+                        <div style={{ marginTop: 6 }}><SkeletonText width="100%" height="10px" /></div>
+                      </div>
+                    ))}
                   </div>
                 )}
+                {hasMoreOrders && <div ref={sentinelRef} style={{ height: 1 }} />}
               </div>
             ))}
           </div>

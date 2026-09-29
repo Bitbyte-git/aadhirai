@@ -3948,14 +3948,21 @@ class HierarchyNodeOrdersView(APIView):
             today = timezone.localdate()
             qs = qs.filter(created_at__date=today)
         elif period != 'all':
-            # ── NEW: default = this month mattum — Grid page-la kaattura SALES(X)
-            # number matching aagum. period=all pass panninaa mattum lifetime varum ──
+            # ── default = this month mattum — Grid page-la kaattura SALES(X)
+            # number matching aagum. period=all pass panninaa mattum lifetime varum.
+            # 3months / 6months = indha maasam + munnadi 2 / 5 maasam (calendar months) ──
             now = timezone.now()
             month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            qs = qs.filter(created_at__gte=month_start)
+            months_back = {'3months': 2, '6months': 5}.get(period, 0)
+            year, month = month_start.year, month_start.month - months_back
+            while month <= 0:
+                month += 12
+                year -= 1
+            qs = qs.filter(created_at__gte=month_start.replace(year=year, month=month))
 
-        # ── Overall totals — MOTHATHA subtree ku, pagination touch pannadhu ──
-        overall = qs.aggregate(total_count=Count('id'), total_amount=Sum('total_price'))
+        # ── Overall totals — MOTHATHA subtree ku, pagination touch pannadhu.
+        # First page (offset=0) la mattum calculate — scroll pages fast-a vara skip ──
+        overall = qs.aggregate(total_count=Count('id'), total_amount=Sum('total_price')) if offset == 0 else None
 
         # ── product + owner vachi group pannurom — DB level la ──
         grouped_qs = (
@@ -3965,44 +3972,60 @@ class HierarchyNodeOrdersView(APIView):
                 total_qty=Sum('quantity'),
                 total_amount=Sum('total_price'),
                 latest_at=Max('created_at'),
-                last_unit_price=Max('unit_price'),
+                latest_order_id=Max('id'),
             )
             .order_by('-latest_at')
         )
 
-        total_groups = grouped_qs.count()
-        page = list(grouped_qs[offset:offset + limit])
+        # ── limit+1 fetch panni has_more kandupudikirom — ovvoru scroll page-kum
+        # full COUNT query odaama fast-a varum. total_groups first page-la mattum ──
+        total_groups = grouped_qs.count() if offset == 0 else None
+        page = list(grouped_qs[offset:offset + limit + 1])
+        has_more = len(page) > limit
+        page = page[:limit]
 
         owner_user_ids = [g['user_id'] for g in page]
         owners = {cp.user_id: cp for cp in CustomerProfile.objects.filter(user_id__in=owner_user_ids)}
-        product_ids = [g['product_id'] for g in page if g['product_id']]
-        products = {p.id: p for p in JewelryProduct.objects.filter(id__in=product_ids).prefetch_related('images')}
+
+        # ── Rate / weight / image ellaam andha person-oda LAST ORDER-la save aanadhu —
+        # gold/silver rate illa product edit pannaalum order aana details maaraadhu ──
+        latest_orders = {
+            o['id']: o for o in JewelryOrder.objects.filter(id__in=[g['latest_order_id'] for g in page])
+            .values('id', 'unit_price', 'product_net_weight', 'product_image_url')
+        }
+        # Pazhaya orders-la image save aagalana mattum product image fallback
+        missing_img_product_ids = [
+            g['product_id'] for g in page
+            if g['product_id'] and not (latest_orders.get(g['latest_order_id']) or {}).get('product_image_url')
+        ]
+        fallback_imgs = {}
+        if missing_img_product_ids:
+            for p in JewelryProduct.objects.filter(id__in=missing_img_product_ids).prefetch_related('images'):
+                first_img = p.images.first()
+                if first_img:
+                    fallback_imgs[p.id] = first_img.image.url
 
         results = []
         for g in page:
             owner = owners.get(g['user_id'])
-            product = products.get(g['product_id'])
-            img_url = None
-            if product:
-                first_img = product.images.first()
-                if first_img:
-                    img_url = first_img.image.url
+            last = latest_orders.get(g['latest_order_id']) or {}
+            weight = last.get('product_net_weight')
             results.append({
                 'product_name': g['product_name'], 'metal': g['product_metal'],
                 'grade': g['product_grade'], 'category': g['product_category'],
-                'net_weight': str(product.net_weight) if product and product.net_weight else None,
-                'image': img_url,
+                'net_weight': format(weight.normalize(), 'f') if weight is not None else None,
+                'image': last.get('product_image_url') or fallback_imgs.get(g['product_id']),
                 'total_qty': g['total_qty'], 'total_amount': float(g['total_amount']),
-                'last_rate': float(g['last_unit_price']), 'latest_at': g['latest_at'],
+                'last_rate': float(last.get('unit_price') or 0), 'latest_at': g['latest_at'],
                 # ── NEW: user_id add pண்ணுறோம் — front-end path-to-node lookup ku thevai ──
                 'owner': {'id': owner.id, 'user_id': owner.user_id, 'first_name': owner.first_name, 'last_name': owner.last_name} if owner else None,
             })
 
-        return Response({
-            'items': results, 'total_groups': total_groups,
-            'overall_count': overall['total_count'] or 0,
-            'overall_amount': float(overall['total_amount'] or 0),
-        })
+        response = {'items': results, 'has_more': has_more, 'total_groups': total_groups}
+        if overall is not None:
+            response['overall_count'] = overall['total_count'] or 0
+            response['overall_amount'] = float(overall['total_amount'] or 0)
+        return Response(response)
 
 def _month_status_map():
     """dict: (role, profile_id) -> status ('red'/'orange'/'yellow'/'green').

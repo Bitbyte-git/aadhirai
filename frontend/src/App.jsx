@@ -398,7 +398,8 @@ export default function App() {
           <Route path="/superadmin/manage-users/retailer" element={<ProtectedRoute role={["super_admin", "admin", "dealer", "sub_dealer"]}><WithInternalRoleNavbar><Retailer /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/superadmin/manage-users/customer" element={<ProtectedRoute role={["super_admin", "admin", "dealer", "sub_dealer", "promotor"]}><WithInternalRoleNavbar><CustomerManage /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/sales-report" element={<ProtectedRoute><WithInternalRoleNavbar><Report /></WithInternalRoleNavbar></ProtectedRoute>} />
-          <Route path="/hierarchy-sales-count" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><SuperAdminHierarchySalesCount /></WithSuperAdminNavbar></ProtectedRoute>} />
+          {/* Sales count page — ellaa internal roles-kum (munnadi super_admin mattum; mathavanga SALES click pannaa logout aanaanga) */}
+          <Route path="/hierarchy-sales-count" element={<ProtectedRoute role={["super_admin", "admin", "dealer", "sub_dealer", "promotor"]}><WithInternalRoleNavbar><SuperAdminHierarchySalesCount /></WithInternalRoleNavbar></ProtectedRoute>} />
           <Route path="/promotions/retailer" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><RetailerPromotions /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/promotions/wholesale-dealer" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><WholesaleDealerPromotions /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/promotions/distributor" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><DistributorPromotions /></WithSuperAdminNavbar></ProtectedRoute>} />

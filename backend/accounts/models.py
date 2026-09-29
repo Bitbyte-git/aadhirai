@@ -842,6 +842,8 @@ class JewelryOrder(models.Model):
     product_grade = models.CharField(max_length=10, blank=True)
     product_category = models.CharField(max_length=20)
     product_image_url = models.TextField(blank=True)
+    # Order nerathula irundha weight — admin apram product weight maathinaalum idhu maaraadhu
+    product_net_weight = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
 
     # Customer details
     customer_name = models.CharField(max_length=200)
@@ -883,6 +885,11 @@ class JewelryOrder(models.Model):
         ]
     
     def save(self, *args, **kwargs):
+        # Pudhu order-na andha nerathu product weight-a snapshot pannidum (ellaa order create paths-kum)
+        if self._state.adding and self.product_net_weight is None and self.product_id:
+            self.product_net_weight = (
+                JewelryProduct.objects.filter(id=self.product_id).values_list('net_weight', flat=True).first()
+            )
         if not self.order_id:
             from django.utils import timezone
             year = timezone.now().year

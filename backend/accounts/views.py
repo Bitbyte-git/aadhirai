@@ -9750,6 +9750,232 @@ class OrderReceiptPDFView(APIView):
         return FileResponse(buffer, as_attachment=True, filename=filename, content_type='application/pdf')
 
 
+class StockSaleReceiptPDFView(APIView):
+    """Store sale (Sell popup) receipt — customer order receipt maariye Athirai design.
+    Seller, avanga upline leaders, Super Admin mattum download pannalaam."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            sale = StockSale.objects.select_related('seller').get(id=pk)
+        except StockSale.DoesNotExist:
+            return Response({'error': 'Sale not found'}, status=404)
+        user = request.user
+        if user.role != 'super_admin' and sale.seller_id != user.id:
+            team = _team_user_ids(user) or set()
+            if sale.seller_id not in team:
+                return Response({'error': 'Permission denied'}, status=403)
+
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=30, bottomMargin=34, leftMargin=36, rightMargin=36)
+        styles = getSampleStyleSheet()
+        brand_style = ParagraphStyle('Brand', parent=styles['Title'], textColor=colors.HexColor('#BB8958'),
+                                     fontSize=24, leading=26, alignment=TA_CENTER, spaceAfter=0)
+        tagline_style = ParagraphStyle('Tagline', parent=styles['Normal'], textColor=colors.HexColor('#E0F2F1'),
+                                       fontSize=9.5, alignment=TA_CENTER, backColor=colors.HexColor('#073B3F'))
+        box_heading_style = ParagraphStyle('BoxHeading', parent=styles['Normal'], textColor=colors.HexColor('#073B3F'),
+                                           fontName='Helvetica-Bold', fontSize=10.5, spaceAfter=10)
+        label_style = ParagraphStyle('Label', parent=styles['Normal'], textColor=colors.HexColor('#7A8987'),
+                                     fontName='Helvetica-Bold', fontSize=7.5, spaceAfter=2)
+        value_style = ParagraphStyle('Value', parent=styles['Normal'], textColor=colors.HexColor('#111817'),
+                                     fontName='Helvetica-Bold', fontSize=10.5, spaceAfter=9, leading=13)
+        cancelled = sale.status == 'cancelled'
+        status_value_style = ParagraphStyle('StatusValue', parent=value_style, spaceAfter=0,
+                                            textColor=colors.HexColor('#C92035' if cancelled else '#16764F'))
+        footer_style = ParagraphStyle('Footer', parent=styles['Normal'], textColor=colors.HexColor('#7A8987'),
+                                      fontSize=8.5, alignment=TA_CENTER)
+        content_width = doc.width
+        elements = []
+
+        # ── Breakdown — sale nerathu save aana snapshot-la irundhu (discount making-la irundhu mattum) ──
+        qty = sale.qty or 1
+        net = float(sale.net_weight or 0)
+        rate = float(sale.rate_per_gram or 0)
+        making_pct = float(sale.making_percent or 0)
+        disc_pct = float(sale.discount_percent or 0)
+        base_metal = net * rate * qty
+        making_total = base_metal * making_pct / 100
+        stone_total = float(sale.stone_value or 0) * qty
+        die_total = float(sale.die_charge or 0) * qty
+        disc_pre_gst = base_metal * disc_pct / 100
+        subtotal = base_metal + making_total + stone_total + die_total - disc_pre_gst
+        final = float(sale.final_amount or 0)
+        gst_total = final - subtotal if base_metal else 0.0
+        receipt_id = f'BBSALE{sale.id:06d}'
+        seller_id_str, seller_name, _ = _holder_info(sale.seller)
+        seller_role = {'admin': 'Super Stockist', 'dealer': 'Distributor', 'sub_dealer': 'Wholesale Dealer',
+                       'promotor': 'Retailer'}.get(sale.seller.role, sale.seller.role)
+
+        logo_path = settings.BASE_DIR / 'accounts' / 'assets' / 'athirai_logo.png'
+        try:
+            logo_mark = RLImage(str(logo_path), width=56, height=56)
+        except Exception:
+            logo_mark = _gem_icon(32)
+        logo_col_w = 64
+        brand_row = Table([[logo_mark, Paragraph('ATHIRAI', brand_style), '']],
+                          colWidths=[logo_col_w, content_width - 2 * logo_col_w, logo_col_w])
+        brand_row.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        brand_row.hAlign = 'CENTER'
+        header_table = Table([[brand_row], [Paragraph('FINE JEWELLERY &bull; SALE RECEIPT', tagline_style)]],
+                             colWidths=[content_width])
+        header_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#073B3F')),
+            ('TOPPADDING', (0, 0), (0, 0), 18), ('BOTTOMPADDING', (0, 0), (0, 0), 6),
+            ('TOPPADDING', (0, 1), (0, 1), 0), ('BOTTOMPADDING', (0, 1), (0, 1), 18),
+        ]))
+        elements.append(header_table)
+        elements.append(Spacer(1, 18))
+
+        status_row = Table([['' if cancelled else _check_icon(11),
+                             Paragraph('Cancelled' if cancelled else 'Completed', status_value_style)]], colWidths=[15, None])
+        status_row.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        status_row.hAlign = 'LEFT'
+        box_style = TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F5F8F8')),
+            ('BOX', (0, 0), (-1, -1), 0.75, colors.HexColor('#D1DFDE')),
+            ('LEFTPADDING', (0, 0), (-1, -1), 16), ('RIGHTPADDING', (0, 0), (-1, -1), 16),
+            ('TOPPADDING', (0, 0), (-1, -1), 14), ('BOTTOMPADDING', (0, 0), (-1, -1), 14),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ])
+        sale_date = timezone.localtime(sale.created_at).strftime('%d %b %Y, %I:%M %p')
+        info_box = Table([[[
+            Paragraph('SALE INFORMATION', box_heading_style),
+            Paragraph('RECEIPT ID', label_style), Paragraph(receipt_id, value_style),
+            Paragraph('SALE DATE', label_style), Paragraph(sale_date, value_style),
+            Paragraph('SOLD BY', label_style),
+            Paragraph(f"{seller_name} ({seller_role}){f' · {seller_id_str}' if seller_id_str else ''}", value_style),
+            Paragraph('STATUS', label_style), status_row,
+        ]]], colWidths=[content_width * 0.48])
+        info_box.setStyle(box_style)
+        customer_box = Table([[[
+            Paragraph('CUSTOMER', box_heading_style),
+            Paragraph(sale.customer_name, value_style),
+            Paragraph(sale.customer_phone, ParagraphStyle('Phone', parent=value_style, fontSize=9.5, fontName='Helvetica', spaceAfter=0)),
+        ]]], colWidths=[content_width * 0.48])
+        customer_box.setStyle(box_style)
+        info_grid = Table([[info_box, '', customer_box]], colWidths=[content_width * 0.48, content_width * 0.04, content_width * 0.48])
+        info_grid.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        elements.append(info_grid)
+        elements.append(Spacer(1, 20))
+
+        elements.append(Paragraph('SALE DETAILS', box_heading_style))
+        purity = f"{(sale.metal or '').upper()} {(sale.grade or '').upper()}".strip()
+        if sale.kind == 'coin':
+            product_label = f"{purity} Coin {sale.coin_weight_label}"
+            category = 'Coin'
+        else:
+            product_label = f"{sale.product_name}{f' ({sale.product_code})' if sale.product_code else ''}"
+            category = (sale.category or 'Jewellery').title()
+        unit_final = final / qty if qty else final
+        data = [
+            ['Product', 'Metal / Purity', 'Net Wt', 'Category', 'Qty', 'Unit Price', 'Amount'],
+            [Paragraph(product_label, ParagraphStyle('Prod', parent=styles['Normal'], fontSize=9, leading=11)),
+             purity, f"{net:.3f} g" if net else '—', category, str(qty), f"Rs. {unit_final:,.2f}", f"Rs. {final:,.2f}"],
+        ]
+        col_fracs = [0.24, 0.14, 0.10, 0.12, 0.06, 0.16, 0.18]
+        table = Table(data, colWidths=[content_width * f for f in col_fracs])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#073B3F')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D1DFDE')),
+            ('ALIGN', (2, 0), (4, -1), 'CENTER'), ('ALIGN', (5, 0), (6, -1), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 8), ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        elements.append(table)
+        elements.append(Spacer(1, 4))
+
+        bl = ParagraphStyle('BL', parent=styles['Normal'], textColor=colors.HexColor('#5C706E'), fontSize=9.5)
+        bv = ParagraphStyle('BV', parent=styles['Normal'], textColor=colors.HexColor('#111817'), fontSize=9.5,
+                            fontName='Helvetica-Bold', alignment=TA_RIGHT)
+        dv = ParagraphStyle('DV', parent=bv, textColor=colors.HexColor('#C92035'))
+        summary_width = content_width * 0.62
+        rows = [[Paragraph(f'Base Metal ({net * qty:.3f} g × Rs. {rate:,.0f})', bl), Paragraph(f"Rs. {base_metal:,.2f}", bv)]]
+        if sale.kind == 'jewellery':
+            rows.append([Paragraph(f'Making Charge ({making_pct:g}%)', bl), Paragraph(f"Rs. {making_total:,.2f}", bv)])
+            if stone_total > 0:
+                rows.append([Paragraph('Stone Value', bl), Paragraph(f"Rs. {stone_total:,.2f}", bv)])
+            if die_total > 0:
+                rows.append([Paragraph('Die Charge', bl), Paragraph(f"Rs. {die_total:,.2f}", bv)])
+            rows.append([Paragraph(f'Making Discount ({disc_pct:g}%)', bl),
+                         Paragraph(f"− Rs. {disc_pre_gst:,.2f}" if disc_pre_gst > 0 else 'Rs. 0.00', dv)])
+        rows.append([Paragraph('GST (3%)', bl), Paragraph(f"Rs. {gst_total:,.2f}", bv)])
+        breakdown = Table(rows, colWidths=[summary_width * 0.64, summary_width * 0.36])
+        breakdown.hAlign = 'RIGHT'
+        breakdown.setStyle(TableStyle([
+            ('LEFTPADDING', (0, 0), (-1, -1), 16), ('RIGHTPADDING', (0, 0), (-1, -1), 16),
+            ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(breakdown)
+
+        total_table = Table([['TOTAL AMOUNT', f"Rs. {final:,.2f}"]], colWidths=[content_width * 0.6, content_width * 0.4])
+        total_table.setStyle(TableStyle([
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 16), ('RIGHTPADDING', (0, 0), (-1, -1), 16),
+            ('TOPPADDING', (0, 0), (-1, -1), 10), ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FDECEC' if cancelled else '#F5F8F8')),
+            ('LINEABOVE', (0, 0), (-1, 0), 0.75, colors.HexColor('#D1DFDE')),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, 0), 13),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#C92035' if cancelled else '#073B3F')),
+        ]))
+        elements.append(total_table)
+        if cancelled:
+            elements.append(Spacer(1, 6))
+            elements.append(Paragraph('This sale was cancelled — not a valid purchase receipt.',
+                                      ParagraphStyle('Cx', parent=footer_style, textColor=colors.HexColor('#C92035'), fontName='Helvetica-Bold')))
+        elements.append(Spacer(1, 22))
+
+        badge_text_style = ParagraphStyle('BadgeText', parent=styles['Normal'], fontSize=8.5,
+                                          fontName='Helvetica-Bold', textColor=colors.HexColor('#8A623D'))
+        badge_cells = []
+        for label in ['BIS Hallmarked', '100% Certified Jewellery', '100% Trust']:
+            pill = Table([[_check_icon(11, colors.HexColor('#BB8958')), Paragraph(label, badge_text_style)]], colWidths=[15, None])
+            pill.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+            pill.hAlign = 'CENTER'
+            badge_cells.append(pill)
+        badges_row = Table([badge_cells], colWidths=[None, None, None])
+        badges_row.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 14), ('RIGHTPADDING', (0, 0), (-1, -1), 14),
+            ('TOPPADDING', (0, 0), (-1, -1), 10), ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ]))
+        badges_row.hAlign = 'CENTER'
+        badges_wrapper = Table([[badges_row]], colWidths=[content_width])
+        badges_wrapper.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ('LINEABOVE', (0, 0), (-1, 0), 0.5, colors.HexColor('#E1EBEA')),
+        ]))
+        elements.append(badges_wrapper)
+        elements.append(Spacer(1, 10))
+        elements.append(Paragraph('Thank you for shopping with Athirai.', footer_style))
+
+        doc.build(elements)
+        buffer.seek(0)
+        return FileResponse(buffer, as_attachment=True, filename=f"athirai-sale-receipt-{receipt_id}.pdf",
+                            content_type='application/pdf')
+
+
 def _recharge_period_queryset(user, period, start_date=None, end_date=None):
     """Common filter logic — Today / Month / 6 Month / Custom date.
     WalletView, RechargeHistoryView, RechargeStatementView ella idhை than use pannum."""

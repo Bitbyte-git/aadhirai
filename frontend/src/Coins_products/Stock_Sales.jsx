@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import api from "../api";
+import api, { downloadSaleReceipt } from "../api";
 import CoinTabs from "./CoinTabs";
 import { SkeletonText } from "../components/Skeleton";
 import {
@@ -16,6 +16,7 @@ import {
   CloseIcon,
   CheckIcon,
   SparkleIcon,
+  DownloadIcon,
 } from "../components/SvgIcons";
 
 const ROLE_BADGE = {
@@ -138,6 +139,18 @@ export default function StockSales({ kind = "jewellery" }) {
 
   const showToast = (m) => { setToast(m); setTimeout(() => setToast(""), 2600); };
 
+  const [downloadingId, setDownloadingId] = useState(null);
+  const handleReceipt = async (id) => {
+    setDownloadingId(id);
+    try {
+      await downloadSaleReceipt(id);
+    } catch {
+      showToast("Receipt download failed");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   const confirmCancel = async () => {
     if (!cancelBox || cancelBox.busy) return;
     setCancelBox((b) => ({ ...b, busy: true }));
@@ -214,6 +227,9 @@ export default function StockSales({ kind = "jewellery" }) {
         .ss-price .off { font-size: 11px; font-weight: 800; color: #A0713F; background: #FDF3E4; border-radius: 6px; padding: 1px 6px; }
         .ss-status { font-size: 10.5px; font-weight: 800; padding: 3px 9px; border-radius: 999px; }
         .ss-status.done { background: #ECFDF5; color: #047857; } .ss-status.cancel { background: #FEF2F2; color: #B91C1C; }
+        .ss-receipt-btn { margin-top: 6px; border: 1px solid #CFE0DE; background: #FFFFFF; color: #073B3F; border-radius: 999px; padding: 4px 10px; font-size: 11.5px; font-weight: 800; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 4px; }
+        .ss-receipt-btn:disabled { opacity: 0.6; cursor: wait; }
+        .ss-spin.dark { width: 11px; height: 11px; border: 2px solid rgba(7,59,63,0.2); border-top-color: #073B3F; }
         .ss-cancel-btn { margin-top: 6px; border: 1px solid #FECACA; background: #FFFFFF; color: #B91C1C; border-radius: 999px; padding: 4px 10px; font-size: 11.5px; font-weight: 800; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 4px; }
         .ss-empty { text-align: center; padding: 56px 20px; background: #FFFFFF; border: 1px dashed #D6E2E1; border-radius: 18px; color: #7A8987; }
         .ss-cf-overlay { position: fixed; inset: 0; z-index: 1300; background: rgba(7,32,34,0.45); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; padding: 16px; }
@@ -390,11 +406,21 @@ export default function StockSales({ kind = "jewellery" }) {
                       {s.discount_percent > 0 && <span className="off">{s.discount_percent}% off</span>}
                       <span className={`ss-status ${cancelled ? "cancel" : "done"}`}>{cancelled ? "Cancelled" : "Completed"}</span>
                     </div>
-                    {s.can_cancel && (
-                      <button type="button" className="ss-cancel-btn" onClick={() => setCancelBox({ sale: s })}>
-                        <CloseIcon size={11} color="#B91C1C" /> Cancel
+                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        className="ss-receipt-btn"
+                        disabled={downloadingId === s.id}
+                        onClick={() => handleReceipt(s.id)}
+                      >
+                        {downloadingId === s.id ? <span className="ss-spin dark" /> : <DownloadIcon size={11} color="#073B3F" />} Receipt
                       </button>
-                    )}
+                      {s.can_cancel && (
+                        <button type="button" className="ss-cancel-btn" onClick={() => setCancelBox({ sale: s })}>
+                          <CloseIcon size={11} color="#B91C1C" /> Cancel
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

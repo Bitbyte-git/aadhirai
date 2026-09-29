@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api";
+import api, { downloadSaleReceipt } from "../api";
 import CoinTabs from "./CoinTabs";
 import { JewelleryCardSkeletonGrid } from "./JewellerySkeleton";
 import {
@@ -20,6 +20,7 @@ import {
   CartIcon,
   MinusIcon,
   UserIcon,
+  DownloadIcon,
 } from "../components/SvgIcons";
 
 const ROLE_BADGE_CONFIG = {
@@ -700,7 +701,12 @@ export default function AvailableJewellery() {
         }
         .aj-sell-done h3 { margin: 0; font-size: 18px; font-weight: 850; color: #073B3F; }
         .aj-sell-done-amt { font-size: 28px; font-weight: 900; color: #073B3F; margin: 6px 0 4px; }
-        .aj-sell-done p { margin: 0 0 18px; font-size: 13px; color: #5C706E; }
+        .aj-sell-done p { margin: 0 0 14px; font-size: 13px; color: #5C706E; }
+        .aj-sell-receipt {
+          width: 100%; height: 44px; margin-bottom: 10px; border: none; border-radius: 12px; cursor: pointer; font-family: inherit;
+          display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 800; color: #FFFFFF;
+          background: linear-gradient(135deg, #BB8958, #A0713F); box-shadow: 0 6px 16px rgba(187, 137, 88, 0.3);
+        }
         @media (max-width: 480px) {
           .aj-sell-card { padding: 18px 14px; border-radius: 18px; }
           .aj-sell-specs { grid-template-columns: repeat(2, 1fr); }
@@ -1514,6 +1520,9 @@ export default function AvailableJewellery() {
                   <h3>Sale recorded</h3>
                   <div className="aj-sell-done-amt">{fmt(sellDone.final_amount)}</div>
                   <p>{sellDone.qty} × {sellDone.product_name} · {sellDone.customer_name}</p>
+                  <button type="button" className="aj-sell-receipt" onClick={() => downloadSaleReceipt(sellDone.id).catch(() => setSellError("Receipt download failed"))}>
+                    <DownloadIcon size={15} color="#FFFFFF" /> Download Receipt
+                  </button>
                   <div className="aj-sell-actions">
                     <button type="button" className="aj-sell-cancel" onClick={() => navigate("/jewellery-sales")}>View Sales</button>
                     <button type="button" className="aj-sell-ok" onClick={() => setSellItem(null)}>Done</button>

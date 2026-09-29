@@ -86,4 +86,17 @@ export const downloadOrderReceipt = async (orderId) => {
   URL.revokeObjectURL(url)
 }
 
+// Store sale (Sell popup) receipt — Athirai design, customer order receipt maariye
+export const downloadSaleReceipt = async (saleId) => {
+  const res = await api.get(`/stock-sales/${saleId}/receipt/`, { responseType: 'blob' })
+  const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `athirai-sale-receipt-BBSALE${String(saleId).padStart(6, '0')}.pdf`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
 export default api

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api";
+import api, { downloadSaleReceipt } from "../api";
 import { SkeletonText } from "../components/Skeleton";
 import CoinTabs from "./CoinTabs";
 import {
@@ -23,6 +23,7 @@ import {
   CloseIcon,
   MinusIcon,
   UserIcon,
+  DownloadIcon,
 } from "../components/SvgIcons";
 
 // Anything under 1g reads clearer as milligrams (e.g. 0.2g -> 200 mg) than as a decimal gram.
@@ -822,7 +823,8 @@ export default function StoredCoins() {
         .sc-sell-done-icon { width: 68px; height: 68px; border-radius: 50%; margin: 0 auto 12px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #10B981, #047857); box-shadow: 0 10px 25px rgba(16, 185, 129, 0.35); }
         .sc-sell-done h3 { margin: 0; font-size: 18px; font-weight: 850; color: #073B3F; }
         .sc-sell-done-amt { font-size: 28px; font-weight: 900; color: #073B3F; margin: 6px 0 4px; }
-        .sc-sell-done p { margin: 0 0 18px; font-size: 13px; color: #5C706E; }
+        .sc-sell-done p { margin: 0 0 14px; font-size: 13px; color: #5C706E; }
+        .sc-sell-receipt { width: 100%; height: 44px; margin-bottom: 10px; border: none; border-radius: 12px; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 800; color: #FFFFFF; background: linear-gradient(135deg, #BB8958, #A0713F); box-shadow: 0 6px 16px rgba(187, 137, 88, 0.3); }
         @media (max-width: 480px) {
           .sc-sell-card { padding: 18px 14px; }
           .sc-sell-form { grid-template-columns: 1fr; }
@@ -1907,6 +1909,9 @@ export default function StoredCoins() {
                   <h3>Sale recorded</h3>
                   <div className="sc-sell-done-amt">{fmt(sellDone.final_amount)}</div>
                   <p>{sellDone.qty} × {label} {sellCoin.weight_label} · {sellDone.customer_name}</p>
+                  <button type="button" className="sc-sell-receipt" onClick={() => downloadSaleReceipt(sellDone.id).catch(() => setSellError("Receipt download failed"))}>
+                    <DownloadIcon size={15} color="#FFFFFF" /> Download Receipt
+                  </button>
                   <div className="sc-sell-actions">
                     <button type="button" className="sc-sell-cancel" onClick={() => navigate("/coin-sales")}>View Sales</button>
                     <button type="button" className="sc-sell-ok" onClick={() => setSellCoin(null)}>Done</button>

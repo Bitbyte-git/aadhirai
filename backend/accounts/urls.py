@@ -12,7 +12,7 @@ HierarchySubtreeOrdersView, HierarchyAdminsView, HierarchyChildrenView, SalesRep
  ReferrerInfoView, PublicCustomerRegisterView, RegisterSendOTPView, RegisterVerifyOTPView, GenerateReferralLinkView, RechargeCreateOrderView, RechargeVerifyPaymentView, WalletView, RechargeHistoryView, RechargeStatementView, PayWithCoinsView, PaymentsSummaryView, TierCommissionView, UserLookupView, SendCoinsView, AdminUserHistoryView, AdminSentHistoryView, AutoPayCreateView, AutoPayConfirmView, AutoPayStatusView, AutoPayToggleView, autopay_webhook,AutoPayMandateListView, AffordableProductsView,
  HierarchyPersonSearchView, SalesSummaryView, SalesTrendView, HierarchyNodeOrdersView, HierarchyNodeInfoView, HierarchyPathToNodeView, 
  JewelryStockView, JewelryRequestView, JewelryRequestApproveView, JewelryRequestRejectView,
- JewelryRequestForwardView, JewelryBuyCatalogView, StockSaleView, StockSaleCancelView,
+ JewelryRequestForwardView, JewelryBuyCatalogView, StockSaleView, StockSaleCancelView, StockSaleReceiptPDFView,
  MemberHoldingsDetailView, JewelryStockDetailView, OrderReceiptPDFView, GenericTablePDFView, AdminOrdersListView, OrderTrackingView,
  HierarchyTierDirectoryView,
 )
@@ -98,6 +98,7 @@ urlpatterns = [
     path('jewelry-requests/catalog/', JewelryBuyCatalogView.as_view()),
     path('stock-sales/', StockSaleView.as_view()),
     path('stock-sales/<int:pk>/cancel/', StockSaleCancelView.as_view()),
+    path('stock-sales/<int:pk>/receipt/', StockSaleReceiptPDFView.as_view()),
     path('my-hierarchy/', MyHierarchyView.as_view()),
     path('rewards/today/', TodayRewardsView.as_view()),
     path('login-reward-transactions/', LoginRewardTransactionView.as_view()),

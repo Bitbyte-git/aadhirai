@@ -92,7 +92,8 @@ function MoreFromCollection({ currentProductId, category, metal, gender, occasio
         <div className="more-collection-inner">
           <div style={{ height: 24, width: 220, borderRadius: 8, background: '#edf2f2', marginBottom: 20 }} />
           <div className="more-products-grid">
-            {[1, 2, 3, 4].map(i => (
+            {/* 8 = real section maari 2 full rows (desktop 4 × 2) — load aanadhum page jump aagaadhu */}
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
               <div key={i} className="more-skel-card">
                 <div className="more-skel-img" />
                 <div className="more-skel-line" style={{ width: '80%' }} />

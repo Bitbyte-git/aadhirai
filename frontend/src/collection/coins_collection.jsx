@@ -412,6 +412,9 @@ export default function CoinsCollection() {
   const [coinHasMore, setCoinHasMore] = useState(false)
   const [coinLoadingMore, setCoinLoadingMore] = useState(false)
   const coinLoadMoreRef = useRef(null)
+  const coinGridRef = useRef(null)
+  // Grid-la ippo evlo columns (auto-fill — 4/3/2) — skeleton eppovume full rows-a fill aaga
+  const [coinGridCols, setCoinGridCols] = useState(4)
 
   const isGold = metalFilter === 'gold'
   const isAllMetals = !metalFilter
@@ -520,6 +523,19 @@ export default function CoinsCollection() {
     observer.observe(el)
     return () => observer.disconnect()
   }, [coinHasMore, loading, coinPage, coinLoadingMore, metalFilter, gradeFilter])
+
+  useEffect(() => {
+    const el = coinGridRef.current
+    if (!el) return undefined
+    const measure = () => {
+      const n = getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length
+      if (n > 0) setCoinGridCols(n)
+    }
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    if (ro) ro.observe(el)
+    return () => { if (ro) ro.disconnect() }
+  }, [loading, products.length > 0])
 
   const sortedProducts = useMemo(() => {
     let list = [...products]
@@ -1804,8 +1820,9 @@ export default function CoinsCollection() {
 
           <div className="coins-results">
             {loading ? (
-              <section className="coins-grid">
-                {[1, 2, 3, 4, 5, 6].map(i => (
+              <section className="coins-grid" ref={coinGridRef}>
+                {/* 2 full rows — screen columns-ku yetha maari */}
+                {Array.from({ length: coinGridCols * 2 }, (_, i) => i).map(i => (
                   <div key={i} className="coin-premium-card" style={{ padding: 12 }}>
                     <div className="coin-stage bb-skel" style={{ minHeight: 180, borderRadius: 14, marginBottom: 12 }} />
                     <div className="bb-skel" style={{ width: '40%', height: 12, marginBottom: 8 }} />
@@ -1829,7 +1846,7 @@ export default function CoinsCollection() {
                 </div>
               </section>
             ) : (
-              <section className="coins-grid">
+              <section className="coins-grid" ref={coinGridRef}>
                 {sortedProducts.map(product => (
                   <CoinCard
                     key={product.id}
@@ -1840,18 +1857,20 @@ export default function CoinsCollection() {
                     onWishlist={toggleWishlist}
                   />
                 ))}
+                {/* Scroll skeleton adhe grid-kulla — kadaisi row gap fill + oru full row (desktop 4) */}
+                {coinLoadingMore && Array.from({ length: ((coinGridCols - (sortedProducts.length % coinGridCols)) % coinGridCols) + coinGridCols }).map((_, i) => (
+                  <div key={`more-skel-${i}`} className="coin-premium-card" style={{ padding: 12 }}>
+                    <div className="coin-stage bb-skel" style={{ minHeight: 180, borderRadius: 14, marginBottom: 12 }} />
+                    <div className="bb-skel" style={{ width: '40%', height: 12, marginBottom: 8 }} />
+                    <div className="bb-skel" style={{ width: '80%', height: 16, marginBottom: 8 }} />
+                    <div className="bb-skel" style={{ width: '50%', height: 18, marginBottom: 10 }} />
+                    <div className="bb-skel" style={{ width: '100%', height: 36, borderRadius: 999 }} />
+                  </div>
+                ))}
               </section>
             )}
             {coinHasMore && (
-              <div ref={coinLoadMoreRef} style={{ width: '100%', minHeight: 40, marginTop: 20 }}>
-                {coinLoadingMore && (
-                  <section className="coins-grid">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} style={{ aspectRatio: '1/1.15', borderRadius: 18, background: 'linear-gradient(90deg, #EAEFEF 25%, #F7F9F9 50%, #EAEFEF 75%)', backgroundSize: '200% 100%', animation: 'skelShimmer 1.5s infinite ease-in-out' }} />
-                    ))}
-                  </section>
-                )}
-              </div>
+              <div ref={coinLoadMoreRef} style={{ width: '100%', minHeight: 40, marginTop: 20 }} />
             )}
           </div>
         </div>

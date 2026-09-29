@@ -748,11 +748,20 @@ export default function SuperAdminHierarchySalesCount() {
           .stree-children{ margin-left:8px !important; padding-left:8px !important; }
           .stree-item{ padding:10px 12px !important; }
           .sstat-card{ min-width:100% !important; padding:14px 16px !important; }
-          .sprod-grid{ grid-template-columns:1fr !important; gap:12px !important; }
           .speriod-group{ width:100%; }
           .speriod-btn{ flex:1; padding:8px 6px; }
-          .sprod-card{ padding:12px !important; }
-          .sprod-img{ height:120px !important; }
+          /* Mobile-la oru line-ku 2 cards — compact-a fit aaga */
+          .sprod-grid{ grid-template-columns:repeat(2, minmax(0, 1fr)) !important; gap:10px !important; }
+          .sprod-card{ padding:9px !important; border-radius:12px !important; min-width:0; }
+          .sprod-img{ height:104px !important; margin-bottom:8px !important; border-radius:8px !important; }
+          .sprod-owner{ max-width:100%; box-sizing:border-box; padding:2px 7px !important; margin-bottom:6px !important; }
+          .sprod-owner span{ font-size:9.5px !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .sprod-name{ font-size:12px !important; line-height:1.3; }
+          .sprod-tags{ margin-bottom:6px !important; gap:4px !important; }
+          .sprod-tags span{ font-size:9px !important; padding:1px 7px !important; }
+          .sprod-row{ font-size:10.5px !important; padding:3px 0 !important; gap:4px; }
+          .sprod-label{ font-size:8.5px !important; letter-spacing:0.2px !important; }
+          .sprod-row span:last-child{ text-align:right; min-width:0; overflow-wrap:anywhere; }
         }
       `}</style>
 
@@ -895,7 +904,8 @@ export default function SuperAdminHierarchySalesCount() {
                                                <div
                           key={`${g.product_name}-${g.owner?.id}-${i}`}
                           className="sprod-card"
-                          style={{ animationDelay: `${i * 45}ms`, cursor: 'default' }}
+                          // Delay batch-kulla mattum (max ~0.3s) — munnadi i*45ms-na scroll page cards 1-3 sec invisible-a irundhuchu
+                          style={{ animationDelay: `${Math.min(i % ORDERS_PAGE_SIZE, 8) * 35}ms`, cursor: 'default' }}
                         >
                           <div className="sprod-img">
                             {imgUrl ? (
@@ -905,13 +915,13 @@ export default function SuperAdminHierarchySalesCount() {
                             )}
                           </div>
                           {g.owner && (
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 8, background: 'rgba(201,32,53,0.08)', border: '1px solid rgba(201,32,53,0.28)', borderRadius: 20, padding: '3px 10px' }}>
+                            <div className="sprod-owner" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 8, background: 'rgba(201,32,53,0.08)', border: '1px solid rgba(201,32,53,0.28)', borderRadius: 20, padding: '3px 10px' }}>
                               <IconUser color="#C92035" size={10} />
                               <span style={{ fontSize: 10.5, fontWeight: 800, color: '#C92035' }}>{g.owner.first_name} {g.owner.last_name || ''}</span>
                             </div>
                           )}
-                          <div style={{ fontSize: 14, fontWeight: 800, color: text, marginBottom: 2 }}>{g.product_name}</div>
-                          <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+                          <div className="sprod-name" style={{ fontSize: 14, fontWeight: 800, color: text, marginBottom: 2 }}>{g.product_name}</div>
+                          <div className="sprod-tags" style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
                             <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'capitalize', color: '#0C4044', background: 'rgba(12,64,68,0.08)', border: '1px solid rgba(12,64,68,0.24)', borderRadius: 20, padding: '2px 9px' }}>{g.metal}</span>
                             {(g.grade || g.category) && (
                               <span style={{ fontSize: 10, fontWeight: 700, color: '#CCA881', background: 'rgba(204,168,129,0.12)', border: '1px solid rgba(204,168,129,0.3)', borderRadius: 20, padding: '2px 9px' }}>{g.grade || g.category}</span>

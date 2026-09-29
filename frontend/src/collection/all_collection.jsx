@@ -460,21 +460,50 @@ function writeSubsecCache(key, data) {
     )
   }
 
+function SkeletonCards({ count }) {
+  return Array.from({ length: count }).map((_, i) => (
+    <div className="an-skeleton-card" key={`skel-${i}`}>
+      <div className="an-skeleton-img" />
+      <div className="an-skeleton-line" style={{ width: '70%', height: 14, marginTop: 12 }} />
+      <div className="an-skeleton-line" style={{ width: '45%', height: 12, marginTop: 8 }} />
+      <div className="an-skeleton-line" style={{ width: '55%', height: 16, marginTop: 8 }} />
+      <div className="an-skeleton-line" style={{ width: '85%', height: 32, borderRadius: 999, marginTop: 10, marginBottom: 12 }} />
+    </div>
+  ))
+}
+
 function SkeletonGrid({ count = 8 }) {
   return (
     <section className="an-products">
-      {Array.from({ length: count }).map((_, i) => (
-        <div className="an-skeleton-card" key={i}>
-          <div className="an-skeleton-img" />
-          <div className="an-skeleton-line" style={{ width: '70%', height: 14, marginTop: 12 }} />
-          <div className="an-skeleton-line" style={{ width: '45%', height: 12, marginTop: 8 }} />
-          <div className="an-skeleton-line" style={{ width: '55%', height: 16, marginTop: 8 }} />
-          <div className="an-skeleton-line" style={{ width: '85%', height: 32, borderRadius: 999, marginTop: 10, marginBottom: 12 }} />
-        </div>
-      ))}
+      <SkeletonCards count={count} />
     </section>
   )
 }
+
+// ── Product row-la ippo evlo cards (desktop 4, mobile 2…) nu first row-oda offsetTop vachi
+// measure pannum — scroll skeleton kadaisi row gap-a fill panni + oru full row kaata ──
+function useCardsPerRow(ref, deps) {
+  const [cols, setCols] = useState(4)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return undefined
+    const measure = () => {
+      const kids = Array.from(el.children)
+      if (!kids.length) return
+      const top = kids[0].offsetTop
+      const n = kids.filter(k => k.offsetTop === top).length
+      if (n > 0) setCols(n)
+    }
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    if (ro) ro.observe(el)
+    return () => { if (ro) ro.disconnect() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps)
+  return cols
+}
+
+const skeletonFillCount = (itemCount, cols) => ((cols - (itemCount % cols)) % cols) + cols
 
 // Reuses existing site photos (home page category rail + the Shop-by-Category
 // tiles already in this file) so the icon look stays consistent. Matched by
@@ -1305,6 +1334,7 @@ export default function AllCollection() {
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const loadMoreRef = useRef(null)
+  const productsGridRef = useRef(null)
 
   useEffect(() => {
     if (!localStorage.getItem('token')) return
@@ -1579,6 +1609,8 @@ export default function AllCollection() {
       return list
     }, [products, rates, sortBy])
 
+    const productCols = useCardsPerRow(productsGridRef, [loading, visibleProducts.length > 0])
+
     const copy = metalCopy[metalFilter] || {
       title: categoryFilter
         ? `${categoryFilter.charAt(0).toUpperCase()}${categoryFilter.slice(1)}`
@@ -1673,15 +1705,15 @@ export default function AllCollection() {
     <SkeletonGrid count={8} />
   ) : visibleProducts.length ? (
     <>
-      <section className="an-products">
+      <section className="an-products" ref={productsGridRef}>
         {visibleProducts.map(product => (
           <ProductCard key={product.id} product={product} rates={rates} navigate={navigate} wishlisted={wishlistedIds.has(product.id)} onWishlist={toggleWishlist} />
         ))}
+        {/* Scroll skeleton adhe grid-kulla — kadaisi row gap fill + oru full row (desktop 4) */}
+        {loadingMore && <SkeletonCards count={skeletonFillCount(visibleProducts.length, productCols)} />}
       </section>
       {hasMore && (
-        <div ref={loadMoreRef} className="an-load-more-sentinel">
-          {loadingMore && <SkeletonGrid count={8} />}
-        </div>
+        <div ref={loadMoreRef} className="an-load-more-sentinel" />
       )}
     </>
   ) : (
@@ -2985,6 +3017,9 @@ export default function AllCollection() {
         }
 
         .an-skeleton-card {
+          /* product card-oda adhe width — desktop row-ku 4 (grid layouts-la flex ignore aagum) */
+          min-width: 0;
+          flex: 0 0 calc(25% - 26px);
           border: 1px solid #eadfd3;
           border-radius: 10px;
           overflow: hidden;

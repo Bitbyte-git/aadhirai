@@ -28,7 +28,22 @@ export default function AffordableProducts() {
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const loadMoreRef = useRef(null)
+  const gridRef = useRef(null)
+  // Grid-la ippo evlo columns (5/4/3/2) — scroll skeleton kadaisi row gap fill + oru full row kaata
+  const [gridCols, setGridCols] = useState(4)
   const navigate=useNavigate()
+  useEffect(() => {
+    const el = gridRef.current
+    if (!el) return undefined
+    const measure = () => {
+      const n = getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length
+      if (n > 0) setGridCols(n)
+    }
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    if (ro) ro.observe(el)
+    return () => { if (ro) ro.disconnect() }
+  }, [loading, data])
   useEffect(()=>{window.scrollTo(0,0)},[])
   useEffect(()=>{
     const fetchData=async()=>{
@@ -122,13 +137,27 @@ export default function AffordableProducts() {
       <aside className="coin-balance-card"><span className="balance-orbit one"/><span className="balance-orbit two"/><div className="coin-medallion">₹</div><div className="coin-balance-copy"><small>AVAILABLE BALANCE</small><strong>{Number(data.wallet_coins).toLocaleString('en-IN')}</strong><span>Luxiva Coins</span></div><div className="coin-balance-value"><span>Redeemable value</span><b>₹{Number(data.max_affordable_price).toLocaleString('en-IN')}</b></div></aside>
     </section>
     <section className="coin-products-section"><header className="coin-products-heading"><div><span>CURATED FOR YOUR BALANCE</span><h2>Rewards within reach</h2></div><p>{filteredProducts.length} exclusive {filteredProducts.length===1?'piece':'pieces'} available</p></header>
-      {filteredProducts.length===0?<div className="coin-shop-empty">No products are available within your coin balance yet.</div>:<div className="coin-product-grid">{filteredProducts.map(p=><article className="coin-product-card" key={p.id} onClick={()=>navigate(`/product-display?category=${p.category}&metal=${p.metal}&id=${p.id}`)}>
+      {filteredProducts.length===0?<div className="coin-shop-empty">No products are available within your coin balance yet.</div>:<div className="coin-product-grid" ref={gridRef}>{filteredProducts.map(p=><article className="coin-product-card" key={p.id} onClick={()=>navigate(`/product-display?category=${p.category}&metal=${p.metal}&id=${p.id}`)}>
         <div className="coin-product-image">{p.image?<img src={p.image} alt={p.name}/>:<img className="fallback" src="/logo.png" alt={p.name}/>}<span className="coin-eligible"><i/> COIN ELIGIBLE</span><span className="coin-product-view">Discover piece <b>↗</b></span></div>
         <div className="coin-product-body"><span className="coin-product-category">{String(p.category||p.metal||'Luxiva').replaceAll('_',' ')}</span><h3>{p.name}</h3><div className="coin-product-meta"><div><small>YOUR COIN PRICE</small><strong>₹{Number(p.price).toLocaleString('en-IN')}</strong></div><button type="button" aria-label={`View ${p.name}`}>↗</button></div></div>
-      </article>)}</div>}
-      {hasMore && <div ref={loadMoreRef} style={{ width: '100%', minHeight: 40, marginTop: 20 }}>
-        {loadingMore && <div className="coin-product-grid">{Array.from({length:4}).map((_,i)=><div key={i} className="cs-skel-card"><div className="cs-skel cs-skel-image"/></div>)}</div>}
+      </article>)}
+        {/* Scroll skeleton adhe grid-kulla — kadaisi row gap fill + oru full row, real card maari full skeleton */}
+        {loadingMore && Array.from({ length: ((gridCols - (filteredProducts.length % gridCols)) % gridCols) + gridCols }).map((_, i) => (
+          <div key={`more-skel-${i}`} className="cs-skel-card">
+            <div className="cs-skel cs-skel-image" />
+            <div className="cs-skel-body">
+              <div className="cs-skel" style={{ width: '40%', height: 8, borderRadius: 4, marginBottom: 8 }} />
+              <div className="cs-skel" style={{ width: '85%', height: 16, borderRadius: 4, marginBottom: 6 }} />
+              <div className="cs-skel" style={{ width: '55%', height: 16, borderRadius: 4 }} />
+              <div className="cs-skel-meta">
+                <div className="cs-skel" style={{ width: 60, height: 15, borderRadius: 4 }} />
+                <div className="cs-skel" style={{ width: 35, height: 35, borderRadius: '50%' }} />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>}
+      {hasMore && <div ref={loadMoreRef} style={{ width: '100%', minHeight: 40, marginTop: 20 }} />}
     </section>
   </main><CustomerFooter/></div>
 }

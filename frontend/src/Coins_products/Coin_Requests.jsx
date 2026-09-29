@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { SkeletonText } from "../components/Skeleton";
@@ -32,7 +32,10 @@ const ROLE_DISPLAY = {
   sub_dealer: "Wholesale Dealer",
   promotor: "Retailer",
   customer: "Customer",
+  shop: "Shop",
 };
+
+const PAGE_SIZE = 20;
 
 const PERIOD_OPTIONS = [
   { key: "all", label: "All Time" },
@@ -42,24 +45,38 @@ const PERIOD_OPTIONS = [
   { key: "year", label: "This Year" },
 ];
 
-const LEADER_ROLE_OPTIONS = [
-  { key: "all", label: "All" },
-  { key: "admin", label: "Super Stockist" },
-  { key: "dealer", label: "Distributor" },
-  { key: "sub_dealer", label: "Wholesale Dealer" },
-  { key: "promotor", label: "Retailer" },
-  { key: "customer", label: "Customer" },
-];
+// Role filter pills — ovvoru role-kum avanga KEEZHA irukura roles mattum (Super Admin-ku ellaamey + Shop)
+const ROLE_CHAIN = ["admin", "dealer", "sub_dealer", "promotor"];
+const leaderRoleOptionsFor = (role) => {
+  let keys;
+  if (role === "super_admin") keys = [...ROLE_CHAIN, "shop"];
+  else if (role === "shop") keys = ["shop"];
+  else keys = ROLE_CHAIN.slice(ROLE_CHAIN.indexOf(role) + 1);
+  return [{ key: "all", label: "All" }, ...keys.map((k) => ({ key: k, label: ROLE_DISPLAY[k] }))];
+};
 
 export default function CoinRequests() {
   const navigate = useNavigate();
-  const [coinRequests, setCoinRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const [period, setPeriod] = useState("all");
   const [activeCard, setActiveCard] = useState("my_requests");
-  const [leaderRoleFilter, setLeaderRoleFilter] = useState("admin");
+  const [leaderRoleFilter, setLeaderRoleFilter] = useState("all");
+
+  // ── Server-driven board: counts full DB-la, list 20-20-a infinite scroll ──
+  const [items, setItems] = useState([]);
+  const [counts, setCounts] = useState({ my_requests: 0, my_approved: 0, leader_approved: 0, leader_pending: 0 });
+  const [roleCounts, setRoleCounts] = useState({});
+  const [approvableCount, setApprovableCount] = useState(0);
+  const [listTotal, setListTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const reqIdRef = useRef(0);
+  const nextOffsetRef = useRef(0);
+  const loadingMoreRef = useRef(false);
+  const sentinelRef = useRef(null);
 
   const [approvingReqId, setApprovingReqId] = useState(null);
   const [approvingAll, setApprovingAll] = useState(false);
@@ -75,6 +92,7 @@ export default function CoinRequests() {
   const currentUserId = Number(localStorage.getItem("user_id") || localStorage.getItem("id") || 0);
   const currentUserEmail = localStorage.getItem("email") || "";
   const isSuperAdmin = currentRole === "super_admin";
+  const LEADER_ROLE_OPTIONS = useMemo(() => leaderRoleOptionsFor(currentRole), [currentRole]);
 
   // Super Admin Password Modal States
   const [authModal, setAuthModal] = useState({
@@ -102,21 +120,71 @@ export default function CoinRequests() {
     }, 2200);
   };
 
-  const fetchCoinRequests = async () => {
+  const boardParams = (offset) => ({
+    box: "board", view: "requests", card: activeCard, period,
+    role: leaderRoleFilter, offset, limit: PAGE_SIZE,
+  });
+
+  // Card / period / role maarinaa (illa approve/decline aanaa) first page + full counts thirumba edukkum
+  useEffect(() => {
+    const reqId = ++reqIdRef.current;
     setLoading(true);
     setError("");
-    try {
-      const res = await api.get("/coin-requests/?box=all");
-      setCoinRequests(Array.isArray(res.data) ? res.data : []);
-    } catch {
-      setError("Failed to load coin requests.");
-    }
-    setLoading(false);
-  };
+    setHasMore(false);
+    loadingMoreRef.current = false;
+    setLoadingMore(false);
+    api.get("/coin-requests/", { params: boardParams(0) })
+      .then((res) => {
+        if (reqId !== reqIdRef.current) return;
+        const d = res.data || {};
+        setItems(d.items || []);
+        setCounts(d.counts || {});
+        setRoleCounts(d.role_counts || {});
+        setApprovableCount(d.approvable_count || 0);
+        setListTotal(d.list_total || 0);
+        setHasMore(!!d.has_more);
+        nextOffsetRef.current = (d.items || []).length;
+      })
+      .catch(() => { if (reqId === reqIdRef.current) setError("Failed to load coin requests."); })
+      .finally(() => { if (reqId === reqIdRef.current) setLoading(false); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCard, period, leaderRoleFilter, refreshKey]);
 
+  const fetchCoinRequests = () => setRefreshKey((k) => k + 1);
+
+  const loadMore = () => {
+    if (loadingMoreRef.current) return;
+    const reqId = reqIdRef.current;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    api.get("/coin-requests/", { params: boardParams(nextOffsetRef.current) })
+      .then((res) => {
+        if (reqId !== reqIdRef.current) return;
+        const newItems = res.data?.items || [];
+        setItems((prev) => [...prev, ...newItems]);
+        nextOffsetRef.current += newItems.length;
+        setHasMore(!!res.data?.has_more && newItems.length > 0);
+      })
+      .catch(() => { if (reqId === reqIdRef.current) setHasMore(false); })
+      .finally(() => {
+        if (reqId !== reqIdRef.current) return;
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      });
+  };
+  const loadMoreRef = useRef(loadMore);
+  loadMoreRef.current = loadMore;
+
+  // Bottom-ku 500px munnadiye adutha 20 fetch — wait panna vendaam
   useEffect(() => {
-    fetchCoinRequests();
-  }, []);
+    const el = sentinelRef.current;
+    if (!el || !hasMore || loading) return undefined;
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) loadMoreRef.current();
+    }, { rootMargin: "500px 0px" });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hasMore, loading, items.length]);
 
   // Execution functions
   const executeApprove = async (reqId, password = null) => {
@@ -270,33 +338,6 @@ export default function CoinRequests() {
     setAuthError("");
   };
 
-  // Date period helper
-  const isDateInPeriod = (dateStr, periodKey) => {
-    if (!dateStr || periodKey === "all") return true;
-    const d = new Date(dateStr);
-    const now = new Date();
-    if (isNaN(d.getTime())) return true;
-
-    if (periodKey === "today") {
-      return (
-        d.getDate() === now.getDate() &&
-        d.getMonth() === now.getMonth() &&
-        d.getFullYear() === now.getFullYear()
-      );
-    } else if (periodKey === "week") {
-      const day = now.getDay();
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), diff);
-      startOfWeek.setHours(0, 0, 0, 0);
-      return d >= startOfWeek;
-    } else if (periodKey === "month") {
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    } else if (periodKey === "year") {
-      return d.getFullYear() === now.getFullYear();
-    }
-    return true;
-  };
-
   // Days Pending / Duration calculation helper
   const getDaysPendingInfo = (createdAt, status, sentAt) => {
     if (!createdAt) return { text: "0 days", label: "0 days", badgeClass: "normal", days: 0 };
@@ -348,97 +389,14 @@ export default function CoinRequests() {
     }
   };
 
-  // Helper to determine if a request was sent to me for approval
-  const isIncomingToMe = (r) => {
-    if (isSuperAdmin) {
-      return (
-        r.requested_to_role === "super_admin" ||
-        r.requested_to === currentUserId ||
-        r.requested_to_email === currentUserEmail ||
-        !r.requested_to_role
-      );
-    }
-    return r.requested_to === currentUserId || r.requested_to_email === currentUserEmail;
-  };
-
-  // Helper to determine if a request was approved by this user (or Super Admin)
-  const isApprovedByMe = (r) => {
-    if (r.status !== "sent") return false;
-    if (isSuperAdmin) {
-      return (
-        r.reject_reason === "MASTER_MINT" ||
-        r.approved_by_role === "super_admin" ||
-        (currentUserId && r.approved_by === currentUserId) ||
-        (currentUserEmail && r.approved_by_email && r.approved_by_email.toLowerCase() === currentUserEmail.toLowerCase()) ||
-        (!r.approved_by && (
-          r.requested_to_role === "super_admin" ||
-          (currentUserId && r.requested_to === currentUserId) ||
-          (currentUserEmail && r.requested_to_email && r.requested_to_email.toLowerCase() === currentUserEmail.toLowerCase())
-        ))
-      );
-    }
-    return (
-      (currentUserId && r.approved_by === currentUserId) ||
-      (currentUserEmail && r.approved_by_email && r.approved_by_email.toLowerCase() === currentUserEmail.toLowerCase()) ||
-      (!r.approved_by && (
-        (currentUserId && r.requested_to === currentUserId) ||
-        (currentUserEmail && r.requested_to_email && r.requested_to_email.toLowerCase() === currentUserEmail.toLowerCase())
-      ))
-    );
-  };
-
-  // Helper to determine if a request was approved by downline leaders
-  const isLeaderApproved = (r) => {
-    if (r.status !== "sent") return false;
-    return !isApprovedByMe(r);
-  };
-
-  // Helper to determine if a pending request is pending with team leaders
-  const isLeaderRequest = (r) => {
-    if (isSuperAdmin) {
-      return r.requested_to_role && r.requested_to_role !== "super_admin";
-    }
-    return r.requested_by === currentUserId || r.requested_by_email === currentUserEmail;
-  };
-
-  // Count metrics for the 4 cards:
-  // - Pending requests count ALL-TIME (never filtered to 0 by period)
-  // - Approved requests count filtered by selected Period
-  const counts = useMemo(() => {
-    let allMyPending = 0;
-    let allLeaderPending = 0;
-    let myApp = 0;
-    let ldrApp = 0;
-
-    coinRequests.forEach((r) => {
-      // Pending counts (ALL-TIME)
-      if (r.status === "pending") {
-        if (isIncomingToMe(r)) allMyPending++;
-        if (isLeaderRequest(r)) allLeaderPending++;
-      }
-
-      // Approved counts (Period-Filtered)
-      if (r.status === "sent" && isDateInPeriod(r.sent_at || r.created_at, period)) {
-        if (isApprovedByMe(r)) myApp++;
-        if (isLeaderApproved(r)) ldrApp++;
-      }
-    });
-
-    return {
-      myRequests: allMyPending,
-      myApproved: myApp,
-      leaderApproved: ldrApp,
-      leaderPending: allLeaderPending,
-    };
-  }, [coinRequests, period, isSuperAdmin, currentUserId, currentUserEmail]);
-
-  // 4 Interactive Cards (My Pending Requests card removed as requested)
+  // ── 4 cards — counts ellaamey backend full-DB count (team scope-oda) ──
+  // Leader cards = en KEEZHA irukura team-kulla nadandhadhu + en sondha request (highlight)
   const cardList = [
     {
       id: "my_requests",
       label: isSuperAdmin ? "Requests" : "My Requests",
       sub: isSuperAdmin ? "All pending received requests" : "Pending from downline",
-      val: counts.myRequests,
+      val: counts.my_requests || 0,
       border: "#073B3F",
       iconBg: "#EFF6F6",
       iconColor: "#073B3F",
@@ -448,7 +406,7 @@ export default function CoinRequests() {
       id: "my_approved",
       label: "My Approved Requests",
       sub: isSuperAdmin ? "Approved by Super Admin" : "Approved by me",
-      val: counts.myApproved,
+      val: counts.my_approved || 0,
       border: "#166534",
       iconBg: "#E6F4EA",
       iconColor: "#166534",
@@ -457,8 +415,8 @@ export default function CoinRequests() {
     {
       id: "leader_approved",
       label: "Leader Approved Requests",
-      sub: isSuperAdmin ? "Approved by team leaders" : "Approved by my leader",
-      val: counts.leaderApproved,
+      sub: isSuperAdmin ? "Approved by team leaders" : "Approved within my team",
+      val: counts.leader_approved || 0,
       border: "#2563EB",
       iconBg: "#EFF6FF",
       iconColor: "#2563EB",
@@ -467,8 +425,8 @@ export default function CoinRequests() {
     {
       id: "leader_pending",
       label: "Leader Pending Requests",
-      sub: isSuperAdmin ? "Pending with team leaders" : "Pending with my leader",
-      val: counts.leaderPending,
+      sub: isSuperAdmin ? "Pending with team leaders" : "Pending within my team",
+      val: counts.leader_pending || 0,
       border: "#7C3AED",
       iconBg: "#F5F3FF",
       iconColor: "#7C3AED",
@@ -476,65 +434,10 @@ export default function CoinRequests() {
     },
   ];
 
-  // Helper to filter by leader role (All, admin, dealer, sub_dealer, promotor, customer)
-  const matchesLeaderRole = (r, roleKey) => {
-    if (!roleKey || roleKey === "all") return true;
-    if (roleKey === "customer") {
-      return r.requested_by_role === "customer" || r.requested_to_role === "customer";
-    }
-    return (
-      r.approved_by_role === roleKey ||
-      r.requested_to_role === roleKey ||
-      r.requested_by_role === roleKey
-    );
-  };
-
-  // Helper to get count for each role pill in Leader Approved / Pending requests
-  const getLeaderRoleCount = (roleKey) => {
-    const baseList = coinRequests.filter((r) => {
-      if (activeCard === "leader_pending") {
-        return isLeaderRequest(r) && r.status === "pending";
-      }
-      return isLeaderApproved(r) && isDateInPeriod(r.sent_at || r.created_at, period);
-    });
-    if (roleKey === "all") return baseList.length;
-    return baseList.filter((r) => matchesLeaderRole(r, roleKey)).length;
-  };
-
-  // Requests currently matching the Active Card & Role Filter:
-  // - Pending cards show all active pending requests
-  // - Approved cards show requests filtered by selected period
-  // - Leader Approved supports role sub-filter (All, Super Stockist [default], Distributor, Wholesale Dealer, Retailer, Customer)
-  const filteredRequests = useMemo(() => {
-    if (activeCard === "my_requests") {
-      return coinRequests.filter((r) => isIncomingToMe(r) && r.status === "pending");
-    }
-    if (activeCard === "leader_pending") {
-      return coinRequests.filter((r) => isLeaderRequest(r) && r.status === "pending");
-    }
-    if (activeCard === "my_approved") {
-      return coinRequests.filter(
-        (r) => isApprovedByMe(r) && isDateInPeriod(r.sent_at || r.created_at, period)
-      );
-    }
-    if (activeCard === "leader_approved") {
-      return coinRequests.filter(
-        (r) =>
-          isLeaderApproved(r) &&
-          isDateInPeriod(r.sent_at || r.created_at, period) &&
-          matchesLeaderRole(r, leaderRoleFilter)
-      );
-    }
-    return coinRequests;
-  }, [coinRequests, activeCard, period, leaderRoleFilter, isSuperAdmin, currentUserId, currentUserEmail]);
-
-  // Pending requests awaiting user's authorization for batch action
-  const pendingToApprove = useMemo(() => {
-    return coinRequests.filter((r) => {
-      const isToMe = isSuperAdmin || r.requested_to === currentUserId || r.requested_to_email === currentUserEmail;
-      return isToMe && r.status === "pending";
-    });
-  }, [coinRequests, isSuperAdmin, currentUserId, currentUserEmail]);
+  const getLeaderRoleCount = (roleKey) => roleCounts[roleKey] || 0;
+  const filteredRequests = items;
+  // Approve All — enakku approve panna vendiya ellaa pending (backend count)
+  const pendingToApprove = { length: approvableCount };
 
   const currentCardMeta = cardList.find((c) => c.id === activeCard) || cardList[0];
 
@@ -852,6 +755,27 @@ export default function CoinRequests() {
           padding: 22px 26px;
           box-shadow: 0 4px 18px rgba(7, 59, 63, 0.04);
           transition: all 180ms ease;
+        }
+
+        /* En sondha request / Super Admin (leader) approve pannadhu — gold highlight */
+        .cr-req-card.cr-req-highlight {
+          border: 1.5px solid #BB8958;
+          background: linear-gradient(135deg, #FFFCF7 0%, #FFFFFF 60%);
+          box-shadow: 0 0 0 3px rgba(187, 137, 88, 0.12), 0 8px 22px rgba(187, 137, 88, 0.12);
+        }
+        .cr-highlight-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 12px;
+          padding: 4px 12px;
+          border-radius: 999px;
+          background: rgba(187, 137, 88, 0.14);
+          border: 1px solid rgba(187, 137, 88, 0.45);
+          color: #8A5A2B;
+          font-size: 11.5px;
+          font-weight: 800;
+          letter-spacing: 0.02em;
         }
 
         .cr-req-card:hover {
@@ -1416,7 +1340,7 @@ export default function CoinRequests() {
               )}
             </h3>
             <span style={{ fontSize: "12.5px", color: "#5C706E" }}>
-              Showing {filteredRequests.length} matching requests ({PERIOD_OPTIONS.find((p) => p.key === period)?.label})
+              Showing {filteredRequests.length} of {listTotal} matching requests ({PERIOD_OPTIONS.find((p) => p.key === period)?.label})
             </span>
           </div>
         </div>
@@ -1469,7 +1393,11 @@ export default function CoinRequests() {
               const pendingInfo = getDaysPendingInfo(req.created_at, req.status, req.sent_at);
 
               return (
-                <article className="cr-req-card" key={req.id}>
+                <article className={`cr-req-card${req.highlight ? " cr-req-highlight" : ""}`} key={req.id}>
+                  {/* En sondha request / Super Admin (en leader) approve pannadhu — highlight */}
+                  {req.highlight && (
+                    <div className="cr-highlight-tag">★ {req.highlight_label}</div>
+                  )}
                   <div className="cr-req-head">
                     <div className="cr-req-main-info">
                       {/* Requester Identity Row */}
@@ -1665,6 +1593,18 @@ export default function CoinRequests() {
                 </article>
               );
             })}
+            {/* Infinite scroll — adutha 20 load aagumbodhu skeleton */}
+            {loadingMore && [0, 1].map((i) => (
+              <article className="cr-req-card" key={`more-skel-${i}`}>
+                <div className="cr-req-title-row">
+                  <SkeletonText width="140px" height="22px" />
+                  <SkeletonText width="100px" height="16px" />
+                  <SkeletonText width="70px" height="16px" />
+                </div>
+                <div style={{ marginTop: "12px" }}><SkeletonText width="100%" height="46px" /></div>
+              </article>
+            ))}
+            {hasMore && <div ref={sentinelRef} style={{ height: 1 }} />}
           </div>
         )}
       </div>

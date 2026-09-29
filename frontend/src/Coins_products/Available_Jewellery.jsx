@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import CoinTabs from "./CoinTabs";
@@ -25,6 +25,7 @@ const ROLE_BADGE_CONFIG = {
   dealer: { bg: "#E0F2FE", color: "#0369A1", border: "#BAE6FD", label: "Distributor" },
   sub_dealer: { bg: "#ECFDF5", color: "#047857", border: "#A7F3D0", label: "Wholesale Dealer" },
   promotor: { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", label: "Retailer" },
+  shop: { bg: "#FFF7ED", color: "#9A3412", border: "#FED7AA", label: "Shop" },
 };
 
 export default function AvailableJewellery() {
@@ -46,6 +47,21 @@ export default function AvailableJewellery() {
   const [copiedId, setCopiedId] = useState(null);
   const [previewItem, setPreviewItem] = useState(null);
 
+  // ── Team Holdings — ellaa roles-kum, avanga KEEZHA irukura team mattum (backend scope).
+  // Summary / role counts full team-ku backend; members 24-24-a infinite scroll ──
+  const [holdSummary, setHoldSummary] = useState({});
+  const [holdRoleCounts, setHoldRoleCounts] = useState({});
+  const [holdHasMore, setHoldHasMore] = useState(false);
+  const [holdLoadingMore, setHoldLoadingMore] = useState(false);
+  const [holdSearch, setHoldSearch] = useState("");
+  const holdReqIdRef = useRef(0);
+  const holdOffsetRef = useRef(0);
+  const holdLoadingMoreRef = useRef(false);
+  const holdSentinelRef = useRef(null);
+  const HOLD_ROLE_CHAIN = ["admin", "dealer", "sub_dealer", "promotor"];
+  const holdRoleKeys = isSuperAdmin
+    ? [...HOLD_ROLE_CHAIN, "shop"]
+    : currentRole === "shop" ? ["shop"] : HOLD_ROLE_CHAIN.slice(HOLD_ROLE_CHAIN.indexOf(currentRole) + 1);
   const getImageUrl = (url) => {
     if (!url) return null;
     if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
@@ -83,27 +99,86 @@ export default function AvailableJewellery() {
     setLoading(false);
   };
 
-  // Fetch team hierarchy holdings (Super Admin oversight)
+  // Fetch team holdings — paged, team-scoped (purity / role / search backend-la)
+  const holdParams = (offset) => ({
+    scope: "hierarchy", paged: "1", purity: hierarchyPurityFilter, role: roleFilter,
+    search: holdSearch, offset, limit: 24,
+  });
+
   const fetchHierarchyStock = async () => {
-    if (!isSuperAdmin) return;
+    const reqId = ++holdReqIdRef.current;
     setHierarchyLoading(true);
+    setHoldHasMore(false);
+    holdLoadingMoreRef.current = false;
+    setHoldLoadingMore(false);
     try {
-      const res = await api.get("/jewelry-stock/?scope=hierarchy");
-      setHierarchyStock(Array.isArray(res.data) ? res.data : []);
+      const res = await api.get("/jewelry-stock/", { params: holdParams(0) });
+      if (reqId !== holdReqIdRef.current) return;
+      const d = res.data || {};
+      setHierarchyStock(d.members || []);
+      setHoldSummary(d.summary || {});
+      setHoldRoleCounts(d.role_counts || {});
+      setHoldHasMore(!!d.has_more);
+      holdOffsetRef.current = (d.members || []).length;
     } catch (err) {
       console.error("Failed to load hierarchy jewellery holdings:", err);
-      setHierarchyStock([]);
+      if (reqId === holdReqIdRef.current) setHierarchyStock([]);
     } finally {
-      setHierarchyLoading(false);
+      if (reqId === holdReqIdRef.current) setHierarchyLoading(false);
     }
   };
 
+  const loadMoreHoldings = async () => {
+    if (holdLoadingMoreRef.current) return;
+    const reqId = holdReqIdRef.current;
+    holdLoadingMoreRef.current = true;
+    setHoldLoadingMore(true);
+    try {
+      const res = await api.get("/jewelry-stock/", { params: holdParams(holdOffsetRef.current) });
+      if (reqId !== holdReqIdRef.current) return;
+      const more = res.data?.members || [];
+      setHierarchyStock((prev) => [...prev, ...more]);
+      holdOffsetRef.current += more.length;
+      setHoldHasMore(!!res.data?.has_more && more.length > 0);
+    } catch {
+      if (reqId === holdReqIdRef.current) setHoldHasMore(false);
+    } finally {
+      if (reqId === holdReqIdRef.current) {
+        holdLoadingMoreRef.current = false;
+        setHoldLoadingMore(false);
+      }
+    }
+  };
+  const loadMoreHoldingsRef = useRef(loadMoreHoldings);
+  loadMoreHoldingsRef.current = loadMoreHoldings;
+
   useEffect(() => {
     fetchMyStock();
-    if (isSuperAdmin) {
-      fetchHierarchyStock();
-    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Search type panna 300ms wait panni backend-ku anuppum
+  useEffect(() => {
+    const t = setTimeout(() => setHoldSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Team tab open-la irukkumbodhu purity / role / search maarinaa first page thirumba
+  useEffect(() => {
+    if (scope !== "hierarchy") return;
+    fetchHierarchyStock();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, hierarchyPurityFilter, roleFilter, holdSearch]);
+
+  useEffect(() => {
+    const el = holdSentinelRef.current;
+    if (!el || !holdHasMore || hierarchyLoading) return undefined;
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) loadMoreHoldingsRef.current();
+    }, { rootMargin: "500px 0px" });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [holdHasMore, hierarchyLoading, hierarchyStock.length]);
 
   // Filtered my stock
   const filteredMyStock = useMemo(() => {
@@ -124,97 +199,33 @@ export default function AvailableJewellery() {
     });
   }, [myStock, metalFilter, search]);
 
-  // Filtered hierarchy members
+  // Filtered hierarchy members — role / purity / search backend-la; card-la matching purity items mattum kaatum
   const filteredHierarchy = useMemo(() => {
-    return hierarchyStock
-      .filter((user) => {
-        if (roleFilter !== "all" && user.role !== roleFilter) return false;
-
-        // Purity filter from top stat button cards
-        if (hierarchyPurityFilter === "gold_22k") {
-          if (!user.gold_22k_pieces || user.gold_22k_pieces <= 0) return false;
-        } else if (hierarchyPurityFilter === "gold_24k") {
-          if (!user.gold_24k_pieces || user.gold_24k_pieces <= 0) return false;
-        } else if (hierarchyPurityFilter === "silver_999") {
-          if (!user.silver_pieces || user.silver_pieces <= 0) return false;
-        }
-
-        if (search.trim()) {
-          const q = search.toLowerCase();
-          const matchName = user.name?.toLowerCase().includes(q);
-          const matchId = user.id_str?.toLowerCase().includes(q);
-          const matchEmail = user.email?.toLowerCase().includes(q);
-          const matchPhone = user.phone?.toLowerCase().includes(q);
-          const matchItem = user.items?.some(
-            (i) => i.name?.toLowerCase().includes(q) || i.product_code?.toLowerCase().includes(q)
-          );
-          if (!matchName && !matchId && !matchEmail && !matchPhone && !matchItem) return false;
-        }
-        return true;
-      })
-      .map((user) => {
-        if (hierarchyPurityFilter === "all") return user;
-        const matchingItems = (user.items || []).filter((i) => {
-          const m = (i.metal || "").toLowerCase();
-          const g = (i.grade || "").toLowerCase();
-          if (hierarchyPurityFilter === "gold_22k") {
-            return m === "gold" && !g.includes("24");
-          } else if (hierarchyPurityFilter === "gold_24k") {
-            return m === "gold" && g.includes("24");
-          } else if (hierarchyPurityFilter === "silver_999") {
-            return m === "silver";
-          }
-          return true;
-        });
-        return {
-          ...user,
-          items: matchingItems,
-        };
-      });
-  }, [hierarchyStock, roleFilter, hierarchyPurityFilter, search]);
-
-  // Hierarchy top aggregate stats
-  const hierarchyAggregates = useMemo(() => {
-    let totalPieces = 0;
-    let gold22kPieces = 0;
-    let gold22kGrams = 0;
-    let gold24kPieces = 0;
-    let gold24kGrams = 0;
-    let silverPieces = 0;
-    let silverGrams = 0;
-
-    hierarchyStock.forEach((u) => {
-      totalPieces += u.total_pieces || 0;
-      u.items?.forEach((i) => {
+    if (hierarchyPurityFilter === "all") return hierarchyStock;
+    return hierarchyStock.map((user) => ({
+      ...user,
+      items: (user.items || []).filter((i) => {
         const m = (i.metal || "").toLowerCase();
         const g = (i.grade || "").toLowerCase();
-        const qty = i.qty || 0;
-        const netGrams = (parseFloat(i.net_weight) || 0) * qty;
+        if (hierarchyPurityFilter === "gold_22k") return m === "gold" && !g.includes("24");
+        if (hierarchyPurityFilter === "gold_24k") return m === "gold" && g.includes("24");
+        if (hierarchyPurityFilter === "silver_999") return m === "silver";
+        return true;
+      }),
+    }));
+  }, [hierarchyStock, hierarchyPurityFilter]);
 
-        if (m === "gold" && g.includes("24")) {
-          gold24kPieces += qty;
-          gold24kGrams += netGrams;
-        } else if (m === "gold") {
-          gold22kPieces += qty;
-          gold22kGrams += netGrams;
-        } else if (m === "silver") {
-          silverPieces += qty;
-          silverGrams += netGrams;
-        }
-      });
-    });
-
-    return {
-      totalPieces,
-      gold22kPieces,
-      gold22kGrams: gold22kGrams.toFixed(2),
-      gold24kPieces,
-      gold24kGrams: gold24kGrams.toFixed(2),
-      silverPieces,
-      silverGrams: silverGrams.toFixed(2),
-    };
-  }, [hierarchyStock]);
-
+  // Hierarchy top aggregate stats — backend full-team summary (loaded page illa)
+  const hierarchyMembers = Number(holdSummary.members) || 0;
+  const hierarchyAggregates = {
+    totalPieces: Number(holdSummary.total_pieces) || 0,
+    gold22kPieces: Number(holdSummary.gold_22k_pieces) || 0,
+    gold22kGrams: (Number(holdSummary.gold_22k_grams) || 0).toFixed(2),
+    gold24kPieces: Number(holdSummary.gold_24k_pieces) || 0,
+    gold24kGrams: (Number(holdSummary.gold_24k_grams) || 0).toFixed(2),
+    silverPieces: Number(holdSummary.silver_999_pieces) || 0,
+    silverGrams: (Number(holdSummary.silver_999_grams) || 0).toFixed(2),
+  };
   return (
     <div className="aj-page">
       <style>{`
@@ -717,35 +728,35 @@ export default function AvailableJewellery() {
               <JewelryIcon size={26} color="#073B3F" /> Available Jewellery Holdings
             </h1>
             <p>
-              {isSuperAdmin
-                ? "Real-time audit of available jewellery assets, team vault custody, and allocation status."
+              {scope === "hierarchy"
+                ? (isSuperAdmin
+                  ? "Real-time audit of available jewellery assets, team vault custody, and allocation status."
+                  : "Live jewellery holdings of the members under you in your team.")
                 : "Your current in-hand available jewellery stock and custody holding."}
             </p>
           </div>
         </div>
 
-        {/* Super Admin Scope Toggle: Vault vs Hierarchy */}
-        {isSuperAdmin && (
-          <div className="aj-scope-bar">
-            <button
-              type="button"
-              className={`aj-scope-btn ${scope === "vault" ? "active" : ""}`}
-              onClick={() => setScope("vault")}
-            >
-              <SparkleIcon size={15} /> My Vault Stock ({myStock.length})
-            </button>
-            <button
-              type="button"
-              className={`aj-scope-btn ${scope === "hierarchy" ? "active" : ""}`}
-              onClick={() => setScope("hierarchy")}
-            >
-              <JewelryIcon size={15} /> Team Holdings Hierarchy ({hierarchyStock.length} members)
-            </button>
-          </div>
-        )}
+        {/* Scope Toggle: Vault vs Team Holdings (ellaa roles-kum — avanga team mattum) */}
+        <div className="aj-scope-bar">
+          <button
+            type="button"
+            className={`aj-scope-btn ${scope === "vault" ? "active" : ""}`}
+            onClick={() => setScope("vault")}
+          >
+            <SparkleIcon size={15} /> My Vault Stock ({myStock.length})
+          </button>
+          <button
+            type="button"
+            className={`aj-scope-btn ${scope === "hierarchy" ? "active" : ""}`}
+            onClick={() => setScope("hierarchy")}
+          >
+            <JewelryIcon size={15} /> Team Holdings{scope === "hierarchy" && !hierarchyLoading ? ` (${hierarchyMembers} members)` : ""}
+          </button>
+        </div>
 
         {/* Top 4 Stat Cards as Clickable Filter Buttons */}
-        {scope === "hierarchy" && isSuperAdmin ? (
+        {scope === "hierarchy" ? (
           <div className="aj-stats-grid">
             <div
               className={`aj-stat-card ${hierarchyPurityFilter === "all" ? "active" : ""}`}
@@ -893,12 +904,13 @@ export default function AvailableJewellery() {
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
             >
-              <option value="all">All Roles</option>
-              <option value="super_admin">Super Admin</option>
-              <option value="admin">Super Stockists</option>
-              <option value="dealer">Distributors</option>
-              <option value="sub_dealer">Wholesale Dealers</option>
-              <option value="promotor">Retailers</option>
+              <option value="all">All Roles ({hierarchyMembers})</option>
+              {/* En team-la irukura roles mattum */}
+              {holdRoleKeys.map((rk) => (
+                <option key={rk} value={rk}>
+                  {{ admin: "Super Stockists", dealer: "Distributors", sub_dealer: "Wholesale Dealers", promotor: "Retailers", shop: "Shops" }[rk]} ({holdRoleCounts[rk] || 0})
+                </option>
+              ))}
             </select>
           ) : (
             <select
@@ -914,7 +926,7 @@ export default function AvailableJewellery() {
         </div>
 
         {/* VIEW 1: HIERARCHY TEAM CARDS */}
-        {scope === "hierarchy" && isSuperAdmin ? (
+        {scope === "hierarchy" ? (
           hierarchyLoading ? (
             <JewelleryCardSkeletonGrid count={8} />
           ) : filteredHierarchy.length === 0 ? (
@@ -1145,6 +1157,11 @@ export default function AvailableJewellery() {
                   </div>
                 );
               })}
+              {/* Infinite scroll — adutha members load aagumbodhu */}
+              {holdHasMore && <div ref={holdSentinelRef} style={{ gridColumn: "1 / -1", height: 1 }} />}
+              {holdLoadingMore && (
+                <div style={{ gridColumn: "1 / -1" }}><JewelleryCardSkeletonGrid count={4} /></div>
+              )}
             </div>
           )
         ) : (

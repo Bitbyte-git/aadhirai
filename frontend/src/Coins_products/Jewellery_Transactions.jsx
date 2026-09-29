@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import CoinTabs from "./CoinTabs";
 import JewelleryImageModal from "./JewelleryImageModal";
 import { JewelleryTransactionSkeletonList } from "./JewellerySkeleton";
-import LoadMoreControl from "./LoadMoreControl";
 import {
   JewelryIcon,
   HistoryIcon,
@@ -26,10 +25,11 @@ import {
 
 const ROLE_BADGE_CONFIG = {
   super_admin: { bg: "#EFF6F6", color: "#073B3F", border: "#CEE3E1", label: "Super Admin" },
-  admin: { bg: "#F3E8FF", color: "#6B21A8", border: "#E9D5FF", label: "Admin" },
-  dealer: { bg: "#E0F2FE", color: "#0369A1", border: "#BAE6FD", label: "Dealer" },
-  sub_dealer: { bg: "#ECFDF5", color: "#047857", border: "#A7F3D0", label: "Sub Dealer" },
-  promotor: { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", label: "Promotor" },
+  admin: { bg: "#F3E8FF", color: "#6B21A8", border: "#E9D5FF", label: "Super Stockist" },
+  dealer: { bg: "#E0F2FE", color: "#0369A1", border: "#BAE6FD", label: "Distributor" },
+  sub_dealer: { bg: "#ECFDF5", color: "#047857", border: "#A7F3D0", label: "Wholesale Dealer" },
+  promotor: { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", label: "Retailer" },
+  shop: { bg: "#FFF7ED", color: "#9A3412", border: "#FED7AA", label: "Shop" },
 };
 
 const STATUS_CFG = {
@@ -43,9 +43,6 @@ export default function JewelleryTransactions() {
   const currentRole = localStorage.getItem("role") || "";
   const isSuperAdmin = currentRole === "super_admin";
   const myEmail = (localStorage.getItem("email") || "").toLowerCase();
-  const currentUserId = Number(
-    localStorage.getItem("user_id") || localStorage.getItem("id") || 0
-  );
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +57,14 @@ export default function JewelleryTransactions() {
   const [viewMode, setViewMode] = useState("cards"); // 'cards' | 'table'
   const [copiedId, setCopiedId] = useState(null);
   const [previewProduct, setPreviewProduct] = useState(null);
-  const [visibleLimit, setVisibleLimit] = useState(100);
+  // Leader role counts + infinite scroll — ellaamey backend (team scope-oda)
+  const [roleCounts, setRoleCounts] = useState({});
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const reqIdRef = useRef(0);
+  const nextOffsetRef = useRef(0);
+  const loadingMoreRef = useRef(false);
+  const sentinelRef = useRef(null);
   const [statusCounts, setStatusCounts] = useState({
     pending: 0,
     sent: 0,
@@ -80,21 +84,35 @@ export default function JewelleryTransactions() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  // ── Team-scoped board: card (My / Leader) + role + status + period + search backend-la.
+  // Counts full DB-la, list 30-30-a infinite scroll ──
+  const historyParams = (offsetVal, searchVal) => {
+    const params = {
+      box: "board", view: "transactions",
+      card: activeCard === "my_transactions" ? "my" : "leader",
+      role: leaderRoleFilter, status: filter, period, offset: offsetVal, limit: 30,
+    };
+    if (period === "custom") {
+      if (startDate) params.start_date = startDate;
+      if (endDate) params.end_date = endDate;
+    }
+    if (searchVal) params.search = searchVal;
+    return params;
+  };
+
   const fetchHistory = async (searchVal = "") => {
+    const reqId = ++reqIdRef.current;
     setLoading(true);
     setError("");
-    setVisibleLimit(100);
+    setHasMore(false);
+    loadingMoreRef.current = false;
+    setLoadingMore(false);
     try {
-      const params = { box: "history", status: filter, period, limit: 500 };
-      if (period === "custom") {
-        if (startDate) params.start_date = startDate;
-        if (endDate) params.end_date = endDate;
-      }
-      if (searchVal) params.search = searchVal;
-
-      const res = await api.get("/jewelry-requests/", { params });
-      setRequests(res.data.items || []);
-      setStatusCounts(res.data.status_counts || {
+      const res = await api.get("/jewelry-requests/", { params: historyParams(0, searchVal) });
+      if (reqId !== reqIdRef.current) return;
+      const d = res.data || {};
+      setRequests(d.items || []);
+      setStatusCounts(d.status_counts || {
         pending: 0,
         sent: 0,
         rejected: 0,
@@ -102,12 +120,15 @@ export default function JewelleryTransactions() {
         disbursed_pieces: 0,
         pending_pieces: 0,
       });
-      setMyTxCount(res.data.my_count || 0);
-      setLeaderTxCount(res.data.leader_count || 0);
+      setMyTxCount(d.counts?.my || 0);
+      setLeaderTxCount(d.counts?.leader || 0);
+      setRoleCounts(d.role_counts || {});
+      setHasMore(!!d.has_more);
+      nextOffsetRef.current = (d.items || []).length;
     } catch {
-      setError("Failed to load jewellery transaction history.");
+      if (reqId === reqIdRef.current) setError("Failed to load jewellery transaction history.");
     }
-    setLoading(false);
+    if (reqId === reqIdRef.current) setLoading(false);
   };
 
   useEffect(() => {
@@ -115,126 +136,58 @@ export default function JewelleryTransactions() {
       fetchHistory(searchTerm.trim());
     }, 250);
     return () => clearTimeout(handler);
-  }, [filter, searchTerm, period, startDate, endDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, searchTerm, period, startDate, endDate, activeCard, leaderRoleFilter]);
 
-  // Classification logic for My Transactions vs Leader Transactions
-  const isMyTransaction = (r) => {
-    if (isSuperAdmin) {
-      return (
-        r.reject_reason === "MASTER_MINT" ||
-        r.requested_by_role === "super_admin" ||
-        r.requested_to_role === "super_admin" ||
-        r.approved_by_role === "super_admin" ||
-        (currentUserId && (
-          r.requested_by === currentUserId ||
-          r.requested_to === currentUserId ||
-          r.approved_by === currentUserId
-        )) ||
-        (myEmail && (
-          (r.requested_by_email || "").toLowerCase() === myEmail ||
-          (r.requested_to_email || "").toLowerCase() === myEmail ||
-          (r.approved_by_email || "").toLowerCase() === myEmail
-        ))
-      );
-    }
-    // For Downline Leaders: Approved by me OR Buy requests made by me
-    const isBuyer =
-      (currentUserId && r.requested_by === currentUserId) ||
-      (myEmail && (r.requested_by_email || "").toLowerCase() === myEmail);
-    const isApprover =
-      (currentUserId && (r.requested_to === currentUserId || r.approved_by === currentUserId)) ||
-      (myEmail && (
-        (r.requested_to_email || "").toLowerCase() === myEmail ||
-        (r.approved_by_email || "").toLowerCase() === myEmail
-      ));
-    return isBuyer || isApprover;
-  };
-
-  const isLeaderTransaction = (r) => {
-    return !isMyTransaction(r);
-  };
-
-  const LEADER_ROLES = [
-    { key: "all", label: "All" },
-    { key: "admin", label: "Super Stockist" },
-    { key: "dealer", label: "Distributor" },
-    { key: "sub_dealer", label: "Wholesale Dealer" },
-    { key: "promotor", label: "Retailer" },
-    { key: "customer", label: "Customer" },
-  ];
-
-  const matchesLeaderRole = (r, roleKey) => {
-    if (!roleKey || roleKey === "all") return true;
-    if (roleKey === "customer") {
-      return r.requested_by_role === "customer" || r.requested_to_role === "customer";
-    }
-    return (
-      r.approved_by_role === roleKey ||
-      r.requested_to_role === roleKey ||
-      r.requested_by_role === roleKey
-    );
-  };
-
-  // myTxCount / leaderTxCount now come from the backend (full-dataset DB counts, see fetchHistory)
-  // instead of being derived by filtering the client-side, paginated `requests` array.
-
-  const getLeaderRoleCount = (roleKey) => {
-    const baseList = requests.filter(isLeaderTransaction);
-    if (roleKey === "all") return baseList.length;
-    return baseList.filter((r) => matchesLeaderRole(r, roleKey)).length;
-  };
-
-  const cardFilteredList = useMemo(() => {
-    if (activeCard === "my_transactions") {
-      return requests.filter(isMyTransaction);
-    } else {
-      let list = requests.filter(isLeaderTransaction);
-      if (leaderRoleFilter !== "all") {
-        list = list.filter((r) => matchesLeaderRole(r, leaderRoleFilter));
+  const loadMore = async () => {
+    if (loadingMoreRef.current) return;
+    const reqId = reqIdRef.current;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      const res = await api.get("/jewelry-requests/", { params: historyParams(nextOffsetRef.current, searchTerm.trim()) });
+      if (reqId !== reqIdRef.current) return;
+      const newItems = res.data?.items || [];
+      setRequests((prev) => [...prev, ...newItems]);
+      nextOffsetRef.current += newItems.length;
+      setHasMore(!!res.data?.has_more && newItems.length > 0);
+    } catch {
+      if (reqId === reqIdRef.current) setHasMore(false);
+    } finally {
+      if (reqId === reqIdRef.current) {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
       }
-      return list;
     }
-  }, [requests, activeCard, leaderRoleFilter, isSuperAdmin, currentUserId, myEmail]);
+  };
+  const loadMoreRef = useRef(loadMore);
+  loadMoreRef.current = loadMore;
 
-  const activeStatusCounts = useMemo(() => {
-    return {
-      total: cardFilteredList.length,
-      pending: cardFilteredList.filter((r) => r.status === "pending").length,
-      sent: cardFilteredList.filter((r) => r.status === "sent").length,
-      rejected: cardFilteredList.filter((r) => r.status === "rejected").length,
-    };
-  }, [cardFilteredList]);
+  // Bottom-ku 500px munnadiye adutha 30 fetch
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !hasMore || loading) return undefined;
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) loadMoreRef.current();
+    }, { rootMargin: "500px 0px" });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hasMore, loading, requests.length, viewMode]);
 
-  const displayedRequests = useMemo(() => {
-    let list = cardFilteredList;
+  // ── My vs Leader, role, status, search ellaamey backend-la (team scope) — list server tharradhu ──
+  // Leader role pills: en KEEZHA irukura roles mattum (Super Admin-ku ellaamey + Shop)
+  const LEADER_ROLES = useMemo(() => {
+    const chain = ["admin", "dealer", "sub_dealer", "promotor"];
+    let keys;
+    if (isSuperAdmin) keys = [...chain, "shop"];
+    else if (currentRole === "shop") keys = ["shop"];
+    else keys = chain.slice(chain.indexOf(currentRole) + 1);
+    return [{ key: "all", label: "All" }, ...keys.map((k) => ({ key: k, label: ROLE_BADGE_CONFIG[k].label }))];
+  }, [isSuperAdmin, currentRole]);
 
-    if (searchTerm.trim()) {
-      const q = searchTerm.toLowerCase().trim();
-      list = list.filter((r) => {
-        const idStr = String(r.id || "");
-        const byName = (r.requested_by_name || "").toLowerCase();
-        const byEmail = (r.requested_by_email || "").toLowerCase();
-        const byPhone = (r.requested_by_phone || "").toLowerCase();
-        const toName = (r.requested_to_name || "").toLowerCase();
-        const toEmail = (r.requested_to_email || "").toLowerCase();
-        const itemsStr = (r.items || [])
-          .map((i) => `${i.product?.name || ""} ${i.product?.product_code || ""}`)
-          .join(" ")
-          .toLowerCase();
-        return (
-          idStr.includes(q) ||
-          byName.includes(q) ||
-          byEmail.includes(q) ||
-          byPhone.includes(q) ||
-          toName.includes(q) ||
-          toEmail.includes(q) ||
-          itemsStr.includes(q)
-        );
-      });
-    }
-
-    return list;
-  }, [cardFilteredList, searchTerm]);
+  const getLeaderRoleCount = (roleKey) => roleCounts[roleKey] || 0;
+  const activeStatusCounts = statusCounts;
+  const displayedRequests = requests;
 
   // Export Formatted Document / PDF Report
   const exportDocument = () => {
@@ -994,6 +947,32 @@ export default function JewelleryTransactions() {
           transition: transform 180ms ease;
         }
 
+        /* En sondha request / Super Admin (leader) approve pannadhu — gold highlight */
+        .jt-tx-card.jt-tx-highlight {
+          border: 1.5px solid #BB8958;
+          background: linear-gradient(135deg, #FFFCF7 0%, #FFFFFF 60%);
+          box-shadow: 0 0 0 3px rgba(187, 137, 88, 0.12), 0 8px 22px rgba(187, 137, 88, 0.12);
+        }
+        .jt-highlight-tag {
+          align-self: flex-start;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 12px;
+          border-radius: 999px;
+          background: rgba(187, 137, 88, 0.14);
+          border: 1px solid rgba(187, 137, 88, 0.45);
+          color: #8A5A2B;
+          font-size: 11.5px;
+          font-weight: 800;
+        }
+        tr.jt-row-highlight td {
+          background: #FFFAF1;
+        }
+        tr.jt-row-highlight td:first-child {
+          box-shadow: inset 4px 0 0 #BB8958;
+        }
+
         .jt-tx-card:hover {
           transform: translateY(-2px);
           box-shadow: 0 8px 24px rgba(7, 59, 63, 0.08);
@@ -1303,7 +1282,7 @@ export default function JewelleryTransactions() {
           /* Cards View */
           <>
             <div className="jt-cards-grid">
-              {displayedRequests.slice(0, visibleLimit).map((r) => {
+              {displayedRequests.map((r) => {
               const statusInfo = STATUS_CFG[r.status] || STATUS_CFG.pending;
               const StatusIcon = statusInfo.icon;
               const reqRoleBadge = ROLE_BADGE_CONFIG[r.requested_by_role] || {
@@ -1317,7 +1296,9 @@ export default function JewelleryTransactions() {
               const isMint = r.reject_reason === "MASTER_MINT";
 
               return (
-                <div key={r.id} className="jt-tx-card">
+                <div key={r.id} className={`jt-tx-card${r.highlight ? " jt-tx-highlight" : ""}`}>
+                  {/* En sondha request / Super Admin (en leader) approve pannadhu — highlight */}
+                  {r.highlight && <div className="jt-highlight-tag">★ {r.highlight_label}</div>}
                   <div className="jt-tx-header">
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                       <span className="jt-tx-id">Transfer #{r.id}</span>
@@ -1536,12 +1517,9 @@ export default function JewelleryTransactions() {
               );
             })}
           </div>
-          <LoadMoreControl
-            currentVisible={visibleLimit}
-            totalCount={displayedRequests.length}
-            onLoadMore={(step) => setVisibleLimit((v) => v + step)}
-            itemName="transactions"
-          />
+          {/* Infinite scroll — scroll pannumbodhu adutha 30 automatic-a varum */}
+          {loadingMore && <JewelleryTransactionSkeletonList count={2} />}
+          {hasMore && <div ref={sentinelRef} style={{ height: 1 }} />}
         </>
         ) : (
           /* Table View */
@@ -1560,14 +1538,14 @@ export default function JewelleryTransactions() {
                   </tr>
                 </thead>
                 <tbody>
-                  {displayedRequests.slice(0, visibleLimit).map((r) => {
+                  {displayedRequests.map((r) => {
                   const statusInfo = STATUS_CFG[r.status] || STATUS_CFG.pending;
                   const isInward = (r.requested_by_email || "").toLowerCase() === myEmail;
                   const isOutward = (r.requested_to_email || "").toLowerCase() === myEmail;
                   const isMint = r.reject_reason === "MASTER_MINT";
 
                   return (
-                    <tr key={r.id} style={{ borderBottom: "1px solid #F0F4F4" }}>
+                    <tr key={r.id} className={r.highlight ? "jt-row-highlight" : undefined} title={r.highlight_label || undefined} style={{ borderBottom: "1px solid #F0F4F4" }}>
                       <td style={{ padding: "12px 16px", fontWeight: 700, color: "#073B3F" }}>
                         #{r.id}
                       </td>
@@ -1718,12 +1696,9 @@ export default function JewelleryTransactions() {
               </tbody>
             </table>
           </div>
-          <LoadMoreControl
-            currentVisible={visibleLimit}
-            totalCount={displayedRequests.length}
-            onLoadMore={(step) => setVisibleLimit((v) => v + step)}
-            itemName="transactions"
-          />
+          {/* Infinite scroll — scroll pannumbodhu adutha 30 automatic-a varum */}
+          {loadingMore && <JewelleryTransactionSkeletonList count={2} />}
+          {hasMore && <div ref={sentinelRef} style={{ height: 1 }} />}
         </>
       )}
       </div>

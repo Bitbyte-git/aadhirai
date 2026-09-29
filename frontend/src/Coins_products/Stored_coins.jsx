@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { SkeletonText } from "../components/Skeleton";
@@ -107,6 +107,7 @@ const ROLE_BADGE_CONFIG = {
   dealer: { bg: "#E0F2FE", color: "#0369A1", border: "#BAE6FD", label: "Distributor" },
   sub_dealer: { bg: "#ECFDF5", color: "#047857", border: "#A7F3D0", label: "Wholesale Dealer" },
   promotor: { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", label: "Retailer" },
+  shop: { bg: "#FFF7ED", color: "#9A3412", border: "#FED7AA", label: "Shop" },
 };
 
 export default function StoredCoins() {
@@ -126,6 +127,23 @@ export default function StoredCoins() {
   const [hierarchyLoading, setHierarchyLoading] = useState(false);
   const [roleFilter, setRoleFilter] = useState("all");
   const [copiedId, setCopiedId] = useState(null);
+
+  // ── Team Member Holdings — ellaa roles-kum, avanga KEEZHA irukura team mattum (backend scope).
+  // Summary / role counts full team-ku backend; members 24-24-a infinite scroll ──
+  const [holdSummary, setHoldSummary] = useState({});
+  const [holdRoleCounts, setHoldRoleCounts] = useState({});
+  const [holdListTotal, setHoldListTotal] = useState(0);
+  const [holdHasMore, setHoldHasMore] = useState(false);
+  const [holdLoadingMore, setHoldLoadingMore] = useState(false);
+  const [holdSearch, setHoldSearch] = useState("");
+  const holdReqIdRef = useRef(0);
+  const holdOffsetRef = useRef(0);
+  const holdLoadingMoreRef = useRef(false);
+  const holdSentinelRef = useRef(null);
+  const HOLD_ROLE_CHAIN = ["admin", "dealer", "sub_dealer", "promotor"];
+  const holdRoleKeys = isSuperAdmin
+    ? [...HOLD_ROLE_CHAIN, "shop"]
+    : currentRole === "shop" ? ["shop"] : HOLD_ROLE_CHAIN.slice(HOLD_ROLE_CHAIN.indexOf(currentRole) + 1);
 
   const handleCopy = (text, id) => {
     if (!text) return;
@@ -148,26 +166,86 @@ export default function StoredCoins() {
     setLoading(false);
   };
 
+  const holdParams = (offset) => ({
+    scope: "hierarchy", paged: "1", metal: selectedMetalFilter, role: roleFilter,
+    search: holdSearch, offset, limit: 24,
+  });
+
   const fetchHierarchyStock = async () => {
-    if (!isSuperAdmin) return;
+    const reqId = ++holdReqIdRef.current;
     setHierarchyLoading(true);
+    setHoldHasMore(false);
+    holdLoadingMoreRef.current = false;
+    setHoldLoadingMore(false);
     try {
-      const res = await api.get("/coin-stock/?scope=hierarchy");
-      setHierarchyStock(Array.isArray(res.data) ? res.data : []);
+      const res = await api.get("/coin-stock/", { params: holdParams(0) });
+      if (reqId !== holdReqIdRef.current) return;
+      const d = res.data || {};
+      setHierarchyStock(d.members || []);
+      setHoldSummary(d.summary || {});
+      setHoldRoleCounts(d.role_counts || {});
+      setHoldListTotal(d.list_total || 0);
+      setHoldHasMore(!!d.has_more);
+      holdOffsetRef.current = (d.members || []).length;
     } catch (err) {
       console.error("Failed to load team coin holdings:", err);
-      setHierarchyStock([]);
+      if (reqId === holdReqIdRef.current) setHierarchyStock([]);
     } finally {
-      setHierarchyLoading(false);
+      if (reqId === holdReqIdRef.current) setHierarchyLoading(false);
     }
   };
 
+  const loadMoreHoldings = async () => {
+    if (holdLoadingMoreRef.current) return;
+    const reqId = holdReqIdRef.current;
+    holdLoadingMoreRef.current = true;
+    setHoldLoadingMore(true);
+    try {
+      const res = await api.get("/coin-stock/", { params: holdParams(holdOffsetRef.current) });
+      if (reqId !== holdReqIdRef.current) return;
+      const more = res.data?.members || [];
+      setHierarchyStock((prev) => [...prev, ...more]);
+      holdOffsetRef.current += more.length;
+      setHoldHasMore(!!res.data?.has_more && more.length > 0);
+    } catch {
+      if (reqId === holdReqIdRef.current) setHoldHasMore(false);
+    } finally {
+      if (reqId === holdReqIdRef.current) {
+        holdLoadingMoreRef.current = false;
+        setHoldLoadingMore(false);
+      }
+    }
+  };
+  const loadMoreHoldingsRef = useRef(loadMoreHoldings);
+  loadMoreHoldingsRef.current = loadMoreHoldings;
+
   useEffect(() => {
     fetchStock();
-    if (isSuperAdmin) {
-      fetchHierarchyStock();
-    }
-  }, [isSuperAdmin]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Search type panna 300ms wait panni backend-ku anuppum
+  useEffect(() => {
+    const t = setTimeout(() => setHoldSearch(searchTerm.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  // Team tab open-la irukkumbodhu metal / role / search maarinaa first page thirumba
+  useEffect(() => {
+    if (scope !== "hierarchy") return;
+    fetchHierarchyStock();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, selectedMetalFilter, roleFilter, holdSearch]);
+
+  useEffect(() => {
+    const el = holdSentinelRef.current;
+    if (!el || !holdHasMore || hierarchyLoading) return undefined;
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) loadMoreHoldingsRef.current();
+    }, { rootMargin: "500px 0px" });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [holdHasMore, hierarchyLoading, hierarchyStock.length]);
 
   // Vault Stock calculations
   const totalCoins = coinStock.reduce((sum, s) => sum + (Number(s.qty) || 0), 0);
@@ -198,56 +276,20 @@ export default function StoredCoins() {
   const gold24Total = grouped.find((g) => g.metal === "gold_24k")?.groupTotal || 0;
   const silver999Total = grouped.find((g) => g.metal === "silver_999")?.groupTotal || 0;
 
-  // Hierarchy Stock calculations
-  const hierarchyTotalCoins = hierarchyStock.reduce((sum, u) => sum + (Number(u.total_pieces) || 0), 0);
-  const hierarchyTotalGrams = hierarchyStock.reduce((sum, u) => sum + (Number(u.total_grams) || 0), 0);
+  // Hierarchy Stock summary — backend full-team aggregate (loaded page illa)
+  const hierarchyMembers = Number(holdSummary.members) || 0;
+  const hierarchyTotalCoins = Number(holdSummary.total_pieces) || 0;
+  const hierarchyTotalGrams = Number(holdSummary.total_grams) || 0;
+  const hierarchyGold22kPieces = Number(holdSummary.gold_22k_pieces) || 0;
+  const hierarchyGold22kGrams = Number(holdSummary.gold_22k_grams) || 0;
+  const hierarchyGold24kPieces = Number(holdSummary.gold_24k_pieces) || 0;
+  const hierarchyGold24kGrams = Number(holdSummary.gold_24k_grams) || 0;
+  const hierarchySilverPieces = Number(holdSummary.silver_999_pieces) || 0;
+  const hierarchySilverGrams = Number(holdSummary.silver_999_grams) || 0;
 
-  const hierarchyGold22kPieces = hierarchyStock.reduce((sum, u) => {
-    return sum + (u.items?.filter((i) => i.metal_type === "gold_22k").reduce((s, i) => s + (Number(i.qty) || 0), 0) || 0);
-  }, 0);
-  const hierarchyGold22kGrams = hierarchyStock.reduce((sum, u) => {
-    return sum + (u.items?.filter((i) => i.metal_type === "gold_22k").reduce((s, i) => s + ((Number(i.weight_grams) || 0) * (Number(i.qty) || 0)), 0) || 0);
-  }, 0);
-
-  const hierarchyGold24kPieces = hierarchyStock.reduce((sum, u) => {
-    return sum + (u.items?.filter((i) => i.metal_type === "gold_24k").reduce((s, i) => s + (Number(i.qty) || 0), 0) || 0);
-  }, 0);
-  const hierarchyGold24kGrams = hierarchyStock.reduce((sum, u) => {
-    return sum + (u.items?.filter((i) => i.metal_type === "gold_24k").reduce((s, i) => s + ((Number(i.weight_grams) || 0) * (Number(i.qty) || 0)), 0) || 0);
-  }, 0);
-
-  const hierarchySilverPieces = hierarchyStock.reduce((sum, u) => {
-    return sum + (u.items?.filter((i) => i.metal_type === "silver_999").reduce((s, i) => s + (Number(i.qty) || 0), 0) || 0);
-  }, 0);
-  const hierarchySilverGrams = hierarchyStock.reduce((sum, u) => {
-    return sum + (u.items?.filter((i) => i.metal_type === "silver_999").reduce((s, i) => s + ((Number(i.weight_grams) || 0) * (Number(i.qty) || 0)), 0) || 0);
-  }, 0);
-
-  const roleCounts = {
-    admin: hierarchyStock.filter((u) => u.role === "admin").length,
-    dealer: hierarchyStock.filter((u) => u.role === "dealer").length,
-    sub_dealer: hierarchyStock.filter((u) => u.role === "sub_dealer").length,
-    promotor: hierarchyStock.filter((u) => u.role === "promotor").length,
-  };
-
-  const filteredHierarchy = hierarchyStock.filter((member) => {
-    if (roleFilter !== "all" && member.role !== roleFilter) return false;
-    if (selectedMetalFilter !== "all") {
-      const hasMetal = member.items?.some((it) => it.metal_type === selectedMetalFilter && (Number(it.qty) || 0) > 0);
-      if (!hasMetal) return false;
-    }
-    if (!searchTerm.trim()) return true;
-    const q = searchTerm.toLowerCase();
-    const matchesName = member.name?.toLowerCase().includes(q);
-    const matchesId = member.id_str?.toLowerCase().includes(q);
-    const matchesPhone = member.phone?.includes(q);
-    const matchesEmail = member.email?.toLowerCase().includes(q);
-    const matchesCoins = member.items?.some((it) =>
-      it.weight_label?.toLowerCase().includes(q) || it.metal_type?.toLowerCase().includes(q)
-    );
-    return matchesName || matchesId || matchesPhone || matchesEmail || matchesCoins;
-  });
-
+  const roleCounts = holdRoleCounts;
+  // Metal / role / search filter backend-la aayiduchu
+  const filteredHierarchy = hierarchyStock;
   return (
     <div className="sc-root">
       <style>{`
@@ -1064,8 +1106,10 @@ export default function StoredCoins() {
               </span>
             </h1>
             <p className="sc-header-sub">
-              {isSuperAdmin && scope === "hierarchy"
-                ? "Oversee live coin holdings across all downline super stockists, distributors, wholesale dealers, and retailers."
+              {scope === "hierarchy"
+                ? (isSuperAdmin
+                  ? "Oversee live coin holdings across all downline super stockists, distributors, wholesale dealers, and retailers."
+                  : "Live coin holdings of the members under you in your team.")
                 : "Vault coin stock across purity and denomination weights."}
             </p>
           </div>
@@ -1078,28 +1122,23 @@ export default function StoredCoins() {
           </div>
         )}
 
-        {/* Super Admin Switch: My Vault Stock vs Team Hierarchy Holdings */}
-        {isSuperAdmin && (
-          <div className="sc-scope-bar">
-            <button
-              className={`sc-scope-tab ${scope === "vault" ? "active" : ""}`}
-              onClick={() => setScope("vault")}
-            >
-              <CoinIcon size={16} color={scope === "vault" ? "#073B3F" : "#7A8987"} />
-              <span>My Vault Stock ({totalCoins.toLocaleString()} pcs)</span>
-            </button>
-            <button
-              className={`sc-scope-tab ${scope === "hierarchy" ? "active" : ""}`}
-              onClick={() => {
-                setScope("hierarchy");
-                if (hierarchyStock.length === 0) fetchHierarchyStock();
-              }}
-            >
-              <UsersIcon size={16} color={scope === "hierarchy" ? "#073B3F" : "#7A8987"} />
-              <span>Team Member Holdings ({hierarchyStock.length} members · {hierarchyTotalCoins.toLocaleString()} pcs)</span>
-            </button>
-          </div>
-        )}
+        {/* Switch: My Vault Stock vs Team Member Holdings (ellaa roles-kum — avanga team mattum) */}
+        <div className="sc-scope-bar">
+          <button
+            className={`sc-scope-tab ${scope === "vault" ? "active" : ""}`}
+            onClick={() => setScope("vault")}
+          >
+            <CoinIcon size={16} color={scope === "vault" ? "#073B3F" : "#7A8987"} />
+            <span>My Vault Stock ({totalCoins.toLocaleString()} pcs)</span>
+          </button>
+          <button
+            className={`sc-scope-tab ${scope === "hierarchy" ? "active" : ""}`}
+            onClick={() => setScope("hierarchy")}
+          >
+            <UsersIcon size={16} color={scope === "hierarchy" ? "#073B3F" : "#7A8987"} />
+            <span>Team Member Holdings{scope === "hierarchy" && !hierarchyLoading ? ` (${hierarchyMembers} members · ${hierarchyTotalCoins.toLocaleString()} pcs)` : ""}</span>
+          </button>
+        </div>
 
         {/* VIEW 1: MY VAULT STOCK */}
         {scope === "vault" && (
@@ -1326,8 +1365,8 @@ export default function StoredCoins() {
           </>
         )}
 
-        {/* VIEW 2: TEAM HIERARCHY HOLDINGS (SUPER ADMIN ONLY) */}
-        {scope === "hierarchy" && isSuperAdmin && (
+        {/* VIEW 2: TEAM MEMBER HOLDINGS — ellaa roles-kum, avanga team mattum */}
+        {scope === "hierarchy" && (
           <>
             {/* 4 Stat Cards for Hierarchy Holdings (Gold 22k, Gold 24k, Silver 999 weights & pieces) */}
             <div className="sc-stats-grid">
@@ -1356,7 +1395,7 @@ export default function StoredCoins() {
                   {hierarchyLoading ? <SkeletonText width="60px" height="30px" /> : hierarchyTotalCoins.toLocaleString()}
                 </div>
                 <div className="sc-stat-sub" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span>{hierarchyStock.length} members · {formatWeight(hierarchyTotalGrams)} total</span>
+                  <span>{hierarchyMembers} members · {formatWeight(hierarchyTotalGrams)} total</span>
                   {selectedMetalFilter === "all" && (
                     <span style={{ fontSize: "10px", fontWeight: 800, color: "#073B3F", background: "#D1DFDE", padding: "1px 6px", borderRadius: "4px" }}>ALL</span>
                   )}
@@ -1480,32 +1519,18 @@ export default function StoredCoins() {
                   className={`sc-filter-pill ${roleFilter === "all" ? "active" : ""}`}
                   onClick={() => setRoleFilter("all")}
                 >
-                  All ({hierarchyStock.length})
+                  All ({hierarchyMembers})
                 </button>
-                <button
-                  className={`sc-filter-pill ${roleFilter === "admin" ? "active" : ""}`}
-                  onClick={() => setRoleFilter("admin")}
-                >
-                  Super Stockists ({roleCounts.admin})
-                </button>
-                <button
-                  className={`sc-filter-pill ${roleFilter === "dealer" ? "active" : ""}`}
-                  onClick={() => setRoleFilter("dealer")}
-                >
-                  Distributors ({roleCounts.dealer})
-                </button>
-                <button
-                  className={`sc-filter-pill ${roleFilter === "sub_dealer" ? "active" : ""}`}
-                  onClick={() => setRoleFilter("sub_dealer")}
-                >
-                  Wholesale Dealers ({roleCounts.sub_dealer})
-                </button>
-                <button
-                  className={`sc-filter-pill ${roleFilter === "promotor" ? "active" : ""}`}
-                  onClick={() => setRoleFilter("promotor")}
-                >
-                  Retailers ({roleCounts.promotor})
-                </button>
+                {/* En team-la irukura roles mattum */}
+                {holdRoleKeys.map((rk) => (
+                  <button
+                    key={rk}
+                    className={`sc-filter-pill ${roleFilter === rk ? "active" : ""}`}
+                    onClick={() => setRoleFilter(rk)}
+                  >
+                    {{ admin: "Super Stockists", dealer: "Distributors", sub_dealer: "Wholesale Dealers", promotor: "Retailers", shop: "Shops" }[rk]} ({roleCounts[rk] || 0})
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -1721,8 +1746,18 @@ export default function StoredCoins() {
                     </article>
                   );
                 })}
+                {/* Infinite scroll — adutha members load aagumbodhu skeleton */}
+                {holdLoadingMore && [0, 1, 2, 3].map((i) => (
+                  <div key={`more-skel-${i}`} className="sc-member-card">
+                    <SkeletonText width="140px" height="18px" />
+                    <SkeletonText width="80%" height="22px" style={{ marginTop: "10px" }} />
+                    <SkeletonText width="100%" height="60px" style={{ marginTop: "14px" }} />
+                    <SkeletonText width="100%" height="90px" style={{ marginTop: "14px" }} />
+                  </div>
+                ))}
               </div>
             )}
+            {holdHasMore && <div ref={holdSentinelRef} style={{ height: 1 }} />}
           </>
         )}
       </div>

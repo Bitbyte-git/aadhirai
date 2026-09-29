@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { SkeletonText } from "../components/Skeleton";
@@ -28,6 +28,16 @@ const COIN_METAL_LABELS_TEXT = {
   gold_22k: "Gold 22K (916)",
   gold_24k: "Gold 24K (999)",
   silver_999: "Silver 999",
+};
+
+const ROLE_LABEL = {
+  super_admin: "Super Admin",
+  admin: "Super Stockist",
+  dealer: "Distributor",
+  sub_dealer: "Wholesale Dealer",
+  promotor: "Retailer",
+  customer: "Customer",
+  shop: "Shop",
 };
 
 const STATUS_CFG = {
@@ -65,18 +75,12 @@ export default function TransactionHistory() {
   const [filter, setFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("cards"); // "cards" | "table"
-  const [offset, setOffset] = useState(0);
-  const [limit, setLimit] = useState(50);
   const [totalCount, setTotalCount] = useState(0);
   const [copiedId, setCopiedId] = useState(null);
   const [toast, setToast] = useState("");
 
   const currentRole = localStorage.getItem("role") || "";
   const isSuperAdmin = currentRole === "super_admin";
-  const myEmail = (localStorage.getItem("email") || "").toLowerCase();
-  const currentUserId = Number(
-    localStorage.getItem("user_id") || localStorage.getItem("id") || 0
-  );
 
   // Date / Period filter state (default: 'all' as requested)
   const [period, setPeriod] = useState("all"); // 'all' | 'day' | 'week' | 'month' | 'year' | 'custom'
@@ -96,6 +100,13 @@ export default function TransactionHistory() {
   // Backend-computed, full-dataset (not just the currently loaded page) headline counts
   const [myTxCount, setMyTxCount] = useState(0);
   const [leaderTxCount, setLeaderTxCount] = useState(0);
+  // Leader role pill counts + infinite scroll — ellaamey backend (team scope-oda)
+  const [roleCounts, setRoleCounts] = useState({});
+  const [hasMore, setHasMore] = useState(false);
+  const reqIdRef = useRef(0);
+  const nextOffsetRef = useRef(0);
+  const loadingMoreRef = useRef(false);
+  const sentinelRef = useRef(null);
 
   const showToast = (text) => {
     setToast(text);
@@ -110,33 +121,50 @@ export default function TransactionHistory() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  // ── Team-scoped board: card (My / Leader) + role + status + period + search ellaamey backend-la.
+  // Counts full DB-la, list 30-30-a infinite scroll ──
+  const historyParams = (offsetVal, searchVal) => {
+    const params = {
+      box: "board", view: "transactions",
+      card: activeCard === "my_transactions" ? "my" : "leader",
+      role: leaderRoleFilter, status: filter, period, offset: offsetVal, limit: 30,
+    };
+    if (period === "custom") {
+      if (startDate) params.start_date = startDate;
+      if (endDate) params.end_date = endDate;
+    }
+    if (searchVal) params.search = searchVal;
+    return params;
+  };
+
   const fetchHistory = async (searchVal = "") => {
+    const reqId = ++reqIdRef.current;
     setLoading(true);
     setError("");
+    setHasMore(false);
+    loadingMoreRef.current = false;
+    setLoadingMore(false);
     try {
-      const params = { box: "history", status: filter, offset: 0, limit: 100, period };
-      if (period === "custom") {
-        if (startDate) params.start_date = startDate;
-        if (endDate) params.end_date = endDate;
-      }
-      if (searchVal) params.search = searchVal;
-      const res = await api.get("/coin-requests/", { params });
-      setRequests(res.data.items || []);
-      setTotalCount(res.data.total_count || 0);
-      setStatusCounts(res.data.status_counts || { pending: 0, sent: 0, rejected: 0, total: 0, disbursed_pieces: 0, pending_pieces: 0 });
-      setMyTxCount(res.data.my_count || 0);
-      setLeaderTxCount(res.data.leader_count || 0);
+      const res = await api.get("/coin-requests/", { params: historyParams(0, searchVal) });
+      if (reqId !== reqIdRef.current) return;
+      const d = res.data || {};
+      setRequests(d.items || []);
+      setTotalCount(d.list_total || 0);
+      setStatusCounts(d.status_counts || { pending: 0, sent: 0, rejected: 0, total: 0, disbursed_pieces: 0, pending_pieces: 0 });
+      setMyTxCount(d.counts?.my || 0);
+      setLeaderTxCount(d.counts?.leader || 0);
+      setRoleCounts(d.role_counts || {});
+      setHasMore(!!d.has_more);
+      nextOffsetRef.current = (d.items || []).length;
       try {
-        sessionStorage.setItem(STATS_CACHE_KEY, JSON.stringify(res.data.status_counts));
+        sessionStorage.setItem(STATS_CACHE_KEY, JSON.stringify(d.status_counts));
       } catch {
         /* ignore */
       }
-      setOffset(100);
-      setLimit(50);
     } catch {
-      setError("Failed to load coin transactions.");
+      if (reqId === reqIdRef.current) setError("Failed to load coin transactions.");
     }
-    setLoading(false);
+    if (reqId === reqIdRef.current) setLoading(false);
   };
 
   useEffect(() => {
@@ -144,29 +172,43 @@ export default function TransactionHistory() {
       fetchHistory(searchTerm.trim());
     }, 250);
     return () => clearTimeout(handler);
-  }, [filter, searchTerm, period, startDate, endDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, searchTerm, period, startDate, endDate, activeCard, leaderRoleFilter]);
 
   const loadMore = async () => {
+    if (loadingMoreRef.current) return;
+    const reqId = reqIdRef.current;
+    loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
-      const params = { box: "history", status: filter, offset, limit, period };
-      if (period === "custom") {
-        if (startDate) params.start_date = startDate;
-        if (endDate) params.end_date = endDate;
-      }
-      if (searchTerm.trim()) params.search = searchTerm.trim();
-      const res = await api.get("/coin-requests/", { params });
-      const newItems = res.data.items || [];
+      const res = await api.get("/coin-requests/", { params: historyParams(nextOffsetRef.current, searchTerm.trim()) });
+      if (reqId !== reqIdRef.current) return;
+      const newItems = res.data?.items || [];
       setRequests((prev) => [...prev, ...newItems]);
-      setOffset((prev) => prev + limit);
-      setLimit(50);
+      nextOffsetRef.current += newItems.length;
+      setHasMore(!!res.data?.has_more && newItems.length > 0);
     } catch {
-      showToast("Failed to fetch more records.");
+      if (reqId === reqIdRef.current) setHasMore(false);
+    } finally {
+      if (reqId === reqIdRef.current) {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      }
     }
-    setLoadingMore(false);
   };
+  const loadMoreRef = useRef(loadMore);
+  loadMoreRef.current = loadMore;
 
-  const hasMore = requests.length < totalCount;
+  // Bottom-ku 500px munnadiye adutha 30 fetch — Load More button thevai illa
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !hasMore || loading) return undefined;
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) loadMoreRef.current();
+    }, { rootMargin: "500px 0px" });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hasMore, loading, requests.length, viewMode]);
 
   const formatTime = (iso) => {
     if (!iso) return "-";
@@ -180,128 +222,21 @@ export default function TransactionHistory() {
     });
   };
 
-  // Classification logic for My Transactions vs Leader Transactions
-  const isMyTransaction = (r) => {
-    if (isSuperAdmin) {
-      return (
-        r.reject_reason === "MASTER_MINT" ||
-        r.requested_by_role === "super_admin" ||
-        r.requested_to_role === "super_admin" ||
-        r.approved_by_role === "super_admin" ||
-        (currentUserId && (
-          r.requested_by === currentUserId ||
-          r.requested_to === currentUserId ||
-          r.approved_by === currentUserId
-        )) ||
-        (myEmail && (
-          (r.requested_by_email || "").toLowerCase() === myEmail ||
-          (r.requested_to_email || "").toLowerCase() === myEmail ||
-          (r.approved_by_email || "").toLowerCase() === myEmail
-        ))
-      );
-    }
-    // For Downline Leaders: Approved by me OR Buy requests made by me
-    const isBuyer =
-      (currentUserId && r.requested_by === currentUserId) ||
-      (myEmail && (r.requested_by_email || "").toLowerCase() === myEmail);
-    const isApprover =
-      (currentUserId && (r.requested_to === currentUserId || r.approved_by === currentUserId)) ||
-      (myEmail && (
-        (r.requested_to_email || "").toLowerCase() === myEmail ||
-        (r.approved_by_email || "").toLowerCase() === myEmail
-      ));
-    return isBuyer || isApprover;
-  };
+  // ── My vs Leader, role, status, search ellaamey backend-la (team scope) — list server tharradhu ──
+  // Leader role pills: en KEEZHA irukura roles mattum (Super Admin-ku ellaamey + Shop)
+  const LEADER_ROLES = useMemo(() => {
+    const chain = ["admin", "dealer", "sub_dealer", "promotor"];
+    const labels = { admin: "Super Stockist", dealer: "Distributor", sub_dealer: "Wholesale Dealer", promotor: "Retailer", shop: "Shop" };
+    let keys;
+    if (isSuperAdmin) keys = [...chain, "shop"];
+    else if (currentRole === "shop") keys = ["shop"];
+    else keys = chain.slice(chain.indexOf(currentRole) + 1);
+    return [{ key: "all", label: "All" }, ...keys.map((k) => ({ key: k, label: labels[k] }))];
+  }, [isSuperAdmin, currentRole]);
 
-  const isLeaderTransaction = (r) => {
-    return !isMyTransaction(r);
-  };
-
-  const LEADER_ROLES = [
-    { key: "all", label: "All" },
-    { key: "admin", label: "Super Stockist" },
-    { key: "dealer", label: "Distributor" },
-    { key: "sub_dealer", label: "Wholesale Dealer" },
-    { key: "promotor", label: "Retailer" },
-    { key: "customer", label: "Customer" },
-  ];
-
-  const matchesLeaderRole = (r, roleKey) => {
-    if (!roleKey || roleKey === "all") return true;
-    if (roleKey === "customer") {
-      return r.requested_by_role === "customer" || r.requested_to_role === "customer";
-    }
-    return (
-      r.approved_by_role === roleKey ||
-      r.requested_to_role === roleKey ||
-      r.requested_by_role === roleKey
-    );
-  };
-
-  // myTxCount / leaderTxCount now come from the backend (full-dataset DB counts, see fetchHistory)
-  // instead of being derived by filtering the client-side, paginated `requests` array.
-
-  const getLeaderRoleCount = (roleKey) => {
-    const baseList = requests.filter(isLeaderTransaction);
-    if (roleKey === "all") return baseList.length;
-    return baseList.filter((r) => matchesLeaderRole(r, roleKey)).length;
-  };
-
-  const cardFilteredList = useMemo(() => {
-    if (activeCard === "my_transactions") {
-      return requests.filter(isMyTransaction);
-    } else {
-      let list = requests.filter(isLeaderTransaction);
-      if (leaderRoleFilter !== "all") {
-        list = list.filter((r) => matchesLeaderRole(r, leaderRoleFilter));
-      }
-      return list;
-    }
-  }, [requests, activeCard, leaderRoleFilter, isSuperAdmin, currentUserId, myEmail]);
-
-  const activeStatusCounts = useMemo(() => {
-    return {
-      total: cardFilteredList.length,
-      pending: cardFilteredList.filter((r) => r.status === "pending").length,
-      sent: cardFilteredList.filter((r) => r.status === "sent").length,
-      rejected: cardFilteredList.filter((r) => r.status === "rejected").length,
-    };
-  }, [cardFilteredList]);
-
-  const filteredRequests = useMemo(() => {
-    let list = cardFilteredList;
-    if (!searchTerm.trim()) return list;
-    const q = searchTerm.toLowerCase().trim();
-    return list.filter((r) => {
-      const idStr = (r.requested_by_id_str || "").toLowerCase();
-      const name = (r.requested_by_name || "").toLowerCase();
-      const phone = (r.requested_by_phone || "").toLowerCase();
-      const email = (r.requested_by_email || "").toLowerCase();
-      const role = (r.requested_by_role || "").toLowerCase();
-      const toIdStr = (r.requested_to_id_str || "").toLowerCase();
-      const toName = (r.requested_to_name || "").toLowerCase();
-      const toPhone = (r.requested_to_phone || "").toLowerCase();
-      const toEmail = (r.requested_to_email || "").toLowerCase();
-      const toRole = (r.requested_to_role || "").toLowerCase();
-      const itemsStr = (r.items || [])
-        .map((i) => `${i.metal_type} ${i.weight_label}`)
-        .join(" ")
-        .toLowerCase();
-      return (
-        idStr.includes(q) ||
-        name.includes(q) ||
-        phone.includes(q) ||
-        email.includes(q) ||
-        role.includes(q) ||
-        toIdStr.includes(q) ||
-        toName.includes(q) ||
-        toPhone.includes(q) ||
-        toEmail.includes(q) ||
-        toRole.includes(q) ||
-        itemsStr.includes(q)
-      );
-    });
-  }, [cardFilteredList, searchTerm]);
+  const getLeaderRoleCount = (roleKey) => roleCounts[roleKey] || 0;
+  const activeStatusCounts = statusCounts;
+  const filteredRequests = requests;
 
   // Export Formatted Document / PDF Report
   const exportDocument = () => {
@@ -1118,6 +1053,32 @@ export default function TransactionHistory() {
           transition: all 180ms ease;
         }
 
+        /* En sondha request / Super Admin (leader) approve pannadhu — gold highlight */
+        .ct-tx-card.ct-tx-highlight {
+          border: 1.5px solid #BB8958;
+          background: linear-gradient(135deg, #FFFCF7 0%, #FFFFFF 60%);
+          box-shadow: 0 0 0 3px rgba(187, 137, 88, 0.12), 0 8px 22px rgba(187, 137, 88, 0.12);
+        }
+        .ct-highlight-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 12px;
+          padding: 4px 12px;
+          border-radius: 999px;
+          background: rgba(187, 137, 88, 0.14);
+          border: 1px solid rgba(187, 137, 88, 0.45);
+          color: #8A5A2B;
+          font-size: 11.5px;
+          font-weight: 800;
+        }
+        tr.ct-row-highlight td {
+          background: #FFFAF1 !important;
+        }
+        tr.ct-row-highlight td:first-child {
+          box-shadow: inset 4px 0 0 #BB8958;
+        }
+
         .ct-tx-card:hover {
           border-color: #073B3F;
           box-shadow: 0 8px 24px rgba(7, 59, 63, 0.08);
@@ -1792,7 +1753,9 @@ export default function TransactionHistory() {
                   );
 
                   return (
-                    <article className="ct-tx-card" key={req.id}>
+                    <article className={`ct-tx-card${req.highlight ? " ct-tx-highlight" : ""}`} key={req.id}>
+                      {/* En sondha request / Super Admin (en leader) approve pannadhu — highlight */}
+                      {req.highlight && <div className="ct-highlight-tag">★ {req.highlight_label}</div>}
                       {/* Card Header */}
                       <div className="ct-tx-header">
                         <div className="ct-tx-id-group">
@@ -1836,7 +1799,7 @@ export default function TransactionHistory() {
                           <div className="ct-flow-name-row">
                             <span className="ct-flow-name">{req.requested_by_name || "Member"}</span>
                             <span className="ct-flow-role-badge">
-                              {req.requested_by_role?.replace('_', ' ') || "Requester"}
+                              {ROLE_LABEL[req.requested_by_role] || req.requested_by_role?.replace('_', ' ') || "Requester"}
                             </span>
                           </div>
 
@@ -1887,7 +1850,7 @@ export default function TransactionHistory() {
                           <div className="ct-flow-name-row">
                             <span className="ct-flow-name">{req.requested_to_name || "Vault / Parent"}</span>
                             <span className="ct-flow-role-badge approver">
-                              {req.requested_to_role?.replace('_', ' ') || "Approver"}
+                              {ROLE_LABEL[req.requested_to_role] || req.requested_to_role?.replace('_', ' ') || "Approver"}
                             </span>
                           </div>
 
@@ -2037,7 +2000,7 @@ export default function TransactionHistory() {
                       const StatusIcon = cfg.icon;
                       const totalPiecesInOrder = (req.items || []).reduce((sum, it) => sum + (Number(it.qty) || 0), 0);
                       return (
-                        <tr key={req.id}>
+                        <tr key={req.id} className={req.highlight ? "ct-row-highlight" : undefined} title={req.highlight_label || undefined}>
                           <td>
                             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
@@ -2058,7 +2021,7 @@ export default function TransactionHistory() {
                                   padding: "2px 6px",
                                   borderRadius: "4px"
                                 }}>
-                                  {req.requested_by_role?.replace('_', ' ') || "Requester"}
+                                  {ROLE_LABEL[req.requested_by_role] || req.requested_by_role?.replace('_', ' ') || "Requester"}
                                 </span>
                               </div>
                               <div style={{ fontWeight: 800, color: "#111817", fontSize: "13.5px" }}>
@@ -2088,7 +2051,7 @@ export default function TransactionHistory() {
                                   padding: "2px 6px",
                                   borderRadius: "4px"
                                 }}>
-                                  {req.requested_to_role?.replace('_', ' ') || "Approver"}
+                                  {ROLE_LABEL[req.requested_to_role] || req.requested_to_role?.replace('_', ' ') || "Approver"}
                                 </span>
                               </div>
                               <div style={{ fontWeight: 700, color: "#073B3F", fontSize: "13px" }}>
@@ -2172,29 +2135,18 @@ export default function TransactionHistory() {
           </div>
         )}
 
-        {/* Load More Button */}
-        {hasMore && !loadingMore && !searchTerm && (
-          <div style={{ display: "flex", justifyContent: "center", marginTop: "24px" }}>
-            <button
-              type="button"
-              style={{
-                background: "#073B3F",
-                color: "#FFFFFF",
-                border: "none",
-                borderRadius: "12px",
-                padding: "10px 24px",
-                fontSize: "13px",
-                fontWeight: 700,
-                cursor: "pointer",
-                boxShadow: "0 4px 14px rgba(7, 59, 63, 0.15)",
-                transition: "all 180ms ease",
-              }}
-              onClick={loadMore}
-            >
-              Load More ({requests.length} of {totalCount})
-            </button>
+        {/* Infinite scroll — scroll pannumbodhu adutha 30 automatic-a varum */}
+        {loadingMore && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "16px" }}>
+            {[0, 1].map((i) => (
+              <div key={i} className="ct-tx-card">
+                <SkeletonText width="45%" height="18px" />
+                <div style={{ marginTop: "12px" }}><SkeletonText width="100%" height="56px" /></div>
+              </div>
+            ))}
           </div>
         )}
+        {hasMore && <div ref={sentinelRef} style={{ height: 1 }} />}
       </div>
     </div>
   );

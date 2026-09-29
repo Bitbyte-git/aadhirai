@@ -1,11 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "../api";
 import CoinTabs from "./CoinTabs";
 import JewelleryImageModal from "./JewelleryImageModal";
 import { JewelleryRequestSkeletonList } from "./JewellerySkeleton";
 import ActionSuccessModal from "./ActionSuccessModal";
-import LoadMoreControl from "./LoadMoreControl";
 import { SkeletonText } from "../components/Skeleton";
 import {
   JewelryIcon,
@@ -29,7 +28,10 @@ const ROLE_BADGE_CONFIG = {
   dealer: { bg: "#E0F2FE", color: "#0369A1", border: "#BAE6FD", label: "Distributor" },
   sub_dealer: { bg: "#ECFDF5", color: "#047857", border: "#A7F3D0", label: "Wholesale Dealer" },
   promotor: { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", label: "Retailer" },
+  shop: { bg: "#FFF7ED", color: "#9A3412", border: "#FED7AA", label: "Shop" },
 };
+
+const PAGE_SIZE = 20;
 
 const PERIOD_OPTIONS = [
   { key: "all", label: "All Time" },
@@ -39,14 +41,15 @@ const PERIOD_OPTIONS = [
   { key: "year", label: "This Year" },
 ];
 
-const LEADER_ROLE_OPTIONS = [
-  { key: "all", label: "All" },
-  { key: "admin", label: "Super Stockist" },
-  { key: "dealer", label: "Distributor" },
-  { key: "sub_dealer", label: "Wholesale Dealer" },
-  { key: "promotor", label: "Retailer" },
-  { key: "customer", label: "Customer" },
-];
+// Role filter pills — ovvoru role-kum avanga KEEZHA irukura roles mattum (Super Admin-ku ellaamey + Shop)
+const ROLE_CHAIN = ["admin", "dealer", "sub_dealer", "promotor"];
+const leaderRoleOptionsFor = (role) => {
+  let keys;
+  if (role === "super_admin") keys = [...ROLE_CHAIN, "shop"];
+  else if (role === "shop") keys = ["shop"];
+  else keys = ROLE_CHAIN.slice(ROLE_CHAIN.indexOf(role) + 1);
+  return [{ key: "all", label: "All" }, ...keys.map((k) => ({ key: k, label: ROLE_BADGE_CONFIG[k].label }))];
+};
 
 export default function JewelleryRequests() {
   const navigate = useNavigate();
@@ -56,19 +59,32 @@ export default function JewelleryRequests() {
   const currentUserId = Number(localStorage.getItem("user_id") || localStorage.getItem("id") || 0);
   const currentUserEmail = localStorage.getItem("email") || "";
   const isSuperAdmin = role === "super_admin";
+  const LEADER_ROLE_OPTIONS = useMemo(() => leaderRoleOptionsFor(role), [role]);
 
-  const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [previewProduct, setPreviewProduct] = useState(null);
-  const [visibleLimit, setVisibleLimit] = useState(100);
   const [successModal, setSuccessModal] = useState(null);
 
   // Period filter & 4 Interactive Cards state
   const [period, setPeriod] = useState("all");
   const [activeCard, setActiveCard] = useState("my_requests");
-  const [leaderRoleFilter, setLeaderRoleFilter] = useState("admin");
+  const [leaderRoleFilter, setLeaderRoleFilter] = useState("all");
+
+  // ── Server-driven board: counts full DB-la (team scope), list 20-20-a infinite scroll ──
+  const [items, setItems] = useState([]);
+  const [counts, setCounts] = useState({ my_requests: 0, my_approved: 0, leader_approved: 0, leader_pending: 0 });
+  const [roleCounts, setRoleCounts] = useState({});
+  const [approvableCount, setApprovableCount] = useState(0);
+  const [listTotal, setListTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const reqIdRef = useRef(0);
+  const nextOffsetRef = useRef(0);
+  const loadingMoreRef = useRef(false);
+  const sentinelRef = useRef(null);
 
   // Create Request Modal state
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -131,17 +147,71 @@ export default function JewelleryRequests() {
     }
   };
 
-  const fetchRequests = async () => {
+  const boardParams = (offset) => ({
+    box: "board", view: "requests", card: activeCard, period,
+    role: leaderRoleFilter, offset, limit: PAGE_SIZE,
+  });
+
+  // Card / period / role maarinaa (illa approve/decline/new request aanaa) first page + full counts
+  useEffect(() => {
+    const reqId = ++reqIdRef.current;
     setLoading(true);
     setError("");
-    try {
-      const res = await api.get("/jewelry-requests/?box=all");
-      setRequests(Array.isArray(res.data) ? res.data : res.data.items || []);
-    } catch {
-      setError("Failed to load jewellery requests.");
-    }
-    setLoading(false);
+    setHasMore(false);
+    loadingMoreRef.current = false;
+    setLoadingMore(false);
+    api.get("/jewelry-requests/", { params: boardParams(0) })
+      .then((res) => {
+        if (reqId !== reqIdRef.current) return;
+        const d = res.data || {};
+        setItems(d.items || []);
+        setCounts(d.counts || {});
+        setRoleCounts(d.role_counts || {});
+        setApprovableCount(d.approvable_count || 0);
+        setListTotal(d.list_total || 0);
+        setHasMore(!!d.has_more);
+        nextOffsetRef.current = (d.items || []).length;
+      })
+      .catch(() => { if (reqId === reqIdRef.current) setError("Failed to load jewellery requests."); })
+      .finally(() => { if (reqId === reqIdRef.current) setLoading(false); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCard, period, leaderRoleFilter, refreshKey]);
+
+  const fetchRequests = () => setRefreshKey((k) => k + 1);
+
+  const loadMore = () => {
+    if (loadingMoreRef.current) return;
+    const reqId = reqIdRef.current;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    api.get("/jewelry-requests/", { params: boardParams(nextOffsetRef.current) })
+      .then((res) => {
+        if (reqId !== reqIdRef.current) return;
+        const newItems = res.data?.items || [];
+        setItems((prev) => [...prev, ...newItems]);
+        nextOffsetRef.current += newItems.length;
+        setHasMore(!!res.data?.has_more && newItems.length > 0);
+      })
+      .catch(() => { if (reqId === reqIdRef.current) setHasMore(false); })
+      .finally(() => {
+        if (reqId !== reqIdRef.current) return;
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      });
   };
+  const loadMoreRef = useRef(loadMore);
+  loadMoreRef.current = loadMore;
+
+  // Bottom-ku 500px munnadiye adutha 20 fetch
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !hasMore || loading) return undefined;
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) loadMoreRef.current();
+    }, { rootMargin: "500px 0px" });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hasMore, loading, items.length]);
 
   const fetchAvailableProductsForBuy = async () => {
     try {
@@ -157,10 +227,10 @@ export default function JewelleryRequests() {
   };
 
   useEffect(() => {
-    fetchRequests();
     if (!isSuperAdmin) {
       fetchAvailableProductsForBuy();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCreateRequest = async (e) => {
@@ -253,33 +323,6 @@ export default function JewelleryRequests() {
     }
   };
 
-  // Date helper
-  const isDateInPeriod = (dateStr, periodKey) => {
-    if (!dateStr || periodKey === "all") return true;
-    const d = new Date(dateStr);
-    const now = new Date();
-    if (isNaN(d.getTime())) return true;
-
-    if (periodKey === "today") {
-      return (
-        d.getDate() === now.getDate() &&
-        d.getMonth() === now.getMonth() &&
-        d.getFullYear() === now.getFullYear()
-      );
-    } else if (periodKey === "week") {
-      const day = now.getDay();
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), diff);
-      startOfWeek.setHours(0, 0, 0, 0);
-      return d >= startOfWeek;
-    } else if (periodKey === "month") {
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    } else if (periodKey === "year") {
-      return d.getFullYear() === now.getFullYear();
-    }
-    return true;
-  };
-
   // Days Pending / Duration calculation helper
   const getDaysPendingInfo = (createdAt, status, sentAt) => {
     if (!createdAt) return { text: "0 days", label: "0 days", badgeClass: "normal", days: 0 };
@@ -331,97 +374,14 @@ export default function JewelleryRequests() {
     }
   };
 
-  // Helper to determine if a request was sent to me for approval
-  const isIncomingToMe = (r) => {
-    if (isSuperAdmin) {
-      return (
-        r.requested_to_role === "super_admin" ||
-        r.requested_to === currentUserId ||
-        r.requested_to_email === currentUserEmail ||
-        !r.requested_to_role
-      );
-    }
-    return r.requested_to === currentUserId || r.requested_to_email === currentUserEmail;
-  };
-
-  // Helper to determine if a request was approved by this user (or Super Admin)
-  const isApprovedByMe = (r) => {
-    if (r.status !== "sent") return false;
-    if (isSuperAdmin) {
-      return (
-        r.reject_reason === "MASTER_MINT" ||
-        r.approved_by_role === "super_admin" ||
-        (currentUserId && r.approved_by === currentUserId) ||
-        (currentUserEmail && r.approved_by_email && r.approved_by_email.toLowerCase() === currentUserEmail.toLowerCase()) ||
-        (!r.approved_by && (
-          r.requested_to_role === "super_admin" ||
-          (currentUserId && r.requested_to === currentUserId) ||
-          (currentUserEmail && r.requested_to_email && r.requested_to_email.toLowerCase() === currentUserEmail.toLowerCase())
-        ))
-      );
-    }
-    return (
-      (currentUserId && r.approved_by === currentUserId) ||
-      (currentUserEmail && r.approved_by_email && r.approved_by_email.toLowerCase() === currentUserEmail.toLowerCase()) ||
-      (!r.approved_by && (
-        (currentUserId && r.requested_to === currentUserId) ||
-        (currentUserEmail && r.requested_to_email && r.requested_to_email.toLowerCase() === currentUserEmail.toLowerCase())
-      ))
-    );
-  };
-
-  // Helper to determine if a request was approved by downline leaders
-  const isLeaderApproved = (r) => {
-    if (r.status !== "sent") return false;
-    return !isApprovedByMe(r);
-  };
-
-  // Helper to determine if a pending request is pending with team leaders
-  const isLeaderRequest = (r) => {
-    if (isSuperAdmin) {
-      return r.requested_to_role && r.requested_to_role !== "super_admin";
-    }
-    return r.requested_by === currentUserId || r.requested_by_email === currentUserEmail;
-  };
-
-  // Count metrics for the 4 cards:
-  // - Pending requests count ALL-TIME (never filtered to 0 by period)
-  // - Approved requests count filtered by selected Period
-  const counts = useMemo(() => {
-    let allMyPending = 0;
-    let allLeaderPending = 0;
-    let myApp = 0;
-    let ldrApp = 0;
-
-    requests.forEach((r) => {
-      // Pending counts (ALL-TIME)
-      if (r.status === "pending") {
-        if (isIncomingToMe(r)) allMyPending++;
-        if (isLeaderRequest(r)) allLeaderPending++;
-      }
-
-      // Approved counts (Period-Filtered)
-      if (r.status === "sent" && isDateInPeriod(r.sent_at || r.created_at, period)) {
-        if (isApprovedByMe(r)) myApp++;
-        if (isLeaderApproved(r)) ldrApp++;
-      }
-    });
-
-    return {
-      myRequests: allMyPending,
-      myApproved: myApp,
-      leaderApproved: ldrApp,
-      leaderPending: allLeaderPending,
-    };
-  }, [requests, period, isSuperAdmin, currentUserId, currentUserEmail]);
-
-  // 4 Interactive Cards (My Pending Requests card removed as requested)
+  // ── 4 cards — counts ellaamey backend full-DB count (team scope-oda) ──
+  // Leader cards = en KEEZHA irukura team-kulla nadandhadhu + en sondha request (highlight)
   const cardList = [
     {
       id: "my_requests",
       label: isSuperAdmin ? "Requests" : "My Requests",
       sub: isSuperAdmin ? "All pending received requests" : "Pending from downline",
-      val: counts.myRequests,
+      val: counts.my_requests || 0,
       border: "#073B3F",
       iconBg: "#EFF6F6",
       iconColor: "#073B3F",
@@ -431,7 +391,7 @@ export default function JewelleryRequests() {
       id: "my_approved",
       label: "My Approved Requests",
       sub: isSuperAdmin ? "Approved by Super Admin" : "Approved by me",
-      val: counts.myApproved,
+      val: counts.my_approved || 0,
       border: "#166534",
       iconBg: "#E6F4EA",
       iconColor: "#166534",
@@ -440,8 +400,8 @@ export default function JewelleryRequests() {
     {
       id: "leader_approved",
       label: "Leader Approved Requests",
-      sub: isSuperAdmin ? "Approved by team leaders" : "Approved by my leader",
-      val: counts.leaderApproved,
+      sub: isSuperAdmin ? "Approved by team leaders" : "Approved within my team",
+      val: counts.leader_approved || 0,
       border: "#2563EB",
       iconBg: "#EFF6FF",
       iconColor: "#2563EB",
@@ -450,8 +410,8 @@ export default function JewelleryRequests() {
     {
       id: "leader_pending",
       label: "Leader Pending Requests",
-      sub: isSuperAdmin ? "Pending with team leaders" : "Pending with my leader",
-      val: counts.leaderPending,
+      sub: isSuperAdmin ? "Pending with team leaders" : "Pending within my team",
+      val: counts.leader_pending || 0,
       border: "#7C3AED",
       iconBg: "#F5F3FF",
       iconColor: "#7C3AED",
@@ -459,57 +419,8 @@ export default function JewelleryRequests() {
     },
   ];
 
-  // Helper to filter by leader role (All, admin, dealer, sub_dealer, promotor, customer)
-  const matchesLeaderRole = (r, roleKey) => {
-    if (!roleKey || roleKey === "all") return true;
-    if (roleKey === "customer") {
-      return r.requested_by_role === "customer" || r.requested_to_role === "customer";
-    }
-    return (
-      r.approved_by_role === roleKey ||
-      r.requested_to_role === roleKey ||
-      r.requested_by_role === roleKey
-    );
-  };
-
-  // Helper to get count for each role pill in Leader Approved / Pending requests
-  const getLeaderRoleCount = (roleKey) => {
-    const baseList = requests.filter((r) => {
-      if (activeCard === "leader_pending") {
-        return isLeaderRequest(r) && r.status === "pending";
-      }
-      return isLeaderApproved(r) && isDateInPeriod(r.sent_at || r.created_at, period);
-    });
-    if (roleKey === "all") return baseList.length;
-    return baseList.filter((r) => matchesLeaderRole(r, roleKey)).length;
-  };
-
-  // Requests currently matching the Active Card & Role Filter:
-  // - Pending cards show all active pending requests
-  // - Approved cards show requests filtered by selected period
-  // - Leader Approved supports role sub-filter (All, Super Stockist [default], Distributor, Wholesale Dealer, Retailer, Customer)
-  const filteredRequests = useMemo(() => {
-    if (activeCard === "my_requests") {
-      return requests.filter((r) => isIncomingToMe(r) && r.status === "pending");
-    }
-    if (activeCard === "leader_pending") {
-      return requests.filter((r) => isLeaderRequest(r) && r.status === "pending");
-    }
-    if (activeCard === "my_approved") {
-      return requests.filter(
-        (r) => isApprovedByMe(r) && isDateInPeriod(r.sent_at || r.created_at, period)
-      );
-    }
-    if (activeCard === "leader_approved") {
-      return requests.filter(
-        (r) =>
-          isLeaderApproved(r) &&
-          isDateInPeriod(r.sent_at || r.created_at, period) &&
-          matchesLeaderRole(r, leaderRoleFilter)
-      );
-    }
-    return requests;
-  }, [requests, activeCard, period, leaderRoleFilter, isSuperAdmin, currentUserId, currentUserEmail]);
+  const getLeaderRoleCount = (roleKey) => roleCounts[roleKey] || 0;
+  const filteredRequests = items;
 
   const currentCardMeta = cardList.find((c) => c.id === activeCard) || cardList[0];
 
@@ -802,6 +713,27 @@ export default function JewelleryRequests() {
           transition: all 180ms ease;
         }
 
+        /* En sondha request / Super Admin (leader) approve pannadhu — gold highlight */
+        .jr-req-card.jr-req-highlight {
+          border: 1.5px solid #BB8958;
+          background: linear-gradient(135deg, #FFFCF7 0%, #FFFFFF 60%);
+          box-shadow: 0 0 0 3px rgba(187, 137, 88, 0.12), 0 8px 22px rgba(187, 137, 88, 0.12);
+        }
+        .jr-highlight-tag {
+          align-self: flex-start;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 12px;
+          border-radius: 999px;
+          background: rgba(187, 137, 88, 0.14);
+          border: 1px solid rgba(187, 137, 88, 0.45);
+          color: #8A5A2B;
+          font-size: 11.5px;
+          font-weight: 800;
+          letter-spacing: 0.02em;
+        }
+
         .jr-req-card:hover {
           border-color: #073B3F;
           box-shadow: 0 6px 24px rgba(7, 59, 63, 0.08);
@@ -1011,7 +943,7 @@ export default function JewelleryRequests() {
             <h1>
               <span>Jewellery Requests Inbox</span>
               <span className="jr-badge">
-                {requests.filter((r) => r.status === "pending" && (isSuperAdmin || r.requested_to === currentUserId || r.requested_to_email === currentUserEmail)).length} Pending Review
+                {approvableCount} Pending Review
               </span>
             </h1>
             <p className="jr-header-sub">
@@ -1125,7 +1057,7 @@ export default function JewelleryRequests() {
               )}
             </h3>
             <span style={{ fontSize: "12.5px", color: "#5C706E" }}>
-              Showing {filteredRequests.length} matching requests ({PERIOD_OPTIONS.find((p) => p.key === period)?.label})
+              Showing {filteredRequests.length} of {listTotal} matching requests ({PERIOD_OPTIONS.find((p) => p.key === period)?.label})
             </span>
           </div>
         </div>
@@ -1157,7 +1089,7 @@ export default function JewelleryRequests() {
           </div>
         ) : (
           <div className="jr-list">
-            {filteredRequests.slice(0, visibleLimit).map((req) => {
+            {filteredRequests.map((req) => {
               const reqRoleBadge = ROLE_BADGE_CONFIG[req.requested_by_role] || {
                 bg: "#F1F5F9",
                 color: "#334155",
@@ -1169,7 +1101,11 @@ export default function JewelleryRequests() {
               const pendingInfo = getDaysPendingInfo(req.created_at, req.status, req.sent_at);
 
               return (
-                <div key={req.id} className="jr-req-card">
+                <div key={req.id} className={`jr-req-card${req.highlight ? " jr-req-highlight" : ""}`}>
+                  {/* En sondha request / Super Admin (en leader) approve pannadhu — highlight */}
+                  {req.highlight && (
+                    <div className="jr-highlight-tag">★ {req.highlight_label}</div>
+                  )}
                   <div className="jr-req-header">
                     <div className="jr-req-title">
                       <span>Request #{req.id}</span>
@@ -1378,16 +1314,10 @@ export default function JewelleryRequests() {
                 </div>
               );
             })}
+            {/* Infinite scroll — adutha 20 load aagumbodhu skeleton */}
+            {loadingMore && <JewelleryRequestSkeletonList count={2} />}
+            {hasMore && <div ref={sentinelRef} style={{ height: 1 }} />}
           </div>
-        )}
-
-        {filteredRequests.length > visibleLimit && (
-          <LoadMoreControl
-            currentVisible={visibleLimit}
-            totalCount={filteredRequests.length}
-            onLoadMore={(step) => setVisibleLimit((v) => v + step)}
-            itemName="jewellery requests"
-          />
         )}
       </div>
 

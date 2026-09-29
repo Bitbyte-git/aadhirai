@@ -5,7 +5,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from rest_framework.decorators import api_view, permission_classes
 from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink, EmailOTP, Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent
-from django.db.models import Prefetch, Count, Q, Sum, Max
+from django.db.models import Prefetch, Count, Q, Sum, Max, Min, F, Value
 from django.core.cache import cache   # ── NEW: for month_rollup/status caching ──
 from django.db.models.functions import TruncHour, TruncDate, TruncWeek, TruncMonth
 from .serializers import *
@@ -5657,6 +5657,212 @@ class DashboardQuickStatsView(APIView):
         cache.set(cache_key, data, 180)   # ── NEW: 60s → 180s, fewer cache-miss slow hits ──
         return Response(data)
 
+# ══════════════════════════════════════════════════════════════════
+# TEAM-SCOPED REQUEST BOARD — Coin / Jewellery Requests & Transactions pages.
+# Super Admin = ellaamey. Mathavanga = avanga + avanga KEEZHA irukura team mattum
+# (vera Super Stockist / Distributor data varaadhu). Counts full DB-la, list paginated.
+# ══════════════════════════════════════════════════════════════════
+BOARD_ROLE_KEYS = ('admin', 'dealer', 'sub_dealer', 'promotor', 'customer', 'shop')
+
+
+def _team_user_ids(user):
+    """Coin/jewellery stock vechirukura downline user ids (user thavira).
+    Super Admin-ku None (= ellaarum). Customers coin request panna mudiyaadhu, adhanaala include illa."""
+    role = user.role
+    uid = user.id
+    if role == 'super_admin':
+        return None
+    if role == 'shop':
+        return set(_shop_network_user_ids(user, include_self=False))
+    ids = set()
+    if role == 'admin':
+        ids |= set(DealerProfile.objects.filter(assigned_admin__user_id=uid).values_list('user_id', flat=True))
+        ids |= set(SubDealerProfile.objects.filter(assigned_dealer__assigned_admin__user_id=uid).values_list('user_id', flat=True))
+        ids |= set(PromotorProfile.objects.filter(
+            assigned_sub_dealer__assigned_dealer__assigned_admin__user_id=uid).values_list('user_id', flat=True))
+    elif role == 'dealer':
+        ids |= set(SubDealerProfile.objects.filter(assigned_dealer__user_id=uid).values_list('user_id', flat=True))
+        ids |= set(PromotorProfile.objects.filter(assigned_sub_dealer__assigned_dealer__user_id=uid).values_list('user_id', flat=True))
+    elif role == 'sub_dealer':
+        ids |= set(PromotorProfile.objects.filter(assigned_sub_dealer__user_id=uid).values_list('user_id', flat=True))
+    ids.discard(None)
+    ids.discard(uid)
+    return ids
+
+
+def _board_person_search_q(prefix, search):
+    """requested_by / requested_to — ID, name, phone, email (ellaa roles + shop)."""
+    q = Q(**{f'{prefix}__email__icontains': search})
+    for prof, id_field in (('promotor_profile', 'promotor_id'), ('sub_dealer_profile', 'sub_dealer_id'),
+                           ('dealer_profile', 'dealer_id'), ('admin_profile', 'admin_id')):
+        q |= Q(**{f'{prefix}__{prof}__{id_field}__icontains': search})
+        q |= Q(**{f'{prefix}__{prof}__first_name__icontains': search})
+        q |= Q(**{f'{prefix}__{prof}__last_name__icontains': search})
+        q |= Q(**{f'{prefix}__{prof}__mobile_number__icontains': search})
+    q |= Q(**{f'{prefix}__shop_profile__shop_id__icontains': search})
+    q |= Q(**{f'{prefix}__shop_profile__shop_name__icontains': search})
+    q |= Q(**{f'{prefix}__shop_profile__mobile_number__icontains': search})
+    return q
+
+
+def _board_role_q(role_key):
+    if role_key == 'customer':
+        return Q(requested_by__role='customer') | Q(requested_to__role='customer')
+    return Q(approved_by__role=role_key) | Q(requested_to__role=role_key) | Q(requested_by__role=role_key)
+
+
+def _board_date_q(field, period, start_date='', end_date=''):
+    from datetime import datetime
+    today = timezone.localdate()
+    if period in ('today', 'day'):
+        return Q(**{f'{field}__date': today})
+    if period == 'week':
+        return Q(**{f'{field}__date__gte': today - timedelta(days=today.weekday()), f'{field}__date__lte': today})
+    if period == 'month':
+        return Q(**{f'{field}__year': today.year, f'{field}__month': today.month})
+    if period == 'year':
+        return Q(**{f'{field}__year': today.year})
+    q = Q()
+    if period == 'custom' or (start_date and end_date):
+        for val, lookup in ((start_date, 'gte'), (end_date, 'lte')):
+            if val:
+                try:
+                    q &= Q(**{f'{field}__date__{lookup}': datetime.strptime(val, '%Y-%m-%d').date()})
+                except Exception:
+                    pass
+    return q
+
+
+def _request_board(request, model, serializer_cls, item_model, prefetch, extra_search=None):
+    """?box=board — view=requests (4 cards) | view=transactions (My / Leader).
+    Returns full-DB card counts + role counts + status counts, and ONE paginated page of the
+    active card's list (infinite scroll: offset/limit, has_more)."""
+    from django.db.models.functions import Coalesce
+    user = request.user
+    qp = request.query_params
+    view = qp.get('view', 'requests')
+    is_sa = user.role == 'super_admin'
+    team = _team_user_ids(user)
+    team_all = None if team is None else (team | {user.id})
+
+    base = model.objects.all()
+    if not is_sa:
+        # En team (keezha irukuravanga) + naan sambandhapatta requests mattum
+        base = base.filter(Q(requested_by_id__in=team_all) | Q(requested_to=user) | Q(approved_by=user))
+
+    search = (qp.get('search') or '').strip()
+    if search:
+        sq = _board_person_search_q('requested_by', search) | _board_person_search_q('requested_to', search)
+        if search.isdigit():
+            sq |= Q(id=int(search))
+        if extra_search is not None:
+            sq |= extra_search(search)
+        base = base.filter(id__in=model.objects.filter(sq).values('id'))
+
+    role_key = qp.get('role') or 'all'
+    try:
+        offset = max(0, int(qp.get('offset', 0)))
+        limit = max(1, min(100, int(qp.get('limit', 20))))
+    except ValueError:
+        offset, limit = 0, 20
+
+    counts, role_counts, status_counts, extra = {}, {}, None, {}
+
+    if view == 'transactions':
+        date_q = _board_date_q('created_at', (qp.get('period') or 'all').lower(),
+                               (qp.get('start_date') or '').strip(), (qp.get('end_date') or '').strip())
+        base = base.filter(date_q)
+        if is_sa:
+            my_q = (Q(reject_reason='MASTER_MINT') | Q(requested_by__role='super_admin') |
+                    Q(requested_to__role='super_admin') | Q(approved_by__role='super_admin') |
+                    Q(requested_by=user) | Q(requested_to=user) | Q(approved_by=user))
+        else:
+            my_q = Q(requested_by=user) | Q(requested_to=user) | Q(approved_by=user)
+        card = qp.get('card', 'my')
+        counts = base.aggregate(my=Count('id', filter=my_q), leader=Count('id', filter=~my_q))
+        card_qs = base.filter(my_q) if card == 'my' else base.filter(~my_q)
+        if card != 'my':
+            role_counts = card_qs.aggregate(all=Count('id'), **{k: Count('id', filter=_board_role_q(k)) for k in BOARD_ROLE_KEYS})
+            if role_key != 'all':
+                card_qs = card_qs.filter(_board_role_q(role_key))
+        sc = dict(card_qs.values('status').annotate(c=Count('id')).values_list('status', 'c'))
+
+        def _pieces(qs):
+            return item_model.objects.filter(request__in=qs.values('id')).aggregate(s=Sum('qty'))['s'] or 0
+        status_counts = {
+            'pending': sc.get('pending', 0), 'sent': sc.get('sent', 0), 'rejected': sc.get('rejected', 0),
+            'total': sum(sc.values()),
+            'disbursed_pieces': _pieces(card_qs.filter(status='sent').exclude(reject_reason='MASTER_MINT')),
+            'pending_pieces': _pieces(card_qs.filter(status='pending')),
+            'mint_pieces': _pieces(card_qs.filter(reject_reason='MASTER_MINT')),
+        }
+        status_filter = qp.get('status')
+        list_qs = card_qs.filter(status=status_filter) if status_filter and status_filter != 'all' else card_qs
+    else:
+        period = (qp.get('period') or 'all').lower()
+        base = base.annotate(board_when=Coalesce('sent_at', 'created_at'))
+        me_approved = Q(approved_by=user) | Q(approved_by__isnull=True, requested_to=user)
+        if is_sa:
+            my_req_q = Q(status='pending') & (Q(requested_to=user) | Q(requested_to__role='super_admin'))
+            my_app_q = Q(status='sent') & (Q(reject_reason='MASTER_MINT') | Q(approved_by__role='super_admin') |
+                                           me_approved | Q(approved_by__isnull=True, requested_to__role='super_admin'))
+            leader_pending_q = Q(status='pending') & ~Q(requested_to__role='super_admin')
+        else:
+            my_req_q = Q(status='pending', requested_to=user)
+            my_app_q = Q(status='sent') & me_approved
+            # Team-kulla pending + en sondha pending (en leader-kitta)
+            leader_pending_q = Q(status='pending') & ~Q(requested_to=user)
+        leader_app_q = Q(status='sent') & ~my_app_q
+        date_q = _board_date_q('board_when', period)   # approved cards mattum period; pending eppovume all-time
+
+        c1 = base.aggregate(my_requests=Count('id', filter=my_req_q), leader_pending=Count('id', filter=leader_pending_q),
+                            approvable=Count('id', filter=Q(status='pending') if is_sa else my_req_q))
+        c2 = base.filter(date_q).aggregate(my_approved=Count('id', filter=my_app_q), leader_approved=Count('id', filter=leader_app_q))
+        extra['approvable_count'] = c1.pop('approvable')
+        counts = {**c1, **c2}
+
+        card = qp.get('card', 'my_requests')
+        card_map = {
+            'my_requests': (my_req_q, False), 'leader_pending': (leader_pending_q, False),
+            'my_approved': (my_app_q, True), 'leader_approved': (leader_app_q, True),
+        }
+        card_q, use_period = card_map.get(card, card_map['my_requests'])
+        card_qs = base.filter(card_q)
+        if use_period:
+            card_qs = card_qs.filter(date_q)
+        if card in ('leader_pending', 'leader_approved'):
+            role_counts = card_qs.aggregate(all=Count('id'), **{k: Count('id', filter=_board_role_q(k)) for k in BOARD_ROLE_KEYS})
+            if role_key != 'all':
+                card_qs = card_qs.filter(_board_role_q(role_key))
+        list_qs = card_qs
+
+    list_total = list_qs.count()
+    page = list(list_qs.select_related('requested_by', 'requested_to', 'approved_by')
+                .prefetch_related(*prefetch).order_by('-created_at', '-id')[offset:offset + limit + 1])
+    has_more = len(page) > limit
+    page = page[:limit]
+    data = serializer_cls(page, many=True, context={'request': request}).data
+
+    # ── Highlight: en sondha request (en leader / Super Admin-kitta) illa upline approve pannadhu ──
+    for obj, row in zip(page, data):
+        label = ''
+        if not is_sa:
+            upline_approved = obj.approved_by_id and obj.approved_by_id not in team_all
+            if upline_approved:
+                by = 'Super Admin' if getattr(obj.approved_by, 'role', '') == 'super_admin' else 'your leader'
+                label = f'Your request · Approved by {by}' if obj.requested_by_id == user.id else f'Approved by {by}'
+            elif obj.requested_by_id == user.id:
+                label = {'pending': 'Your request · Pending with your leader',
+                         'rejected': 'Your request · Declined by your leader'}.get(obj.status, 'Your request')
+        row['highlight'] = bool(label)
+        row['highlight_label'] = label
+
+    return Response({
+        'items': data, 'has_more': has_more, 'offset': offset, 'list_total': list_total,
+        'counts': counts, 'role_counts': role_counts, 'status_counts': status_counts, **extra,
+    })
+
+
 class CoinRequestView(APIView):
     """
     POST — Promotor/SubDealer/Dealer/Admin creates a coin request to their assigned parent.
@@ -5734,8 +5940,15 @@ class CoinRequestView(APIView):
 
     def get(self, request):
         role = request.user.role
-        box = request.query_params.get('box')  # optional override: 'sent', 'received', or 'history'
+        box = request.query_params.get('box')  # optional override: 'sent', 'received', 'history' or 'board'
         receiver_roles = ['sub_dealer', 'dealer', 'admin', 'super_admin', 'shop']
+
+        # ── Team-scoped board (Requests Coins / Transaction Coins pages) ──
+        if box == 'board':
+            return _request_board(
+                request, CoinRequest, CoinRequestSerializer, CoinRequestItem, ('items',),
+                extra_search=lambda s: Q(items__metal_type__icontains=s) | Q(items__weight_label__icontains=s),
+            )
 
         # ── NEW: history box — DB level pagination + status filter + aggregate counts ──
         if box == 'history':
@@ -6095,6 +6308,168 @@ class SuperAdminAddCoinsView(APIView):
         return Response({'message': 'Coins added to your stock successfully!'})
 
 
+# ══════════════════════════════════════════════════════════════════
+# TEAM MEMBER HOLDINGS (paged) — ?scope=hierarchy&paged=1
+# Super Admin = ellaa holders. Mathavanga = avanga KEEZHA irukura team mattum.
+# Summary / role counts full team-ku DB aggregate; members list offset/limit (infinite scroll).
+# ══════════════════════════════════════════════════════════════════
+_HOLDER_ROLE_ORDER = {'super_admin': 0, 'admin': 1, 'dealer': 2, 'sub_dealer': 3, 'promotor': 4, 'shop': 5}
+
+
+def _holder_info(u):
+    """(id_str, name, phone) — role profile-la irundhu."""
+    role_field = {'promotor': 'promotor_profile', 'sub_dealer': 'sub_dealer_profile', 'dealer': 'dealer_profile',
+                  'admin': 'admin_profile', 'shop': 'shop_profile'}.get(u.role)
+    id_field = {'promotor': 'promotor_id', 'sub_dealer': 'sub_dealer_id', 'dealer': 'dealer_id',
+                'admin': 'admin_id', 'shop': 'shop_id'}.get(u.role)
+    try:
+        prof = getattr(u, role_field, None) if role_field else None
+    except Exception:
+        prof = None
+    if not prof:
+        name = 'Super Admin' if u.role == 'super_admin' else ((u.email or '').split('@')[0] or 'User')
+        return '', name, ''
+    if u.role == 'shop':
+        name = getattr(prof, 'shop_name', '') or getattr(prof, 'owner_name', '') or u.email
+    else:
+        name = f"{getattr(prof, 'first_name', '') or ''} {getattr(prof, 'last_name', '') or ''}".strip() or u.email
+    return (getattr(prof, id_field, '') if id_field else '') or '', name, getattr(prof, 'mobile_number', '') or ''
+
+
+def _holdings_member_page(request, stocks, search_q, filter_q):
+    """stocks = team-scoped qty>0 stock qs. Returns (page_user_ids, has_more, list_total, role_counts)."""
+    from django.db.models import Case, When, Value, IntegerField
+    qp = request.query_params
+    role_counts = dict(stocks.values('user__role').annotate(c=Count('user', distinct=True)).values_list('user__role', 'c'))
+    member_stocks = stocks
+    role = qp.get('role') or 'all'
+    if role != 'all':
+        member_stocks = member_stocks.filter(user__role=role)
+    if filter_q is not None:
+        member_stocks = member_stocks.filter(user_id__in=stocks.filter(filter_q).values('user_id'))
+    search = (qp.get('search') or '').strip()
+    if search:
+        member_stocks = member_stocks.filter(user_id__in=stocks.filter(search_q(search)).values('user_id'))
+    role_case = Case(*[When(user__role=r, then=Value(o)) for r, o in _HOLDER_ROLE_ORDER.items()],
+                     default=Value(99), output_field=IntegerField())
+    users = member_stocks.values('user_id').annotate(ro=Min(role_case)).order_by('ro', 'user_id')
+    try:
+        offset = max(0, int(qp.get('offset', 0)))
+        limit = max(1, min(60, int(qp.get('limit', 24))))
+    except ValueError:
+        offset, limit = 0, 24
+    list_total = users.count()
+    page = [r['user_id'] for r in users[offset:offset + limit + 1]]
+    has_more = len(page) > limit
+    return page[:limit], has_more, list_total, role_counts
+
+
+def _coin_holdings_paged(request):
+    from django.db.models import ExpressionWrapper, FloatField
+    team = _team_user_ids(request.user)
+    stocks = CoinStock.objects.filter(qty__gt=0)
+    if team is not None:
+        stocks = stocks.filter(user_id__in=team)
+    grams = ExpressionWrapper(F('weight_grams') * F('qty'), output_field=FloatField())
+    agg = stocks.aggregate(
+        members=Count('user', distinct=True), total_pieces=Sum('qty'), total_grams=Sum(grams),
+        **{f'{m}_pieces': Sum('qty', filter=Q(metal_type=m)) for m in ('gold_22k', 'gold_24k', 'silver_999')},
+        **{f'{m}_grams': Sum(grams, filter=Q(metal_type=m)) for m in ('gold_22k', 'gold_24k', 'silver_999')},
+    )
+    summary = {k: (v or 0) for k, v in agg.items()}
+    metal = request.query_params.get('metal') or 'all'
+    page_ids, has_more, list_total, role_counts = _holdings_member_page(
+        request, stocks,
+        lambda s: _board_person_search_q('user', s) | Q(weight_label__icontains=s) | Q(metal_type__icontains=s),
+        Q(metal_type=metal) if metal != 'all' else None,
+    )
+    users = {u.id: u for u in User.objects.filter(id__in=page_ids).select_related(
+        'admin_profile', 'dealer_profile', 'sub_dealer_profile', 'promotor_profile', 'shop_profile')}
+    rows = {}
+    for s in stocks.filter(user_id__in=page_ids).order_by('metal_type', 'weight_grams'):
+        rows.setdefault(s.user_id, []).append(s)
+    members = []
+    for uid in page_ids:
+        u = users.get(uid)
+        if not u:
+            continue
+        id_str, name, phone = _holder_info(u)
+        items = [{'id': s.id, 'metal_type': s.metal_type, 'weight_label': s.weight_label,
+                  'weight_grams': float(s.weight_grams or 0), 'qty': s.qty} for s in rows.get(uid, [])]
+        members.append({
+            'user_id': u.id, 'id_str': id_str, 'name': name, 'email': u.email, 'role': u.role, 'phone': phone,
+            'items': items, 'total_pieces': sum(i['qty'] for i in items),
+            'total_grams': round(sum(i['weight_grams'] * i['qty'] for i in items), 4),
+        })
+    return Response({'members': members, 'has_more': has_more, 'list_total': list_total,
+                     'summary': summary, 'role_counts': role_counts})
+
+
+def _jewelry_holdings_paged(request):
+    from django.db.models import ExpressionWrapper, FloatField
+    from django.db.models.functions import Coalesce
+    team = _team_user_ids(request.user)
+    stocks = JewelryStock.objects.filter(qty__gt=0)
+    if team is not None:
+        stocks = stocks.filter(user_id__in=team)
+    net = ExpressionWrapper(Coalesce('product__net_weight', 'product__cross_weight', Value(0)) * F('qty'), output_field=FloatField())
+    purity_q = {
+        'gold_24k': Q(product__metal__iexact='gold', product__grade__icontains='24'),
+        'gold_22k': Q(product__metal__iexact='gold') & ~Q(product__grade__icontains='24'),
+        'silver_999': Q(product__metal__iexact='silver'),
+    }
+    agg = stocks.aggregate(
+        members=Count('user', distinct=True), total_pieces=Sum('qty'),
+        **{f'{k}_pieces': Sum('qty', filter=q) for k, q in purity_q.items()},
+        **{f'{k}_grams': Sum(net, filter=q) for k, q in purity_q.items()},
+    )
+    summary = {k: (v or 0) for k, v in agg.items()}
+    purity = request.query_params.get('purity') or 'all'
+    page_ids, has_more, list_total, role_counts = _holdings_member_page(
+        request, stocks,
+        lambda s: _board_person_search_q('user', s) | Q(product__name__icontains=s) | Q(product__product_code__icontains=s),
+        purity_q.get(purity),
+    )
+    users = {u.id: u for u in User.objects.filter(id__in=page_ids).select_related(
+        'admin_profile', 'dealer_profile', 'sub_dealer_profile', 'promotor_profile', 'shop_profile')}
+    rows = {}
+    for s in stocks.filter(user_id__in=page_ids).select_related('product').prefetch_related('product__images').order_by('product__name'):
+        rows.setdefault(s.user_id, []).append(s)
+    members = []
+    for uid in page_ids:
+        u = users.get(uid)
+        if not u:
+            continue
+        id_str, name, phone = _holder_info(u)
+        m = {'user_id': u.id, 'id_str': id_str, 'name': name, 'email': u.email, 'role': u.role, 'phone': phone,
+             'items': [], 'total_pieces': 0, 'total_gross_grams': 0.0, 'total_net_grams': 0.0,
+             'gold_22k_pieces': 0, 'gold_24k_pieces': 0, 'silver_pieces': 0}
+        for s in rows.get(uid, []):
+            p = s.product
+            gross = float(p.cross_weight or 0)
+            netw = float(p.net_weight or p.cross_weight or 0)
+            imgs = list(p.images.all())
+            img_url = imgs[0].image.url if imgs and imgs[0].image else ''
+            if img_url and not img_url.startswith('http'):
+                img_url = request.build_absolute_uri(img_url)
+            m['items'].append({'id': s.id, 'product_id': p.id, 'product_code': p.product_code, 'name': p.name,
+                               'category': p.category, 'metal': p.metal, 'grade': p.grade, 'cross_weight': gross,
+                               'net_weight': netw, 'qty': s.qty, 'price': float(p.price or 0), 'image': img_url})
+            m['total_pieces'] += s.qty
+            m['total_gross_grams'] += round(gross * s.qty, 3)
+            m['total_net_grams'] += round(netw * s.qty, 3)
+            metal_l, grade_l = (p.metal or '').lower(), (p.grade or '').lower()
+            if metal_l == 'gold' and '24' in grade_l:
+                m['gold_24k_pieces'] += s.qty
+            elif metal_l == 'gold':
+                m['gold_22k_pieces'] += s.qty
+            elif metal_l == 'silver':
+                m['silver_pieces'] += s.qty
+        members.append(m)
+    return Response({'members': members, 'has_more': has_more, 'list_total': list_total,
+                     'summary': summary, 'role_counts': role_counts})
+
+
 class CoinStockView(APIView):
     """Logged-in user sees their own coin stock.
     Super Admin can pass ?scope=hierarchy to see coin holdings across all admins, dealers, sub-dealers, promotors."""
@@ -6102,6 +6477,11 @@ class CoinStockView(APIView):
 
     def get(self, request):
         scope = request.query_params.get('scope')
+        # ── Team Member Holdings — ellaa roles-kum, avanga team mattum, paged ──
+        if scope == 'hierarchy' and request.query_params.get('paged') == '1':
+            if request.user.role == 'customer':
+                return Response({'error': 'Permission denied'}, status=403)
+            return _coin_holdings_paged(request)
         if scope == 'hierarchy' and request.user.role == 'super_admin':
             stocks = CoinStock.objects.filter(qty__gt=0).select_related('user').order_by('user__role', 'metal_type')
             user_map = {}
@@ -6245,6 +6625,11 @@ class JewelryStockView(APIView):
 
     def get(self, request):
         scope = request.query_params.get('scope')
+        # ── Team Member Holdings — ellaa roles-kum, avanga team mattum, paged ──
+        if scope == 'hierarchy' and request.query_params.get('paged') == '1':
+            if request.user.role == 'customer':
+                return Response({'error': 'Permission denied'}, status=403)
+            return _jewelry_holdings_paged(request)
         if scope == 'hierarchy' and request.user.role == 'super_admin':
             stocks = JewelryStock.objects.filter(qty__gt=0).select_related('user', 'product').prefetch_related('product__images').order_by('user__role', 'product__name')
             user_map = {}
@@ -6363,6 +6748,12 @@ class MemberHoldingsDetailView(APIView):
             target_user = User.objects.get(id=user_id)
         except User.DoesNotExist:
             return Response({'error': 'Member not found'}, status=404)
+
+        # Super Admin thavira — sondha holdings illa en team member holdings mattum paakalaam
+        if request.user.role != 'super_admin' and target_user.id != request.user.id:
+            team = _team_user_ids(request.user) or set()
+            if target_user.id not in team:
+                return Response({'error': 'This member is not in your team'}, status=403)
 
         # Profile & identifier lookup
         role_field = {
@@ -6838,6 +7229,13 @@ class JewelryRequestView(APIView):
     def get(self, request):
         role = request.user.role
         box = request.query_params.get('box')
+
+        # ── Team-scoped board (Jewellery Requests / Jewellery Transactions pages) ──
+        if box == 'board':
+            return _request_board(
+                request, JewelryRequest, JewelryRequestSerializer, JewelryRequestItem, ('items__product__images',),
+                extra_search=lambda s: Q(items__product__name__icontains=s) | Q(items__product__product_code__icontains=s),
+            )
 
         if box == 'history':
             if role == 'super_admin':

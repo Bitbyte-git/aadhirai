@@ -67,6 +67,54 @@ const STATUS_CFG = {
 
 const STATS_CACHE_KEY = "ct_status_counts_cache";
 
+// ── Forward chain path (Retailer → ... → Super Admin): → request mela, ← coins keezha, ✕ declined ──
+function CtChainStepper({ chain }) {
+  if (!chain || chain.length < 2) return null;
+  const nodes = [
+    { name: chain[0].from_name, role: chain[0].from_role },
+    ...chain.map((h) => ({ name: h.to_name, role: h.to_role })),
+  ];
+  const hopCfg = {
+    sent: { Icon: ArrowLeftIcon, color: "#047857", bg: "#ECFDF5", border: "#A7F3D0", label: "Coins came back" },
+    pending: { Icon: ArrowRightIcon, color: "#B45309", bg: "#FFFBEB", border: "#FDE68A", label: "Request going up" },
+    rejected: { Icon: CloseIcon, color: "#B91C1C", bg: "#FEF2F2", border: "#FECACA", label: "Declined" },
+  };
+  return (
+    <div className="ct-chain">
+      <div className="ct-chain-title">
+        <span>Forward chain</span>
+        <span className="ct-chain-legend">
+          <span style={{ color: "#B45309" }}><ArrowRightIcon size={11} color="#B45309" /> Request</span>
+          <span style={{ color: "#047857" }}><ArrowLeftIcon size={11} color="#047857" /> Coins</span>
+        </span>
+      </div>
+      <div className="ct-chain-track">
+        {nodes.map((n, i) => {
+          const hop = i > 0 ? chain[i - 1] : null;
+          const cfg = hop ? hopCfg[hop.status] || hopCfg.pending : null;
+          return (
+            <div key={i} className="ct-chain-step">
+              {hop && (
+                <span className="ct-chain-conn" style={{ "--conn": cfg.border }}>
+                  <i />
+                  <span className="ct-chain-link" style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }} title={hop.reject_reason || cfg.label}>
+                    <cfg.Icon size={11} color={cfg.color} />
+                  </span>
+                  <i />
+                </span>
+              )}
+              <span className={`ct-chain-node${hop?.is_current || (i === 0 && chain[0].is_current) ? " current" : ""}`}>
+                <strong title={n.name || ""}>{n.name || "—"}</strong>
+                <small>{ROLE_LABEL[n.role] || n.role}</small>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function TransactionHistory() {
   const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
@@ -101,6 +149,7 @@ export default function TransactionHistory() {
   // Backend-computed, full-dataset (not just the currently loaded page) headline counts
   const [myTxCount, setMyTxCount] = useState(0);
   const [leaderTxCount, setLeaderTxCount] = useState(0);
+  const [chainTxCount, setChainTxCount] = useState(0);
   // Leader role pill counts + infinite scroll — ellaamey backend (team scope-oda)
   const [roleCounts, setRoleCounts] = useState({});
   const [hasMore, setHasMore] = useState(false);
@@ -127,7 +176,7 @@ export default function TransactionHistory() {
   const historyParams = (offsetVal, searchVal) => {
     const params = {
       box: "board", view: "transactions",
-      card: activeCard === "my_transactions" ? "my" : "leader",
+      card: activeCard === "my_transactions" ? "my" : activeCard === "chain_transactions" ? "chain" : "leader",
       role: leaderRoleFilter, status: filter, period, offset: offsetVal, limit: 30,
     };
     if (period === "custom") {
@@ -154,6 +203,7 @@ export default function TransactionHistory() {
       setStatusCounts(d.status_counts || { pending: 0, sent: 0, rejected: 0, total: 0, disbursed_pieces: 0, pending_pieces: 0 });
       setMyTxCount(d.counts?.my || 0);
       setLeaderTxCount(d.counts?.leader || 0);
+      setChainTxCount(d.counts?.chain || 0);
       setRoleCounts(d.role_counts || {});
       setHasMore(!!d.has_more);
       nextOffsetRef.current = (d.items || []).length;
@@ -659,9 +709,42 @@ export default function TransactionHistory() {
           border-color: #073B3F;
         }
 
+        .ct-stat-card.active-chain {
+          border-color: #BB8958;
+          background: linear-gradient(180deg, #FFFAF1 0%, #FFFFFF 100%);
+          box-shadow: 0 8px 24px rgba(187, 137, 88, 0.16);
+        }
+        .ct-stat-pill-active.chain { background: #BB8958; color: #FFFFFF; }
+        .ct-chain {
+          margin-top: 12px; background: #F8FBFB; border: 1px dashed #CFE0DE; border-radius: 14px;
+          padding: 10px 12px; min-width: 0; max-width: 100%; box-sizing: border-box;
+        }
+        .ct-chain-title {
+          display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+          font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #7A8987; margin-bottom: 8px;
+        }
+        .ct-chain-legend { display: inline-flex; gap: 10px; text-transform: none; letter-spacing: 0; }
+        .ct-chain-legend span { display: inline-flex; align-items: center; gap: 3px; font-weight: 800; }
+        .ct-chain-track { display: flex; align-items: stretch; flex-wrap: nowrap; overflow-x: auto; padding: 3px 2px 4px; scrollbar-width: thin; }
+        .ct-chain-step { display: flex; align-items: center; flex: 0 0 auto; }
+        .ct-chain-conn { display: flex; align-items: center; flex: 0 0 auto; }
+        .ct-chain-conn i { display: block; width: 10px; height: 2px; background: var(--conn); border-radius: 2px; }
+        .ct-chain-link {
+          width: 22px; height: 22px; border-radius: 50%; flex: 0 0 auto;
+          display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid;
+        }
+        .ct-chain-node {
+          display: flex; flex-direction: column; justify-content: center; gap: 1px;
+          min-width: 100px; max-width: 160px; min-height: 36px; padding: 4px 10px; border-radius: 8px;
+          background: #FFFFFF; border: 1px solid #E1EBEA; box-sizing: border-box;
+        }
+        .ct-chain-node strong { font-size: 11px; color: #073B3F; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ct-chain-node small { font-size: 9.5px; color: #7A8987; font-weight: 700; }
+        .ct-chain-node.current { border-color: #BB8958; box-shadow: 0 0 0 2px rgba(187, 137, 88, 0.18); }
+
         .ct-stats-grid {
           display: grid;
-          grid-template-columns: repeat(2, 1fr);
+          grid-template-columns: repeat(3, 1fr);
           gap: 18px;
           margin-bottom: 24px;
         }
@@ -1605,6 +1688,26 @@ export default function TransactionHistory() {
                 : "Transfers across downline team hierarchy"}
             </div>
           </div>
+
+          {/* Card 3: Forward Chains — leader-to-leader coin forward tracking (thaniya) */}
+          <div
+            className={`ct-stat-card ${activeCard === "chain_transactions" ? "active-chain" : ""}`}
+            onClick={() => setActiveCard("chain_transactions")}
+          >
+            <div className="ct-stat-header">
+              <div className="ct-stat-label-wrap">
+                <span className="ct-stat-label">Forward Chains</span>
+                {activeCard === "chain_transactions" && (
+                  <span className="ct-stat-pill-active chain">Active View</span>
+                )}
+              </div>
+              <div className="ct-stat-icon" style={{ background: "#FDF3E4", color: "#A0713F" }}>
+                <ArrowRightIcon size={18} color="#A0713F" />
+              </div>
+            </div>
+            <div className="ct-stat-value" style={{ color: "#A0713F" }}>{chainTxCount}</div>
+            <div className="ct-stat-sub">Leader-to-leader forwards</div>
+          </div>
         </div>
 
         {/* Leader Role Sub-Filter Bar (Shown when Leader Transactions card is selected) */}
@@ -1929,6 +2032,8 @@ export default function TransactionHistory() {
                           ))}
                         </div>
                       </div>
+
+                      <CtChainStepper chain={req.chain} />
 
                       {/* Decline Reason Banner */}
                       {req.status === "rejected" && req.reject_reason && (

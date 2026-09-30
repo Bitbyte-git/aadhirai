@@ -947,6 +947,11 @@ class CoinRequest(models.Model):
     reject_reason = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     sent_at = models.DateTimeField(null=True, blank=True)
+    # Forward chain (jewellery maariye) — leader kaila coin illana THEIR leader-ku forward.
+    # Stock ovvoru level-a keezha varum, ovvoru leader-um manual approve.
+    forwarded_for = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, null=True, blank=True, related_name='upstream_requests'
+    )
 
     # ── NEW: history query — requested_to + status vachi filter, created_at vachi sort ── idhu ella use pannும் combination-um cover pannும் ──
     class Meta:

@@ -690,6 +690,10 @@ class CoinRequestSerializer(serializers.ModelSerializer):
     approved_by_email = serializers.EmailField(source='approved_by.email', read_only=True)
     approved_by_role = serializers.CharField(source='approved_by.role', read_only=True)
     approved_by_name = serializers.SerializerMethodField()
+    # ── Forward chain info (jewellery maariye — leader forward → ... → Super Admin) ──
+    forward_info = serializers.SerializerMethodField()
+    stock_shortfall = serializers.SerializerMethodField()
+    chain = serializers.SerializerMethodField()
 
     class Meta:
         model = CoinRequest
@@ -697,8 +701,60 @@ class CoinRequestSerializer(serializers.ModelSerializer):
                   'requested_by_name', 'requested_by_phone', 'requested_by_role',
                   'requested_to', 'requested_to_email', 'requested_to_id_str', 'requested_to_name', 'requested_to_phone', 'requested_to_role',
                   'approved_by', 'approved_by_email', 'approved_by_role', 'approved_by_name',
-                  'status', 'reject_reason', 'items', 'created_at', 'sent_at']
-        read_only_fields = ['requested_by', 'requested_to', 'approved_by', 'status', 'reject_reason', 'created_at', 'sent_at']
+                  'status', 'reject_reason', 'items', 'created_at', 'sent_at',
+                  'forwarded_for', 'forward_info', 'stock_shortfall', 'chain']
+        read_only_fields = ['requested_by', 'requested_to', 'approved_by', 'status', 'reject_reason', 'created_at', 'sent_at',
+                            'forwarded_for']
+
+    def _person_name(self, user):
+        if not user:
+            return ''
+        p = self._get_profile_by_user(user)
+        if not p:
+            return 'Super Admin' if user.role == 'super_admin' else (user.email or '')
+        return _profile_display_name(p) or user.email or ''
+
+    def get_forward_info(self, obj):
+        """Indha request-ku leader forward pannirundha — mela pona request-oda latest status."""
+        if obj.reject_reason == 'MASTER_MINT':
+            return None
+        up = obj.upstream_requests.select_related('requested_to').order_by('-id').first()
+        if not up:
+            return None
+        return {'id': up.id, 'status': up.status, 'reject_reason': up.reject_reason,
+                'to_name': self._person_name(up.requested_to), 'to_role': up.requested_to.role,
+                'created_at': up.created_at, 'sent_at': up.sent_at}
+
+    def get_stock_shortfall(self, obj):
+        """Pending request — approver kaila andha coin kammi-na enna kammi nu (forward panna)."""
+        if obj.status != 'pending' or not obj.requested_to or obj.requested_to.role == 'super_admin':
+            return []
+        have = {(s.metal_type, s.weight_label): s.qty for s in CoinStock.objects.filter(user=obj.requested_to)}
+        out = []
+        for i in obj.items.all():
+            h = have.get((i.metal_type, i.weight_label), 0)
+            if i.qty > h:
+                out.append({'metal_type': i.metal_type, 'weight_label': i.weight_label, 'need': i.qty, 'have': h})
+        return out
+
+    def get_chain(self, obj):
+        """Full forward path — keezha irundhu (first requester) mela varaikkum ovvoru hop-um. Chain illana []."""
+        if obj.reject_reason == 'MASTER_MINT' or (not obj.forwarded_for_id and not obj.upstream_requests.exists()):
+            return []
+        root, guard = obj, 0
+        while root.forwarded_for_id and guard < 10:
+            root, guard = root.forwarded_for, guard + 1
+        hops, node, guard = [], root, 0
+        while node is not None and guard < 10:
+            hops.append({
+                'id': node.id, 'status': node.status, 'reject_reason': node.reject_reason,
+                'from_name': self._person_name(node.requested_by), 'from_role': node.requested_by.role,
+                'to_name': self._person_name(node.requested_to), 'to_role': node.requested_to.role,
+                'is_current': node.id == obj.id,
+            })
+            node = node.upstream_requests.select_related('requested_by', 'requested_to').order_by('-id').first()
+            guard += 1
+        return hops
 
     def _get_profile(self, obj):
         return self._get_profile_by_user(obj.requested_by)

@@ -6,16 +6,34 @@ import {
   CartIcon,
   CoinIcon,
   JewelryIcon,
-  PackageIcon,
   SearchIcon,
   UsersIcon,
   CalendarIcon,
   CrownIcon,
   CloseIcon,
-  CheckIcon,
   SparkleIcon,
   DownloadIcon,
+  OrdersIcon,
+  BullionIcon,
 } from "../components/SvgIcons";
+
+// Discount tag (price tag + %) — indha page-ku mattum
+function TagIcon({ size = 20, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z" />
+      <circle cx="7.5" cy="7.5" r="1.3" fill={color} stroke="none" />
+      <path d="m10.5 15.5 5-5" />
+    </svg>
+  );
+}
+
+const fmtWt = (g) => {
+  const n = Number(g) || 0;
+  if (n <= 0) return "0 g";
+  if (n >= 1000) return `${(n / 1000).toFixed(2)} kg`;
+  return `${n.toFixed(n < 10 ? 3 : 2).replace(/\.?0+$/, "")} g`;
+};
 
 const ROLE_BADGE = {
   admin: { label: "Super Stockist", bg: "#F3E8FF", color: "#6B21A8" },
@@ -74,6 +92,8 @@ export default function StockSales({ kind = "jewellery" }) {
   const [scope, setScope] = useState("all"); // all | mine | team
   const [roleFilter, setRoleFilter] = useState("all");
   const [status, setStatus] = useState("all");
+  const [discountedOnly, setDiscountedOnly] = useState(false);
+  const [discountBy, setDiscountBy] = useState([]);
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
 
@@ -105,6 +125,7 @@ export default function StockSales({ kind = "jewellery" }) {
 
   const params = (offset) => ({
     kind, period, scope, role: roleFilter, status, search: debounced, offset, limit: PAGE_SIZE,
+    ...(discountedOnly ? { discounted: 1 } : {}),
   });
 
   useEffect(() => {
@@ -122,6 +143,7 @@ export default function StockSales({ kind = "jewellery" }) {
         setSummary(d.summary || {});
         setRoleCounts(d.role_counts || {});
         setTopSellers(d.top_sellers || []);
+        setDiscountBy(d.discount_by || []);
         setListTotal(d.list_total || 0);
         setHasMore(!!d.has_more);
         offsetRef.current = (d.items || []).length;
@@ -129,7 +151,7 @@ export default function StockSales({ kind = "jewellery" }) {
       .catch(() => { if (reqId === reqIdRef.current) setError("Failed to load sales."); })
       .finally(() => { if (reqId === reqIdRef.current) setLoading(false); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, period, scope, roleFilter, status, debounced, refreshKey]);
+  }, [kind, period, scope, roleFilter, status, debounced, discountedOnly, refreshKey]);
 
   const loadMore = () => {
     if (loadingMoreRef.current) return;
@@ -203,12 +225,40 @@ export default function StockSales({ kind = "jewellery" }) {
     }
   };
 
-  const statCards = useMemo(() => [
-    { label: "Sales", value: (summary.count || 0).toLocaleString("en-IN"), Icon: CartIcon, tone: "teal" },
-    { label: isCoin ? "Coins Sold" : "Pieces Sold", value: (summary.pieces || 0).toLocaleString("en-IN"), Icon: isCoin ? CoinIcon : PackageIcon, tone: "blue" },
-    { label: "Sales Amount", value: fmt(summary.amount), Icon: SparkleIcon, tone: "gold" },
-    { label: "Discount Given", value: fmt(summary.discount), Icon: CheckIcon, tone: "rose" },
-  ], [summary, isCoin]);
+  // Real jewellery kadai daily report maari: Net Sales (GST ulla) · Bills + avg bill · Gram weight · Discount (evlo %, evlo bill-la)
+  const statCards = useMemo(() => {
+    const count = summary.count || 0;
+    const gold = summary.gold_weight || 0;
+    const silver = summary.silver_weight || 0;
+    const wtMain = gold > 0 || silver === 0 ? fmtWt(gold) : fmtWt(silver);
+    const wtSub = gold > 0 && silver > 0
+      ? `Gold · + ${fmtWt(silver)} silver`
+      : `${silver > 0 && gold === 0 ? "Silver" : "Gold"} · ${(summary.pieces || 0).toLocaleString("en-IN")} ${isCoin ? "coins" : "pcs"}`;
+    const cards = [
+      {
+        key: "net", label: "Net Sales", value: fmt(summary.amount), Icon: SparkleIcon, tone: "gold", hero: true,
+        sub: count ? `Incl. GST ${fmt(summary.gst)}` : "No bills yet",
+      },
+      {
+        key: "bills", label: "Bills", value: count.toLocaleString("en-IN"), Icon: OrdersIcon, tone: "teal",
+        sub: count ? `Avg bill ${fmt(summary.avg_bill)}` : "—",
+      },
+      { key: "wt", label: "Weight Sold", value: wtMain, Icon: BullionIcon, tone: "blue", sub: wtSub },
+    ];
+    if (isCoin) {
+      cards.push({
+        key: "pcs", label: "Coins Sold", value: (summary.pieces || 0).toLocaleString("en-IN"), Icon: CoinIcon, tone: "rose",
+        sub: summary.cancelled ? `${summary.cancelled} cancelled` : "Weight × rate + 3% GST",
+      });
+    } else {
+      const db = summary.discounted_bills || 0;
+      cards.push({
+        key: "disc", label: "Discount Given", value: fmt(summary.discount), Icon: TagIcon, tone: "rose", clickable: db > 0,
+        sub: db ? `${summary.discount_pct || 0}% of MRP · ${db} of ${count} bills` : "No discount given",
+      });
+    }
+    return cards;
+  }, [summary, isCoin]);
 
   return (
     <div className="ss-page">
@@ -230,12 +280,34 @@ export default function StockSales({ kind = "jewellery" }) {
         .ss-pill { border: 1px solid #D6E2E1; background: #FFFFFF; color: #5C706E; padding: 7px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
         .ss-pill.active { background: #073B3F; border-color: #073B3F; color: #FFFFFF; }
         .ss-pill .n { margin-left: 6px; font-size: 11px; opacity: 0.8; }
-        .ss-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
-        .ss-stat { background: #FFFFFF; border: 1px solid #E1EBEA; border-radius: 18px; padding: 16px 18px; display: flex; align-items: center; gap: 14px; box-shadow: 0 4px 16px rgba(7,59,63,0.03); }
-        .ss-stat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .ss-stat-icon.teal { background: #EFF6F6; } .ss-stat-icon.blue { background: #E0F2FE; } .ss-stat-icon.gold { background: #FDF3E4; } .ss-stat-icon.rose { background: #FFF1F2; }
+        .ss-stats { display: grid; grid-template-columns: 1.25fr 1fr 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+        .ss-stat { position: relative; overflow: hidden; text-align: left; font-family: inherit; background: #FFFFFF; border: 1px solid #E1EBEA; border-radius: 18px; padding: 16px 18px;
+          display: flex; flex-direction: column; gap: 4px; min-width: 0; box-shadow: 0 4px 16px rgba(7,59,63,0.03); transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+        .ss-stat::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--acc, #073B3F); }
+        .ss-stat.teal { --acc: #0A5C63; } .ss-stat.blue { --acc: #0369A1; } .ss-stat.rose { --acc: #BE123C; }
+        .ss-stat.hero { background: linear-gradient(135deg, #073B3F 0%, #0C5358 100%); border-color: #073B3F; box-shadow: 0 10px 28px rgba(7,59,63,0.22); }
+        .ss-stat.hero::before { background: linear-gradient(180deg, #E8C48F, #BB8958); }
+        .ss-stat.hero small, .ss-stat.hero .ss-stat-sub { color: rgba(255,255,255,0.72); }
+        .ss-stat.hero strong { color: #FFFFFF; }
+        .ss-stat.clickable { cursor: pointer; }
+        .ss-stat.clickable:hover { transform: translateY(-2px); border-color: #FECDD3; box-shadow: 0 10px 22px rgba(190,18,60,0.08); }
+        .ss-stat.active { border-color: #BE123C; background: #FFF7F8; box-shadow: 0 0 0 3px rgba(190,18,60,0.1); }
+        .ss-stat-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .ss-stat-icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .ss-stat-icon.teal { background: #EFF6F6; } .ss-stat-icon.blue { background: #E0F2FE; } .ss-stat-icon.gold { background: rgba(255,255,255,0.14); } .ss-stat-icon.rose { background: #FFF1F2; }
         .ss-stat small { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: #7A8987; }
-        .ss-stat strong { font-size: 22px; font-weight: 900; color: #073B3F; }
+        .ss-stat strong { font-size: 24px; font-weight: 900; color: #073B3F; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ss-stat-sub { font-size: 11.5px; font-weight: 650; color: #5C706E; line-height: 1.35; }
+        .ss-stat-sub em { font-style: normal; font-weight: 800; color: #BE123C; }
+        .ss-chip { margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid #FECDD3; background: #FFF1F2; color: #BE123C;
+          border-radius: 999px; padding: 3px 10px; font-size: 11px; font-weight: 800; cursor: pointer; font-family: inherit; vertical-align: middle; }
+        .ss-insights { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 18px; }
+        .ss-insights.two { grid-template-columns: 1.4fr 1fr; }
+        .ss-insights .ss-top { margin-bottom: 0; }
+        .ss-insights.two .ss-top-list { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+        .ss-top-amt { margin-left: auto; font-size: 13px; font-weight: 900; color: #073B3F; white-space: nowrap; }
+        .ss-top-amt.disc { color: #BE123C; }
+        .ss-disc-dot { width: 28px; height: 28px; border-radius: 50%; background: #FFF1F2; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .ss-top { background: #FFFFFF; border: 1px solid #E1EBEA; border-radius: 18px; padding: 14px 16px; margin-bottom: 18px; }
         .ss-top-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 850; color: #073B3F; margin-bottom: 10px; }
         .ss-top-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
@@ -302,7 +374,7 @@ export default function StockSales({ kind = "jewellery" }) {
         .ss-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #073B3F; color: #FFFFFF; padding: 10px 18px; border-radius: 12px; font-size: 13px; font-weight: 700; z-index: 1400; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
         @media (max-width: 1100px) { .ss-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         @media (max-width: 820px) { .ss-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
-        @media (max-width: 1100px) { .ss-stats { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 1100px) { .ss-stats { grid-template-columns: repeat(2, 1fr); } .ss-insights.two { grid-template-columns: 1fr; } }
         @media (max-width: 640px) {
           .ss-page { padding: 14px 12px 48px; }
           .ss-card { padding: 9px; border-radius: 12px; }
@@ -316,7 +388,8 @@ export default function StockSales({ kind = "jewellery" }) {
           .ss-card-row.total .v { font-size: 12px; }
           .ss-card-foot { flex-direction: column; align-items: stretch; }
           .ss-card-foot .btns { justify-content: stretch; } .ss-card-foot .btns button { flex: 1; justify-content: center; }
-          .ss-stats { gap: 10px; } .ss-stat { padding: 12px; } .ss-stat strong { font-size: 17px; } .ss-stat-icon { width: 36px; height: 36px; }
+          .ss-stats { gap: 10px; } .ss-stat { padding: 12px 12px 12px 14px; } .ss-stat strong { font-size: 17px; } .ss-stat-icon { width: 28px; height: 28px; }
+          .ss-stat small { font-size: 9.5px; } .ss-stat-sub { font-size: 10px; }
         }
       `}</style>
 
@@ -349,31 +422,76 @@ export default function StockSales({ kind = "jewellery" }) {
         </div>
 
         <div className="ss-stats">
-          {statCards.map((c) => (
-            <div key={c.label} className="ss-stat">
-              <div className={`ss-stat-icon ${c.tone}`}><c.Icon size={20} color="#073B3F" /></div>
-              <div>
-                <small>{c.label}</small>
-                {loading ? <SkeletonText width="70px" height="24px" /> : <strong>{c.value}</strong>}
-              </div>
-            </div>
-          ))}
+          {statCards.map((c) => {
+            const active = c.key === "disc" && discountedOnly;
+            const Tag = c.clickable || active ? "button" : "div";
+            return (
+              <Tag
+                key={c.key}
+                type={Tag === "button" ? "button" : undefined}
+                className={`ss-stat ${c.tone}${c.hero ? " hero" : ""}${Tag === "button" ? " clickable" : ""}${active ? " active" : ""}`}
+                onClick={Tag === "button" ? () => setDiscountedOnly((v) => !v) : undefined}
+                title={Tag === "button" ? (active ? "Show all bills" : "Show only discounted bills") : undefined}
+              >
+                <div className="ss-stat-top">
+                  <small>{c.label}</small>
+                  <span className={`ss-stat-icon ${c.tone}`}><c.Icon size={18} color={c.hero ? "#FFFFFF" : "#073B3F"} /></span>
+                </div>
+                {loading ? (
+                  <>
+                    <SkeletonText width="60%" height="26px" style={{ marginBottom: 6 }} />
+                    <SkeletonText width="80%" height="11px" style={{ marginBottom: 0 }} />
+                  </>
+                ) : (
+                  <>
+                    <strong>{c.value}</strong>
+                    <span className="ss-stat-sub">
+                      {c.sub}
+                      {Tag === "button" && <em>{active ? " · Showing these ✕" : " · View bills →"}</em>}
+                    </span>
+                  </>
+                )}
+              </Tag>
+            );
+          })}
         </div>
 
-        {hasTeam && topSellers.length > 0 && (
-          <div className="ss-top">
-            <div className="ss-top-title"><CrownIcon size={16} color="#A0713F" /> Top Sellers</div>
-            <div className="ss-top-list">
-              {topSellers.map((t, i) => (
-                <div key={t.seller_id} className="ss-top-item">
-                  <span className={`ss-rank r${i + 1}`}>{i + 1}</span>
-                  <div style={{ minWidth: 0 }}>
-                    <div className="ss-top-name">{t.name}</div>
-                    <div className="ss-top-meta">{ROLE_BADGE[t.role]?.label || t.role} · {t.sales} sales · <strong style={{ color: "#073B3F" }}>{fmt(t.amount)}</strong></div>
-                  </div>
+        {hasTeam && (topSellers.length > 0 || (!isCoin && discountBy.length > 0)) && (
+          <div className={`ss-insights${!isCoin && discountBy.length > 0 ? " two" : ""}`}>
+            {topSellers.length > 0 && (
+              <div className="ss-top">
+                <div className="ss-top-title"><CrownIcon size={16} color="#A0713F" /> Top Sellers</div>
+                <div className="ss-top-list">
+                  {topSellers.map((t, i) => (
+                    <div key={t.seller_id} className="ss-top-item">
+                      <span className={`ss-rank r${i + 1}`}>{i + 1}</span>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="ss-top-name">{t.name}</div>
+                        <div className="ss-top-meta">{ROLE_BADGE[t.role]?.label || t.role} · {t.sales} bills · {fmtWt(t.weight)}</div>
+                      </div>
+                      <strong className="ss-top-amt">{fmt(t.amount)}</strong>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
+            {!isCoin && discountBy.length > 0 && (
+              <div className="ss-top">
+                <div className="ss-top-title"><TagIcon size={16} color="#BE123C" /> Discount Given By</div>
+                <div className="ss-top-list">
+                  {discountBy.map((d) => (
+                    <div key={d.seller_id} className="ss-top-item">
+                      <span className="ss-disc-dot"><TagIcon size={13} color="#BE123C" /></span>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="ss-top-name">{d.name}</div>
+                        <div className="ss-top-meta">{ROLE_BADGE[d.role]?.label || d.role} · {d.bills} bill{d.bills > 1 ? "s" : ""} · {d.pct}% of MRP</div>
+                      </div>
+                      <strong className="ss-top-amt disc">− {fmt(d.discount)}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -403,6 +521,11 @@ export default function StockSales({ kind = "jewellery" }) {
 
         <div style={{ fontSize: 12.5, color: "#5C706E", fontWeight: 700, marginBottom: 10 }}>
           Showing {items.length} of {listTotal} sales
+          {discountedOnly && (
+            <button type="button" className="ss-chip" onClick={() => setDiscountedOnly(false)}>
+              <TagIcon size={11} color="#BE123C" /> Discounted bills only <CloseIcon size={10} color="#BE123C" />
+            </button>
+          )}
         </div>
 
         {error && <div className="ss-empty" style={{ color: "#B91C1C" }}>{error}</div>}

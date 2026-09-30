@@ -63,12 +63,16 @@ function JtChainStepper({ chain }) {
           return (
             <div key={i} className="jt-chain-step">
               {hop && (
-                <span className="jt-chain-link" style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }} title={hop.reject_reason || cfg.label}>
-                  <cfg.Icon size={11} color={cfg.color} />
+                <span className="jt-chain-conn" style={{ "--conn": cfg.border }}>
+                  <i />
+                  <span className="jt-chain-link" style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }} title={hop.reject_reason || cfg.label}>
+                    <cfg.Icon size={11} color={cfg.color} />
+                  </span>
+                  <i />
                 </span>
               )}
               <span className={`jt-chain-node${hop?.is_current || (i === 0 && chain[0].is_current) ? " current" : ""}`}>
-                <strong>{n.name || "—"}</strong>
+                <strong title={n.name || ""}>{n.name || "—"}</strong>
                 <small>{ROLE_BADGE_CONFIG[n.role]?.label || n.role}</small>
               </span>
             </div>
@@ -810,6 +814,9 @@ export default function JewelleryTransactions() {
           border: 1px dashed #CFE0DE;
           border-radius: 14px;
           padding: 10px 12px;
+          min-width: 0;
+          max-width: 100%;
+          box-sizing: border-box;
         }
         .jt-chain-legend { display: inline-flex; gap: 10px; text-transform: none; letter-spacing: 0; }
         .jt-chain-legend span { display: inline-flex; align-items: center; gap: 3px; font-weight: 800; }
@@ -818,18 +825,31 @@ export default function JewelleryTransactions() {
           font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
           color: #7A8987; margin-bottom: 8px;
         }
-        .jt-chain-track { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
-        .jt-chain-step { display: flex; align-items: center; gap: 5px; }
+        /* Ore line — nodes equal height, naduvula line + arrow; idam paththalainaa side scroll */
+        .jt-chain-track {
+          display: flex; align-items: stretch; flex-wrap: nowrap;
+          overflow-x: auto; padding: 3px 2px 4px;
+          scrollbar-width: thin;
+        }
+        .jt-chain-step { display: flex; align-items: center; flex: 0 0 auto; }
+        .jt-chain-conn { display: flex; align-items: center; flex: 0 0 auto; }
+        .jt-chain-conn i { display: block; width: 10px; height: 2px; background: var(--conn); border-radius: 2px; }
         .jt-chain-link {
-          width: 22px; height: 22px; border-radius: 50%;
+          width: 22px; height: 22px; border-radius: 50%; flex: 0 0 auto;
           display: inline-flex; align-items: center; justify-content: center;
-          font-size: 11px; font-weight: 900; border: 1.5px solid;
+          border: 1.5px solid;
         }
         .jt-chain-node {
-          display: flex; flex-direction: column; padding: 4px 8px; border-radius: 8px;
+          display: flex; flex-direction: column; justify-content: center; gap: 1px;
+          min-width: 100px; max-width: 160px; min-height: 36px;
+          padding: 4px 10px; border-radius: 8px;
           background: #FFFFFF; border: 1px solid #E1EBEA;
+          box-sizing: border-box;
         }
-        .jt-chain-node strong { font-size: 11px; color: #073B3F; }
+        .jt-chain-node strong {
+          font-size: 11px; color: #073B3F;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
         .jt-chain-node small { font-size: 9.5px; color: #7A8987; font-weight: 700; }
         .jt-chain-node.current { border-color: #BB8958; box-shadow: 0 0 0 2px rgba(187, 137, 88, 0.18); }
 

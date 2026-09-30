@@ -16,8 +16,8 @@ export default function ShopNavbar({ onProfile }) {
         { label: 'My Profile', action: openProfile },
         { label: 'Create Shop', path: '/add-shop' },
         { label: 'Shop List', path: '/superadmin/manage-users/shops' },
-        { label: 'Network Grid', path: '/shop-hierarchy-grid' },
-        { label: 'Network Tree', path: '/shop-hierarchy-tree' },
+        { label: 'Hierarchy Grid', path: '/shop-hierarchy-grid' },
+        { label: 'Hierarchy Tree', path: '/shop-hierarchy-tree' },
       ]}
       celebrationItems={[]}
       announcementItems={[]}
@@ -36,8 +36,8 @@ export default function ShopNavbar({ onProfile }) {
       reportItems={[
         { label: 'Shop Report', path: '/shop-report' },
         { label: 'Shop List', path: '/superadmin/manage-users/shops' },
-        { label: 'Network Grid', path: '/shop-hierarchy-grid' },
-        { label: 'Network Tree', path: '/shop-hierarchy-tree' },
+        { label: 'Hierarchy Grid', path: '/shop-hierarchy-grid' },
+        { label: 'Hierarchy Tree', path: '/shop-hierarchy-tree' },
       ]}
       actionItems={[
         { label: 'Profile', icon: 'user', action: openProfile },

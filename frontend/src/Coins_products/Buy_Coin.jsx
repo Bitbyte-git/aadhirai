@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import CoinTabs from "./CoinTabs";
@@ -84,8 +84,12 @@ const ROLE_TARGET = {
   dealer: "Admin",
   sub_dealer: "Dealer",
   promotor: "Sub Dealer",
+  shop: "your leader",
   super_admin: "Vault Inventory",
 };
+
+const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
+const GST_RATE = 0.03;
 
 export default function BuyCoin() {
   const navigate = useNavigate();
@@ -97,6 +101,48 @@ export default function BuyCoin() {
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState("success");
+
+  // ── Innaiku rate (Super Admin set pannadhu) — value = grams × rate + 3% GST ──
+  const [rates, setRates] = useState(null); // { gold_22k, gold_24k, silver_999, date }
+  const [ratesFailed, setRatesFailed] = useState(false);
+  useEffect(() => {
+    api.get("/metal-rates/")
+      .then((res) => {
+        const d = res.data || {};
+        setRates({
+          gold_22k: Number(d.gold_22k) || 0,
+          gold_24k: Number(d.gold_24k) || 0,
+          silver_999: Number(d.silver_999) || 0,
+          date: d.date || "",
+        });
+      })
+      .catch(() => setRatesFailed(true));
+  }, []);
+  // ── Leader kaila evlo coin irukku / Super Admin vault-la mattum irukku (forward aagum) ──
+  const [catalog, setCatalog] = useState(null); // { leader, leader_stock, super_admin_stock }
+  useEffect(() => {
+    if (role === "super_admin") return;
+    api.get("/coin-requests/catalog/").then((res) => setCatalog(res.data || null)).catch(() => {});
+  }, [role]);
+  const availabilityOf = (mKey, wLabel) => {
+    if (!catalog) return null;
+    const key = `${mKey}|${wLabel}`;
+    const lq = Number(catalog.leader_stock?.[key]) || 0;
+    const sq = Number(catalog.super_admin_stock?.[key]) || 0;
+    if (lq > 0) return { kind: "leader", qty: lq };
+    if (sq > 0) return { kind: "forward", qty: sq };
+    return { kind: "none", qty: 0 };
+  };
+  const ROLE_NAME = { super_admin: "Super Admin", admin: "Super Stockist", dealer: "Distributor", sub_dealer: "Wholesale Dealer", promotor: "Retailer", shop: "Shop" };
+
+  const rateOf = (mKey) => Number(rates?.[mKey]) || 0;
+  const valueOf = (item) => Number(item.weight_grams || 0) * Number(item.qty || 0) * rateOf(item.metal_type);
+  const todayIso = new Date().toLocaleDateString("en-CA");
+  const rateDateLabel = rates?.date
+    ? rates.date === todayIso
+      ? "Today"
+      : new Date(`${rates.date}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+    : "";
 
   const availableWeights = metalType === "silver_999" ? SILVER_WEIGHTS : GOLD_WEIGHTS;
   const selectedMetal = METALS.find((m) => m.key === metalType) || METALS[0];
@@ -142,6 +188,8 @@ export default function BuyCoin() {
       ),
     [cart]
   );
+  const totalValue = cart.reduce((s, item) => s + valueOf(item), 0);
+  const addPreviewValue = selectedWeight.grams * Math.max(1, Number(qty) || 1) * rateOf(metalType);
 
   // 22K Gold Breakdown
   const cart22k = useMemo(() => cart.filter((i) => i.metal_type === "gold_22k"), [cart]);
@@ -760,6 +808,114 @@ export default function BuyCoin() {
           color: #991B1B;
         }
 
+        .bc-rates {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          align-items: flex-end;
+        }
+        .bc-rates-head {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          font-size: 11px;
+          font-weight: 800;
+          color: #5C706E;
+          text-transform: uppercase;
+          letter-spacing: 0.07em;
+        }
+        .bc-live-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #16A34A;
+          box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.16);
+          animation: bcPulse 1.8s ease-in-out infinite;
+        }
+        @keyframes bcPulse { 50% { box-shadow: 0 0 0 6px rgba(22, 163, 74, 0.04); } }
+        .bc-rates-date {
+          text-transform: none;
+          letter-spacing: 0;
+          font-weight: 700;
+          color: #A16207;
+          background: #FEF9C3;
+          padding: 1px 8px;
+          border-radius: 999px;
+        }
+        .bc-rates-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+        .bc-rate-chip {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          min-width: 118px;
+          padding: 9px 14px;
+          border-radius: 12px;
+          background: linear-gradient(180deg, #FFFFFF, #F8FAFA);
+          border: 1px solid #E1EBEA;
+          border-top: 3px solid var(--metal-tone);
+        }
+        .bc-rate-name { font-size: 11px; font-weight: 700; color: #5C706E; }
+        .bc-rate-val { font-size: 16px; font-weight: 800; color: #073B3F; }
+        .bc-rate-val small { font-size: 11px; font-weight: 700; color: #7A8987; margin-left: 2px; }
+        .bc-rate-val.muted { color: #9AA8A6; }
+        .bc-rate-skel {
+          height: 16px;
+          width: 80px;
+          border-radius: 6px;
+          background: linear-gradient(90deg, #EEF3F3 25%, #F7FAFA 50%, #EEF3F3 75%);
+          background-size: 200% 100%;
+          animation: bcShimmer 1.2s linear infinite;
+        }
+        @keyframes bcShimmer { to { background-position: -200% 0; } }
+        .bc-weight-btn.has-av { height: auto; min-height: 52px; flex-direction: column; gap: 3px; padding: 6px 4px; }
+        .bc-av { font-size: 9.5px; font-weight: 800; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+        .bc-av.leader { background: #ECFDF5; color: #047857; }
+        .bc-av.forward { background: #FDF3E4; color: #A0713F; }
+        .bc-av.none { background: #F1F5F9; color: #94A3B8; }
+        .bc-weight-btn.active .bc-av { background: rgba(255, 255, 255, 0.18); color: #FFFFFF; }
+        .bc-av-note {
+          display: flex; align-items: center; gap: 8px; margin: -12px 0 22px;
+          padding: 9px 12px; border-radius: 10px; border: 1px solid; font-size: 12.5px; font-weight: 600;
+        }
+        .bc-av-note.leader { background: #ECFDF5; border-color: #A7F3D0; color: #065F46; }
+        .bc-av-note.forward { background: #FFFAF1; border-color: rgba(187, 137, 88, 0.45); color: #8A5A2B; }
+        .bc-av-note.none { background: #FFFBEB; border-color: #FDE68A; color: #92400E; }
+        .bc-metal-rate {
+          margin-top: 4px;
+          font-size: 12.5px;
+          font-weight: 800;
+          color: #8A623D;
+        }
+        .bc-add-hint {
+          margin-top: 10px;
+          font-size: 12.5px;
+          color: #5C706E;
+          text-align: right;
+        }
+        .bc-add-hint b { color: #073B3F; font-size: 14px; }
+        .bc-add-hint span { color: #7A8987; font-size: 11.5px; }
+        .bc-cart-val {
+          margin-left: auto;
+          margin-right: 10px;
+          font-size: 13px;
+          font-weight: 800;
+          color: #073B3F;
+          white-space: nowrap;
+        }
+        .bc-summary-total {
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          margin-top: 6px;
+          padding-top: 10px;
+          border-top: 1px dashed #D6E2E1;
+          font-size: 13px;
+          font-weight: 700;
+          color: #073B3F;
+        }
+        .bc-summary-total b { font-size: 18px; font-weight: 800; }
+        .bc-summary-note { font-size: 11px; color: #9AA8A6; text-align: right; }
+
         @media (max-width: 1024px) {
           .bc-breakdown-grid { grid-template-columns: repeat(3, 1fr); }
           .bc-grid { grid-template-columns: 1fr; }
@@ -772,6 +928,11 @@ export default function BuyCoin() {
           .bc-metal-grid { grid-template-columns: 1fr; }
           .bc-header-card { flex-direction: column; align-items: flex-start; }
           .bc-header-actions { width: 100%; }
+          .bc-rates { align-items: stretch; width: 100%; }
+          .bc-rates-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+          .bc-rate-chip { min-width: 0; padding: 8px 10px; }
+          .bc-rate-val { font-size: 14px; }
+          .bc-add-hint { text-align: left; }
         }
       `}</style>
 
@@ -793,6 +954,28 @@ export default function BuyCoin() {
                 ? "Deposit coin inventory directly into vault stock."
                 : `Submit coin requests to ${ROLE_TARGET[role] || "upstream authority"}.`}
             </p>
+          </div>
+
+          <div className="bc-rates">
+            <div className="bc-rates-head">
+              <span className="bc-live-dot" />
+              {rates ? `${rateDateLabel === "Today" ? "Today's" : "Latest"} Rate` : "Today's Rate"}
+              {rates && rateDateLabel !== "Today" && <span className="bc-rates-date">{rateDateLabel}</span>}
+            </div>
+            <div className="bc-rates-row">
+              {METALS.map((m) => (
+                <div key={m.key} className="bc-rate-chip" style={{ "--metal-tone": m.tone }}>
+                  <span className="bc-rate-name">{m.label}</span>
+                  {rates ? (
+                    <span className="bc-rate-val">{inr(rateOf(m.key))}<small>/g</small></span>
+                  ) : ratesFailed ? (
+                    <span className="bc-rate-val muted">—</span>
+                  ) : (
+                    <span className="bc-rate-skel" />
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -882,6 +1065,9 @@ export default function BuyCoin() {
                       <span>{m.label}</span>
                     </div>
                     <div className="bc-metal-purity">{m.purity}</div>
+                    {rates && rateOf(m.key) > 0 && (
+                      <div className="bc-metal-rate">{inr(rateOf(m.key))} / g</div>
+                    )}
                   </button>
                 );
               })}
@@ -889,17 +1075,42 @@ export default function BuyCoin() {
 
             <div className="bc-section-title">2. Denomination Weight</div>
             <div className="bc-weight-grid">
-              {availableWeights.map((w) => (
-                <button
-                  key={w.label}
-                  type="button"
-                  className={`bc-weight-btn ${selectedWeight.label === w.label ? "active" : ""}`}
-                  onClick={() => setWeightLabel(w.label)}
-                >
-                  {w.label}
-                </button>
-              ))}
+              {availableWeights.map((w) => {
+                const av = availabilityOf(metalType, w.label);
+                return (
+                  <button
+                    key={w.label}
+                    type="button"
+                    className={`bc-weight-btn ${selectedWeight.label === w.label ? "active" : ""}${av ? " has-av" : ""}`}
+                    onClick={() => setWeightLabel(w.label)}
+                  >
+                    <span>{w.label}</span>
+                    {av && (
+                      <span className={`bc-av ${av.kind}`}>
+                        {av.kind === "leader" ? `${av.qty} ready` : av.kind === "forward" ? "Via forward" : "No stock"}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
+            {catalog && (() => {
+              const av = availabilityOf(metalType, selectedWeight.label);
+              const leaderName = catalog.leader?.name || "your leader";
+              const leaderRole = ROLE_NAME[catalog.leader?.role] || "";
+              if (!av) return null;
+              return (
+                <div className={`bc-av-note ${av.kind}`}>
+                  {av.kind === "leader" ? (
+                    <><CheckIcon size={14} color="#047857" /> <span><b>{av.qty} pcs</b> with {leaderName}{leaderRole && ` (${leaderRole})`} · approves directly</span></>
+                  ) : av.kind === "forward" ? (
+                    <><SparkleIcon size={14} color="#A0713F" /> <span>Super Admin stock · {leaderName} will forward it up the chain</span></>
+                  ) : (
+                    <><WarningIcon size={14} color="#B45309" /> <span>Not in stock right now · you can still request</span></>
+                  )}
+                </div>
+              );
+            })()}
 
             <div className="bc-section-title">3. Quantity</div>
             <div className="bc-stepper-wrap">
@@ -927,6 +1138,12 @@ export default function BuyCoin() {
                 <PlusIcon size={14} color="#FFFFFF" /> Add {qty} × {weightLabel} {selectedMetal.label}
               </button>
             </div>
+            {rates && addPreviewValue > 0 && (
+              <div className="bc-add-hint">
+                {formatWeight(selectedWeight.grams * Math.max(1, Number(qty) || 1))} × {inr(rateOf(metalType))}/g ={" "}
+                <b>{inr(addPreviewValue)}</b> <span>+ 3% GST</span>
+              </div>
+            )}
           </div>
 
           {/* Cart Card */}
@@ -961,6 +1178,9 @@ export default function BuyCoin() {
                           Qty: <b>{item.qty} pcs</b> ({formatWeight((item.weight_grams || 0) * item.qty)})
                         </div>
                       </div>
+                      {rates && valueOf(item) > 0 && (
+                        <span className="bc-cart-val">{inr(valueOf(item))}</span>
+                      )}
                       <button
                         type="button"
                         className="bc-cart-del"
@@ -987,6 +1207,23 @@ export default function BuyCoin() {
                 <span>Total Weight</span>
                 <b style={{ color: "#073B3F" }}>{formatWeight(totalWeight)}</b>
               </div>
+              {rates && totalValue > 0 && (
+                <>
+                  <div className="bc-summary-line">
+                    <span>Metal Value</span>
+                    <b style={{ color: "#073B3F" }}>{inr(totalValue)}</b>
+                  </div>
+                  <div className="bc-summary-line">
+                    <span>GST (3%)</span>
+                    <b style={{ color: "#073B3F" }}>{inr(totalValue * GST_RATE)}</b>
+                  </div>
+                  <div className="bc-summary-total">
+                    <span>Est. Value</span>
+                    <b>{inr(totalValue * (1 + GST_RATE))}</b>
+                  </div>
+                  <div className="bc-summary-note">At {rateDateLabel === "Today" ? "today's" : `${rateDateLabel}`} rate</div>
+                </>
+              )}
             </div>
 
             <button

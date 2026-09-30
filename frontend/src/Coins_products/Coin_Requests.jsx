@@ -18,7 +18,60 @@ import {
   EyeIcon,
   EyeOffIcon,
   SparkleIcon,
+  ClockIcon,
+  WarningIcon,
+  ArrowRightIcon,
+  ArrowLeftIcon,
+  ArrowUpRightIcon,
 } from "../components/SvgIcons";
+
+// ── Forward chain path (jewellery maariye): → request mela pogudhu, ← coin keezha varudhu, ✕ declined ──
+function CoinChainStepper({ chain, roleLabels }) {
+  if (!chain || chain.length < 2) return null;
+  const nodes = [
+    { name: chain[0].from_name, role: chain[0].from_role },
+    ...chain.map((h) => ({ name: h.to_name, role: h.to_role })),
+  ];
+  const hopCfg = {
+    sent: { Icon: ArrowLeftIcon, color: "#047857", bg: "#ECFDF5", border: "#A7F3D0", label: "Coins came back" },
+    pending: { Icon: ArrowRightIcon, color: "#B45309", bg: "#FFFBEB", border: "#FDE68A", label: "Request going up" },
+    rejected: { Icon: CloseIcon, color: "#B91C1C", bg: "#FEF2F2", border: "#FECACA", label: "Declined" },
+  };
+  return (
+    <div className="cr-chain">
+      <div className="cr-chain-title">
+        <span>Forward chain</span>
+        <span className="cr-chain-legend">
+          <span style={{ color: "#B45309" }}><ArrowRightIcon size={11} color="#B45309" /> Request</span>
+          <span style={{ color: "#047857" }}><ArrowLeftIcon size={11} color="#047857" /> Coins</span>
+        </span>
+      </div>
+      <div className="cr-chain-track">
+        {nodes.map((n, i) => {
+          const hop = i > 0 ? chain[i - 1] : null;
+          const cfg = hop ? hopCfg[hop.status] || hopCfg.pending : null;
+          return (
+            <div key={i} className="cr-chain-step">
+              {hop && (
+                <span className="cr-chain-conn" style={{ "--conn": cfg.border }}>
+                  <i />
+                  <span className="cr-chain-link" style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }} title={hop.reject_reason || cfg.label}>
+                    <cfg.Icon size={12} color={cfg.color} />
+                  </span>
+                  <i />
+                </span>
+              )}
+              <span className={`cr-chain-node${hop?.is_current || (i === 0 && chain[0].is_current) ? " current" : ""}`}>
+                <strong title={n.name || ""}>{n.name || "—"}</strong>
+                <small>{roleLabels[n.role] || n.role}</small>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 const COIN_METAL_LABELS_TEXT = {
   gold_22k: "Gold 22K (916)",
@@ -187,6 +240,24 @@ export default function CoinRequests() {
     return () => obs.disconnect();
   }, [hasMore, loading, items.length]);
 
+  // ── Forward chain: en kaila coin illana kammi-yaana qty-ai en leader-ku forward (confirm popup-oda) ──
+  const [forwardBox, setForwardBox] = useState(null); // { req, busy }
+  const confirmForward = async () => {
+    if (!forwardBox || forwardBox.busy) return;
+    setForwardBox((b) => ({ ...b, busy: true }));
+    try {
+      const res = await api.post(`/coin-requests/${forwardBox.req.id}/forward/`);
+      setMsgType("success");
+      setMsg(res.data?.message || "Forwarded to your leader.");
+      fetchCoinRequests();
+    } catch (err) {
+      setMsgType("error");
+      setMsg(err.response?.data?.error || "Failed to forward request.");
+    } finally {
+      setForwardBox(null);
+    }
+  };
+
   // Execution functions
   const executeApprove = async (reqId, password = null) => {
     setApprovingReqId(reqId);
@@ -341,7 +412,7 @@ export default function CoinRequests() {
 
   // Days Pending / Duration calculation helper
   const getDaysPendingInfo = (createdAt, status, sentAt) => {
-    if (!createdAt) return { text: "0 days", label: "0 days", badgeClass: "normal", days: 0 };
+    if (!createdAt) return { text: "0 days", label: "0 days", badgeClass: "normal", days: 0, Icon: ClockIcon, color: "#073B3F" };
     const start = new Date(createdAt);
     const end = status === "sent" && sentAt ? new Date(sentAt) : new Date();
     const diffMs = Math.max(0, end - start);
@@ -358,27 +429,35 @@ export default function CoinRequests() {
     }
 
     if (status === "pending") {
+      // Emoji illa — SVG icon (2+ naal = warning, 5+ naal = red)
       let badgeClass = "normal";
-      let icon = "⏳";
+      let Icon = ClockIcon;
+      let color = "#073B3F";
       if (diffDays >= 5) {
         badgeClass = "overdue";
-        icon = "🚨";
+        Icon = WarningIcon;
+        color = "#DC2626";
       } else if (diffDays >= 2) {
         badgeClass = "delayed";
-        icon = "⚠️";
+        Icon = WarningIcon;
+        color = "#B45309";
       }
       return {
         days: diffDays,
         text: `${timeStr} pending`,
-        label: `${icon} ${timeStr} Pending`,
+        label: `${timeStr} Pending`,
         badgeClass,
+        Icon,
+        color,
       };
     } else if (status === "sent") {
       return {
         days: diffDays,
         text: `Approved in ${timeStr}`,
-        label: `⚡ Approved in ${timeStr}`,
+        label: `Approved in ${timeStr}`,
         badgeClass: "approved",
+        Icon: CheckIcon,
+        color: "#047857",
       };
     } else {
       return {
@@ -386,6 +465,8 @@ export default function CoinRequests() {
         text: `Declined in ${timeStr}`,
         label: `Declined in ${timeStr}`,
         badgeClass: "rejected",
+        Icon: CloseIcon,
+        color: "#64748B",
       };
     }
   };
@@ -992,6 +1073,85 @@ export default function CoinRequests() {
           cursor: not-allowed;
         }
 
+        /* ── Forward chain (jewellery maariye) ── */
+        .cr-btn-forward {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 9px 16px; border-radius: 10px; border: none;
+          background: linear-gradient(135deg, #BB8958, #A0713F); color: #FFFFFF;
+          font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit;
+          box-shadow: 0 6px 16px rgba(187, 137, 88, 0.3);
+          transition: transform 150ms ease, box-shadow 150ms ease;
+        }
+        .cr-btn-forward:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(187, 137, 88, 0.38); }
+        .cr-fwd-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+        .cr-fwd-note {
+          display: inline-flex; align-items: center; gap: 7px;
+          font-size: 12.5px; font-weight: 700; padding: 7px 12px;
+          border-radius: 8px; border: 1px solid; line-height: 1.4;
+        }
+        .cr-fwd-note.sa { color: #8A5A2B; background: #FFFAF1; border-color: rgba(187, 137, 88, 0.45); }
+        .cr-fwd-note.waiting { color: #92400E; background: #FFFBEB; border-color: #FDE68A; }
+        .cr-fwd-note.declined { color: #991B1B; background: #FEF2F2; border-color: #FECACA; }
+        .cr-fwd-note.arrived { color: #047857; background: #ECFDF5; border-color: #A7F3D0; }
+        .cr-chain {
+          margin-top: 12px; background: #F8FBFB; border: 1px dashed #CFE0DE; border-radius: 14px;
+          padding: 12px 14px; min-width: 0; max-width: 100%; box-sizing: border-box;
+        }
+        .cr-chain-title {
+          display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+          font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+          color: #7A8987; margin-bottom: 10px;
+        }
+        .cr-chain-legend { display: inline-flex; gap: 10px; text-transform: none; letter-spacing: 0; }
+        .cr-chain-legend span { display: inline-flex; align-items: center; gap: 3px; font-weight: 800; }
+        .cr-chain-track { display: flex; align-items: stretch; flex-wrap: nowrap; overflow-x: auto; padding: 3px 2px 4px; scrollbar-width: thin; }
+        .cr-chain-step { display: flex; align-items: center; flex: 0 0 auto; }
+        .cr-chain-conn { display: flex; align-items: center; flex: 0 0 auto; }
+        .cr-chain-conn i { display: block; width: 12px; height: 2px; background: var(--conn); border-radius: 2px; }
+        .cr-chain-link {
+          width: 26px; height: 26px; border-radius: 50%; flex: 0 0 auto;
+          display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid;
+        }
+        .cr-chain-node {
+          display: flex; flex-direction: column; justify-content: center; gap: 2px;
+          min-width: 110px; max-width: 170px; min-height: 42px; padding: 6px 12px; border-radius: 10px;
+          background: #FFFFFF; border: 1px solid #E1EBEA; box-sizing: border-box;
+        }
+        .cr-chain-node strong { font-size: 12px; color: #073B3F; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cr-chain-node small { font-size: 10px; color: #7A8987; font-weight: 700; }
+        .cr-chain-node.current { border-color: #BB8958; box-shadow: 0 0 0 2px rgba(187, 137, 88, 0.18); }
+        .cr-cf-overlay {
+          position: fixed; inset: 0; z-index: 1200; background: rgba(7, 32, 34, 0.45); backdrop-filter: blur(4px);
+          display: flex; align-items: center; justify-content: center; padding: 16px;
+        }
+        .cr-cf-card {
+          width: 100%; max-width: 360px; background: #FFFFFF; border-radius: 20px;
+          padding: 24px 22px 20px; text-align: center; box-shadow: 0 24px 60px rgba(7, 59, 63, 0.28);
+        }
+        .cr-cf-icon {
+          width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 12px;
+          display: flex; align-items: center; justify-content: center;
+          background: #FDF3E4; box-shadow: 0 0 0 6px rgba(187, 137, 88, 0.12);
+        }
+        .cr-cf-title { margin: 0 0 8px; font-size: 17px; font-weight: 850; color: #073B3F; }
+        .cr-cf-sub { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; color: #5C706E; font-weight: 600; }
+        .cr-cf-sub span { display: inline-flex; align-items: center; gap: 4px; }
+        .cr-cf-chip { font-family: monospace; font-weight: 800; color: #073B3F; background: #EEF4F4; border: 1px solid #D6E2E1; border-radius: 6px; padding: 1px 6px; }
+        .cr-cf-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+        .cr-cf-cancel, .cr-cf-ok {
+          height: 42px; border-radius: 12px; font-size: 13.5px; font-weight: 800; cursor: pointer;
+          display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit;
+        }
+        .cr-cf-cancel { background: #FFFFFF; border: 1px solid #D6E2E1; color: #5C706E; }
+        .cr-cf-ok { border: none; color: #FFFFFF; background: linear-gradient(135deg, #BB8958, #A0713F); }
+        .cr-cf-ok:disabled, .cr-cf-cancel:disabled { opacity: 0.55; cursor: not-allowed; }
+        .cr-cf-spin {
+          width: 14px; height: 14px; border-radius: 50%;
+          border: 2px solid rgba(255, 255, 255, 0.35); border-top-color: #FFFFFF;
+          animation: crCfSpin 0.7s linear infinite;
+        }
+        @keyframes crCfSpin { to { transform: rotate(360deg); } }
+
         .cr-btn-reject {
           background: #FFF5F5;
           color: #DC2626;
@@ -1438,6 +1598,7 @@ export default function CoinRequests() {
                           className={`cr-days-pill ${pendingInfo.badgeClass}`}
                           title={`Submitted: ${new Date(req.created_at).toLocaleString()}`}
                         >
+                          <pendingInfo.Icon size={12} color={pendingInfo.color} />
                           {pendingInfo.label}
                         </span>
                       </div>
@@ -1503,7 +1664,36 @@ export default function CoinRequests() {
                     </div>
 
                     {/* Actions if pending and user can approve */}
-                    {canApproveThis ? (
+                    {canApproveThis && !isSuperAdmin && req.forward_info?.status === "pending" ? (
+                      // Mela forward pannirukken — coin varra varaikkum wait
+                      <div className="cr-fwd-note waiting">
+                        <ClockIcon size={14} color="#B45309" />
+                        <span>Waiting for <strong>{req.forward_info.to_name}</strong></span>
+                      </div>
+                    ) : canApproveThis && !isSuperAdmin && req.stock_shortfall?.length > 0 ? (
+                      // En kaila coin kammi — en leader-ku forward pannalaam
+                      <div className="cr-req-actions">
+                        <button
+                          type="button"
+                          className="cr-btn-forward"
+                          onClick={() => setForwardBox({ req })}
+                        >
+                          <ArrowUpRightIcon size={14} color="#FFFFFF" />
+                          {req.forward_info?.status === "rejected" ? "Forward Again" : "Forward to Leader"}
+                        </button>
+                        <button
+                          className="cr-btn-reject"
+                          onClick={() => {
+                            setRejectingReqId(rejectingReqId === req.id ? null : req.id);
+                            setRejectReason(req.forward_info?.status === "rejected"
+                              ? `Leader declined: ${req.forward_info.reject_reason || "not available"}`
+                              : "Coins unavailable");
+                          }}
+                        >
+                          <CloseIcon size={14} color="#DC2626" /> Decline
+                        </button>
+                      </div>
+                    ) : canApproveThis ? (
                       <div className="cr-req-actions">
                         <button
                           className="cr-btn-approve"
@@ -1525,7 +1715,7 @@ export default function CoinRequests() {
                       </div>
                     ) : req.status === "sent" ? (
                       <div style={{ fontSize: "12px", color: "#166534", fontWeight: 700, padding: "8px 12px", background: "#F0FDF4", borderRadius: "10px", border: "1px solid #DCFCE7", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                        <span>✓ Disbursed & added to stock</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}><CheckIcon size={13} color="#166534" /> Disbursed & added to stock</span>
                         {req.approved_by_name && (
                           <span style={{ color: "#15803D", fontWeight: 600, fontSize: "11.5px" }}>
                             • Approved by <strong>{req.approved_by_name}</strong> {req.approved_by_role && `(${ROLE_DISPLAY[req.approved_by_role] || req.approved_by_role})`}
@@ -1538,10 +1728,34 @@ export default function CoinRequests() {
                       </div>
                     ) : (
                       <div style={{ fontSize: "12px", color: "#5C706E", fontWeight: 600, padding: "8px 12px", background: "#F8FAFA", borderRadius: "10px", border: "1px solid #EAEFEF" }}>
-                        Awaiting Leader Approval
+                        {req.forward_info?.status === "pending"
+                          ? `Forwarded to ${req.forward_info.to_name}`
+                          : "Awaiting Leader Approval"}
                       </div>
                     )}
                   </div>
+
+                  {/* Forward notes — en kaila evlo irukku / leader decline / coin vandhuchu */}
+                  {canApproveThis && !isSuperAdmin && (req.stock_shortfall?.length > 0 || req.forward_info) && (
+                    <div className="cr-fwd-row">
+                      {req.forward_info?.status !== "pending" && req.stock_shortfall?.map((s) => (
+                        <span key={`${s.metal_type}-${s.weight_label}`} className="cr-fwd-note sa">
+                          <SparkleIcon size={13} color="#A0713F" />
+                          {COIN_METAL_LABELS_TEXT[s.metal_type] || s.metal_type} {s.weight_label} · you have {s.have} / {s.need}
+                        </span>
+                      ))}
+                      {req.forward_info?.status === "rejected" && (
+                        <span className="cr-fwd-note declined">
+                          <CloseIcon size={13} color="#B91C1C" /> Leader declined: {req.forward_info.reject_reason || "—"}
+                        </span>
+                      )}
+                      {req.forward_info?.status === "sent" && !(req.stock_shortfall?.length > 0) && (
+                        <span className="cr-fwd-note arrived">
+                          <CheckIcon size={13} color="#047857" /> Coins arrived · approve now
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {/* Coin item denominations requested */}
                   <div className="cr-items-grid">
@@ -1552,6 +1766,8 @@ export default function CoinRequests() {
                       </div>
                     ))}
                   </div>
+
+                  <CoinChainStepper chain={req.chain} roleLabels={ROLE_DISPLAY} />
 
                   {/* Decline reason panel */}
                   {rejectingReqId === req.id && (
@@ -1611,6 +1827,31 @@ export default function CoinRequests() {
       </div>
 
       {/* Super Admin Auth Modal */}
+      {/* Forward confirm popup — short text + SVG icon */}
+      {forwardBox && (() => {
+        const r = forwardBox.req;
+        const sf = r.stock_shortfall || [];
+        const itemText = sf.map((s) => `${COIN_METAL_LABELS_TEXT[s.metal_type] || s.metal_type} ${s.weight_label} × ${s.need - s.have}`).join(", ");
+        return (
+          <div className="cr-cf-overlay" onClick={() => !forwardBox.busy && setForwardBox(null)}>
+            <div className="cr-cf-card" onClick={(e) => e.stopPropagation()}>
+              <div className="cr-cf-icon"><ArrowUpRightIcon size={26} color="#A0713F" /></div>
+              <h3 className="cr-cf-title">Forward to your leader?</h3>
+              <div className="cr-cf-sub"><span className="cr-cf-chip">#{r.id}</span><span>{itemText}</span></div>
+              <div className="cr-cf-sub" style={{ marginTop: 4 }}>
+                <span>{r.requested_by_name || "Requester"} <ArrowRightIcon size={12} /> you <ArrowRightIcon size={12} /> your leader</span>
+              </div>
+              <div className="cr-cf-actions">
+                <button type="button" className="cr-cf-cancel" disabled={forwardBox.busy} onClick={() => setForwardBox(null)}>Cancel</button>
+                <button type="button" className="cr-cf-ok" disabled={forwardBox.busy} onClick={confirmForward}>
+                  {forwardBox.busy ? <><span className="cr-cf-spin" /> Forwarding…</> : <><ArrowUpRightIcon size={14} color="#FFFFFF" /> Forward</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {authModal.open && (
         <div className="cr-modal-overlay" onClick={closeAuthModal}>
           <div className="cr-modal-card" onClick={(e) => e.stopPropagation()}>

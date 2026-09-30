@@ -17,6 +17,7 @@ import {
   CalendarIcon,
   PlusIcon,
   ClockIcon,
+  WarningIcon,
   UsersIcon,
   CoinIcon,
   HistoryIcon,
@@ -67,12 +68,16 @@ function ForwardChainStepper({ chain }) {
           return (
             <div key={i} className="jr-chain-step">
               {hop && (
-                <span className="jr-chain-link" style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }} title={hop.reject_reason || cfg.label}>
-                  <cfg.Icon size={12} color={cfg.color} />
+                <span className="jr-chain-conn" style={{ "--conn": cfg.border }}>
+                  <i />
+                  <span className="jr-chain-link" style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }} title={hop.reject_reason || cfg.label}>
+                    <cfg.Icon size={12} color={cfg.color} />
+                  </span>
+                  <i />
                 </span>
               )}
               <span className={`jr-chain-node${hop?.is_current || (i === 0 && chain[0].is_current) ? " current" : ""}`}>
-                <strong>{n.name || "—"}</strong>
+                <strong title={n.name || ""}>{n.name || "—"}</strong>
                 <small>{ROLE_BADGE_CONFIG[n.role]?.label || n.role}</small>
               </span>
             </div>
@@ -406,7 +411,7 @@ export default function JewelleryRequests() {
 
   // Days Pending / Duration calculation helper
   const getDaysPendingInfo = (createdAt, status, sentAt) => {
-    if (!createdAt) return { text: "0 days", label: "0 days", badgeClass: "normal", days: 0 };
+    if (!createdAt) return { text: "0 days", label: "0 days", badgeClass: "normal", days: 0, Icon: ClockIcon, color: "#073B3F" };
     const start = new Date(createdAt);
     const end = status === "sent" && sentAt ? new Date(sentAt) : new Date();
     const diffMs = Math.max(0, end - start);
@@ -423,27 +428,35 @@ export default function JewelleryRequests() {
     }
 
     if (status === "pending") {
+      // Emoji illa — SVG icon (2+ naal = warning, 5+ naal = red)
       let badgeClass = "normal";
-      let icon = "⏳";
+      let Icon = ClockIcon;
+      let color = "#073B3F";
       if (diffDays >= 5) {
         badgeClass = "overdue";
-        icon = "🚨";
+        Icon = WarningIcon;
+        color = "#DC2626";
       } else if (diffDays >= 2) {
         badgeClass = "delayed";
-        icon = "⚠️";
+        Icon = WarningIcon;
+        color = "#B45309";
       }
       return {
         days: diffDays,
         text: `${timeStr} pending`,
-        label: `${icon} ${timeStr} Pending`,
+        label: `${timeStr} Pending`,
         badgeClass,
+        Icon,
+        color,
       };
     } else if (status === "sent") {
       return {
         days: diffDays,
         text: `Approved in ${timeStr}`,
-        label: `⚡ Approved in ${timeStr}`,
+        label: `Approved in ${timeStr}`,
         badgeClass: "approved",
+        Icon: CheckIcon,
+        color: "#047857",
       };
     } else {
       return {
@@ -451,6 +464,8 @@ export default function JewelleryRequests() {
         text: `Declined in ${timeStr}`,
         label: `Declined in ${timeStr}`,
         badgeClass: "rejected",
+        Icon: CloseIcon,
+        color: "#64748B",
       };
     }
   };
@@ -1043,6 +1058,9 @@ export default function JewelleryRequests() {
           border: 1px dashed #CFE0DE;
           border-radius: 14px;
           padding: 12px 14px;
+          min-width: 0;
+          max-width: 100%;
+          box-sizing: border-box;
         }
         .jr-chain-legend { display: inline-flex; gap: 10px; text-transform: none; letter-spacing: 0; }
         .jr-chain-legend span { display: inline-flex; align-items: center; gap: 3px; font-weight: 800; }
@@ -1055,19 +1073,31 @@ export default function JewelleryRequests() {
           color: #7A8987;
           margin-bottom: 10px;
         }
-        .jr-chain-track { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
-        .jr-chain-step { display: flex; align-items: center; gap: 6px; }
+        /* Ore line — nodes equal height, naduvula line + arrow; idam paththalainaa side scroll */
+        .jr-chain-track {
+          display: flex; align-items: stretch; flex-wrap: nowrap;
+          overflow-x: auto; padding: 3px 2px 4px;
+          scrollbar-width: thin;
+        }
+        .jr-chain-step { display: flex; align-items: center; flex: 0 0 auto; }
+        .jr-chain-conn { display: flex; align-items: center; flex: 0 0 auto; }
+        .jr-chain-conn i { display: block; width: 12px; height: 2px; background: var(--conn); border-radius: 2px; }
         .jr-chain-link {
-          width: 26px; height: 26px; border-radius: 50%;
+          width: 26px; height: 26px; border-radius: 50%; flex: 0 0 auto;
           display: inline-flex; align-items: center; justify-content: center;
-          font-size: 12px; font-weight: 900; border: 1.5px solid;
+          border: 1.5px solid;
         }
         .jr-chain-node {
-          display: flex; flex-direction: column; gap: 1px;
-          padding: 6px 10px; border-radius: 10px;
+          display: flex; flex-direction: column; justify-content: center; gap: 2px;
+          min-width: 110px; max-width: 170px; min-height: 42px;
+          padding: 6px 12px; border-radius: 10px;
           background: #FFFFFF; border: 1px solid #E1EBEA;
+          box-sizing: border-box;
         }
-        .jr-chain-node strong { font-size: 12px; color: #073B3F; }
+        .jr-chain-node strong {
+          font-size: 12px; color: #073B3F;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
         .jr-chain-node small { font-size: 10px; color: #7A8987; font-weight: 700; }
         .jr-chain-node.current { border-color: #BB8958; box-shadow: 0 0 0 2px rgba(187, 137, 88, 0.18); }
 
@@ -1331,6 +1361,7 @@ export default function JewelleryRequests() {
                         className={`jr-days-pill ${pendingInfo.badgeClass}`}
                         title={`Submitted: ${new Date(req.created_at).toLocaleString()}`}
                       >
+                        <pendingInfo.Icon size={12} color={pendingInfo.color} />
                         {pendingInfo.label}
                       </span>
                     </div>

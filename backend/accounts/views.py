@@ -6121,63 +6121,73 @@ class CoinRequestApproveView(APIView):
             if not password or not request.user.check_password(password):
                 return Response({'error': 'Invalid Super Admin password. Action unauthorized.'}, status=401)
 
-        try:
+        from django.db import transaction
+        with transaction.atomic():
+            base_qs = CoinRequest.objects.select_for_update().select_related('requested_to', 'requested_by')
+            try:
+                if request.user.role == 'super_admin':
+                    coin_request = base_qs.get(id=pk, status='pending')
+                else:
+                    coin_request = base_qs.get(id=pk, requested_to=request.user, status='pending')
+            except CoinRequest.DoesNotExist:
+                return Response({'error': 'Request not found or already resolved'}, status=404)
+
+            items = list(coin_request.items.all())
+            up_statuses = list(coin_request.upstream_requests.values_list('status', flat=True))
+            # Forward chain: mela forward pending-a irundha coin innum varala — wait pannanum
+            if 'pending' in up_statuses:
+                return Response({'error': 'Forwarded to your leader — approve once the coins reach you.'}, status=400)
+            in_chain = bool(coin_request.forwarded_for_id) or bool(up_statuses)
+
+            # If Super Admin approves, try to deduct from assigned parent's stock; fallback to super admin stock
+            approver = coin_request.requested_to if coin_request.requested_to else request.user
             if request.user.role == 'super_admin':
-                coin_request = CoinRequest.objects.prefetch_related('items').get(
-                    id=pk, status='pending'
-                )
+                has_parent_stock = True
+                for item in items:
+                    stk = CoinStock.objects.filter(user=approver, metal_type=item.metal_type, weight_label=item.weight_label).first()
+                    if not stk or stk.qty < item.qty:
+                        has_parent_stock = False
+                        break
+                # Chain request-la Super Admin vault-la irundhu direct-a keezha anuppa koodaadhu (level skip aagum)
+                if in_chain and not has_parent_stock and approver != request.user:
+                    return Response({'error': 'This is a forwarded chain request — coins must move one level at a time. '
+                                              'Approve the request that reached Super Admin instead.'}, status=400)
+                stock_user = approver if has_parent_stock else request.user
             else:
-                coin_request = CoinRequest.objects.prefetch_related('items').get(
-                    id=pk, requested_to=request.user, status='pending'
+                stock_user = request.user
+
+            stocks = {
+                (s.metal_type, s.weight_label): s
+                for s in CoinStock.objects.select_for_update().filter(user=stock_user)
+            }
+            for item in items:
+                approver_stock = stocks.get((item.metal_type, item.weight_label))
+                available = approver_stock.qty if approver_stock else 0
+                if available < item.qty:
+                    user_label = "Assigned parent" if request.user.role == 'super_admin' and stock_user == approver else "Your"
+                    return Response({
+                        'error': f'Insufficient stock for {item.metal_type} {item.weight_label}. '
+                                 f'{user_label} stock: {available}, Requested: {item.qty}'
+                    }, status=400)
+
+            for item in items:
+                approver_stock = stocks[(item.metal_type, item.weight_label)]
+                approver_stock.qty -= item.qty
+                approver_stock.save(update_fields=['qty'])
+
+                requester_stock, created = CoinStock.objects.get_or_create(
+                    user=coin_request.requested_by,
+                    metal_type=item.metal_type,
+                    weight_label=item.weight_label,
+                    defaults={'weight_grams': item.weight_grams, 'qty': 0}
                 )
-        except CoinRequest.DoesNotExist:
-            return Response({'error': 'Request not found or already resolved'}, status=404)
+                requester_stock.qty += item.qty
+                requester_stock.save(update_fields=['qty'])
 
-        # If Super Admin approves, try to deduct from assigned parent's stock; fallback to super admin stock
-        approver = coin_request.requested_to if coin_request.requested_to else request.user
-        if request.user.role == 'super_admin':
-            has_parent_stock = True
-            for item in coin_request.items.all():
-                stk = CoinStock.objects.filter(user=approver, metal_type=item.metal_type, weight_label=item.weight_label).first()
-                if not stk or stk.qty < item.qty:
-                    has_parent_stock = False
-                    break
-            stock_user = approver if has_parent_stock else request.user
-        else:
-            stock_user = request.user
-
-        for item in coin_request.items.all():
-            approver_stock = CoinStock.objects.filter(
-                user=stock_user, metal_type=item.metal_type, weight_label=item.weight_label
-            ).first()
-            available = approver_stock.qty if approver_stock else 0
-            if available < item.qty:
-                user_label = "Assigned parent" if stock_user == approver else "Approver"
-                return Response({
-                    'error': f'Insufficient stock for {item.metal_type} {item.weight_label}. '
-                             f'{user_label} stock available: {available}, Requested: {item.qty}'
-                }, status=400)
-
-        for item in coin_request.items.all():
-            approver_stock = CoinStock.objects.get(
-                user=stock_user, metal_type=item.metal_type, weight_label=item.weight_label
-            )
-            approver_stock.qty -= item.qty
-            approver_stock.save()
-
-            requester_stock, created = CoinStock.objects.get_or_create(
-                user=coin_request.requested_by,
-                metal_type=item.metal_type,
-                weight_label=item.weight_label,
-                defaults={'weight_grams': item.weight_grams, 'qty': 0}
-            )
-            requester_stock.qty += item.qty
-            requester_stock.save()
-
-        coin_request.status = 'sent'
-        coin_request.sent_at = timezone.now()
-        coin_request.approved_by = request.user
-        coin_request.save()
+            coin_request.status = 'sent'
+            coin_request.sent_at = timezone.now()
+            coin_request.approved_by = request.user
+            coin_request.save(update_fields=['status', 'sent_at', 'approved_by'])
 
         return Response({'message': 'Request approved successfully!'})
 
@@ -6209,6 +6219,10 @@ class CoinRequestRejectView(APIView):
         except CoinRequest.DoesNotExist:
             return Response({'error': 'Request not found or already resolved'}, status=404)
 
+        # Forward pending-a irukumbodhu decline panna koodaadhu — mela irukura leader reply varattum
+        if coin_request.upstream_requests.filter(status='pending').exists():
+            return Response({'error': 'Forwarded to your leader — wait for their reply before declining.'}, status=400)
+
         coin_request.status = 'rejected'
         coin_request.reject_reason = message
         coin_request.sent_at = timezone.now()
@@ -6231,6 +6245,15 @@ class CoinRequestApproveAllView(APIView):
             pending = CoinRequest.objects.filter(status='pending').prefetch_related('items')
         else:
             pending = CoinRequest.objects.filter(requested_to=request.user, status='pending').prefetch_related('items')
+
+        # Forward chain: mela forward pending-a irukuradhu skip (coin innum varala).
+        # Super Admin — keezha level chain request-a vault-la irundhu direct-a anuppa koodaadhu (level skip).
+        waiting_ids = set(CoinRequest.objects.filter(status='pending', forwarded_for__isnull=False)
+                          .values_list('forwarded_for_id', flat=True))
+        chain_ids = waiting_ids | set(CoinRequest.objects.filter(upstream_requests__isnull=False).values_list('id', flat=True))
+        pending = [r for r in pending if r.id not in waiting_ids and not (
+            request.user.role == 'super_admin' and r.requested_to_id != request.user.id
+            and (r.forwarded_for_id or r.id in chain_ids))]
 
         needed = {}
         for coin_request in pending:
@@ -6273,6 +6296,72 @@ class CoinRequestApproveAllView(APIView):
             count += 1
 
         return Response({'message': f'{count} requests approved successfully!'})
+
+
+class CoinRequestForwardView(APIView):
+    """Leader kaila coin illana — kammi-yaana qty mattum THEIR leader-ku forward (jewellery maariye).
+    Coin vandhadhum leader thaan keezha approve pannanum — ovvoru level-um manual approve."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        user = request.user
+        if user.role == 'super_admin':
+            return Response({'error': 'Super Admin approves directly from the vault.'}, status=400)
+        try:
+            req = CoinRequest.objects.prefetch_related('items').get(id=pk, requested_to=user, status='pending')
+        except CoinRequest.DoesNotExist:
+            return Response({'error': 'Request not found or already resolved'}, status=404)
+        if req.upstream_requests.filter(status='pending').exists():
+            return Response({'error': 'Already forwarded — waiting for your leader.'}, status=400)
+
+        have = {(s.metal_type, s.weight_label): s.qty for s in CoinStock.objects.filter(user=user)}
+        shortfall = [(i, i.qty - have.get((i.metal_type, i.weight_label), 0)) for i in req.items.all()
+                     if i.qty > have.get((i.metal_type, i.weight_label), 0)]
+        if not shortfall:
+            return Response({'error': 'You already have enough coins — approve it directly.'}, status=400)
+
+        target = _jewelry_request_target(user)   # adhe leader chain (Retailer → ... → Super Admin, shop → parent shop)
+        if target is None:
+            return Response({'error': 'No leader found to forward to.'}, status=400)
+        upstream = CoinRequest.objects.create(requested_by=user, requested_to=target, forwarded_for=req)
+        CoinRequestItem.objects.bulk_create([
+            CoinRequestItem(request=upstream, metal_type=i.metal_type, weight_label=i.weight_label,
+                            weight_grams=i.weight_grams, qty=need)
+            for i, need in shortfall
+        ])
+
+        _, target_name, _ = _holder_info(target)
+        return Response({
+            'message': f'Forwarded to {target_name}. Approve this request once the coins reach you.',
+            'forward_request_id': upstream.id,
+        }, status=201)
+
+
+class CoinBuyCatalogView(APIView):
+    """Buy Coin page — en direct leader kaila evlo coin irukku (udane approve aagum)
+    illa Super Admin vault-la mattum irukku (leader forward panni vaangi tharuvaanga).
+    stock keys = 'metal_type|weight_label'."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        leader = _jewelry_request_target(request.user)
+        if leader is None:
+            return Response({'error': 'Your role cannot request coins'}, status=403)
+        sa = User.objects.filter(role='super_admin').first()
+
+        def stock_map(u):
+            if not u:
+                return {}
+            return {f'{m}|{w}': q for m, w, q in CoinStock.objects.filter(user=u, qty__gt=0)
+                    .values_list('metal_type', 'weight_label', 'qty')}
+
+        _, leader_name, _ = _holder_info(leader)
+        return Response({
+            'leader': {'user_id': leader.id, 'name': leader_name, 'role': leader.role},
+            'leader_stock': stock_map(leader),
+            'super_admin_stock': stock_map(sa) if sa and sa.id != leader.id else {},
+        })
+
 
 class SuperAdminAddCoinsView(APIView):
     """Super Admin adds coins directly into their own stock — no approval flow needed."""
@@ -7452,16 +7541,38 @@ class StockSaleView(APIView):
                            Q(customer_phone__icontains=search) | Q(product_name__icontains=search) |
                            Q(product_code__icontains=search))
 
+        from django.db.models import DecimalField, ExpressionWrapper
+        # Real jewellery kadai report maari: bills, net sales, GST, gram weight (gold / silver thani), discount yaar kuduthaanga
+        wt = ExpressionWrapper(F('net_weight') * F('qty'), output_field=DecimalField(max_digits=14, decimal_places=3))
+        silver_q = Q(metal__istartswith='silver')
         done = qs.filter(status='completed')
         agg = done.aggregate(count=Count('id'), pieces=Sum('qty'), amount=Sum('final_amount'),
-                             discount=Sum('discount_amount'), mrp=Sum('mrp_amount'))
-        summary = {k: float(v or 0) if k in ('amount', 'discount', 'mrp') else int(v or 0) for k, v in agg.items()}
-        summary['cancelled'] = qs.filter(status='cancelled').count()
+                             discount=Sum('discount_amount'), mrp=Sum('mrp_amount'),
+                             discounted_bills=Count('id', filter=Q(discount_amount__gt=0)),
+                             gold_weight=Sum(wt, filter=~silver_q), silver_weight=Sum(wt, filter=silver_q))
+        cancelled_agg = qs.filter(status='cancelled').aggregate(c=Count('id'), a=Sum('final_amount'))
+        summary = {
+            'count': int(agg['count'] or 0), 'pieces': int(agg['pieces'] or 0),
+            'amount': float(agg['amount'] or 0), 'discount': float(agg['discount'] or 0), 'mrp': float(agg['mrp'] or 0),
+            'discounted_bills': int(agg['discounted_bills'] or 0),
+            'gold_weight': float(agg['gold_weight'] or 0), 'silver_weight': float(agg['silver_weight'] or 0),
+            'cancelled': int(cancelled_agg['c'] or 0), 'cancelled_amount': float(cancelled_agg['a'] or 0),
+        }
+        # Final amount-la 3% GST ulla irukku → GST = amount × 3/103
+        summary['gst'] = round(summary['amount'] * 3 / 103, 2)
+        summary['avg_bill'] = round(summary['amount'] / summary['count'], 2) if summary['count'] else 0
+        summary['discount_pct'] = round(summary['discount'] * 100 / summary['mrp'], 2) if summary['mrp'] else 0
         role_counts = dict(done.values('seller__role').annotate(c=Count('id')).values_list('seller__role', 'c'))
 
-        top = list(done.values('seller_id').annotate(sales=Count('id'), pieces=Sum('qty'), amount=Sum('final_amount'))
+        top = list(done.values('seller_id').annotate(sales=Count('id'), pieces=Sum('qty'), amount=Sum('final_amount'),
+                                                     discount=Sum('discount_amount'), weight=Sum(wt))
                    .order_by('-amount')[:5])
-        top_users = {u.id: u for u in User.objects.filter(id__in=[t['seller_id'] for t in top]).select_related(
+        # Discount kuduthavanga — adhigam kuduthavanga mela (manager paakka vendiyadhu idhu thaan)
+        disc_top = list(done.filter(discount_amount__gt=0).values('seller_id')
+                        .annotate(bills=Count('id'), discount=Sum('discount_amount'), mrp=Sum('mrp_amount'))
+                        .order_by('-discount')[:5])
+        seller_ids = {t['seller_id'] for t in top} | {t['seller_id'] for t in disc_top}
+        top_users = {u.id: u for u in User.objects.filter(id__in=seller_ids).select_related(
             'admin_profile', 'dealer_profile', 'sub_dealer_profile', 'promotor_profile', 'shop_profile')}
         top_sellers = []
         for t in top:
@@ -7470,13 +7581,27 @@ class StockSaleView(APIView):
                 continue
             id_str, nm, _ = _holder_info(u)
             top_sellers.append({'seller_id': u.id, 'name': nm, 'id_str': id_str, 'role': u.role,
-                                'sales': t['sales'], 'pieces': t['pieces'] or 0, 'amount': float(t['amount'] or 0)})
+                                'sales': t['sales'], 'pieces': t['pieces'] or 0, 'amount': float(t['amount'] or 0),
+                                'discount': float(t['discount'] or 0), 'weight': float(t['weight'] or 0)})
+        discount_by = []
+        for t in disc_top:
+            u = top_users.get(t['seller_id'])
+            if not u:
+                continue
+            _, nm, _ = _holder_info(u)
+            mrp = float(t['mrp'] or 0)
+            discount_by.append({'seller_id': u.id, 'name': nm, 'role': u.role, 'bills': t['bills'],
+                                'discount': float(t['discount'] or 0),
+                                'pct': round(float(t['discount'] or 0) * 100 / mrp, 2) if mrp else 0})
 
         role = qp.get('role') or 'all'
         list_qs = qs.filter(seller__role=role) if role != 'all' else qs
         status_f = qp.get('status') or 'all'
         if status_f != 'all':
             list_qs = list_qs.filter(status=status_f)
+        if qp.get('discounted') in ('1', 'true'):
+            # Discount card count-oda match aaganum — completed bills mattum
+            list_qs = list_qs.filter(discount_amount__gt=0, status='completed')
         try:
             offset = max(0, int(qp.get('offset', 0)))
             limit = max(1, min(60, int(qp.get('limit', 24))))
@@ -7495,7 +7620,8 @@ class StockSaleView(APIView):
                                  and timezone.localtime(s.created_at).date() == today)
             rows.append(row)
         return Response({'items': rows, 'has_more': has_more, 'list_total': list_total,
-                         'summary': summary, 'role_counts': role_counts, 'top_sellers': top_sellers})
+                         'summary': summary, 'role_counts': role_counts, 'top_sellers': top_sellers,
+                         'discount_by': discount_by})
 
 
 class StockSaleCancelView(APIView):
@@ -9256,8 +9382,9 @@ def _check_icon(size=12, color=None):
     color = color or colors.HexColor('#16764F')
     d = Drawing(size, size)
     d.add(Circle(size / 2, size / 2, size / 2, fillColor=color, strokeColor=None))
-    d.add(Line(size * 0.27, size * 0.52, size * 0.43, size * 0.67, strokeColor=colors.white, strokeWidth=1.6))
-    d.add(Line(size * 0.43, size * 0.67, size * 0.75, size * 0.32, strokeColor=colors.white, strokeWidth=1.6))
+    # ReportLab y bottom-la irundhu start aagum — adhanaala tick keezha irangi mela pogudhu
+    d.add(Line(size * 0.27, size * 0.52, size * 0.43, size * 0.35, strokeColor=colors.white, strokeWidth=1.6))
+    d.add(Line(size * 0.43, size * 0.35, size * 0.75, size * 0.68, strokeColor=colors.white, strokeWidth=1.6))
     return d
 
 
@@ -9942,17 +10069,21 @@ class StockSaleReceiptPDFView(APIView):
 
         badge_text_style = ParagraphStyle('BadgeText', parent=styles['Normal'], fontSize=8.5,
                                           fontName='Helvetica-Bold', textColor=colors.HexColor('#8A623D'))
-        badge_cells = []
+        from reportlab.pdfbase.pdfmetrics import stringWidth
+        badge_cells, badge_widths = [], []
         for label in ['BIS Hallmarked', '100% Certified Jewellery', '100% Trust']:
-            pill = Table([[_check_icon(11, colors.HexColor('#BB8958')), Paragraph(label, badge_text_style)]], colWidths=[15, None])
+            # Text-oda exact width — appo dhaan moonu badge-um page naduvula varum
+            text_w = stringWidth(label, 'Helvetica-Bold', 8.5) + 2
+            pill = Table([[_check_icon(11, colors.HexColor('#BB8958')), Paragraph(label, badge_text_style)]],
+                         colWidths=[16, text_w])
             pill.setStyle(TableStyle([
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
                 ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
             ]))
-            pill.hAlign = 'CENTER'
             badge_cells.append(pill)
-        badges_row = Table([badge_cells], colWidths=[None, None, None])
+            badge_widths.append(16 + text_w + 28)
+        badges_row = Table([badge_cells], colWidths=badge_widths)
         badges_row.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('LEFTPADDING', (0, 0), (-1, -1), 14), ('RIGHTPADDING', (0, 0), (-1, -1), 14),

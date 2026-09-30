@@ -135,7 +135,7 @@ export default function StoredCoins() {
 
   // ── SELL coin (customer-ku nerla) — Super Stockist / Distributor / Wholesale / Retailer mattum.
   // Price = weight × innaiku rate + 3% GST. Coins-ku making illa → discount illa ──
-  const canSell = ["admin", "dealer", "sub_dealer", "promotor"].includes(currentRole);
+  const canSell = ["admin", "dealer", "sub_dealer", "promotor", "shop"].includes(currentRole);
   const [rates, setRates] = useState({ gold_22k: 0, gold_24k: 0, silver_999: 0 });
   const [sellCoin, setSellCoin] = useState(null); // coin stock row
   const [sellForm, setSellForm] = useState({ qty: 1, name: "", phone: "" });

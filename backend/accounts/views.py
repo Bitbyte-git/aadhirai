@@ -7276,7 +7276,7 @@ class JewelryRequestForwardView(APIView):
 #   — discount making charge-la irundhu mattum kuraiyum, metal value full.
 # Discount max = making %-la paadhi (10% making → 5% max). Coins-ku making illa → discount illa.
 # ══════════════════════════════════════════════════════════════════
-SALE_SELLER_ROLES = ('admin', 'dealer', 'sub_dealer', 'promotor')
+SALE_SELLER_ROLES = ('admin', 'dealer', 'sub_dealer', 'promotor', 'shop')   # shop-um vikkalaam
 SALE_GST = Decimal('0.03')
 
 
@@ -7367,7 +7367,7 @@ class StockSaleView(APIView):
         from django.db import transaction
         user = request.user
         if user.role not in SALE_SELLER_ROLES:
-            return Response({'error': 'Only Super Stockist, Distributor, Wholesale Dealer and Retailer can sell.'}, status=403)
+            return Response({'error': 'Only Super Stockist, Distributor, Wholesale Dealer, Retailer and Shop can sell.'}, status=403)
         d = request.data
         kind = d.get('kind')
         name = (d.get('customer_name') or '').strip()
@@ -7484,7 +7484,7 @@ class StockSaleView(APIView):
             offset, limit = 0, 24
         list_total = list_qs.count()
         page = list(list_qs.select_related('seller', 'seller__admin_profile', 'seller__dealer_profile',
-                                           'seller__sub_dealer_profile', 'seller__promotor_profile')
+                                           'seller__sub_dealer_profile', 'seller__promotor_profile', 'seller__shop_profile')
                     .order_by('-created_at', '-id')[offset:offset + limit + 1])
         has_more = len(page) > limit
         today = timezone.localdate()
@@ -9804,7 +9804,7 @@ class StockSaleReceiptPDFView(APIView):
         receipt_id = f'BBSALE{sale.id:06d}'
         seller_id_str, seller_name, _ = _holder_info(sale.seller)
         seller_role = {'admin': 'Super Stockist', 'dealer': 'Distributor', 'sub_dealer': 'Wholesale Dealer',
-                       'promotor': 'Retailer'}.get(sale.seller.role, sale.seller.role)
+                       'promotor': 'Retailer', 'shop': 'Shop'}.get(sale.seller.role, sale.seller.role)
 
         logo_path = settings.BASE_DIR / 'accounts' / 'assets' / 'athirai_logo.png'
         try:

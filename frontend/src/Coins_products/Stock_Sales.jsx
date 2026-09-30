@@ -9,8 +9,6 @@ import {
   PackageIcon,
   SearchIcon,
   UsersIcon,
-  UserIcon,
-  PhoneIcon,
   CalendarIcon,
   CrownIcon,
   CloseIcon,
@@ -24,6 +22,7 @@ const ROLE_BADGE = {
   dealer: { label: "Distributor", bg: "#E0F2FE", color: "#0369A1" },
   sub_dealer: { label: "Wholesale Dealer", bg: "#ECFDF5", color: "#047857" },
   promotor: { label: "Retailer", bg: "#EFF6FF", color: "#1D4ED8" },
+  shop: { label: "Shop", bg: "#FFF7ED", color: "#9A3412" },
 };
 const ROLE_CHAIN = ["admin", "dealer", "sub_dealer", "promotor"];
 const PERIODS = [
@@ -34,7 +33,28 @@ const PERIODS = [
   { key: "year", label: "This Year" },
 ];
 const COIN_LABEL = { gold_22k: "Gold 22K", gold_24k: "Gold 24K", silver_999: "Silver 999" };
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 30;
+
+// Real sale card maariye skeleton (image, seller pill, name, tags, 6 rows)
+function SaleCardSkeleton() {
+  return (
+    <div className="ss-card" style={{ animation: "none" }}>
+      <div className="ss-card-img" style={{ border: 0 }}><div className="skel-line" style={{ width: "100%", height: "100%", marginBottom: 0, borderRadius: 10 }} /></div>
+      <SkeletonText width="65%" height="20px" style={{ borderRadius: 20, marginBottom: 8 }} />
+      <SkeletonText width="80%" height="15px" />
+      <div style={{ display: "flex", gap: 6, margin: "6px 0 10px" }}>
+        <SkeletonText width="60px" height="18px" style={{ borderRadius: 20 }} />
+        <SkeletonText width="80px" height="18px" style={{ borderRadius: 20 }} />
+      </div>
+      {[0, 1, 2, 3, 4].map((j) => (
+        <div key={j} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
+          <SkeletonText width="32%" height="10px" style={{ marginBottom: 0 }} />
+          <SkeletonText width="30%" height="10px" style={{ marginBottom: 0 }} />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const fmt = (n) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
 const fmtDate = (iso) => new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
@@ -44,8 +64,10 @@ const fmtDate = (iso) => new Date(iso).toLocaleString("en-IN", { day: "2-digit",
 export default function StockSales({ kind = "jewellery" }) {
   const role = localStorage.getItem("role") || "";
   const isSuperAdmin = role === "super_admin";
-  const hasTeam = isSuperAdmin || ["admin", "dealer", "sub_dealer"].includes(role);
-  const roleKeys = isSuperAdmin ? ROLE_CHAIN : ROLE_CHAIN.slice(ROLE_CHAIN.indexOf(role) + 1);
+  const isShop = role === "shop";
+  // Shop-ku team = avanga sub-shops (shop network)
+  const hasTeam = isSuperAdmin || isShop || ["admin", "dealer", "sub_dealer"].includes(role);
+  const roleKeys = isSuperAdmin ? [...ROLE_CHAIN, "shop"] : isShop ? [] : ROLE_CHAIN.slice(ROLE_CHAIN.indexOf(role) + 1);
   const isCoin = kind === "coin";
 
   const [period, setPeriod] = useState("all");
@@ -72,6 +94,9 @@ export default function StockSales({ kind = "jewellery" }) {
   const offsetRef = useRef(0);
   const loadingMoreRef = useRef(false);
   const sentinelRef = useRef(null);
+  // Grid-la ippo evlo columns (desktop 4 / tablet 3 / mobile 2) — skeleton eppovume full rows
+  const gridRef = useRef(null);
+  const [gridCols, setGridCols] = useState(4);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search.trim()), 300);
@@ -136,6 +161,19 @@ export default function StockSales({ kind = "jewellery" }) {
     obs.observe(el);
     return () => obs.disconnect();
   }, [hasMore, loading, items.length]);
+
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return undefined;
+    const measure = () => {
+      const n = getComputedStyle(el).gridTemplateColumns.split(" ").filter(Boolean).length;
+      if (n > 0) setGridCols(n);
+    };
+    measure();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    if (ro) ro.observe(el);
+    return () => { if (ro) ro.disconnect(); };
+  }, [loading, items.length > 0]);
 
   const showToast = (m) => { setToast(m); setTimeout(() => setToast(""), 2600); };
 
@@ -209,22 +247,39 @@ export default function StockSales({ kind = "jewellery" }) {
         .ss-filter { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
         .ss-search { flex: 1; min-width: 220px; display: flex; align-items: center; gap: 8px; background: #FFFFFF; border: 1px solid #D6E2E1; border-radius: 12px; padding: 0 12px; height: 42px; }
         .ss-search input { border: none; outline: none; flex: 1; font-size: 13px; font-family: inherit; background: transparent; }
-        .ss-list { display: flex; flex-direction: column; gap: 12px; }
-        .ss-row { display: grid; grid-template-columns: 64px 1.5fr 1.1fr 1fr 1fr auto; gap: 14px; align-items: center;
-          background: #FFFFFF; border: 1px solid #E1EBEA; border-radius: 16px; padding: 12px 16px; box-shadow: 0 2px 10px rgba(7,59,63,0.03); }
-        .ss-row.cancelled { opacity: 0.6; background: #FAFAFA; }
-        .ss-thumb { width: 64px; height: 64px; border-radius: 12px; overflow: hidden; background: #F4F8F8; border: 1px solid #E1EBEA; display: flex; align-items: center; justify-content: center; }
-        .ss-thumb img { width: 100%; height: 100%; object-fit: cover; }
-        .ss-thumb.coin { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #FFF7E6, #F3DDB8); }
-        .ss-name { font-size: 14px; font-weight: 850; color: #073B3F; }
-        .ss-sub { font-size: 11.5px; color: #7A8987; font-weight: 600; margin-top: 2px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
-        .ss-code { font-family: monospace; font-weight: 800; color: #073B3F; background: #EEF4F4; border-radius: 5px; padding: 0 5px; }
-        .ss-role { font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
-        .ss-label { font-size: 10px; font-weight: 800; color: #9AA9A7; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
-        .ss-price { text-align: right; }
-        .ss-price .final { font-size: 17px; font-weight: 900; color: #073B3F; }
-        .ss-price .mrp { font-size: 11.5px; color: #9AA9A7; text-decoration: line-through; margin-right: 6px; }
-        .ss-price .off { font-size: 11px; font-weight: 800; color: #A0713F; background: #FDF3E4; border-radius: 6px; padding: 1px 6px; }
+        .ss-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+        .ss-card { background: rgba(253,253,252,0.9); border: 1px solid rgba(189,207,206,0.6); border-radius: 14px; padding: 14px;
+          display: flex; flex-direction: column; min-width: 0; box-shadow: 0 10px 26px rgba(7,59,63,0.05);
+          transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; animation: ssCardIn 0.35s cubic-bezier(0.22,1,0.36,1) both; }
+        .ss-card:hover { border-color: rgba(204,168,129,0.55); transform: translateY(-3px); box-shadow: 0 16px 32px rgba(7,59,63,0.12); }
+        .ss-card.cancelled { opacity: 0.62; }
+        @keyframes ssCardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+        .ss-card-img { position: relative; height: 140px; border-radius: 10px; overflow: hidden; margin-bottom: 10px;
+          background: rgba(189,207,206,0.14); border: 1px solid rgba(189,207,206,0.55); display: flex; align-items: center; justify-content: center; }
+        .ss-card-img img { width: 100%; height: 100%; object-fit: cover; }
+        .ss-card-img.coin { background: radial-gradient(circle at 35% 30%, #FFF7E6, #F3DDB8); }
+        .ss-card-status { position: absolute; top: 8px; right: 8px; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 999px; }
+        .ss-card-status.done { background: rgba(236,253,245,0.95); color: #047857; }
+        .ss-card-status.cancel { background: rgba(254,242,242,0.95); color: #B91C1C; }
+        .ss-seller { align-self: flex-start; max-width: 100%; box-sizing: border-box; display: inline-flex; align-items: center; gap: 5px;
+          padding: 3px 10px; border-radius: 20px; margin-bottom: 8px; font-size: 10.5px; font-weight: 800; }
+        .ss-seller span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ss-seller em { font-style: normal; font-weight: 700; opacity: 0.75; white-space: nowrap; }
+        .ss-card-name { font-size: 14px; font-weight: 850; color: #073B3F; margin-bottom: 4px; line-height: 1.3; }
+        .ss-card-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+        .ss-card-tags span { font-size: 10px; font-weight: 800; color: #0C4044; background: rgba(12,64,68,0.08); border: 1px solid rgba(12,64,68,0.2); border-radius: 20px; padding: 2px 9px; }
+        .ss-card-tags span.code { font-family: monospace; color: #A0713F; background: rgba(204,168,129,0.12); border-color: rgba(204,168,129,0.3); }
+        .ss-card-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; padding: 4px 0; }
+        .ss-card-row + .ss-card-row { border-top: 1px solid rgba(189,207,206,0.4); }
+        .ss-card-row .k { color: #7A8987; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; flex-shrink: 0; }
+        .ss-card-row .v { font-weight: 700; color: #111817; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+        .ss-card-row .v.off { color: #A0713F; }
+        .ss-card-row.total .v { font-weight: 900; color: #BB8958; font-size: 13.5px; }
+        .ss-card-row.total s { color: #9AA9A7; font-weight: 600; font-size: 11px; margin-right: 6px; }
+        .ss-card-foot { margin-top: auto; padding-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+        .ss-card-foot .date { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; color: #7A8987; font-weight: 600; }
+        .ss-card-foot .btns { display: flex; gap: 6px; }
+        .ss-card-foot .ss-receipt-btn, .ss-card-foot .ss-cancel-btn { margin-top: 0; }
         .ss-status { font-size: 10.5px; font-weight: 800; padding: 3px 9px; border-radius: 999px; }
         .ss-status.done { background: #ECFDF5; color: #047857; } .ss-status.cancel { background: #FEF2F2; color: #B91C1C; }
         .ss-receipt-btn { margin-top: 6px; border: 1px solid #CFE0DE; background: #FFFFFF; color: #073B3F; border-radius: 999px; padding: 4px 10px; font-size: 11.5px; font-weight: 800; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 4px; }
@@ -245,12 +300,23 @@ export default function StockSales({ kind = "jewellery" }) {
         .ss-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35); border-top-color: #FFFFFF; animation: ssSpin 0.7s linear infinite; }
         @keyframes ssSpin { to { transform: rotate(360deg); } }
         .ss-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #073B3F; color: #FFFFFF; padding: 10px 18px; border-radius: 12px; font-size: 13px; font-weight: 700; z-index: 1400; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
-        @media (max-width: 1100px) { .ss-stats { grid-template-columns: repeat(2, 1fr); } .ss-row { grid-template-columns: 56px 1fr 1fr; } .ss-row .ss-hide-md { display: none; } }
+        @media (max-width: 1100px) { .ss-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (max-width: 820px) { .ss-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
+        @media (max-width: 1100px) { .ss-stats { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 640px) {
           .ss-page { padding: 14px 12px 48px; }
+          .ss-card { padding: 9px; border-radius: 12px; }
+          .ss-card-img { height: 104px; margin-bottom: 8px; border-radius: 8px; }
+          .ss-seller { font-size: 9.5px; padding: 2px 7px; margin-bottom: 6px; }
+          .ss-seller em { display: none; }
+          .ss-card-name { font-size: 12px; }
+          .ss-card-tags span { font-size: 9px; padding: 1px 7px; }
+          .ss-card-row { font-size: 10.5px; padding: 3px 0; }
+          .ss-card-row .k { font-size: 8.5px; }
+          .ss-card-row.total .v { font-size: 12px; }
+          .ss-card-foot { flex-direction: column; align-items: stretch; }
+          .ss-card-foot .btns { justify-content: stretch; } .ss-card-foot .btns button { flex: 1; justify-content: center; }
           .ss-stats { gap: 10px; } .ss-stat { padding: 12px; } .ss-stat strong { font-size: 17px; } .ss-stat-icon { width: 36px; height: 36px; }
-          .ss-row { grid-template-columns: 52px 1fr; } .ss-thumb { width: 52px; height: 52px; }
-          .ss-row .ss-price { grid-column: 1 / -1; text-align: left; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
         }
       `}</style>
 
@@ -260,11 +326,11 @@ export default function StockSales({ kind = "jewellery" }) {
         <div className="ss-head">
           <div>
             <h1>{isCoin ? <CoinIcon size={24} color="#073B3F" /> : <JewelryIcon size={24} color="#073B3F" />} {isCoin ? "Coin Sales" : "Jewellery Sales"}</h1>
-            <p>{isSuperAdmin ? "Every sale across the network" : hasTeam ? "Your sales and your team's sales" : "Your sales"}</p>
+            <p>{isSuperAdmin ? "Every sale across the network" : isShop ? "Your shop's sales and your sub-shops' sales" : hasTeam ? "Your sales and your team's sales" : "Your sales"}</p>
           </div>
           {hasTeam && !isSuperAdmin && (
             <div className="ss-seg">
-              {[["all", "All"], ["mine", "My Sales"], ["team", "Team Sales"]].map(([k, l]) => (
+              {[["all", "All"], ["mine", "My Sales"], ["team", isShop ? "Sub-shop Sales" : "Team Sales"]].map(([k, l]) => (
                 <button key={k} type="button" className={scope === k ? "active" : ""} onClick={() => setScope(k)}>{l}</button>
               ))}
             </div>
@@ -316,7 +382,7 @@ export default function StockSales({ kind = "jewellery" }) {
             <SearchIcon size={15} color="#7A8987" />
             <input placeholder="Search seller, customer, phone or product" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          {hasTeam && (
+          {hasTeam && !isShop && (
             <div className="ss-pills">
               <button type="button" className={`ss-pill ${roleFilter === "all" ? "active" : ""}`} onClick={() => setRoleFilter("all")}>All Roles</button>
               {(isSuperAdmin ? roleKeys : [role, ...roleKeys]).map((rk) => (
@@ -342,17 +408,8 @@ export default function StockSales({ kind = "jewellery" }) {
         {error && <div className="ss-empty" style={{ color: "#B91C1C" }}>{error}</div>}
 
         {loading ? (
-          <div className="ss-list">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="ss-row">
-                <SkeletonText width="64px" height="64px" />
-                <div><SkeletonText width="70%" height="16px" /><SkeletonText width="40%" height="12px" style={{ marginTop: 6 }} /></div>
-                <SkeletonText width="80%" height="14px" />
-                <SkeletonText width="80%" height="14px" />
-                <SkeletonText width="60%" height="14px" />
-                <SkeletonText width="80px" height="20px" />
-              </div>
-            ))}
+          <div className="ss-grid" ref={gridRef}>
+            {Array.from({ length: gridCols * 2 }, (_, i) => <SaleCardSkeleton key={i} />)}
           </div>
         ) : !error && items.length === 0 ? (
           <div className="ss-empty">
@@ -361,58 +418,53 @@ export default function StockSales({ kind = "jewellery" }) {
             <div style={{ fontSize: 13, marginTop: 4 }}>Sell from {isCoin ? "Available Coins" : "Available Jewellery"} → My Vault Stock</div>
           </div>
         ) : (
-          <div className="ss-list">
-            {items.map((s) => {
+          <div className="ss-grid" ref={gridRef}>
+            {items.map((s, i) => {
               const rb = ROLE_BADGE[s.seller_role] || { label: s.seller_role, bg: "#F1F5F9", color: "#334155" };
               const cancelled = s.status === "cancelled";
               return (
-                <div key={s.id} className={`ss-row${cancelled ? " cancelled" : ""}`}>
-                  <div className={`ss-thumb${isCoin ? " coin" : ""}`}>
-                    {!isCoin && s.image ? <img src={s.image} alt={s.product_name} /> : isCoin ? <CoinIcon size={28} color="#A0713F" /> : <JewelryIcon size={26} color="#B4CECC" />}
+                <div
+                  key={s.id}
+                  className={`ss-card${cancelled ? " cancelled" : ""}`}
+                  style={{ animationDelay: `${Math.min(i % PAGE_SIZE, 8) * 35}ms` }}
+                >
+                  <div className={`ss-card-img${isCoin ? " coin" : ""}`}>
+                    {!isCoin && s.image
+                      ? <img src={s.image} alt={s.product_name} loading="lazy" decoding="async" />
+                      : isCoin ? <CoinIcon size={40} color="#A0713F" /> : <JewelryIcon size={34} color="#B4CECC" />}
+                    <span className={`ss-card-status ${cancelled ? "cancel" : "done"}`}>{cancelled ? "Cancelled" : "Completed"}</span>
                   </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div className="ss-name">
-                      {isCoin ? `${COIN_LABEL[s.coin_metal_type] || s.coin_metal_type} · ${s.coin_weight_label}` : s.product_name}
-                    </div>
-                    <div className="ss-sub">
-                      {!isCoin && s.product_code && <span className="ss-code">{s.product_code}</span>}
-                      <span>× {s.qty}</span>
-                      <span>· {Number(s.net_weight).toFixed(2)}g</span>
-                      <span>· {fmt(s.rate_per_gram)}/g</span>
-                    </div>
+                  <div className="ss-seller" style={{ background: rb.bg, color: rb.color }}>
+                    <UsersIcon size={11} color={rb.color} />
+                    <span>{s.seller_name}</span>
+                    <em>{rb.label}</em>
                   </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div className="ss-label">Sold by</div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: "#073B3F", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                      <UsersIcon size={13} color="#7A8987" /> {s.seller_name}
-                      <span className="ss-role" style={{ background: rb.bg, color: rb.color }}>{rb.label}</span>
-                    </div>
+                  <div className="ss-card-name">
+                    {isCoin ? `${COIN_LABEL[s.coin_metal_type] || s.coin_metal_type} · ${s.coin_weight_label}` : s.product_name}
                   </div>
-                  <div className="ss-hide-md" style={{ minWidth: 0 }}>
-                    <div className="ss-label">Customer</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#073B3F", display: "flex", alignItems: "center", gap: 5 }}><UserIcon size={13} color="#7A8987" /> {s.customer_name}</div>
-                    <div className="ss-sub"><PhoneIcon size={11} color="#9AA9A7" /> {s.customer_phone}</div>
+                  <div className="ss-card-tags">
+                    <span>{(s.metal || "").toUpperCase()} {(s.grade || "").toUpperCase()}</span>
+                    {!isCoin && s.product_code && <span className="code">{s.product_code}</span>}
                   </div>
-                  <div className="ss-hide-md">
-                    <div className="ss-label">Date</div>
-                    <div style={{ fontSize: 12, color: "#5C706E", fontWeight: 600 }}>{fmtDate(s.created_at)}</div>
+                  <div className="ss-card-row"><span className="k">Customer</span><span className="v">{s.customer_name}</span></div>
+                  <div className="ss-card-row"><span className="k">Phone</span><span className="v">{s.customer_phone}</span></div>
+                  <div className="ss-card-row"><span className="k">Weight</span><span className="v">{Number(s.net_weight).toFixed(2)} gm</span></div>
+                  <div className="ss-card-row"><span className="k">Quantity</span><span className="v">{s.qty}</span></div>
+                  <div className="ss-card-row"><span className="k">Rate</span><span className="v">{fmt(s.rate_per_gram)}/g</span></div>
+                  {s.discount_percent > 0 && (
+                    <div className="ss-card-row"><span className="k">Discount</span><span className="v off">{s.discount_percent}% · − {fmt(s.discount_amount)}</span></div>
+                  )}
+                  <div className="ss-card-row total">
+                    <span className="k">Total</span>
+                    <span className="v">
+                      {s.discount_percent > 0 && <s>{fmt(s.mrp_amount)}</s>}
+                      {fmt(s.final_amount)}
+                    </span>
                   </div>
-                  <div className="ss-price">
-                    <div>
-                      {s.discount_percent > 0 && <span className="mrp">{fmt(s.mrp_amount)}</span>}
-                      <span className="final">{fmt(s.final_amount)}</span>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", alignItems: "center", marginTop: 4, flexWrap: "wrap" }}>
-                      {s.discount_percent > 0 && <span className="off">{s.discount_percent}% off</span>}
-                      <span className={`ss-status ${cancelled ? "cancel" : "done"}`}>{cancelled ? "Cancelled" : "Completed"}</span>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                      <button
-                        type="button"
-                        className="ss-receipt-btn"
-                        disabled={downloadingId === s.id}
-                        onClick={() => handleReceipt(s.id)}
-                      >
+                  <div className="ss-card-foot">
+                    <span className="date"><CalendarIcon size={11} color="#9AA9A7" /> {fmtDate(s.created_at)}</span>
+                    <div className="btns">
+                      <button type="button" className="ss-receipt-btn" disabled={downloadingId === s.id} onClick={() => handleReceipt(s.id)}>
                         {downloadingId === s.id ? <span className="ss-spin dark" /> : <DownloadIcon size={11} color="#073B3F" />} Receipt
                       </button>
                       {s.can_cancel && (
@@ -425,20 +477,11 @@ export default function StockSales({ kind = "jewellery" }) {
                 </div>
               );
             })}
-            {loadingMore && [0, 1].map((i) => (
-              <div key={`m${i}`} className="ss-row">
-                <SkeletonText width="64px" height="64px" />
-                <SkeletonText width="70%" height="16px" />
-                <SkeletonText width="80%" height="14px" />
-                <SkeletonText width="80%" height="14px" />
-                <SkeletonText width="60%" height="14px" />
-                <SkeletonText width="80px" height="20px" />
-              </div>
-            ))}
-            {hasMore && <div ref={sentinelRef} style={{ height: 1 }} />}
+            {/* Infinite scroll — kadaisi row gap fill + oru full row skeleton */}
+            {loadingMore && Array.from({ length: ((gridCols - (items.length % gridCols)) % gridCols) + gridCols }, (_, i) => <SaleCardSkeleton key={`m${i}`} />)}
           </div>
         )}
-      </div>
+        {hasMore && !loading && <div ref={sentinelRef} style={{ height: 1 }} />}      </div>
 
       {cancelBox && (
         <div className="ss-cf-overlay" onClick={() => !cancelBox.busy && setCancelBox(null)}>

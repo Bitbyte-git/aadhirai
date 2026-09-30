@@ -73,7 +73,7 @@ export default function AvailableJewellery() {
   };
 
   // ── SELL (customer-ku nerla vikkuradhu) — Super Stockist / Distributor / Wholesale / Retailer mattum ──
-  const canSell = ["admin", "dealer", "sub_dealer", "promotor"].includes(currentRole);
+  const canSell = ["admin", "dealer", "sub_dealer", "promotor", "shop"].includes(currentRole);
   const [rates, setRates] = useState({ gold_22k: 0, gold_24k: 0, silver_999: 0 });
   const [sellItem, setSellItem] = useState(null); // { product, stockQty }
   const [sellForm, setSellForm] = useState({ qty: 1, discount: "0", name: "", phone: "" });

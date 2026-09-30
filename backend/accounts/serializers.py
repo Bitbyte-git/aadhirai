@@ -694,6 +694,7 @@ class CoinRequestSerializer(serializers.ModelSerializer):
     forward_info = serializers.SerializerMethodField()
     stock_shortfall = serializers.SerializerMethodField()
     chain = serializers.SerializerMethodField()
+    covered_by_forwarder = serializers.SerializerMethodField()
 
     class Meta:
         model = CoinRequest
@@ -702,7 +703,20 @@ class CoinRequestSerializer(serializers.ModelSerializer):
                   'requested_to', 'requested_to_email', 'requested_to_id_str', 'requested_to_name', 'requested_to_phone', 'requested_to_role',
                   'approved_by', 'approved_by_email', 'approved_by_role', 'approved_by_name',
                   'status', 'reject_reason', 'items', 'created_at', 'sent_at',
-                  'forwarded_for', 'forward_info', 'stock_shortfall', 'chain']
+                  'forwarded_for', 'forward_info', 'stock_shortfall', 'chain', 'covered_by_forwarder']
+
+    def get_covered_by_forwarder(self, obj):
+        """Forward aana request-la varaadha coins — forward pannavanga kaila already irukku
+        (keezha request qty − indha request qty). Mela leader-ku green-la kaatta."""
+        if not obj.forwarded_for_id:
+            return []
+        mine = {(i.metal_type, i.weight_label): i.qty for i in obj.items.all()}
+        out = []
+        for i in obj.forwarded_for.items.all():
+            left = i.qty - mine.get((i.metal_type, i.weight_label), 0)
+            if left > 0:
+                out.append({'metal_type': i.metal_type, 'weight_label': i.weight_label, 'qty': left})
+        return out
         read_only_fields = ['requested_by', 'requested_to', 'approved_by', 'status', 'reject_reason', 'created_at', 'sent_at',
                             'forwarded_for']
 

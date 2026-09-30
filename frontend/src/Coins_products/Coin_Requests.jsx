@@ -1084,6 +1084,14 @@ export default function CoinRequests() {
         }
         .cr-btn-forward:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(187, 137, 88, 0.38); }
         .cr-fwd-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+        .cr-item-pill.ready { border-color: #A7F3D0 !important; }
+        .cr-item-pill.short { border-color: rgba(187, 137, 88, 0.5) !important; }
+        .cr-item-av {
+          display: inline-flex; align-items: center; gap: 3px; margin-left: 4px;
+          font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+        }
+        .cr-item-av.ready { background: #ECFDF5; color: #047857; }
+        .cr-item-av.short { background: #FDF3E4; color: #A0713F; }
         .cr-fwd-note {
           display: inline-flex; align-items: center; gap: 7px;
           font-size: 12.5px; font-weight: 700; padding: 7px 12px;
@@ -1735,6 +1743,29 @@ export default function CoinRequests() {
                     )}
                   </div>
 
+                  {/* Forward aana request — kammi-yaana coins mattum dhaan mela varum (matha coins keezha leader kaila already irukku) */}
+                  {req.forwarded_for && req.status === "pending" && (
+                    <div className="cr-fwd-row">
+                      {req.covered_by_forwarder?.length > 0 ? (
+                        // Green: indha coins forward pannavanga kaila already irukku — mela kekkala
+                        req.covered_by_forwarder.map((c) => (
+                          <span key={`${c.metal_type}-${c.weight_label}`} className="cr-fwd-note arrived">
+                            <CheckIcon size={13} color="#047857" />
+                            <span>
+                              {COIN_METAL_LABELS_TEXT[c.metal_type] || c.metal_type} {c.weight_label} × {c.qty} is already with{" "}
+                              <strong>{req.requested_by_name || "the leader"}</strong> ({ROLE_DISPLAY[req.requested_by_role] || req.requested_by_role})
+                            </span>
+                          </span>
+                        ))
+                      ) : (
+                        <span className="cr-fwd-note sa">
+                          <ArrowUpRightIcon size={13} color="#A0713F" />
+                          Forwarded by {req.requested_by_name || "leader"}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   {/* Forward notes — en kaila evlo irukku / leader decline / coin vandhuchu */}
                   {canApproveThis && !isSuperAdmin && (req.stock_shortfall?.length > 0 || req.forward_info) && (
                     <div className="cr-fwd-row">
@@ -1759,12 +1790,27 @@ export default function CoinRequests() {
 
                   {/* Coin item denominations requested */}
                   <div className="cr-items-grid">
-                    {req.items?.map((item) => (
-                      <div className="cr-item-pill" key={item.id || `${item.metal_type}-${item.weight_label}`}>
-                        <span>{COIN_METAL_LABELS_TEXT[item.metal_type] || item.metal_type} ({item.weight_label})</span>
-                        <span style={{ color: "#073B3F" }}>{item.qty} pcs</span>
-                      </div>
-                    ))}
+                    {req.items?.map((item) => {
+                      // Approver-ku: indha coin en kaila irukkaa (ready) illa mela forward aagudhaa nu thelivaa
+                      const showAv = canApproveThis && !isSuperAdmin;
+                      const short = showAv && req.stock_shortfall?.find((s) => s.metal_type === item.metal_type && s.weight_label === item.weight_label);
+                      const fwdPending = req.forward_info?.status === "pending";
+                      return (
+                        <div className={`cr-item-pill${showAv ? (short ? " short" : " ready") : ""}`} key={item.id || `${item.metal_type}-${item.weight_label}`}>
+                          <span>{COIN_METAL_LABELS_TEXT[item.metal_type] || item.metal_type} ({item.weight_label})</span>
+                          <span style={{ color: "#073B3F" }}>{item.qty} pcs</span>
+                          {showAv && (
+                            <span className={`cr-item-av ${short ? "short" : "ready"}`}>
+                              {short ? (
+                                <><ArrowUpRightIcon size={10} color="#A0713F" /> {fwdPending ? `${short.need - short.have} forwarded` : `Short ${short.need - short.have}`}</>
+                              ) : (
+                                <><CheckIcon size={10} color="#047857" /> In your stock</>
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
 
                   <CoinChainStepper chain={req.chain} roleLabels={ROLE_DISPLAY} />

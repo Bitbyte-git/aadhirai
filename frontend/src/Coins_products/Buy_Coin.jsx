@@ -15,6 +15,7 @@ import {
   HistoryIcon,
   CheckIcon,
   WarningIcon,
+  ClockIcon,
 } from "../components/SvgIcons";
 
 // Anything under 1g reads in milligrams (e.g. 0.05g -> 50 mg, 0.5g -> 500 mg), 1g and above in grams (e.g. 1.5 g, 2.5 g).
@@ -1087,7 +1088,7 @@ export default function BuyCoin() {
                     <span>{w.label}</span>
                     {av && (
                       <span className={`bc-av ${av.kind}`}>
-                        {av.kind === "leader" ? `${av.qty} ready` : av.kind === "forward" ? "Via forward" : "No stock"}
+                        {av.kind === "leader" ? `${av.qty} ready` : av.kind === "forward" ? "Via forward" : "On request"}
                       </span>
                     )}
                   </button>
@@ -1106,7 +1107,7 @@ export default function BuyCoin() {
                   ) : av.kind === "forward" ? (
                     <><SparkleIcon size={14} color="#A0713F" /> <span>Super Admin stock · {leaderName} will forward it up the chain</span></>
                   ) : (
-                    <><WarningIcon size={14} color="#B45309" /> <span>Not in stock right now · you can still request</span></>
+                    <><ClockIcon size={14} color="#B45309" /> <span>Currently out of stock · request now, we'll send it to you once it's available</span></>
                   )}
                 </div>
               );

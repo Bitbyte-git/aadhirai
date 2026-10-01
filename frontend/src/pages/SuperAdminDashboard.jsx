@@ -155,7 +155,7 @@ function TreeNode({ node, role, depth = 0, dark, text, subtext, colorIdx = 0, an
 
         {/* Phone */}
         <div style={{ color: subtext, fontSize: '11px', marginBottom: '2px' }}>
-        {node.mobile_number}
+          {node.mobile_number}
         </div>
 
         {/* City */}
@@ -544,7 +544,7 @@ function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, super
     const isLast = idx === chain.length - 1
     const isSuperAdmin = item.type === 'super_admin'
 
-const arrowHtml = idx > 0 ? `
+    const arrowHtml = idx > 0 ? `
   <div style="display:flex;justify-content:center;padding:5px 0;">
     <div style="display:flex;flex-direction:column;align-items:center;gap:0;">
       <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:7px solid rgba(189,207,206,0.5);"></div>
@@ -793,20 +793,20 @@ function OrderTrendChart({ dark }) {
 
   const completeChartSeries = (rows, p) => {
     const grouped = new Map()
-    ;(rows || []).forEach(d => {
-      const label = formatAxisLabel(d.time, p)
-      const existing = grouped.get(label)
-      if (existing) {
-        existing.count += Number(d.count || 0)
-      } else {
-        grouped.set(label, {
-          ...d,
-          count: Number(d.count || 0),
-          label,
-          full: formatFullLabel(d.time),
-        })
-      }
-    })
+      ; (rows || []).forEach(d => {
+        const label = formatAxisLabel(d.time, p)
+        const existing = grouped.get(label)
+        if (existing) {
+          existing.count += Number(d.count || 0)
+        } else {
+          grouped.set(label, {
+            ...d,
+            count: Number(d.count || 0),
+            label,
+            full: formatFullLabel(d.time),
+          })
+        }
+      })
     return Array.from(grouped.values()).sort((a, b) => new Date(a.time) - new Date(b.time))
   }
 
@@ -1008,14 +1008,14 @@ export default function SuperAdminDashboard() {
   const [showForm, setShowForm] = useState(false)
   const [showHierarchy, setShowHierarchy] = useState(false)
   const [hierarchyFilter, setHierarchyFilter] = useState(null)
- const [hierarchySearch, setHierarchySearch] = useState('')
-const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [hierarchySearch, setHierarchySearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
-// Debounce typing niruthi 300ms aana appuram than search run aagum
-useEffect(() => {
-  const t = setTimeout(() => setDebouncedSearch(hierarchySearch.trim()), 120)
-  return () => clearTimeout(t)
-}, [hierarchySearch])
+  // Debounce typing niruthi 300ms aana appuram than search run aagum
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(hierarchySearch.trim()), 120)
+    return () => clearTimeout(t)
+  }, [hierarchySearch])
   const [activeAdmin, setActiveAdmin] = useState(null)
   const hideTimer = useRef(null)
   const [msg, setMsg] = useState('')
@@ -1030,35 +1030,16 @@ useEffect(() => {
   const [userGrowthStats, setUserGrowthStats] = useState({ total: 0, newUsers: 0, activeUsers: 0 })
   const [userGrowthChartData, setUserGrowthChartData] = useState([])
   const [salesProfitData, setSalesProfitData] = useState({
-    allSales: 1420000,
-    athiraiProfit: 1050000,
-    companyRev73: 1036600,
-    balanceComm: 213000,
-    superAdminComm: 14200,
-    genCustRev: 56800,
-    monthlyTrend: [
-      { name: 'Jul', profit: 924000, sales: 1250000 },
-      { name: 'Aug', profit: 672000, sales: 910000 },
-      { name: 'Sep', profit: 798000, sales: 1080000 },
-    ],
-    profitBreakdown: [
-      { name: '73% Athirai Sales', value: 73, color: '#009957', pct: '73%' },
-      { name: 'Balance Commission', value: 15, color: '#BB8958', pct: 'Pool' },
-      { name: 'Super Admin Share', value: 8, color: '#073B3F', pct: '1%' },
-      { name: 'General Customer', value: 4, color: '#3E7C82', pct: 'Direct' },
-    ],
-    salesBreakdown: [
-      { name: '22K Gold Jewelry', value: 58, color: '#009957', pct: '58%' },
-      { name: '24K Bullion / Coins', value: 24, color: '#BB8958', pct: '24%' },
-      { name: '999 Fine Silver', value: 12, color: '#3E7C82', pct: '12%' },
-      { name: 'Direct / Digital Orders', value: 6, color: '#073B3F', pct: '6%' },
-    ],
-    breakdown: [
-      { name: '73% Athirai Sales', value: 73, color: '#009957', pct: '73%' },
-      { name: 'Balance Commission', value: 15, color: '#BB8958', pct: 'Pool' },
-      { name: 'Super Admin Share', value: 8, color: '#073B3F', pct: '1%' },
-      { name: 'General Customer', value: 4, color: '#3E7C82', pct: 'Direct' },
-    ]
+    allSales: 0,
+    athiraiProfit: 0,
+    companyRev73: 0,
+    balanceComm: 0,
+    superAdminComm: 0,
+    genCustRev: 0,
+    monthlyTrend: [],
+    profitBreakdown: [],
+    salesBreakdown: [],
+    breakdown: []
   })
 
   useEffect(() => {
@@ -1067,7 +1048,7 @@ useEffect(() => {
   }, [])
 
 
-    const [form, setForm] = useState({
+  const [form, setForm] = useState({
     initial: '', first_name: '', last_name: '', mobile_number: '',
     gender: 'male', dob: '', married_status: 'single', anniversary_date: '',
     door_no: '', street_name: '', town_name: '', pincode: '',
@@ -1158,9 +1139,9 @@ useEffect(() => {
   const [annReplies, setAnnReplies] = useState({})
   const [replyPopupAnnId, setReplyPopupAnnId] = useState(null)
   const [metalPrices, setMetalPrices] = useState({
-  gold22k: null, gold24k: null, silver: null,
-  diamond18k: null, diamond22k: null, platinum92: null,
-})
+    gold22k: null, gold24k: null, silver: null,
+    diamond18k: null, diamond22k: null, platinum92: null,
+  })
   const [showTodayRates, setShowTodayRates] = useState(false)
   const [metalLoading, setMetalLoading] = useState(false)
   const [usdToInr, setUsdToInr] = useState(null)
@@ -1175,25 +1156,25 @@ useEffect(() => {
 
 
   const [showRequestCoin, setShowRequestCoin] = useState(false)
-const [coinRequests, setCoinRequests] = useState([])
-const [coinReqLoading, setCoinReqLoading] = useState(false)
-const [approvingReqId, setApprovingReqId] = useState(null)
-const [approvingAll, setApprovingAll] = useState(false)
-const [coinReqMsg, setCoinReqMsg] = useState('')
-const [coinReqMsgType, setCoinReqMsgType] = useState('success')
-const [rejectingReqId, setRejectingReqId] = useState(null)
-const [rejectReason, setRejectReason] = useState('')
-const [rejectSubmitting, setRejectSubmitting] = useState(false)
-const [showAddCoin, setShowAddCoin] = useState(false)
-const [coinCart, setCoinCart] = useState([])
-const [coinBuyMsg, setCoinBuyMsg] = useState('')
-const [coinBuySubmitting, setCoinBuySubmitting] = useState(false)
-const [selCoinMetal, setSelCoinMetal] = useState('gold_22k')
-const [selCoinWeight, setSelCoinWeight] = useState('')
-const [selCoinQty, setSelCoinQty] = useState('')
-const [showStoredCoin, setShowStoredCoin] = useState(false)
-const [coinStock, setCoinStock] = useState([])
-const [coinStockLoading, setCoinStockLoading] = useState(false)
+  const [coinRequests, setCoinRequests] = useState([])
+  const [coinReqLoading, setCoinReqLoading] = useState(false)
+  const [approvingReqId, setApprovingReqId] = useState(null)
+  const [approvingAll, setApprovingAll] = useState(false)
+  const [coinReqMsg, setCoinReqMsg] = useState('')
+  const [coinReqMsgType, setCoinReqMsgType] = useState('success')
+  const [rejectingReqId, setRejectingReqId] = useState(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [rejectSubmitting, setRejectSubmitting] = useState(false)
+  const [showAddCoin, setShowAddCoin] = useState(false)
+  const [coinCart, setCoinCart] = useState([])
+  const [coinBuyMsg, setCoinBuyMsg] = useState('')
+  const [coinBuySubmitting, setCoinBuySubmitting] = useState(false)
+  const [selCoinMetal, setSelCoinMetal] = useState('gold_22k')
+  const [selCoinWeight, setSelCoinWeight] = useState('')
+  const [selCoinQty, setSelCoinQty] = useState('')
+  const [showStoredCoin, setShowStoredCoin] = useState(false)
+  const [coinStock, setCoinStock] = useState([])
+  const [coinStockLoading, setCoinStockLoading] = useState(false)
 
 
   const [productImages, setProductImages] = useState([])  // File objects
@@ -1242,60 +1223,60 @@ const [coinStockLoading, setCoinStockLoading] = useState(false)
 
 
   // AFTER
-const fetchAdmins = async () => {
-  try {
-    const res = await api.get('/admins/')
-    const payload = res.data
-    const rows = Array.isArray(payload)
-      ? payload
-      : Array.isArray(payload?.results)
-        ? payload.results
-        : Array.isArray(payload?.admins)
-          ? payload.admins
-          : []
-    setAdmins(rows)
-    return rows
-  } catch (error) {
-    console.warn('Admin list fetch failed', error.response?.status || error.message)
-    setAdmins([])
-    return []
+  const fetchAdmins = async () => {
+    try {
+      const res = await api.get('/admins/')
+      const payload = res.data
+      const rows = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.results)
+          ? payload.results
+          : Array.isArray(payload?.admins)
+            ? payload.admins
+            : []
+      setAdmins(rows)
+      return rows
+    } catch (error) {
+      console.warn('Admin list fetch failed', error.response?.status || error.message)
+      setAdmins([])
+      return []
+    }
   }
-}
 
   // AFTER
-const fetchAnnouncementCount = (data) => {
-  const lastSeen = parseInt(localStorage.getItem('superAdminAnnouncementSeen') || '0')
-  const unread = data.filter(a => new Date(a.created_at).getTime() > lastSeen).length
-  setAnnouncementCount(unread)
-}
+  const fetchAnnouncementCount = (data) => {
+    const lastSeen = parseInt(localStorage.getItem('superAdminAnnouncementSeen') || '0')
+    const unread = data.filter(a => new Date(a.created_at).getTime() > lastSeen).length
+    setAnnouncementCount(unread)
+  }
 
   // AFTER
-const [myAnnouncements, setMyAnnouncements] = useState([])
+  const [myAnnouncements, setMyAnnouncements] = useState([])
 
-const fetchMyAnnouncements = async (data = null) => {
-  try {
-    const res = data ? { data } : await api.get('/announcements/')
-    const sorted = [...res.data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    setMyAnnouncements(sorted)
-    return res.data
-  } catch { return [] }
-}
+  const fetchMyAnnouncements = async (data = null) => {
+    try {
+      const res = data ? { data } : await api.get('/announcements/')
+      const sorted = [...res.data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      setMyAnnouncements(sorted)
+      return res.data
+    } catch { return [] }
+  }
 
 
   // AFTER
-const fetchAllMembers = async (adminsData = []) => {
-  try {
-    const [dealerRes, sdRes, proRes, cusRes] = await Promise.allSettled([
-      api.get('/dealers/list/'),
-      api.get('/sub-dealers/list/'),
-      api.get('/promotors/list/'),
-      api.get('/customers/'),
-    ])
-    const admins = adminsData
-        const dealers = dealerRes.status === 'fulfilled' ? (dealerRes.value.data?.results || dealerRes.value.data || []) : []
-    const sds = sdRes.status === 'fulfilled' ? (sdRes.value.data?.results || sdRes.value.data || []) : []
-    const pros = proRes.status === 'fulfilled' ? (proRes.value.data?.results || proRes.value.data || []) : []
-    const cuss = cusRes.status === 'fulfilled' ? (cusRes.value.data?.results || cusRes.value.data || []) : []
+  const fetchAllMembers = async (adminsData = []) => {
+    try {
+      const [dealerRes, sdRes, proRes, cusRes] = await Promise.allSettled([
+        api.get('/dealers/list/'),
+        api.get('/sub-dealers/list/'),
+        api.get('/promotors/list/'),
+        api.get('/customers/'),
+      ])
+      const admins = adminsData
+      const dealers = dealerRes.status === 'fulfilled' ? (dealerRes.value.data?.results || dealerRes.value.data || []) : []
+      const sds = sdRes.status === 'fulfilled' ? (sdRes.value.data?.results || sdRes.value.data || []) : []
+      const pros = proRes.status === 'fulfilled' ? (proRes.value.data?.results || proRes.value.data || []) : []
+      const cuss = cusRes.status === 'fulfilled' ? (cusRes.value.data?.results || cusRes.value.data || []) : []
 
       const allMembers = [
         ...admins.map(m => ({ ...m, _role: 'Super Stockist', _id: m.admin_id, _roleColor: '#BDCFCE', _dob: m.dob, _ann: m.anniversary_date, _joined: m.user?.created_at || null })),
@@ -1388,16 +1369,16 @@ const fetchAllMembers = async (adminsData = []) => {
   }
 
   const [loginStatus, setLoginStatus] = useState({ active_count: 0, inactive_count: 0 })
-const [quickStats, setQuickStats] = useState(() => {
-  const defaults = { yesterday_orders: 0, today_orders: 0, today_new_customers: 0, active_users: 0, admins: 0, dealers: 0, sub_dealers: 0, promotors: 0, customers: 0, today_inactive_count: 0 }
-  try {
-    const cached = localStorage.getItem('sa_quick_stats')
-    return cached ? { ...defaults, ...JSON.parse(cached) } : defaults
-  } catch {
-    return defaults
-  }
-})
-const [quickStatsLoading, setQuickStatsLoading] = useState(true)   // ✅ NEW
+  const [quickStats, setQuickStats] = useState(() => {
+    const defaults = { yesterday_orders: 0, today_orders: 0, today_new_customers: 0, active_users: 0, admins: 0, dealers: 0, sub_dealers: 0, promotors: 0, customers: 0, today_inactive_count: 0, sold_out_count: 0, notify_count: 0 }
+    try {
+      const cached = localStorage.getItem('sa_quick_stats')
+      return cached ? { ...defaults, ...JSON.parse(cached) } : defaults
+    } catch {
+      return defaults
+    }
+  })
+  const [quickStatsLoading, setQuickStatsLoading] = useState(true)   // ✅ NEW
   const fetchLoginStatus = async () => {
     try {
       const res = await api.get('/today-login-status/')
@@ -1407,20 +1388,20 @@ const [quickStatsLoading, setQuickStatsLoading] = useState(true)   // ✅ NEW
     }
   }
 
-const fetchQuickStats = async () => {
-  setQuickStatsLoading(true)                                       // ✅ NEW
-  try {
-    const res = await api.get('/dashboard-quick-stats/')
-    setQuickStats(res.data)
-    localStorage.setItem('sa_quick_stats', JSON.stringify(res.data))
-  } catch (e) {
-    console.error('quick stats fetch error:', e)
-  } finally {
-    setQuickStatsLoading(false)                                    // ✅ NEW
+  const fetchQuickStats = async () => {
+    setQuickStatsLoading(true)                                       // ✅ NEW
+    try {
+      const res = await api.get('/dashboard-quick-stats/')
+      setQuickStats(res.data)
+      localStorage.setItem('sa_quick_stats', JSON.stringify(res.data))
+    } catch (e) {
+      console.error('quick stats fetch error:', e)
+    } finally {
+      setQuickStatsLoading(false)                                    // ✅ NEW
+    }
   }
-}
 
-const fetchMetalPrices = async () => {
+  const fetchMetalPrices = async () => {
     setMetalLoading(true)
     try {
       const res = await api.get('/metal-rates/')
@@ -1530,7 +1511,7 @@ const fetchMetalPrices = async () => {
     }
   }
 
-   const calcLivePrice = (weight, metal, grade) => {
+  const calcLivePrice = (weight, metal, grade) => {
     if (!weight || !metal) { setLivePrice(null); return }
     const w = parseFloat(weight)
     if (isNaN(w) || w <= 0) { setLivePrice(null); return }
@@ -1566,32 +1547,33 @@ const fetchMetalPrices = async () => {
     const total = totalUsers || 0
 
     if (userGrowthPeriod === 'day') {
-      const hours = ['12 AM', '3 AM', '6 AM', '9 AM', '12 PM', '3 PM', '6 PM', '9 PM']
+      const hours = ['9 AM', '12 PM', '3 PM', '6 PM', '9 PM']
       const todayNew = quickStats.today_new_customers || 0
       return hours.map((h, i) => ({
         month: h,
-        users: Math.round(Math.max(1, (todayNew / hours.length) * (i + 1)))
+        users: Math.max(0, Math.round((todayNew / hours.length) * (i === 1 || i === 3 ? 1.5 : 0.8))),
+        cumulative: Math.round(Math.min(todayNew, (todayNew / hours.length) * (i + 1)))
       }))
     }
 
     if (userGrowthPeriod === 'week') {
       const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
       const currentDayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1
+      const totalNewInWeek = userGrowthStats.newUsers || Math.round(total * 0.05) || 7
       return days.map((d, i) => {
-        const factor = (i + 1) / (days.length)
-        const val = Math.round(total * (0.85 + 0.15 * factor))
-        return { month: d, users: i <= currentDayIdx ? val : Math.round(total * 0.95) }
+        const daily = i <= currentDayIdx ? Math.max(1, Math.round((totalNewInWeek / 7) * (0.8 + 0.4 * (i % 3)))) : 0
+        return { month: d, users: daily, cumulative: Math.round(total * (0.95 + 0.05 * ((i + 1) / 7))) }
       })
     }
 
     if (userGrowthPeriod === 'month') { // Default
-      const intervals = ['1st', '5th', '10th', '15th', '20th', '25th', '30th']
+      const intervals = ['1st-5th', '6th-10th', '11th-15th', '16th-20th', '21st-25th', '26th-End']
       const dayOfMonth = new Date().getDate()
-      const currentIntervalIdx = Math.min(Math.floor(dayOfMonth / 5), intervals.length - 1)
+      const currentIntervalIdx = Math.min(Math.floor((dayOfMonth - 1) / 5), intervals.length - 1)
+      const totalNewInMonth = userGrowthStats.newUsers || Math.round(total * 0.12) || 12
       return intervals.map((inv, i) => {
-        const factor = (i + 1) / intervals.length
-        const val = Math.round(total * (0.7 + 0.3 * factor))
-        return { month: inv, users: i <= currentIntervalIdx ? val : total }
+        const val = i <= currentIntervalIdx ? Math.max(1, Math.round((totalNewInMonth / 6) * (0.7 + 0.5 * (i % 2)))) : 0
+        return { month: inv, users: val, cumulative: Math.round(total * (0.88 + 0.12 * ((i + 1) / 6))) }
       })
     }
 
@@ -1603,9 +1585,11 @@ const fetchMetalPrices = async () => {
         mNames[(d.getMonth() - 1 + 12) % 12],
         mNames[d.getMonth()],
       ]
+      const totalNew = userGrowthStats.newUsers || Math.round(total * 0.25) || 20
       return last3.map((m, i) => ({
         month: m,
-        users: Math.round(total * (0.65 + 0.35 * ((i + 1) / 3)))
+        users: Math.round((totalNew / 3) * (0.8 + 0.3 * i)),
+        cumulative: Math.round(total * (0.75 + 0.25 * ((i + 1) / 3)))
       }))
     }
 
@@ -1616,9 +1600,11 @@ const fetchMetalPrices = async () => {
       for (let i = 5; i >= 0; i--) {
         last6.push(mNames[(d.getMonth() - i + 12) % 12])
       }
+      const totalNew = userGrowthStats.newUsers || Math.round(total * 0.4) || 35
       return last6.map((m, i) => ({
         month: m,
-        users: Math.round(total * (0.45 + 0.55 * ((i + 1) / 6)))
+        users: Math.round((totalNew / 6) * (0.7 + 0.5 * (i % 3))),
+        cumulative: Math.round(total * (0.6 + 0.4 * ((i + 1) / 6)))
       }))
     }
 
@@ -1643,18 +1629,20 @@ const fetchMetalPrices = async () => {
       let accum = 0
       return months.map((m, idx) => {
         accum += monthlyCounts[idx]
-        return { month: m, users: accum }
+        return { month: m, users: monthlyCounts[idx], cumulative: accum }
       })
     }
 
     const currentMonthIdx = new Date().getMonth()
+    const totalNew = userGrowthStats.newUsers || Math.round(total * 0.7) || 60
+    let accum = Math.round(total * 0.3)
     return months.map((m, idx) => {
-      if (idx > currentMonthIdx) return { month: m, users: total }
-      const factor = (idx + 1) / (currentMonthIdx + 1)
-      const val = Math.round(total * (0.32 + 0.68 * factor))
-      return { month: m, users: Math.min(val, total) }
+      const isPastOrCurrent = idx <= currentMonthIdx
+      const newInMonth = isPastOrCurrent ? Math.max(1, Math.round((totalNew / (currentMonthIdx + 1)) * (0.8 + 0.4 * (idx % 2)))) : 0
+      accum += newInMonth
+      return { month: m, users: newInMonth, cumulative: Math.min(accum, total) }
     })
-  }, [allMembersList, totalUsers, userGrowthPeriod, quickStats.today_new_customers])
+  }, [allMembersList, totalUsers, userGrowthPeriod, quickStats.today_new_customers, userGrowthStats.newUsers])
 
   // Helper: compute real sales and profit from Neon DB orders
   const computeRealSalesProfit = (list, p) => {
@@ -1939,41 +1927,41 @@ const fetchMetalPrices = async () => {
   }, [allMembersList, myAnnouncements, profileRequests, coinRequests, orderStats])
 
   // AFTER
-// AFTER
-useEffect(() => {
-  (async () => {
-    const adminsData = await fetchAdmins()
-    fetchAllMembers(adminsData)
-  })()
-  ;(async () => {
-    const annData = await fetchMyAnnouncements()
-    fetchAnnouncementCount(annData)
-  })()
-  fetchProfileRequests()
-  fetchMetalPrices()
-  fetchOrderStats()
-  fetchLoginStatus()
-  fetchQuickStats()
-  fetchCoinRequests()
-  fetchUserGrowth()
-  fetchSalesProfit()
-}, [])
+  // AFTER
+  useEffect(() => {
+    (async () => {
+      const adminsData = await fetchAdmins()
+      fetchAllMembers(adminsData)
+    })()
+      ; (async () => {
+        const annData = await fetchMyAnnouncements()
+        fetchAnnouncementCount(annData)
+      })()
+    fetchProfileRequests()
+    fetchMetalPrices()
+    fetchOrderStats()
+    fetchLoginStatus()
+    fetchQuickStats()
+    fetchCoinRequests()
+    fetchUserGrowth()
+    fetchSalesProfit()
+  }, [])
 
-useEffect(() => {
-  fetchUserGrowth(userGrowthPeriod)
-}, [userGrowthPeriod])
+  useEffect(() => {
+    fetchUserGrowth(userGrowthPeriod)
+  }, [userGrowthPeriod])
 
-useEffect(() => {
-  fetchSalesProfit(profitPeriod)
-}, [profitPeriod])
+  useEffect(() => {
+    fetchSalesProfit(profitPeriod)
+  }, [profitPeriod])
 
 
   const handleOpenHierarchy = () => {
-  setShowHierarchy(true)
-  setHierarchyFilter(null)
-  setHierarchySearch('')
-  fetchHierarchy()
-}
+    setShowHierarchy(true)
+    setHierarchyFilter(null)
+    setHierarchySearch('')
+    fetchHierarchy()
+  }
 
   useEffect(() => {
     fetchMetalPrices()
@@ -1989,7 +1977,7 @@ useEffect(() => {
     else if (open === 'myannouncements') { setShowMyAnnouncements(true); fetchMyAnnouncements() }
   }, [searchParams])
 
-    const handleChange = e => {
+  const handleChange = e => {
     const { name, value } = e.target
 
     if (name === 'married_status' && value !== 'married') {
@@ -2002,7 +1990,7 @@ useEffect(() => {
 
   const [pincodeLookupMsg, setPincodeLookupMsg] = useState('')
 
-    const handlePincodeChange = async (e) => {
+  const handlePincodeChange = async (e) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 6)
     setForm(prev => ({ ...prev, pincode: value }))
     setPincodeLookupMsg('')
@@ -2118,121 +2106,121 @@ useEffect(() => {
 
 
   const COIN_METAL_LABELS_TEXT = { gold_22k: 'Gold 22K', gold_24k: 'Gold 24K', silver_999: 'Silver 999' }
-const COIN_WEIGHTS_GOLD = [
-  { label: '50 mg', grams: 0.05 }, { label: '100 mg', grams: 0.10 }, { label: '150 mg', grams: 0.15 },
-  { label: '200 mg', grams: 0.20 }, { label: '500 mg', grams: 0.50 }, { label: '1 gm', grams: 1 },
-  { label: '2 gm', grams: 2 }, { label: '4 gm', grams: 4 }, { label: '8 gm', grams: 8 },
-]
-const COIN_WEIGHTS_SILVER = [
-  { label: '500 mg', grams: 0.50 }, { label: '1 gm', grams: 1 }, { label: '2 gm', grams: 2 },
-  { label: '5 gm', grams: 5 }, { label: '10 gm', grams: 10 }, { label: '20 gm', grams: 20 },
-  { label: '50 gm', grams: 50 }, { label: '100 gm', grams: 100 },
-]
+  const COIN_WEIGHTS_GOLD = [
+    { label: '50 mg', grams: 0.05 }, { label: '100 mg', grams: 0.10 }, { label: '150 mg', grams: 0.15 },
+    { label: '200 mg', grams: 0.20 }, { label: '500 mg', grams: 0.50 }, { label: '1 gm', grams: 1 },
+    { label: '2 gm', grams: 2 }, { label: '4 gm', grams: 4 }, { label: '8 gm', grams: 8 },
+  ]
+  const COIN_WEIGHTS_SILVER = [
+    { label: '500 mg', grams: 0.50 }, { label: '1 gm', grams: 1 }, { label: '2 gm', grams: 2 },
+    { label: '5 gm', grams: 5 }, { label: '10 gm', grams: 10 }, { label: '20 gm', grams: 20 },
+    { label: '50 gm', grams: 50 }, { label: '100 gm', grams: 100 },
+  ]
 
-const fetchCoinRequests = async () => {
-  setCoinReqLoading(true)
-  try {
-    const res = await api.get('/coin-requests/')
-    setCoinRequests(res.data)
-  } catch { setCoinRequests([]) }
-  setCoinReqLoading(false)
-}
-
-const approveCoinRequest = async (reqId) => {
-  setApprovingReqId(reqId)
-  setCoinReqMsg('')
-  try {
-    await api.post(`/coin-requests/${reqId}/approve/`)
-    setCoinReqMsgType('success')
-    setCoinReqMsg('Request approved successfully.')
-    fetchCoinRequests()
-  } catch (err) {
-    setCoinReqMsgType('error')
-    setCoinReqMsg('Failed to approve request. Please try again.')
+  const fetchCoinRequests = async () => {
+    setCoinReqLoading(true)
+    try {
+      const res = await api.get('/coin-requests/')
+      setCoinRequests(res.data)
+    } catch { setCoinRequests([]) }
+    setCoinReqLoading(false)
   }
-  setApprovingReqId(null)
-}
 
-const approveAllCoinRequests = async () => {
-  setApprovingAll(true)
-  setCoinReqMsg('')
-  try {
-    await api.post('/coin-requests/approve-all/')
-    setCoinReqMsgType('success')
-    setCoinReqMsg('All requests approved successfully.')
-    fetchCoinRequests()
-  } catch (err) {
-    setCoinReqMsgType('error')
-    setCoinReqMsg('Failed to approve requests. Please try again.')
+  const approveCoinRequest = async (reqId) => {
+    setApprovingReqId(reqId)
+    setCoinReqMsg('')
+    try {
+      await api.post(`/coin-requests/${reqId}/approve/`)
+      setCoinReqMsgType('success')
+      setCoinReqMsg('Request approved successfully.')
+      fetchCoinRequests()
+    } catch (err) {
+      setCoinReqMsgType('error')
+      setCoinReqMsg('Failed to approve request. Please try again.')
+    }
+    setApprovingReqId(null)
   }
-  setApprovingAll(false)
-}
 
-const rejectCoinRequest = async (reqId) => {
-  if (!rejectReason.trim()) {
-    setCoinReqMsgType('error')
-    setCoinReqMsg('Please enter a reason for rejection.')
-    return
+  const approveAllCoinRequests = async () => {
+    setApprovingAll(true)
+    setCoinReqMsg('')
+    try {
+      await api.post('/coin-requests/approve-all/')
+      setCoinReqMsgType('success')
+      setCoinReqMsg('All requests approved successfully.')
+      fetchCoinRequests()
+    } catch (err) {
+      setCoinReqMsgType('error')
+      setCoinReqMsg('Failed to approve requests. Please try again.')
+    }
+    setApprovingAll(false)
   }
-  setRejectSubmitting(true)
-  setCoinReqMsg('')
-  try {
-    await api.post(`/coin-requests/${reqId}/reject/`, { message: rejectReason.trim() })
-    setCoinReqMsgType('success')
-    setCoinReqMsg('Request rejected successfully.')
-    setRejectingReqId(null)
-    setRejectReason('')
-    fetchCoinRequests()
-  } catch (err) {
-    setCoinReqMsgType('error')
-    setCoinReqMsg('Failed to reject request. Please try again.')
-  }
-  setRejectSubmitting(false)
-}
 
-const addToCoinCart = () => {
-  if (!selCoinWeight || !selCoinQty || Number(selCoinQty) < 1) {
-    setCoinBuyMsg('error:Please select weight and quantity')
-    return
+  const rejectCoinRequest = async (reqId) => {
+    if (!rejectReason.trim()) {
+      setCoinReqMsgType('error')
+      setCoinReqMsg('Please enter a reason for rejection.')
+      return
+    }
+    setRejectSubmitting(true)
+    setCoinReqMsg('')
+    try {
+      await api.post(`/coin-requests/${reqId}/reject/`, { message: rejectReason.trim() })
+      setCoinReqMsgType('success')
+      setCoinReqMsg('Request rejected successfully.')
+      setRejectingReqId(null)
+      setRejectReason('')
+      fetchCoinRequests()
+    } catch (err) {
+      setCoinReqMsgType('error')
+      setCoinReqMsg('Failed to reject request. Please try again.')
+    }
+    setRejectSubmitting(false)
   }
-  const weightsArr = selCoinMetal === 'silver_999' ? COIN_WEIGHTS_SILVER : COIN_WEIGHTS_GOLD
-  const w = weightsArr.find(x => x.label === selCoinWeight)
-  if (!w) return
-  setCoinCart(prev => [...prev, { metal_type: selCoinMetal, weight_label: w.label, weight_grams: w.grams, qty: Number(selCoinQty) }])
-  setSelCoinWeight('')
-  setSelCoinQty('')
-  setCoinBuyMsg('')
-}
 
-const removeCoinCartItem = (idx) => {
-  setCoinCart(prev => prev.filter((_, i) => i !== idx))
-}
-
-const submitAddCoins = async () => {
-  if (coinCart.length === 0) {
-    setCoinBuyMsg('error:Add at least one item to the cart')
-    return
+  const addToCoinCart = () => {
+    if (!selCoinWeight || !selCoinQty || Number(selCoinQty) < 1) {
+      setCoinBuyMsg('error:Please select weight and quantity')
+      return
+    }
+    const weightsArr = selCoinMetal === 'silver_999' ? COIN_WEIGHTS_SILVER : COIN_WEIGHTS_GOLD
+    const w = weightsArr.find(x => x.label === selCoinWeight)
+    if (!w) return
+    setCoinCart(prev => [...prev, { metal_type: selCoinMetal, weight_label: w.label, weight_grams: w.grams, qty: Number(selCoinQty) }])
+    setSelCoinWeight('')
+    setSelCoinQty('')
+    setCoinBuyMsg('')
   }
-  setCoinBuySubmitting(true)
-  try {
-    await api.post('/coin-stock/add/', { items: coinCart })
-    setCoinBuyMsg('success:Coins added to your stock!')
-    setCoinCart([])
-    setTimeout(() => { setShowAddCoin(false); setCoinBuyMsg('') }, 1400)
-  } catch (err) {
-    setCoinBuyMsg('error:' + (err.response?.data?.error || 'Failed to add coins'))
-  }
-  setCoinBuySubmitting(false)
-}
 
-const fetchCoinStock = async () => {
-  setCoinStockLoading(true)
-  try {
-    const res = await api.get('/coin-stock/')
-    setCoinStock(res.data)
-  } catch { setCoinStock([]) }
-  setCoinStockLoading(false)
-}
+  const removeCoinCartItem = (idx) => {
+    setCoinCart(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  const submitAddCoins = async () => {
+    if (coinCart.length === 0) {
+      setCoinBuyMsg('error:Add at least one item to the cart')
+      return
+    }
+    setCoinBuySubmitting(true)
+    try {
+      await api.post('/coin-stock/add/', { items: coinCart })
+      setCoinBuyMsg('success:Coins added to your stock!')
+      setCoinCart([])
+      setTimeout(() => { setShowAddCoin(false); setCoinBuyMsg('') }, 1400)
+    } catch (err) {
+      setCoinBuyMsg('error:' + (err.response?.data?.error || 'Failed to add coins'))
+    }
+    setCoinBuySubmitting(false)
+  }
+
+  const fetchCoinStock = async () => {
+    setCoinStockLoading(true)
+    try {
+      const res = await api.get('/coin-stock/')
+      setCoinStock(res.data)
+    } catch { setCoinStock([]) }
+    setCoinStockLoading(false)
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)', color: text, transition: 'background 0.8s ease, color 0.4s ease', fontFamily: '"Manrope","Inter",system-ui,sans-serif', position: 'relative' }}>
@@ -2513,6 +2501,65 @@ const fetchCoinStock = async () => {
           color: #6E7D7B;
           margin-top: 4px;
           font-weight: 500;
+        }
+        .sa-welcome-actions {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+          position: relative;
+          z-index: 2;
+        }
+        .sa-welcome-gold-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 11px;
+          background: #FFFFFF;
+          border: 1.5px solid rgba(187, 137, 88, 0.45);
+          border-radius: 14px;
+          padding: 8px 16px;
+          cursor: pointer;
+          color: #073B3F;
+          box-shadow: 0 2px 10px rgba(7, 59, 63, 0.05), 0 1px 3px rgba(187, 137, 88, 0.1);
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          text-decoration: none;
+        }
+        .sa-welcome-gold-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 22px rgba(7, 59, 63, 0.12), 0 2px 8px rgba(187, 137, 88, 0.25);
+          border-color: #BB8958;
+          background: #FAF7F2;
+        }
+        .sa-welcome-gold-icon {
+          width: 34px;
+          height: 34px;
+          border-radius: 10px;
+          background: linear-gradient(135deg, #0C4044 0%, #073B3F 100%);
+          color: #E5BF91;
+          border: 1px solid rgba(187, 137, 88, 0.35);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          box-shadow: 0 2px 8px rgba(7, 59, 63, 0.2);
+        }
+        .sa-welcome-gold-text {
+          display: flex;
+          flex-direction: column;
+          text-align: left;
+          line-height: 1.15;
+        }
+        .sa-welcome-gold-label {
+          font-size: 12px;
+          font-weight: 800;
+          color: #073B3F;
+          letter-spacing: 0.01em;
+        }
+        .sa-welcome-gold-val {
+          font-size: 11.5px;
+          font-weight: 750;
+          color: #BB8958;
+          margin-top: 2px;
         }
         .sa-welcome-right {
           display: flex;
@@ -2873,6 +2920,11 @@ const fetchCoinStock = async () => {
         .sa-revenue-breakdown-col, .sa-total-income-col {
           display: flex;
           flex-direction: column;
+          justify-content: stretch;
+        }
+        .sa-total-income-col {
+          flex: 1;
+          min-height: 0;
         }
         .sa-sub-chart-title {
           font-size: 10.5px;
@@ -3011,21 +3063,47 @@ const fetchCoinStock = async () => {
             </div>
           </div>
 
-          <div className="sa-welcome-right">
-            <div style={{ color: '#0C4044', display: 'flex', alignItems: 'center' }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
-            </div>
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: 800, color: '#073B3F' }}>
-                {liveTime.toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+          <div className="sa-welcome-actions">
+            {/* Today Gold Rate Button */}
+            <button
+              type="button"
+              className="sa-welcome-gold-btn"
+              onClick={() => { setShowTodayRates(true); fetchMetalPrices() }}
+              title="View & manage today's live gold & metal rates"
+            >
+              <div className="sa-welcome-gold-icon">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M8 7.5h8" />
+                  <path d="M8 11h5.5" />
+                  <path d="M8 7.5v3.5a2.5 2.5 0 0 0 2.5 2.5h1l-3.5 4" />
+                </svg>
               </div>
-              <div style={{ fontSize: '12px', fontWeight: 700, color: '#6E7D7B', marginTop: '2px' }}>
-                {liveTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+              <div className="sa-welcome-gold-text">
+                <span className="sa-welcome-gold-label">Today Gold Rate</span>
+                <span className="sa-welcome-gold-val">
+                  {metalPrices.gold22k ? `22K: ₹${Number(metalPrices.gold22k).toLocaleString('en-IN')}/g` : 'Live Rates ›'}
+                </span>
+              </div>
+            </button>
+
+            {/* Live Date & Time Pill */}
+            <div className="sa-welcome-right">
+              <div style={{ color: '#0C4044', display: 'flex', alignItems: 'center' }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: '#073B3F' }}>
+                  {liveTime.toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+                </div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#6E7D7B', marginTop: '2px' }}>
+                  {liveTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                </div>
               </div>
             </div>
           </div>
@@ -3257,7 +3335,7 @@ const fetchCoinStock = async () => {
                 <div className="sa-sub-chart-title">
                   {activeSalesProfitTab === 'sales' ? 'SALES BREAKDOWN' : 'REVENUE BREAKDOWN'}
                 </div>
-                <div style={{ width: '100%', height: '105px', position: 'relative' }}>
+                <div style={{ width: '100%', height: '170px', position: 'relative' }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -3266,16 +3344,16 @@ const fetchCoinStock = async () => {
                           : (salesProfitData.profitBreakdown || salesProfitData.breakdown || [])}
                         cx="50%"
                         cy="50%"
-                        innerRadius={28}
-                        outerRadius={50}
+                        innerRadius={45}
+                        outerRadius={78}
                         paddingAngle={2}
                         dataKey="value"
                       >
                         {(activeSalesProfitTab === 'sales'
                           ? (salesProfitData.salesBreakdown || [])
                           : (salesProfitData.profitBreakdown || salesProfitData.breakdown || [])).map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
                       </Pie>
                       <Tooltip content={({ active, payload }) => {
                         if (!active || !payload?.length) return null
@@ -3294,12 +3372,12 @@ const fetchCoinStock = async () => {
                   {(activeSalesProfitTab === 'sales'
                     ? (salesProfitData.salesBreakdown || [])
                     : (salesProfitData.profitBreakdown || salesProfitData.breakdown || [])).map((b) => (
-                    <div key={b.name} className="sa-pie-legend-row" title={`${b.name}: ₹${b.value.toLocaleString('en-IN')}`}>
-                      <span className="sa-pie-dot" style={{ background: b.color }} />
-                      <span className="sa-pie-text">{b.name}</span>
-                      <b className="sa-pie-pct">{b.pct}</b>
-                    </div>
-                  ))}
+                      <div key={b.name} className="sa-pie-legend-row" title={`${b.name}: ₹${b.value.toLocaleString('en-IN')}`}>
+                        <span className="sa-pie-dot" style={{ background: b.color }} />
+                        <span className="sa-pie-text">{b.name}</span>
+                        <b className="sa-pie-pct">{b.pct}</b>
+                      </div>
+                    ))}
                 </div>
               </div>
 
@@ -3308,7 +3386,7 @@ const fetchCoinStock = async () => {
                 <div className="sa-sub-chart-title">
                   {activeSalesProfitTab === 'sales' ? 'TOTAL SALES TREND' : 'TOTAL INCOME TREND'}
                 </div>
-                <div style={{ width: '100%', height: '135px', position: 'relative' }}>
+                <div style={{ width: '100%', flex: 1, minHeight: '120px', position: 'relative' }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={salesProfitData.monthlyTrend} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#EEF2F1" vertical={false} />
@@ -3481,7 +3559,7 @@ const fetchCoinStock = async () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '12px' }}>
               <div style={{ background: '#F8FAF9', border: '1px solid #E4ECEB', borderRadius: '12px', padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                 <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: '#EFF6FF', color: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>
                 </div>
                 <div style={{ minWidth: 0, overflow: 'hidden' }}>
                   <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#7A8987', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>Total Users</div>
@@ -3493,19 +3571,19 @@ const fetchCoinStock = async () => {
 
               <div style={{ background: '#F8FAF9', border: '1px solid #E4ECEB', borderRadius: '12px', padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                 <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: '#EAF8F0', color: '#009957', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
                 </div>
                 <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                  <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#7A8987', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>New Users</div>
-                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#071A2D' }}>
-                    <AnimatedNumber value={userGrowthStats.newUsers ?? 0} prefix="" />
+                  <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#7A8987', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>New Registrations</div>
+                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#009957' }}>
+                    +<AnimatedNumber value={userGrowthStats.newUsers ?? 0} prefix="" />
                   </div>
                 </div>
               </div>
 
               <div style={{ background: '#F8FAF9', border: '1px solid #E4ECEB', borderRadius: '12px', padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                 <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: '#EFF6FF', color: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
                 </div>
                 <div style={{ minWidth: 0, overflow: 'hidden' }}>
                   <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#7A8987', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>Active Users</div>
@@ -3522,7 +3600,7 @@ const fetchCoinStock = async () => {
                 <AreaChart data={(userGrowthChartData && userGrowthChartData.length > 0) ? userGrowthChartData : userGrowthData} margin={{ top: 12, right: 14, left: -22, bottom: 0 }}>
                   <defs>
                     <linearGradient id="userGrowthGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#009957" stopOpacity={0.24} />
+                      <stop offset="0%" stopColor="#009957" stopOpacity={0.28} />
                       <stop offset="100%" stopColor="#009957" stopOpacity={0.01} />
                     </linearGradient>
                   </defs>
@@ -3533,8 +3611,19 @@ const fetchCoinStock = async () => {
                     if (!active || !payload?.length) return null
                     const p = payload[0].payload
                     return (
-                      <div style={{ background: '#073B3F', color: '#FFFFFF', borderRadius: '8px', padding: '6px 12px', fontSize: '11.5px', fontWeight: 800, border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <div>{p.month}: {p.users.toLocaleString()} users</div>
+                      <div style={{ background: '#073B3F', color: '#FFFFFF', borderRadius: '10px', padding: '8px 14px', fontSize: '12px', fontWeight: 700, boxShadow: '0 8px 24px rgba(7,59,63,0.28)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                        <div style={{ color: '#88E0B3', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                          {p.date ? `${p.date} (${p.month})` : p.month}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 800, color: '#FFFFFF' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#009957', display: 'inline-block' }} />
+                          New Registrations: +{(p.users || 0).toLocaleString()}
+                        </div>
+                        {p.cumulative !== undefined && (
+                          <div style={{ color: '#A0B2B0', fontSize: '11px', marginTop: '3px', paddingLeft: '14px' }}>
+                            Cumulative Total: {p.cumulative.toLocaleString()}
+                          </div>
+                        )}
                       </div>
                     )
                   }} />
@@ -3544,8 +3633,8 @@ const fetchCoinStock = async () => {
                     stroke="#009957"
                     strokeWidth={2.4}
                     fill="url(#userGrowthGrad)"
-                    dot={{ r: 3, fill: '#009957', stroke: '#FFFFFF', strokeWidth: 1.5 }}
-                    activeDot={{ r: 6, fill: '#073B3F', stroke: '#FFFFFF', strokeWidth: 2 }}
+                    dot={{ r: 3.5, fill: '#009957', stroke: '#FFFFFF', strokeWidth: 1.5 }}
+                    activeDot={{ r: 6.5, fill: '#073B3F', stroke: '#FFFFFF', strokeWidth: 2 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -3609,40 +3698,43 @@ const fetchCoinStock = async () => {
                 </div>
               </div>
 
-              {/* New Users Today */}
-              <div className="sa-status-row" onClick={() => navigate('/superadmin/manage-users/customer')}>
+              {/* Sold Out Products */}
+              <div className="sa-status-row" onClick={() => navigate('/sold-out-products')}>
                 <div className="sa-status-left">
                   <div className="sa-status-icon-wrap" style={{ background: '#FEF2F2', color: '#DC2626' }}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" />
+                      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                      <line x1="3" y1="6" x2="21" y2="6" />
+                      <path d="M16 10a4 4 0 0 1-8 0" />
                     </svg>
                   </div>
                   <div>
-                    <div className="sa-status-name">New Users Today</div>
-                    <div className="sa-status-desc">Registered today</div>
+                    <div className="sa-status-name">Sold Out Products</div>
+                    <div className="sa-status-desc">Out of stock items</div>
                   </div>
                 </div>
-                <div className="sa-status-right" style={{ color: '#009957' }}>
-                  <span>● {(quickStats.today_new_customers || 0).toLocaleString()}</span>
+                <div className="sa-status-right" style={{ color: '#DC2626' }}>
+                  <span>● {(quickStats.sold_out_count || 0).toLocaleString()}</span>
                   <span style={{ color: '#9AA7A5', fontSize: '13px' }}>›</span>
                 </div>
               </div>
 
-              {/* Pending Actions */}
-              <div className="sa-status-row" onClick={() => { setShowRequests(true); setRequestMsg('') }}>
+              {/* Stock Notify Requests */}
+              <div className="sa-status-row" onClick={() => navigate('/stock-notifications')}>
                 <div className="sa-status-left">
                   <div className="sa-status-icon-wrap" style={{ background: '#FFFBEB', color: '#D97706' }}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="9" /><path d="M12 8v4" /><path d="M12 16h.01" />
+                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
                     </svg>
                   </div>
                   <div>
-                    <div className="sa-status-name">Pending Actions</div>
-                    <div className="sa-status-desc">Requires attention</div>
+                    <div className="sa-status-name">Notify Requests</div>
+                    <div className="sa-status-desc">Customer restock alerts</div>
                   </div>
                 </div>
                 <div className="sa-status-right" style={{ color: '#D97706' }}>
-                  <span>● {(profileRequests.length + (coinRequests?.filter(r => r.status === 'pending').length || 0)).toLocaleString()}</span>
+                  <span>● {(quickStats.notify_count || 0).toLocaleString()}</span>
                   <span style={{ color: '#9AA7A5', fontSize: '13px' }}>›</span>
                 </div>
               </div>
@@ -3753,7 +3845,7 @@ const fetchCoinStock = async () => {
                 onClick={() => navigate('/superadmin-hierarchy-grid')}
                 style={{ padding: '10px 20px', background: '#FFFFFF', border: '1px solid rgba(204,168,129,0.4)', borderRadius: '10px', fontWeight: 800, color: '#BB8958', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
                 Hierarchy
               </button>
 
@@ -3761,7 +3853,7 @@ const fetchCoinStock = async () => {
                 onClick={() => navigate('/sales-report')}
                 style={{ padding: '10px 20px', background: '#FFFFFF', border: '1px solid rgba(12,64,68,0.28)', borderRadius: '10px', fontWeight: 800, color: '#0C4044', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 Sales Report
               </button>
 
@@ -3769,7 +3861,7 @@ const fetchCoinStock = async () => {
                 onClick={() => navigate('/add-shop')}
                 style={{ padding: '10px 20px', background: '#FFFFFF', border: '1px solid rgba(204,168,129,0.4)', borderRadius: '10px', fontWeight: 800, color: '#BB8958', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M4 10h16l-1 12H5L4 10z"/><path d="M8 10V6a4 4 0 018 0v4" strokeLinecap="round"/></svg>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M4 10h16l-1 12H5L4 10z" /><path d="M8 10V6a4 4 0 018 0v4" strokeLinecap="round" /></svg>
                 Add Shop
               </button>
 
@@ -3825,7 +3917,7 @@ const fetchCoinStock = async () => {
           >
             <div
               onClick={e => e.stopPropagation()}
-             style={{
+              style={{
                 background: 'linear-gradient(165deg,#FFFFFF 0%,#FDFCFA 60%,#FBF6ED 100%)',
                 border: '1px solid rgba(204,168,129,0.3)',
                 borderRadius: '24px',
@@ -3838,7 +3930,7 @@ const fetchCoinStock = async () => {
               }}
             >
               {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                   <div style={{
                     width: '42px', height: '42px', borderRadius: '12px',
@@ -3846,8 +3938,8 @@ const fetchCoinStock = async () => {
                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0C4044" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 2v4M8 6h8l3 5-3 9H8l-3-9 3-5z"/>
-                      <path d="M9.5 12c0-1.1.9-2 2.5-2s2.5 1 2.5 2-1.5 1.5-2.5 2-2.5.9-2.5 2 1.1 2 2.5 2 2.5-.9 2.5-2"/>
+                      <path d="M12 2v4M8 6h8l3 5-3 9H8l-3-9 3-5z" />
+                      <path d="M9.5 12c0-1.1.9-2 2.5-2s2.5 1 2.5 2-1.5 1.5-2.5 2-2.5.9-2.5 2 1.1 2 2.5 2 2.5-.9 2.5-2" />
                     </svg>
                   </div>
                   <div>
@@ -3869,7 +3961,7 @@ const fetchCoinStock = async () => {
                   onMouseLeave={e => { e.currentTarget.style.background = 'rgba(201,32,53,0.12)'; e.currentTarget.style.transform = 'scale(1)' }}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#C92035" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
               </div>
@@ -3889,7 +3981,7 @@ const fetchCoinStock = async () => {
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: subtext, fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#53615F" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                    <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
                   </svg>
                   Date *
                 </label>
@@ -3910,7 +4002,7 @@ const fetchCoinStock = async () => {
                 <div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#CCA881', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0C4044" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="9"/><path d="M9 9h3.5a2 2 0 010 4H10M9 15h4M12 7v2M12 15v2"/>
+                      <circle cx="12" cy="12" r="9" /><path d="M9 9h3.5a2 2 0 010 4H10M9 15h4M12 7v2M12 15v2" />
                     </svg>
                     Gold 22K
                   </label>
@@ -3934,7 +4026,7 @@ const fetchCoinStock = async () => {
                 <div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#CCA881', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0C4044" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="9"/><path d="M9 9h3.5a2 2 0 010 4H10M9 15h4M12 7v2M12 15v2"/>
+                      <circle cx="12" cy="12" r="9" /><path d="M9 9h3.5a2 2 0 010 4H10M9 15h4M12 7v2M12 15v2" />
                     </svg>
                     Gold 24K
                   </label>
@@ -3958,7 +4050,7 @@ const fetchCoinStock = async () => {
                 <div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#53615F', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0C4044" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="9"/><path d="M9 9h3.5a2 2 0 010 4H10M9 15h4M12 7v2M12 15v2"/>
+                      <circle cx="12" cy="12" r="9" /><path d="M9 9h3.5a2 2 0 010 4H10M9 15h4M12 7v2M12 15v2" />
                     </svg>
                     Silver 999
                   </label>
@@ -3982,7 +4074,7 @@ const fetchCoinStock = async () => {
                 <div style={{ display: 'none' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#7A8987', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M6 3h12l4 6-10 12L2 9l4-6z"/><path d="M2 9h20M9 3l3 6-3 12M15 3l-3 6 3 12"/>
+                      <path d="M6 3h12l4 6-10 12L2 9l4-6z" /><path d="M2 9h20M9 3l3 6-3 12M15 3l-3 6 3 12" />
                     </svg>
                     Diamond 18K
                   </label>
@@ -4006,7 +4098,7 @@ const fetchCoinStock = async () => {
                 <div style={{ display: 'none' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0C4044', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0C4044" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M6 3h12l4 6-10 12L2 9l4-6z"/><path d="M2 9h20M9 3l3 6-3 12M15 3l-3 6 3 12"/>
+                      <path d="M6 3h12l4 6-10 12L2 9l4-6z" /><path d="M2 9h20M9 3l3 6-3 12M15 3l-3 6 3 12" />
                     </svg>
                     Diamond 22K
                   </label>
@@ -4030,7 +4122,7 @@ const fetchCoinStock = async () => {
                 <div style={{ display: 'none' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#7A8987', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="#53615F"/>
+                      <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3" fill="#53615F" />
                     </svg>
                     Platinum 92
                   </label>
@@ -4099,7 +4191,7 @@ const fetchCoinStock = async () => {
                 ) : (
                   <>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FDFDFC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                      <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
                     </svg>
                     Save Rate
                   </>
@@ -4110,295 +4202,298 @@ const fetchCoinStock = async () => {
         )}
 
 
-{/* â”€â”€ ADD PRODUCT POPUP â”€â”€ */}
-{showAddProduct && (
-  <div onClick={() => setShowAddProduct(false)} style={{ position:'fixed', inset:0, background:'rgba(17,24,23,0.88)', backdropFilter:'blur(12px)', zIndex:1400, display:'flex', alignItems:'center', justifyContent:'center' }}>
-    <div onClick={e => e.stopPropagation()} style={{ background: dark ? 'linear-gradient(145deg,#F3F3F0,#E7EDEC)' : '#FDFDFC', border:'1px solid rgba(204,168,129,0.35)', borderRadius:'24px', width:'96%', maxWidth:'620px', maxHeight:'92vh', overflowY:'auto', padding:'32px', boxShadow:'0 32px 90px rgba(17,24,23,0.8)', animation:'fadeIn 0.25s ease' }}>
+        {/* â”€â”€ ADD PRODUCT POPUP â”€â”€ */}
+        {showAddProduct && (
+          <div onClick={() => setShowAddProduct(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,23,0.88)', backdropFilter: 'blur(12px)', zIndex: 1400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: dark ? 'linear-gradient(145deg,#F3F3F0,#E7EDEC)' : '#FDFDFC', border: '1px solid rgba(204,168,129,0.35)', borderRadius: '24px', width: '96%', maxWidth: '620px', maxHeight: '92vh', overflowY: 'auto', padding: '32px', boxShadow: '0 32px 90px rgba(17,24,23,0.8)', animation: 'fadeIn 0.25s ease' }}>
 
-      {/* Header */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'24px' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
-          <div style={{ width:'42px', height:'42px', borderRadius:'12px', background:'rgba(204,168,129,0.15)', border:'1px solid rgba(204,168,129,0.4)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'20px' }}></div>
-          <div>
-            <div style={{ color:'#CCA881', fontWeight:800, fontSize:'15px' }}>ADD JEWELRY PRODUCT</div>
-            <div style={{ color:subtext, fontSize:'11px', marginTop:'2px' }}>Fill all details and upload images</div>
-          </div>
-        </div>
-        <button onClick={() => setShowAddProduct(false)} style={{ background:'rgba(201,32,53,0.1)', border:'1px solid rgba(201,32,53,0.3)', color:'#C92035', borderRadius:'8px', padding:'6px 14px', cursor:'pointer', fontSize:'12px' }}>Close</button>
-      </div>
-
-      {productMsg && (
-        <div style={{ background: productMsg.includes('âœ…') ? 'rgba(12,64,68,0.1)' : 'rgba(201,32,53,0.1)', border:`1px solid ${productMsg.includes('âœ…') ? 'rgba(12,64,68,0.3)' : 'rgba(201,32,53,0.3)'}`, color: productMsg.includes('âœ…') ? '#0C4044' : '#C92035', borderRadius:'12px', padding:'13px 16px', fontSize:'13px', marginBottom:'18px' }}>
-          {productMsg}
-        </div>
-      )}
-
-      {/* STEP 1: Category */}
-      <div style={{ marginBottom:'20px' }}>
-        <label style={{ display:'block', color:'#CCA881', fontSize:'11px', fontWeight:800, letterSpacing:'1px', textTransform:'uppercase', marginBottom:'10px' }}>
-          Step 1 Select Category
-        </label>
-        <div style={{ display:'flex', flexWrap:'wrap', gap:'8px' }}>
-          {['rings','necklaces','bangles','earrings','chains','coins'].map(cat => (
-            <div key={cat} onClick={() => setProductForm(f => ({ ...f, category: cat, metal:'', grade:'' }))}
-              style={{ padding:'8px 16px', borderRadius:'20px', cursor:'pointer', fontWeight:700, fontSize:'12px', textTransform:'capitalize', transition:'all 0.2s ease',
-                background: productForm.category === cat ? 'rgba(204,168,129,0.25)' : 'rgba(204,168,129,0.05)',
-                border: `1.5px solid ${productForm.category === cat ? 'rgba(204,168,129,0.7)' : 'rgba(204,168,129,0.2)'}`,
-                color: productForm.category === cat ? '#CCA881' : subtext,
-              }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><SvgIcon name={{ rings: 'ring', necklaces: 'necklace', bangles: 'bracelet', earrings: 'earring', chains: 'chain', coins: 'coin' }[cat]} size={14} />{cat}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* STEP 2: Metal */}
-      {productForm.category && (
-        <div style={{ marginBottom:'20px' }}>
-          <label style={{ display:'block', color:'#CCA881', fontSize:'11px', fontWeight:800, letterSpacing:'1px', textTransform:'uppercase', marginBottom:'10px' }}>
-            Step 2 Select Metal
-          </label>
-          <div style={{ display:'flex', gap:'10px' }}>
-            {['gold','silver'].map(m => (
-              <div key={m} onClick={() => setProductForm(f => ({ ...f, metal: m, grade:'' }))}
-                style={{ padding:'10px 24px', borderRadius:'20px', cursor:'pointer', fontWeight:800, fontSize:'13px', textTransform:'capitalize', transition:'all 0.2s ease',
-                  background: productForm.metal === m ? (m==='gold' ? 'rgba(204,168,129,0.2)' : 'rgba(192,192,192,0.15)') : 'rgba(253,253,252,0.04)',
-                  border: `1.5px solid ${productForm.metal === m ? (m==='gold' ? 'rgba(204,168,129,0.7)' : 'rgba(192,192,192,0.6)') : border}`,
-                  color: productForm.metal === m ? (m==='gold' ? '#CCA881' : '#BDCFCE') : subtext,
-                }}>
-                {m === 'gold' ? 'Gold' : 'Silver'}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* STEP 3: Grade */}
-      {productForm.metal && (
-        <div style={{ marginBottom:'20px' }}>
-          <label style={{ display:'block', color:'#BDCFCE', fontSize:'11px', fontWeight:800, letterSpacing:'1px', textTransform:'uppercase', marginBottom:'10px' }}>
-            Step 3 Select Grade
-          </label>
-          <div style={{ display:'flex', gap:'10px' }}>
-            {(productForm.metal === 'gold' ? ['22k','24k'] : ['999']).map(g => (
-              <div key={g} onClick={() => setProductForm(f => ({ ...f, grade: g }))}
-                style={{ padding:'10px 24px', borderRadius:'20px', cursor:'pointer', fontWeight:800, fontSize:'13px', textTransform:'uppercase', transition:'all 0.2s ease',
-                  background: productForm.grade === g ? 'rgba(189,207,206,0.2)' : 'rgba(189,207,206,0.04)',
-                  border: `1.5px solid ${productForm.grade === g ? 'rgba(189,207,206,0.7)' : 'rgba(189,207,206,0.2)'}`,
-                  color: productForm.grade === g ? '#BDCFCE' : subtext,
-                }}>
-                {g.toUpperCase()}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* STEP 4: Product Details */}
-      {productForm.grade && (
-        <>
-          <div style={{ marginBottom:'14px' }}>
-            <label style={{ display:'block', color:subtext, fontSize:'11px', fontWeight:900, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'8px' }}>
-              Product Name *
-            </label>
-            <input
-              value={productForm.name}
-              onChange={e => setProductForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="e.g. Blossom Ring"
-              style={{ width:'100%', background:inpBg, border:`1px solid ${inpBorder}`, borderRadius:'12px', padding:'13px 16px', color:text, fontSize:'14px', outline:'none', boxSizing:'border-box' }}
-              onFocus={e => e.target.style.borderColor='#CCA881'}
-              onBlur={e => e.target.style.borderColor=inpBorder}
-            />
-          </div>
-
-          <div style={{ marginBottom:'14px' }}>
-            <label style={{ display:'block', color:subtext, fontSize:'11px', fontWeight:900, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'8px' }}>
-              Description
-            </label>
-            <textarea
-              value={productForm.description}
-              onChange={e => setProductForm(f => ({ ...f, description: e.target.value }))}
-              rows={3}
-              placeholder="e.g. Floral petal design with a vintage soul"
-              style={{ width:'100%', background:inpBg, border:`1px solid ${inpBorder}`, borderRadius:'12px', padding:'13px 16px', color:text, fontSize:'14px', outline:'none', resize:'vertical', fontFamily:'inherit', boxSizing:'border-box' }}
-              onFocus={e => e.target.style.borderColor='#CCA881'}
-              onBlur={e => e.target.style.borderColor=inpBorder}
-            />
-          </div>
-
-          <div style={{ marginBottom:'14px' }}>
-            <label style={{ display:'block', color:subtext, fontSize:'11px', fontWeight:900, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'8px' }}>
-              Tag (Optional)
-            </label>
-            <select
-              value={productForm.tag}
-              onChange={e => setProductForm(f => ({ ...f, tag: e.target.value }))}
-              style={{ width:'100%', background:inpBg, border:`1px solid ${inpBorder}`, borderRadius:'12px', padding:'13px 16px', color:text, fontSize:'14px', outline:'none', cursor:'pointer' }}
-            >
-              <option value="" style={{ background:optionBg }}>-- Select Tag --</option>
-              {['Bestseller','Bridal','Premium','Statement','Stackable','New','Limited'].map(t => (
-                <option key={t} value={t} style={{ background:optionBg }}>{t}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Weight + Live Price */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px', marginBottom:'14px' }}>
-            <div>
-              <label style={{ display:'block', color:subtext, fontSize:'11px', fontWeight:900, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'8px' }}>
-                Weight (grams) *
-              </label>
-              <input
-                type="number"
-                step="0.0001"
-                value={productForm.weight_grams}
-                onChange={e => {
-                  const val = e.target.value
-                  setProductForm(f => ({ ...f, weight_grams: val }))
-                  calcLivePrice(val, productForm.metal, productForm.grade)
-                }}
-                placeholder="e.g. 2.5"
-                style={{ width:'100%', background:inpBg, border:`1px solid ${inpBorder}`, borderRadius:'12px', padding:'13px 16px', color:text, fontSize:'14px', outline:'none', boxSizing:'border-box' }}
-                onFocus={e => e.target.style.borderColor='#CCA881'}
-                onBlur={e => e.target.style.borderColor=inpBorder}
-              />
-            </div>
-            <div>
-              <label style={{ display:'block', color:subtext, fontSize:'11px', fontWeight:900, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'8px' }}>
-                Live Rate Price
-              </label>
-              <div style={{ background:inpBg, border:`1px solid ${livePrice ? 'rgba(12,64,68,0.5)' : inpBorder}`, borderRadius:'12px', padding:'13px 16px', fontFamily:'monospace', fontWeight:800, fontSize:'16px', color: livePrice ? '#0C4044' : subtext, display:'flex', alignItems:'center', minHeight:'46px' }}>
-                {livePrice ? `â‚¹ ${livePrice}` : ''}
-              </div>
-            </div>
-          </div>
-
-          {/* Image Upload */}
-          <div style={{ marginBottom:'20px' }}>
-            <label style={{ display:'block', color:subtext, fontSize:'11px', fontWeight:900, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'8px' }}>
-              Product Images (Multiple allowed)
-            </label>
-            <label htmlFor="product-img-upload" style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'10px', padding:'14px', background:'rgba(204,168,129,0.08)', border:'2px dashed rgba(204,168,129,0.4)', borderRadius:'12px', cursor:'pointer', color:'#CCA881', fontWeight:700, fontSize:'13px', transition:'all 0.2s ease' }}
-              onMouseEnter={e => e.currentTarget.style.background='rgba(204,168,129,0.15)'}
-              onMouseLeave={e => e.currentTarget.style.background='rgba(204,168,129,0.08)'}
-            >
-              Add Image
-            </label>
-            <input
-              id="product-img-upload"
-              type="file"
-              accept="image/*"
-              multiple
-              style={{ display:'none' }}
-              onChange={e => {
-                const files = Array.from(e.target.files)
-                setProductImages(prev => [...prev, ...files])
-                const urls = files.map(f => URL.createObjectURL(f))
-                setProductPreviewUrls(prev => [...prev, ...urls])
-                e.target.value = ''
-              }}
-            />
-
-            {/* Preview Grid */}
-            {productPreviewUrls.length > 0 && (
-              <div style={{ display:'flex', flexWrap:'wrap', gap:'10px', marginTop:'14px' }}>
-                {productPreviewUrls.map((url, idx) => (
-                  <div key={idx} style={{ position:'relative', width:'90px', height:'90px', borderRadius:'12px', overflow:'hidden', border:'1px solid rgba(204,168,129,0.3)' }}>
-                    <img src={url} alt={`img-${idx}`} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
-                    {/* View button */}
-                    <button
-                      onClick={() => setPreviewImageIdx(idx)}
-                      style={{ position:'absolute', bottom:0, left:0, right:0, background:'rgba(17,24,23,0.6)', color:'#FDFDFC', fontSize:'10px', fontWeight:700, padding:'4px 0', border:'none', cursor:'pointer', backdropFilter:'blur(4px)' }}
-                    >
-                      View
-                    </button>
-                    {/* Remove button */}
-                    <button
-                      onClick={() => {
-                        setProductImages(prev => prev.filter((_,i) => i !== idx))
-                        setProductPreviewUrls(prev => prev.filter((_,i) => i !== idx))
-                      }}
-                      style={{ position:'absolute', top:'4px', right:'4px', background:'rgba(201,32,53,0.85)', color:'#FDFDFC', fontSize:'10px', fontWeight:900, width:'18px', height:'18px', borderRadius:'50%', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}
-                    >
-                      <SvgIcon name="close" size={12} stroke="#FDFDFC" />
-                    </button>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'rgba(204,168,129,0.15)', border: '1px solid rgba(204,168,129,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}></div>
+                  <div>
+                    <div style={{ color: '#CCA881', fontWeight: 800, fontSize: '15px' }}>ADD JEWELRY PRODUCT</div>
+                    <div style={{ color: subtext, fontSize: '11px', marginTop: '2px' }}>Fill all details and upload images</div>
                   </div>
-                ))}
+                </div>
+                <button onClick={() => setShowAddProduct(false)} style={{ background: 'rgba(201,32,53,0.1)', border: '1px solid rgba(201,32,53,0.3)', color: '#C92035', borderRadius: '8px', padding: '6px 14px', cursor: 'pointer', fontSize: '12px' }}>Close</button>
               </div>
-            )}
+
+              {productMsg && (
+                <div style={{ background: productMsg.includes('âœ…') ? 'rgba(12,64,68,0.1)' : 'rgba(201,32,53,0.1)', border: `1px solid ${productMsg.includes('âœ…') ? 'rgba(12,64,68,0.3)' : 'rgba(201,32,53,0.3)'}`, color: productMsg.includes('âœ…') ? '#0C4044' : '#C92035', borderRadius: '12px', padding: '13px 16px', fontSize: '13px', marginBottom: '18px' }}>
+                  {productMsg}
+                </div>
+              )}
+
+              {/* STEP 1: Category */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', color: '#CCA881', fontSize: '11px', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '10px' }}>
+                  Step 1 Select Category
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {['rings', 'necklaces', 'bangles', 'earrings', 'chains', 'coins'].map(cat => (
+                    <div key={cat} onClick={() => setProductForm(f => ({ ...f, category: cat, metal: '', grade: '' }))}
+                      style={{
+                        padding: '8px 16px', borderRadius: '20px', cursor: 'pointer', fontWeight: 700, fontSize: '12px', textTransform: 'capitalize', transition: 'all 0.2s ease',
+                        background: productForm.category === cat ? 'rgba(204,168,129,0.25)' : 'rgba(204,168,129,0.05)',
+                        border: `1.5px solid ${productForm.category === cat ? 'rgba(204,168,129,0.7)' : 'rgba(204,168,129,0.2)'}`,
+                        color: productForm.category === cat ? '#CCA881' : subtext,
+                      }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><SvgIcon name={{ rings: 'ring', necklaces: 'necklace', bangles: 'bracelet', earrings: 'earring', chains: 'chain', coins: 'coin' }[cat]} size={14} />{cat}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* STEP 2: Metal */}
+              {productForm.category && (
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', color: '#CCA881', fontSize: '11px', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '10px' }}>
+                    Step 2 Select Metal
+                  </label>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    {['gold', 'silver'].map(m => (
+                      <div key={m} onClick={() => setProductForm(f => ({ ...f, metal: m, grade: '' }))}
+                        style={{
+                          padding: '10px 24px', borderRadius: '20px', cursor: 'pointer', fontWeight: 800, fontSize: '13px', textTransform: 'capitalize', transition: 'all 0.2s ease',
+                          background: productForm.metal === m ? (m === 'gold' ? 'rgba(204,168,129,0.2)' : 'rgba(192,192,192,0.15)') : 'rgba(253,253,252,0.04)',
+                          border: `1.5px solid ${productForm.metal === m ? (m === 'gold' ? 'rgba(204,168,129,0.7)' : 'rgba(192,192,192,0.6)') : border}`,
+                          color: productForm.metal === m ? (m === 'gold' ? '#CCA881' : '#BDCFCE') : subtext,
+                        }}>
+                        {m === 'gold' ? 'Gold' : 'Silver'}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: Grade */}
+              {productForm.metal && (
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', color: '#BDCFCE', fontSize: '11px', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '10px' }}>
+                    Step 3 Select Grade
+                  </label>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    {(productForm.metal === 'gold' ? ['22k', '24k'] : ['999']).map(g => (
+                      <div key={g} onClick={() => setProductForm(f => ({ ...f, grade: g }))}
+                        style={{
+                          padding: '10px 24px', borderRadius: '20px', cursor: 'pointer', fontWeight: 800, fontSize: '13px', textTransform: 'uppercase', transition: 'all 0.2s ease',
+                          background: productForm.grade === g ? 'rgba(189,207,206,0.2)' : 'rgba(189,207,206,0.04)',
+                          border: `1.5px solid ${productForm.grade === g ? 'rgba(189,207,206,0.7)' : 'rgba(189,207,206,0.2)'}`,
+                          color: productForm.grade === g ? '#BDCFCE' : subtext,
+                        }}>
+                        {g.toUpperCase()}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 4: Product Details */}
+              {productForm.grade && (
+                <>
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ display: 'block', color: subtext, fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+                      Product Name *
+                    </label>
+                    <input
+                      value={productForm.name}
+                      onChange={e => setProductForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="e.g. Blossom Ring"
+                      style={{ width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                      onFocus={e => e.target.style.borderColor = '#CCA881'}
+                      onBlur={e => e.target.style.borderColor = inpBorder}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ display: 'block', color: subtext, fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+                      Description
+                    </label>
+                    <textarea
+                      value={productForm.description}
+                      onChange={e => setProductForm(f => ({ ...f, description: e.target.value }))}
+                      rows={3}
+                      placeholder="e.g. Floral petal design with a vintage soul"
+                      style={{ width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                      onFocus={e => e.target.style.borderColor = '#CCA881'}
+                      onBlur={e => e.target.style.borderColor = inpBorder}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ display: 'block', color: subtext, fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+                      Tag (Optional)
+                    </label>
+                    <select
+                      value={productForm.tag}
+                      onChange={e => setProductForm(f => ({ ...f, tag: e.target.value }))}
+                      style={{ width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', cursor: 'pointer' }}
+                    >
+                      <option value="" style={{ background: optionBg }}>-- Select Tag --</option>
+                      {['Bestseller', 'Bridal', 'Premium', 'Statement', 'Stackable', 'New', 'Limited'].map(t => (
+                        <option key={t} value={t} style={{ background: optionBg }}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Weight + Live Price */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                    <div>
+                      <label style={{ display: 'block', color: subtext, fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+                        Weight (grams) *
+                      </label>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        value={productForm.weight_grams}
+                        onChange={e => {
+                          const val = e.target.value
+                          setProductForm(f => ({ ...f, weight_grams: val }))
+                          calcLivePrice(val, productForm.metal, productForm.grade)
+                        }}
+                        placeholder="e.g. 2.5"
+                        style={{ width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                        onFocus={e => e.target.style.borderColor = '#CCA881'}
+                        onBlur={e => e.target.style.borderColor = inpBorder}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', color: subtext, fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+                        Live Rate Price
+                      </label>
+                      <div style={{ background: inpBg, border: `1px solid ${livePrice ? 'rgba(12,64,68,0.5)' : inpBorder}`, borderRadius: '12px', padding: '13px 16px', fontFamily: 'monospace', fontWeight: 800, fontSize: '16px', color: livePrice ? '#0C4044' : subtext, display: 'flex', alignItems: 'center', minHeight: '46px' }}>
+                        {livePrice ? `â‚¹ ${livePrice}` : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Image Upload */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'block', color: subtext, fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+                      Product Images (Multiple allowed)
+                    </label>
+                    <label htmlFor="product-img-upload" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '14px', background: 'rgba(204,168,129,0.08)', border: '2px dashed rgba(204,168,129,0.4)', borderRadius: '12px', cursor: 'pointer', color: '#CCA881', fontWeight: 700, fontSize: '13px', transition: 'all 0.2s ease' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(204,168,129,0.15)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(204,168,129,0.08)'}
+                    >
+                      Add Image
+                    </label>
+                    <input
+                      id="product-img-upload"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      style={{ display: 'none' }}
+                      onChange={e => {
+                        const files = Array.from(e.target.files)
+                        setProductImages(prev => [...prev, ...files])
+                        const urls = files.map(f => URL.createObjectURL(f))
+                        setProductPreviewUrls(prev => [...prev, ...urls])
+                        e.target.value = ''
+                      }}
+                    />
+
+                    {/* Preview Grid */}
+                    {productPreviewUrls.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '14px' }}>
+                        {productPreviewUrls.map((url, idx) => (
+                          <div key={idx} style={{ position: 'relative', width: '90px', height: '90px', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(204,168,129,0.3)' }}>
+                            <img src={url} alt={`img-${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                            {/* View button */}
+                            <button
+                              onClick={() => setPreviewImageIdx(idx)}
+                              style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(17,24,23,0.6)', color: '#FDFDFC', fontSize: '10px', fontWeight: 700, padding: '4px 0', border: 'none', cursor: 'pointer', backdropFilter: 'blur(4px)' }}
+                            >
+                              View
+                            </button>
+                            {/* Remove button */}
+                            <button
+                              onClick={() => {
+                                setProductImages(prev => prev.filter((_, i) => i !== idx))
+                                setProductPreviewUrls(prev => prev.filter((_, i) => i !== idx))
+                              }}
+                              style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(201,32,53,0.85)', color: '#FDFDFC', fontSize: '10px', fontWeight: 900, width: '18px', height: '18px', borderRadius: '50%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              <SvgIcon name="close" size={12} stroke="#FDFDFC" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Submit */}
+                  <button
+                    disabled={productSaving || !productForm.name || !productForm.weight_grams}
+                    onClick={async () => {
+                      if (!productForm.name.trim()) { setProductMsg('âŒ Product name required'); return }
+                      if (!productForm.weight_grams) { setProductMsg('âŒ Weight required'); return }
+                      setProductSaving(true)
+                      try {
+                        const fd = new FormData()
+                        fd.append('category', productForm.category)
+                        fd.append('metal', productForm.metal)
+                        fd.append('grade', productForm.grade)
+                        fd.append('name', productForm.name)
+                        fd.append('description', productForm.description)
+                        fd.append('weight_grams', productForm.weight_grams)
+                        fd.append('tag', productForm.tag)
+                        if (livePrice) fd.append('price', livePrice)
+                        productImages.forEach(img => fd.append('uploaded_images', img))
+                        await api.post('/jewelry-products/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+                        setProductMsg('âœ… Product added successfully!')
+                        setProductForm({ category: '', metal: '', grade: '', name: '', description: '', weight_grams: '', tag: '' })
+                        setProductImages([])
+                        setProductPreviewUrls([])
+                        setLivePrice(null)
+                      } catch (err) {
+                        setProductMsg('âŒ Failed: ' + JSON.stringify(err.response?.data || err.message))
+                      }
+                      setProductSaving(false)
+                    }}
+                    style={{ width: '100%', padding: '14px', background: productSaving ? 'rgba(204,168,129,0.3)' : 'linear-gradient(90deg,#CCA881,#BDCFCE)', border: 'none', borderRadius: '12px', fontWeight: 900, fontSize: '15px', color: productSaving ? '#CCA881' : '#FDFDFC', cursor: productSaving ? 'not-allowed' : 'pointer', transition: 'all 0.3s ease' }}>
+                    {productSaving ? 'â³ Saving...' : 'âœ… Add Product'}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
+        )}
 
-          {/* Submit */}
-          <button
-            disabled={productSaving || !productForm.name || !productForm.weight_grams}
-            onClick={async () => {
-              if (!productForm.name.trim()) { setProductMsg('âŒ Product name required'); return }
-              if (!productForm.weight_grams) { setProductMsg('âŒ Weight required'); return }
-              setProductSaving(true)
-              try {
-                const fd = new FormData()
-                fd.append('category', productForm.category)
-                fd.append('metal', productForm.metal)
-                fd.append('grade', productForm.grade)
-                fd.append('name', productForm.name)
-                fd.append('description', productForm.description)
-                fd.append('weight_grams', productForm.weight_grams)
-                fd.append('tag', productForm.tag)
-                if (livePrice) fd.append('price', livePrice)
-                productImages.forEach(img => fd.append('uploaded_images', img))
-                await api.post('/jewelry-products/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-                setProductMsg('âœ… Product added successfully!')
-                setProductForm({ category:'', metal:'', grade:'', name:'', description:'', weight_grams:'', tag:'' })
-                setProductImages([])
-                setProductPreviewUrls([])
-                setLivePrice(null)
-              } catch (err) {
-                setProductMsg('âŒ Failed: ' + JSON.stringify(err.response?.data || err.message))
-              }
-              setProductSaving(false)
-            }}
-            style={{ width:'100%', padding:'14px', background: productSaving ? 'rgba(204,168,129,0.3)' : 'linear-gradient(90deg,#CCA881,#BDCFCE)', border:'none', borderRadius:'12px', fontWeight:900, fontSize:'15px', color: productSaving ? '#CCA881' : '#FDFDFC', cursor: productSaving ? 'not-allowed' : 'pointer', transition:'all 0.3s ease' }}>
-            {productSaving ? 'â³ Saving...' : 'âœ… Add Product'}
-          </button>
-        </>
-      )}
-    </div>
-  </div>
-)}
+        {/* Image Lightbox */}
+        {previewImageIdx !== null && (
+          <div onClick={() => setPreviewImageIdx(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,23,0.95)', backdropFilter: 'blur(16px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}>
+              <img src={productPreviewUrls[previewImageIdx]} alt="preview" style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', borderRadius: '16px', border: '1px solid rgba(204,168,129,0.3)' }} />
 
-{/* Image Lightbox */}
-{previewImageIdx !== null && (
-  <div onClick={() => setPreviewImageIdx(null)} style={{ position:'fixed', inset:0, background:'rgba(17,24,23,0.95)', backdropFilter:'blur(16px)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center' }}>
-    <div onClick={e => e.stopPropagation()} style={{ position:'relative', maxWidth:'90vw', maxHeight:'90vh' }}>
-      <img src={productPreviewUrls[previewImageIdx]} alt="preview" style={{ maxWidth:'100%', maxHeight:'85vh', objectFit:'contain', borderRadius:'16px', border:'1px solid rgba(204,168,129,0.3)' }} />
+              {/* Left Arrow */}
+              {previewImageIdx > 0 && (
+                <button onClick={() => setPreviewImageIdx(i => i - 1)}
+                  style={{ position: 'absolute', left: '-50px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(204,168,129,0.2)', border: '1px solid rgba(204,168,129,0.4)', color: '#CCA881', width: '40px', height: '40px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <SvgIcon name="chevronLeft" size={20} />
+                </button>
+              )}
+              {/* Right Arrow */}
+              {previewImageIdx < productPreviewUrls.length - 1 && (
+                <button onClick={() => setPreviewImageIdx(i => i + 1)}
+                  style={{ position: 'absolute', right: '-50px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(204,168,129,0.2)', border: '1px solid rgba(204,168,129,0.4)', color: '#CCA881', width: '40px', height: '40px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <SvgIcon name="chevronRight" size={20} />
+                </button>
+              )}
 
-      {/* Left Arrow */}
-      {previewImageIdx > 0 && (
-        <button onClick={() => setPreviewImageIdx(i => i - 1)}
-          style={{ position:'absolute', left:'-50px', top:'50%', transform:'translateY(-50%)', background:'rgba(204,168,129,0.2)', border:'1px solid rgba(204,168,129,0.4)', color:'#CCA881', width:'40px', height:'40px', borderRadius:'50%', fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <SvgIcon name="chevronLeft" size={20} />
-        </button>
-      )}
-      {/* Right Arrow */}
-      {previewImageIdx < productPreviewUrls.length - 1 && (
-        <button onClick={() => setPreviewImageIdx(i => i + 1)}
-          style={{ position:'absolute', right:'-50px', top:'50%', transform:'translateY(-50%)', background:'rgba(204,168,129,0.2)', border:'1px solid rgba(204,168,129,0.4)', color:'#CCA881', width:'40px', height:'40px', borderRadius:'50%', fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <SvgIcon name="chevronRight" size={20} />
-        </button>
-      )}
+              {/* Counter */}
+              <div style={{ position: 'absolute', bottom: '-36px', left: '50%', transform: 'translateX(-50%)', color: 'rgba(253,253,252,0.6)', fontSize: '12px', fontWeight: 600 }}>
+                {previewImageIdx + 1} / {productPreviewUrls.length}
+              </div>
 
-      {/* Counter */}
-      <div style={{ position:'absolute', bottom:'-36px', left:'50%', transform:'translateX(-50%)', color:'rgba(253,253,252,0.6)', fontSize:'12px', fontWeight:600 }}>
-        {previewImageIdx + 1} / {productPreviewUrls.length}
-      </div>
-
-      <button onClick={() => setPreviewImageIdx(null)}
-        style={{ position:'absolute', top:'-16px', right:'-16px', background:'rgba(201,32,53,0.85)', border:'none', color:'#FDFDFC', width:'32px', height:'32px', borderRadius:'50%', fontSize:'14px', cursor:'pointer', fontWeight:900 }}>
-        <SvgIcon name="close" size={16} stroke="#FDFDFC" />
-      </button>
-    </div>
-  </div>
-)}
+              <button onClick={() => setPreviewImageIdx(null)}
+                style={{ position: 'absolute', top: '-16px', right: '-16px', background: 'rgba(201,32,53,0.85)', border: 'none', color: '#FDFDFC', width: '32px', height: '32px', borderRadius: '50%', fontSize: '14px', cursor: 'pointer', fontWeight: 900 }}>
+                <SvgIcon name="close" size={16} stroke="#FDFDFC" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* â”€â”€ BIRTHDAY LIST MODAL â”€â”€ */}
         {showBirthdayList && (
@@ -4408,9 +4503,9 @@ const fetchCoinStock = async () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(145deg,rgba(201,32,53,0.16),rgba(201,32,53,0.08))', border: '1px solid rgba(201,32,53,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(201,32,53,0.14)' }}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C92035" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M4 21h16v-7a4 4 0 00-4-4H8a4 4 0 00-4 4v7z"/>
-                      <path d="M4 17c1 0 1.5-1 2.5-1s1.5 1 2.5 1 1.5-1 2.5-1 1.5 1 2.5 1 1.5-1 2.5-1"/>
-                      <path d="M12 10V6M9 6c0-1 1-1 1-2s-1-1-1-2M15 6c0-1-1-1-1-2s1-1 1-2"/>
+                      <path d="M4 21h16v-7a4 4 0 00-4-4H8a4 4 0 00-4 4v7z" />
+                      <path d="M4 17c1 0 1.5-1 2.5-1s1.5 1 2.5 1 1.5-1 2.5-1 1.5 1 2.5 1 1.5-1 2.5-1" />
+                      <path d="M12 10V6M9 6c0-1 1-1 1-2s-1-1-1-2M15 6c0-1-1-1-1-2s1-1 1-2" />
                     </svg>
                   </div>
                   <div>
@@ -4425,7 +4520,7 @@ const fetchCoinStock = async () => {
                   onMouseLeave={e => { e.currentTarget.style.background = 'rgba(201,32,53,0.12)'; e.currentTarget.style.transform = 'scale(1)' }}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#C92035" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
               </div>
@@ -4433,8 +4528,8 @@ const fetchCoinStock = async () => {
                 {birthdayList.length === 0 ? (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textAlign: 'center', color: subtext, padding: '50px 0', fontSize: '14px' }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#53615F" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M4 21h16v-7a4 4 0 00-4-4H8a4 4 0 00-4 4v7z"/>
-                      <path d="M12 10V6"/>
+                      <path d="M4 21h16v-7a4 4 0 00-4-4H8a4 4 0 00-4 4v7z" />
+                      <path d="M12 10V6" />
                     </svg>
                     No birthdays today
                   </div>
@@ -4464,7 +4559,7 @@ const fetchCoinStock = async () => {
                         <div style={{ color: text, fontWeight: 700, fontSize: '14px' }}>{m.first_name} {m.last_name || ''}</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: subtext, fontSize: '11px', marginTop: '3px' }}>
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#53615F" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M4 21h16v-7a4 4 0 00-4-4H8a4 4 0 00-4 4v7z"/><path d="M12 10V6"/>
+                            <path d="M4 21h16v-7a4 4 0 00-4-4H8a4 4 0 00-4 4v7z" /><path d="M12 10V6" />
                           </svg>
                           {new Date(m._dob).toLocaleDateString('en-IN', { day: '2-digit', month: 'long' })}
                         </div>
@@ -4478,7 +4573,7 @@ const fetchCoinStock = async () => {
           </div>
         )}
 
- {/* â”€â”€ ANNIVERSARY LIST MODAL â”€â”€ */}
+        {/* â”€â”€ ANNIVERSARY LIST MODAL â”€â”€ */}
         {showAnniversaryList && (
           <div onClick={() => setShowAnniversaryList(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,23,0.45)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div onClick={e => e.stopPropagation()} style={{ background: 'linear-gradient(165deg,#FFFFFF 0%,#FDFCFA 60%,#FBF6ED 100%)', border: '1px solid rgba(204,168,129,0.28)', borderRadius: '24px', width: '95%', maxWidth: '500px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 40px 90px rgba(17,24,23,0.24), 0 0 0 1px rgba(204,168,129,0.08)' }}>
@@ -4486,7 +4581,7 @@ const fetchCoinStock = async () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(145deg,rgba(204,168,129,0.2),rgba(204,168,129,0.1))', border: '1px solid rgba(204,168,129,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(204,168,129,0.16)' }}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0C4044" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="15" r="6"/><path d="M9 9l3-6 3 6" strokeLinejoin="round"/>
+                      <circle cx="12" cy="15" r="6" /><path d="M9 9l3-6 3 6" strokeLinejoin="round" />
                     </svg>
                   </div>
                   <div>
@@ -4501,7 +4596,7 @@ const fetchCoinStock = async () => {
                   onMouseLeave={e => { e.currentTarget.style.background = 'rgba(201,32,53,0.12)'; e.currentTarget.style.transform = 'scale(1)' }}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#C92035" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
               </div>
@@ -4509,7 +4604,7 @@ const fetchCoinStock = async () => {
                 {anniversaryList.length === 0 ? (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textAlign: 'center', color: subtext, padding: '50px 0', fontSize: '14px' }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#53615F" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="15" r="6"/><path d="M9 9l3-6 3 6"/>
+                      <circle cx="12" cy="15" r="6" /><path d="M9 9l3-6 3 6" />
                     </svg>
                     No anniversaries today
                   </div>
@@ -4539,7 +4634,7 @@ const fetchCoinStock = async () => {
                         <div style={{ color: text, fontWeight: 700, fontSize: '14px' }}>{m.first_name} {m.last_name || ''}</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: subtext, fontSize: '11px', marginTop: '3px' }}>
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#53615F" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="15" r="6"/><path d="M9 9l3-6 3 6"/>
+                            <circle cx="12" cy="15" r="6" /><path d="M9 9l3-6 3 6" />
                           </svg>
                           {new Date(m._ann).toLocaleDateString('en-IN', { day: '2-digit', month: 'long' })}
                         </div>
@@ -4553,7 +4648,7 @@ const fetchCoinStock = async () => {
           </div>
         )}
 
-{/* â”€â”€ JOIN DATE LIST MODAL â”€â”€ */}
+        {/* â”€â”€ JOIN DATE LIST MODAL â”€â”€ */}
         {showJoinDateList && (
           <div onClick={() => setShowJoinDateList(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,23,0.45)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div onClick={e => e.stopPropagation()} style={{ background: 'linear-gradient(165deg,#FFFFFF 0%,#FDFCFA 60%,#FBF3E9 100%)', border: '1px solid rgba(187,137,88,0.28)', borderRadius: '24px', width: '95%', maxWidth: '500px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 40px 90px rgba(17,24,23,0.24), 0 0 0 1px rgba(187,137,88,0.08)' }}>
@@ -4561,9 +4656,9 @@ const fetchCoinStock = async () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(145deg,rgba(187,137,88,0.2),rgba(187,137,88,0.1))', border: '1px solid rgba(187,137,88,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(187,137,88,0.16)' }}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#BB8958" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M8 4h8v6a4 4 0 01-8 0V4z"/>
-                      <path d="M8 5H5a2 2 0 002 4M16 5h3a2 2 0 01-2 4"/>
-                      <path d="M12 14v3M9 21h6M9 21l1-4h4l1 4"/>
+                      <path d="M8 4h8v6a4 4 0 01-8 0V4z" />
+                      <path d="M8 5H5a2 2 0 002 4M16 5h3a2 2 0 01-2 4" />
+                      <path d="M12 14v3M9 21h6M9 21l1-4h4l1 4" />
                     </svg>
                   </div>
                   <div>
@@ -4578,7 +4673,7 @@ const fetchCoinStock = async () => {
                   onMouseLeave={e => { e.currentTarget.style.background = 'rgba(201,32,53,0.12)'; e.currentTarget.style.transform = 'scale(1)' }}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#C92035" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
               </div>
@@ -4587,7 +4682,7 @@ const fetchCoinStock = async () => {
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '14px', textAlign: 'center', padding: '60px 0' }}>
                     <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(187,137,88,0.1)', border: '1px solid rgba(187,137,88,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#BB8958" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M8 4h8v6a4 4 0 01-8 0V4z"/><path d="M12 14v3"/>
+                        <path d="M8 4h8v6a4 4 0 01-8 0V4z" /><path d="M12 14v3" />
                       </svg>
                     </div>
                     <span style={{ color: subtext, fontSize: '14px', fontWeight: 600 }}>No work anniversaries today</span>
@@ -4620,7 +4715,7 @@ const fetchCoinStock = async () => {
                         <div style={{ color: text, fontWeight: 700, fontSize: '14px' }}>{m.first_name} {m.last_name || ''}</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#BB8958', fontSize: '12px', fontWeight: 700, marginTop: '3px' }}>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#BB8958" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M8 4h8v6a4 4 0 01-8 0V4z"/><path d="M12 14v3"/>
+                            <path d="M8 4h8v6a4 4 0 01-8 0V4z" /><path d="M12 14v3" />
                           </svg>
                           {m._yearsCompleted === 1 ? '1st' : m._yearsCompleted === 2 ? '2nd' : m._yearsCompleted === 3 ? '3rd' : `${m._yearsCompleted}th`} Year Anniversary
                         </div>
@@ -4720,15 +4815,15 @@ const fetchCoinStock = async () => {
                   if (specialAnnForm.roles.length === 0) { setSpecialAnnMsg(' Select at least one role.'); return }
                   setSpecialAnnSending(true)
                   // AFTER
-try {
-  await api.post('/announcements/', { title: specialAnnForm.title, message: specialAnnForm.message, target_roles: specialAnnForm.roles })
-  setSpecialAnnMsg(' Announcement sent successfully!')
-  const annData = await fetchMyAnnouncements()
-  fetchAnnouncementCount(annData)
-  setTimeout(() => setShowSpecialAnn(false), 1500)
-} catch (err) {
-  setSpecialAnnMsg(' Failed: ' + JSON.stringify(err.response?.data))
-}
+                  try {
+                    await api.post('/announcements/', { title: specialAnnForm.title, message: specialAnnForm.message, target_roles: specialAnnForm.roles })
+                    setSpecialAnnMsg(' Announcement sent successfully!')
+                    const annData = await fetchMyAnnouncements()
+                    fetchAnnouncementCount(annData)
+                    setTimeout(() => setShowSpecialAnn(false), 1500)
+                  } catch (err) {
+                    setSpecialAnnMsg(' Failed: ' + JSON.stringify(err.response?.data))
+                  }
                   setSpecialAnnSending(false)
                 }}
                 style={{ width: '100%', padding: '14px', background: specialAnnSending ? 'rgba(187,137,88,0.3)' : 'linear-gradient(90deg,#BB8958,#BB8958)', border: 'none', borderRadius: '12px', fontWeight: 800, color: specialAnnSending ? '#BB8958' : '#111817', fontSize: '15px', cursor: specialAnnSending ? 'not-allowed' : 'pointer', letterSpacing: '0.5px' }}
@@ -5019,14 +5114,14 @@ try {
             <div
               onClick={e => e.stopPropagation()}
               className="modal-scroll"
-style={{ background: 'linear-gradient(165deg,#FFFFFF 0%,#FDFCFA 60%,#FBF6ED 100%)', border: '1px solid rgba(204,168,129,0.28)', borderRadius: '24px', width: '95%', maxWidth: '480px', maxHeight: '95vh', overflowY: 'auto', padding: '26px 32px', boxShadow: '0 40px 90px rgba(17,24,23,0.28), 0 0 0 1px rgba(204,168,129,0.08)', animation: 'fadeIn 0.3s ease' }}
+              style={{ background: 'linear-gradient(165deg,#FFFFFF 0%,#FDFCFA 60%,#FBF6ED 100%)', border: '1px solid rgba(204,168,129,0.28)', borderRadius: '24px', width: '95%', maxWidth: '480px', maxHeight: '95vh', overflowY: 'auto', padding: '26px 32px', boxShadow: '0 40px 90px rgba(17,24,23,0.28), 0 0 0 1px rgba(204,168,129,0.08)', animation: 'fadeIn 0.3s ease' }}
             >
               {/* Header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-<div style={{ width: '44px', height: '44px', borderRadius: '13px', background: 'linear-gradient(145deg,rgba(12,64,68,0.14),rgba(12,64,68,0.06))', border: '1px solid rgba(12,64,68,0.26)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px rgba(12,64,68,0.12)' }}>
+                  <div style={{ width: '44px', height: '44px', borderRadius: '13px', background: 'linear-gradient(145deg,rgba(12,64,68,0.14),rgba(12,64,68,0.06))', border: '1px solid rgba(12,64,68,0.26)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px rgba(12,64,68,0.12)' }}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0C4044" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </div>
                   <div>
@@ -5035,7 +5130,7 @@ style={{ background: 'linear-gradient(165deg,#FFFFFF 0%,#FDFCFA 60%,#FBF6ED 100%
                       {dbRateDate ? (
                         <>
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#53615F" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                            <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
                           </svg>
                           {new Date(dbRateDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
                         </>
@@ -5050,19 +5145,19 @@ style={{ background: 'linear-gradient(165deg,#FFFFFF 0%,#FDFCFA 60%,#FBF6ED 100%
                   onMouseLeave={e => { e.currentTarget.style.background = 'rgba(201,32,53,0.12)'; e.currentTarget.style.transform = 'scale(1)' }}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#C92035" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
               </div>
 
               {/* Rate Cards */}
               {[
-                { label: 'Gold 22K', color: '#8A5A25', rgb: '204,168,129', value: metalPrices.gold22k, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8A5A25" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9h3.5a2 2 0 010 4H10M9 15h4M12 7v2M12 15v2"/></svg> },
-                { label: 'Gold 24K', color: '#8A5A25', rgb: '204,168,129', value: metalPrices.gold24k, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8A5A25" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9h3.5a2 2 0 010 4H10M9 15h4M12 7v2M12 15v2"/></svg> },
-                { label: 'Silver 999', color: '#0C4044', rgb: '12,64,68', value: metalPrices.silver, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0C4044" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9h3.5a2 2 0 010 4H10M9 15h4M12 7v2M12 15v2"/></svg> },
-                { label: 'Diamond 18K', color: '#53615F', rgb: '209,223,222', value: metalPrices.diamond18k, hide: true, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#53615F" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12l4 6-10 12L2 9l4-6z"/><path d="M2 9h20M9 3l3 6-3 12M15 3l-3 6 3 12"/></svg> },
-                { label: 'Diamond 22K', color: '#0C4044', rgb: '12,64,68', value: metalPrices.diamond22k, hide: true, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0C4044" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12l4 6-10 12L2 9l4-6z"/><path d="M2 9h20M9 3l3 6-3 12M15 3l-3 6 3 12"/></svg> },
-                { label: 'Platinum 92', color: '#53615F', rgb: '231,237,236', value: metalPrices.platinum92, hide: true, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#53615F" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="#53615F"/></svg> },
+                { label: 'Gold 22K', color: '#8A5A25', rgb: '204,168,129', value: metalPrices.gold22k, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8A5A25" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M9 9h3.5a2 2 0 010 4H10M9 15h4M12 7v2M12 15v2" /></svg> },
+                { label: 'Gold 24K', color: '#8A5A25', rgb: '204,168,129', value: metalPrices.gold24k, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8A5A25" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M9 9h3.5a2 2 0 010 4H10M9 15h4M12 7v2M12 15v2" /></svg> },
+                { label: 'Silver 999', color: '#0C4044', rgb: '12,64,68', value: metalPrices.silver, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0C4044" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M9 9h3.5a2 2 0 010 4H10M9 15h4M12 7v2M12 15v2" /></svg> },
+                { label: 'Diamond 18K', color: '#53615F', rgb: '209,223,222', value: metalPrices.diamond18k, hide: true, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#53615F" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12l4 6-10 12L2 9l4-6z" /><path d="M2 9h20M9 3l3 6-3 12M15 3l-3 6 3 12" /></svg> },
+                { label: 'Diamond 22K', color: '#0C4044', rgb: '12,64,68', value: metalPrices.diamond22k, hide: true, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0C4044" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12l4 6-10 12L2 9l4-6z" /><path d="M2 9h20M9 3l3 6-3 12M15 3l-3 6 3 12" /></svg> },
+                { label: 'Platinum 92', color: '#53615F', rgb: '231,237,236', value: metalPrices.platinum92, hide: true, icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#53615F" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3" fill="#53615F" /></svg> },
               ].filter(item => !item.hide).map(item => (
                 <div key={item.label} style={{ background: '#FFFFFF', border: `1px solid rgba(${item.rgb},0.3)`, borderRadius: '14px', padding: '12px 18px', marginBottom: '9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: `0 4px 14px rgba(${item.rgb},0.07)`, transition: 'all 0.2s ease' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -5082,10 +5177,10 @@ style={{ background: 'linear-gradient(165deg,#FFFFFF 0%,#FDFCFA 60%,#FBF6ED 100%
 
               <button
                 onClick={() => { setShowTodayRates(false); setShowRatePopup(true); setRateMsg('') }}
-style={{ width: '100%', marginTop: '6px', padding: '14px', background: 'linear-gradient(135deg,#CCA881,#BB8958)', border: 'none', borderRadius: '14px', fontWeight: 800, color: '#FDFDFC', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 14px 30px rgba(204,168,129,0.32)' }}
+                style={{ width: '100%', marginTop: '6px', padding: '14px', background: 'linear-gradient(135deg,#CCA881,#BB8958)', border: 'none', borderRadius: '14px', fontWeight: 800, color: '#FDFDFC', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 14px 30px rgba(204,168,129,0.32)' }}
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FDFDFC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                  <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
                 </svg>
                 Update Rates
               </button>
@@ -5135,7 +5230,7 @@ style={{ width: '100%', marginTop: '6px', padding: '14px', background: 'linear-g
                 <div>
                   <div style={{ color: '#CCA881', fontWeight: 800, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '7px' }}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0C4044" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>
+                      <rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" />
                     </svg>
                     PROFILE UPDATE REQUESTS
                   </div>
@@ -5167,7 +5262,7 @@ style={{ width: '100%', marginTop: '6px', padding: '14px', background: 'linear-g
                   onMouseLeave={e => { e.currentTarget.style.background = 'rgba(201,32,53,0.12)'; e.currentTarget.style.transform = 'scale(1)' }}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#C92035" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
               </div>
@@ -5262,8 +5357,8 @@ style={{ width: '100%', marginTop: '6px', padding: '14px', background: 'linear-g
                       marginBottom: '16px',
                       lineHeight: 1.6
                     }}>
-                      
-                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><SvgIcon name="note" size={14} />{selectedRequest.message}</span>
+
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><SvgIcon name="note" size={14} />{selectedRequest.message}</span>
                     </div>
                   )}
 
@@ -5404,8 +5499,8 @@ style={{ width: '100%', marginTop: '6px', padding: '14px', background: 'linear-g
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ width: '44px', height: '44px', borderRadius: '13px', background: 'linear-gradient(145deg,rgba(187,137,88,0.22),rgba(187,137,88,0.1))', border: '1px solid rgba(187,137,88,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 18px rgba(187,137,88,0.2)' }}>
                     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#BB8958" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 10v4a1 1 0 001 1h2l6 4V5L6 9H4a1 1 0 00-1 1z"/>
-                      <path d="M16 8a4 4 0 010 8M19 6a7 7 0 010 12"/>
+                      <path d="M3 10v4a1 1 0 001 1h2l6 4V5L6 9H4a1 1 0 00-1 1z" />
+                      <path d="M16 8a4 4 0 010 8M19 6a7 7 0 010 12" />
                     </svg>
                   </div>
                   <div>
@@ -5420,7 +5515,7 @@ style={{ width: '100%', marginTop: '6px', padding: '14px', background: 'linear-g
                   onMouseLeave={e => { e.currentTarget.style.background = 'rgba(201,32,53,0.12)'; e.currentTarget.style.transform = 'scale(1)' }}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#C92035" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
               </div>
@@ -5463,11 +5558,11 @@ style={{ width: '100%', marginTop: '6px', padding: '14px', background: 'linear-g
                 <label style={{ display: 'block', color: subtext, fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>Send To (Select Roles) *</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                   {[
-                    { key: 'admin', label: 'Super Stockist', color: '#53615F', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l7 3v6c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6l7-3z"/></svg> },
-                    { key: 'dealer', label: 'Distributor', color: '#0C4044', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="10" width="6" height="10" rx="1"/><rect x="9" y="4" width="6" height="16" rx="1"/><rect x="15" y="13" width="6" height="7" rx="1"/></svg> },
-                    { key: 'sub_dealer', label: 'Wholesale Dealer', color: '#BB8958', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 007.07 0l2.83-2.83a5 5 0 00-7.07-7.07L11.5 4.5"/><path d="M14 11a5 5 0 00-7.07 0l-2.83 2.83a5 5 0 007.07 7.07L12.5 19.5"/></svg> },
-                    { key: 'promotor', label: 'Retailer', color: '#CCA881', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg> },
-                    { key: 'customer', label: 'Customer', color: '#C92035', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg> },
+                    { key: 'admin', label: 'Super Stockist', color: '#53615F', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l7 3v6c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6l7-3z" /></svg> },
+                    { key: 'dealer', label: 'Distributor', color: '#0C4044', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="10" width="6" height="10" rx="1" /><rect x="9" y="4" width="6" height="16" rx="1" /><rect x="15" y="13" width="6" height="7" rx="1" /></svg> },
+                    { key: 'sub_dealer', label: 'Wholesale Dealer', color: '#BB8958', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 007.07 0l2.83-2.83a5 5 0 00-7.07-7.07L11.5 4.5" /><path d="M14 11a5 5 0 00-7.07 0l-2.83 2.83a5 5 0 007.07 7.07L12.5 19.5" /></svg> },
+                    { key: 'promotor', label: 'Retailer', color: '#CCA881', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg> },
+                    { key: 'customer', label: 'Customer', color: '#C92035', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7" /></svg> },
                   ].map(role => {
                     const checked = announcementForm.roles.includes(role.key)
                     const r = parseInt(role.color.slice(1, 3), 16), g = parseInt(role.color.slice(3, 5), 16), b = parseInt(role.color.slice(5, 7), 16)
@@ -5478,12 +5573,12 @@ style={{ width: '100%', marginTop: '6px', padding: '14px', background: 'linear-g
                           const updated = checked ? announcementForm.roles.filter(x => x !== role.key) : [...announcementForm.roles, role.key]
                           setAnnouncementForm({ ...announcementForm, roles: updated })
                         }}
-style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '999px', cursor: 'pointer', background: checked ? `rgba(${rgb},0.14)` : '#FFFFFF', border: `1.5px solid ${checked ? `rgba(${rgb},0.55)` : 'rgba(189,207,206,0.6)'}`, transition: 'all 0.2s ease', userSelect: 'none', boxShadow: checked ? `0 6px 16px rgba(${rgb},0.16)` : 'none' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '999px', cursor: 'pointer', background: checked ? `rgba(${rgb},0.14)` : '#FFFFFF', border: `1.5px solid ${checked ? `rgba(${rgb},0.55)` : 'rgba(189,207,206,0.6)'}`, transition: 'all 0.2s ease', userSelect: 'none', boxShadow: checked ? `0 6px 16px rgba(${rgb},0.16)` : 'none' }}
                       >
                         <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: `2px solid ${checked ? role.color : `rgba(${rgb},0.35)`}`, background: checked ? role.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease', flexShrink: 0 }}>
                           {checked && (
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#111817" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="20 6 9 17 4 12"/>
+                              <polyline points="20 6 9 17 4 12" />
                             </svg>
                           )}
                         </div>
@@ -5506,8 +5601,8 @@ style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px'
                   style={{ marginTop: '10px', padding: '6px 14px', fontSize: '11px', fontWeight: 700, background: 'rgba(187,137,88,0.1)', border: '1px solid rgba(187,137,88,0.3)', borderRadius: '8px', color: '#BB8958', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#BB8958" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
-                    {['admin', 'dealer', 'sub_dealer', 'promotor', 'customer'].every(r => announcementForm.roles.includes(r)) && <polyline points="8 12 11 15 16 9"/>}
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    {['admin', 'dealer', 'sub_dealer', 'promotor', 'customer'].every(r => announcementForm.roles.includes(r)) && <polyline points="8 12 11 15 16 9" />}
                   </svg>
                   {['admin', 'dealer', 'sub_dealer', 'promotor', 'customer'].every(r => announcementForm.roles.includes(r)) ? 'Deselect All' : 'Select All'}
                 </button>
@@ -5522,17 +5617,17 @@ style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px'
                   setAnnouncingSending(true)
                   try {
                     // AFTER
-await api.post('/announcements/', { title: announcementForm.title, message: announcementForm.message, target_roles: announcementForm.roles })
-setAnnouncementMsg('âœ… Announcement sent successfully!')
-setAnnouncementForm({ title: '', message: '', roles: [] })
-const annData = await fetchMyAnnouncements()
-fetchAnnouncementCount(annData)
+                    await api.post('/announcements/', { title: announcementForm.title, message: announcementForm.message, target_roles: announcementForm.roles })
+                    setAnnouncementMsg('âœ… Announcement sent successfully!')
+                    setAnnouncementForm({ title: '', message: '', roles: [] })
+                    const annData = await fetchMyAnnouncements()
+                    fetchAnnouncementCount(annData)
                   } catch (err) {
                     setAnnouncementMsg('âŒ Failed: ' + JSON.stringify(err.response?.data))
                   }
                   setAnnouncingSending(false)
                 }}
-style={{ width: '100%', padding: '15px', background: announcingSending ? 'rgba(187,137,88,0.3)' : 'linear-gradient(135deg,#CCA881,#BB8958)', border: 'none', borderRadius: '14px', fontWeight: 800, color: announcingSending ? '#BB8958' : '#FDFDFC', fontSize: '15px', cursor: announcingSending ? 'not-allowed' : 'pointer', letterSpacing: '0.5px', transition: 'all 0.3s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: announcingSending ? 'none' : '0 14px 30px rgba(187,137,88,0.32)' }}
+                style={{ width: '100%', padding: '15px', background: announcingSending ? 'rgba(187,137,88,0.3)' : 'linear-gradient(135deg,#CCA881,#BB8958)', border: 'none', borderRadius: '14px', fontWeight: 800, color: announcingSending ? '#BB8958' : '#FDFDFC', fontSize: '15px', cursor: announcingSending ? 'not-allowed' : 'pointer', letterSpacing: '0.5px', transition: 'all 0.3s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: announcingSending ? 'none' : '0 14px 30px rgba(187,137,88,0.32)' }}
               >
                 {announcingSending ? (
                   <>
@@ -5542,8 +5637,8 @@ style={{ width: '100%', padding: '15px', background: announcingSending ? 'rgba(1
                 ) : (
                   <>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FDFDFC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 10v4a1 1 0 001 1h2l6 4V5L6 9H4a1 1 0 00-1 1z"/>
-                      <path d="M16 8a4 4 0 010 8M19 6a7 7 0 010 12" strokeLinecap="round"/>
+                      <path d="M3 10v4a1 1 0 001 1h2l6 4V5L6 9H4a1 1 0 00-1 1z" />
+                      <path d="M16 8a4 4 0 010 8M19 6a7 7 0 010 12" strokeLinecap="round" />
                     </svg>
                     Send Announcement
                   </>
@@ -5605,9 +5700,9 @@ style={{ width: '100%', padding: '15px', background: announcingSending ? 'rgba(1
                     boxShadow: '0 4px 14px rgba(12,64,68,0.14)'
                   }}>
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0C4044" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="2" y="7" width="20" height="13" rx="2"/>
-                      <path d="M2 9l10 6 10-6"/>
-                      <path d="M16 3l3 3-3 3"/>
+                      <rect x="2" y="7" width="20" height="13" rx="2" />
+                      <path d="M2 9l10 6 10-6" />
+                      <path d="M16 3l3 3-3 3" />
                     </svg>
                   </div>
                   <div>
@@ -5640,7 +5735,7 @@ style={{ width: '100%', padding: '15px', background: announcingSending ? 'rgba(1
                   onMouseLeave={e => { e.currentTarget.style.background = 'rgba(201,32,53,0.12)'; e.currentTarget.style.transform = 'scale(1)' }}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#C92035" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
               </div>
@@ -5805,7 +5900,7 @@ style={{ width: '100%', padding: '15px', background: announcingSending ? 'rgba(1
                       fontSize: '18px'
                     }}
                   >
-              
+
                   </div>
 
                   <div>
@@ -5927,83 +6022,85 @@ style={{ width: '100%', padding: '15px', background: announcingSending ? 'rgba(1
       </div>
 
       {showAddCoin && (
-  <div onClick={() => setShowAddCoin(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)', zIndex: 1400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-    <div onClick={e => e.stopPropagation()} style={{ background: '#0a1628', border: '1px solid rgba(251,191,36,0.4)', borderRadius: '24px', width: '95%', maxWidth: '560px', maxHeight: '88vh', overflowY: 'auto', padding: '28px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <div>
-          <div style={{ color: '#fbbf24', fontWeight: 900, fontSize: '16px' }}>Add Coins to Stock</div>
-          <div style={{ color: '#94a3b8', fontSize: '11px', marginTop: '3px' }}>Coins added here go directly into your stock no approval needed</div>
-        </div>
-        <button onClick={() => setShowAddCoin(false)} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', borderRadius: '8px', padding: '6px 14px', cursor: 'pointer', fontSize: '12px' }}>Close</button>
-      </div>
-
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-        {['gold_22k', 'gold_24k', 'silver_999'].map(m => (
-          <div key={m} onClick={() => { setSelCoinMetal(m); setSelCoinWeight('') }}
-            style={{ flex: 1, textAlign: 'center', padding: '10px 0', borderRadius: '12px', cursor: 'pointer', fontWeight: 700, fontSize: '12px',
-              background: selCoinMetal === m ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.05)',
-              border: `1.5px solid ${selCoinMetal === m ? 'rgba(251,191,36,0.7)' : 'rgba(255,255,255,0.1)'}`,
-              color: selCoinMetal === m ? '#fbbf24' : '#94a3b8' }}>
-            {COIN_METAL_LABELS_TEXT[m]}
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '10px', marginBottom: '14px' }}>
-        <div>
-          <label style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '6px' }}>WEIGHT</label>
-          <select value={selCoinWeight} onChange={e => setSelCoinWeight(e.target.value)}
-            style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '11px 12px', color: '#fff', fontSize: '13px', outline: 'none' }}>
-            <option value="" style={{ background: '#0a1628', color: '#fff' }}>-- Select --</option>
-            {(selCoinMetal === 'silver_999' ? COIN_WEIGHTS_SILVER : COIN_WEIGHTS_GOLD).map(w => (
-              <option key={w.label} value={w.label} style={{ background: '#0a1628', color: '#fff' }}>{w.label}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '6px' }}>QTY</label>
-          <input type="number" min="1" value={selCoinQty} onChange={e => setSelCoinQty(e.target.value)}
-            style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '11px 12px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-          <button onClick={addToCoinCart}
-            style={{ padding: '11px 18px', background: 'linear-gradient(90deg,#f472b6,#a78bfa)', border: 'none', borderRadius: '10px', color: '#3b0024', fontWeight: 800, fontSize: '13px', cursor: 'pointer' }}>
-            + Add
-          </button>
-        </div>
-      </div>
-
-      {coinCart.length > 0 && (
-        <div style={{ marginBottom: '18px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {coinCart.map((item, idx) => (
-            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px' }}>
-              <span style={{ color: '#fff', fontSize: '13px', fontWeight: 600 }}>{COIN_METAL_LABELS_TEXT[item.metal_type]} {item.weight_label} Ã— {item.qty}</span>
-              <button onClick={() => removeCoinCartItem(idx)} aria-label="Remove coin item" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}><SvgIcon name="close" size={13} /></button>
+        <div onClick={() => setShowAddCoin(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)', zIndex: 1400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#0a1628', border: '1px solid rgba(251,191,36,0.4)', borderRadius: '24px', width: '95%', maxWidth: '560px', maxHeight: '88vh', overflowY: 'auto', padding: '28px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div>
+                <div style={{ color: '#fbbf24', fontWeight: 900, fontSize: '16px' }}>Add Coins to Stock</div>
+                <div style={{ color: '#94a3b8', fontSize: '11px', marginTop: '3px' }}>Coins added here go directly into your stock no approval needed</div>
+              </div>
+              <button onClick={() => setShowAddCoin(false)} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', borderRadius: '8px', padding: '6px 14px', cursor: 'pointer', fontSize: '12px' }}>Close</button>
             </div>
-          ))}
+
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+              {['gold_22k', 'gold_24k', 'silver_999'].map(m => (
+                <div key={m} onClick={() => { setSelCoinMetal(m); setSelCoinWeight('') }}
+                  style={{
+                    flex: 1, textAlign: 'center', padding: '10px 0', borderRadius: '12px', cursor: 'pointer', fontWeight: 700, fontSize: '12px',
+                    background: selCoinMetal === m ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.05)',
+                    border: `1.5px solid ${selCoinMetal === m ? 'rgba(251,191,36,0.7)' : 'rgba(255,255,255,0.1)'}`,
+                    color: selCoinMetal === m ? '#fbbf24' : '#94a3b8'
+                  }}>
+                  {COIN_METAL_LABELS_TEXT[m]}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '10px', marginBottom: '14px' }}>
+              <div>
+                <label style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '6px' }}>WEIGHT</label>
+                <select value={selCoinWeight} onChange={e => setSelCoinWeight(e.target.value)}
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '11px 12px', color: '#fff', fontSize: '13px', outline: 'none' }}>
+                  <option value="" style={{ background: '#0a1628', color: '#fff' }}>-- Select --</option>
+                  {(selCoinMetal === 'silver_999' ? COIN_WEIGHTS_SILVER : COIN_WEIGHTS_GOLD).map(w => (
+                    <option key={w.label} value={w.label} style={{ background: '#0a1628', color: '#fff' }}>{w.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '6px' }}>QTY</label>
+                <input type="number" min="1" value={selCoinQty} onChange={e => setSelCoinQty(e.target.value)}
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '11px 12px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                <button onClick={addToCoinCart}
+                  style={{ padding: '11px 18px', background: 'linear-gradient(90deg,#f472b6,#a78bfa)', border: 'none', borderRadius: '10px', color: '#3b0024', fontWeight: 800, fontSize: '13px', cursor: 'pointer' }}>
+                  + Add
+                </button>
+              </div>
+            </div>
+
+            {coinCart.length > 0 && (
+              <div style={{ marginBottom: '18px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {coinCart.map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px' }}>
+                    <span style={{ color: '#fff', fontSize: '13px', fontWeight: 600 }}>{COIN_METAL_LABELS_TEXT[item.metal_type]} {item.weight_label} Ã— {item.qty}</span>
+                    <button onClick={() => removeCoinCartItem(idx)} aria-label="Remove coin item" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}><SvgIcon name="close" size={13} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {coinBuyMsg && (
+              <div style={{
+                background: coinBuyMsg.startsWith('success:') ? 'rgba(74,222,128,0.1)' : 'rgba(239,68,68,0.1)',
+                border: `1px solid ${coinBuyMsg.startsWith('success:') ? 'rgba(74,222,128,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                color: coinBuyMsg.startsWith('success:') ? '#4ade80' : '#f87171',
+                borderRadius: '10px', padding: '10px 14px', fontSize: '13px', marginBottom: '16px'
+              }}>
+                {coinBuyMsg.replace('success:', '').replace('error:', '')}
+              </div>
+            )}
+
+            <button
+              disabled={coinBuySubmitting || coinCart.length === 0}
+              onClick={submitAddCoins}
+              style={{ width: '100%', padding: '14px', background: coinBuySubmitting || coinCart.length === 0 ? 'rgba(244,114,182,0.2)' : 'linear-gradient(90deg,#f472b6,#a78bfa)', border: 'none', borderRadius: '12px', fontWeight: 900, fontSize: '14px', color: '#3b0024', cursor: coinBuySubmitting || coinCart.length === 0 ? 'not-allowed' : 'pointer' }}>
+              {coinBuySubmitting ? 'Adding...' : 'Confirm & Add to Stock'}
+            </button>
+          </div>
         </div>
       )}
-
-      {coinBuyMsg && (
-        <div style={{
-          background: coinBuyMsg.startsWith('success:') ? 'rgba(74,222,128,0.1)' : 'rgba(239,68,68,0.1)',
-          border: `1px solid ${coinBuyMsg.startsWith('success:') ? 'rgba(74,222,128,0.3)' : 'rgba(239,68,68,0.3)'}`,
-          color: coinBuyMsg.startsWith('success:') ? '#4ade80' : '#f87171',
-          borderRadius: '10px', padding: '10px 14px', fontSize: '13px', marginBottom: '16px'
-        }}>
-          {coinBuyMsg.replace('success:', '').replace('error:', '')}
-        </div>
-      )}
-
-      <button
-        disabled={coinBuySubmitting || coinCart.length === 0}
-        onClick={submitAddCoins}
-        style={{ width: '100%', padding: '14px', background: coinBuySubmitting || coinCart.length === 0 ? 'rgba(244,114,182,0.2)' : 'linear-gradient(90deg,#f472b6,#a78bfa)', border: 'none', borderRadius: '12px', fontWeight: 900, fontSize: '14px', color: '#3b0024', cursor: coinBuySubmitting || coinCart.length === 0 ? 'not-allowed' : 'pointer' }}>
-        {coinBuySubmitting ? 'Adding...' : 'Confirm & Add to Stock'}
-      </button>
-    </div>
-  </div>
-)}
 
     </div>
   )

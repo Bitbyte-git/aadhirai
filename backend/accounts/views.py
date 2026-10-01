@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from rest_framework.decorators import api_view, permission_classes
-from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink, EmailOTP, Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent, StockSale
+from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink, EmailOTP, Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent, StockSale, StockNotifyRequest
 from django.db.models import Prefetch, Count, Q, Sum, Max, Min, F, Value
 from django.core.cache import cache   # ── NEW: for month_rollup/status caching ──
 from django.db.models.functions import TruncHour, TruncDate, TruncWeek, TruncMonth
@@ -5106,7 +5106,9 @@ class OrderTimeSeriesView(APIView):
         if period == 'today':
             start = now.replace(hour=0, minute=0, second=0, microsecond=0)
             end = start + timedelta(days=1)
-            qs = qs.filter(created_at__gte=start).annotate(bucket=TruncHour('created_at'))
+            from zoneinfo import ZoneInfo
+            ist = ZoneInfo('Asia/Kolkata')
+            qs = qs.filter(created_at__gte=start).annotate(bucket=TruncHour('created_at', tzinfo=ist))
             step = timedelta(hours=1)
             bucket_start = start
         elif period == 'week':
@@ -5653,6 +5655,9 @@ class DashboardQuickStatsView(APIView):
             'customers': CustomerProfile.objects.count(),
             # ── NEW: subtract instead of a second full-table exclude-count — half the DB work ──
             'today_inactive_count': total_non_super - active_users,
+            # ── Sold Out Products & Stock Notify Requests ──
+            'sold_out_count': JewelryProduct.objects.filter(stock_quantity=0).count(),
+            'notify_count': StockNotifyRequest.objects.filter(notified=False).count(),
         }
         cache.set(cache_key, data, 180)   # ── NEW: 60s → 180s, fewer cache-miss slow hits ──
         return Response(data)
@@ -10761,51 +10766,84 @@ class UserGrowthView(APIView):
 
         chart_data = []
         if period == 'day':
-            hours = [9, 12, 15, 18, 21]
-            labels = ['9 AM', '12 PM', '3 PM', '6 PM', '9 PM']
-            for h, lbl in zip(hours, labels):
-                cnt = User.objects.filter(created_at__date=today, created_at__hour__lte=h).count()
-                chart_data.append({'month': lbl, 'users': cnt if cnt > 0 else (new_users or 1)})
+            from zoneinfo import ZoneInfo
+            from datetime import datetime as dt_class, time as dt_time, timezone as dt_timezone
+            ist = ZoneInfo('Asia/Kolkata')
+            # 5 key time intervals throughout the day
+            slots = [
+                (0, 9, '9 AM'),
+                (9, 12, '12 PM'),
+                (12, 15, '3 PM'),
+                (15, 18, '6 PM'),
+                (18, 24, '9 PM+'),
+            ]
+            for h_start, h_end, lbl in slots:
+                s_ist = dt_class.combine(today, dt_time(h_start, 0), tzinfo=ist)
+                e_ist = dt_class.combine(today, dt_time(23, 59, 59) if h_end == 24 else dt_time(h_end, 0), tzinfo=ist)
+                s_utc = s_ist.astimezone(dt_timezone.utc)
+                e_utc = e_ist.astimezone(dt_timezone.utc)
+                cnt = User.objects.filter(created_at__gte=s_utc, created_at__lte=e_utc).count()
+                cum = User.objects.filter(created_at__lte=e_utc).count()
+                chart_data.append({'month': lbl, 'users': cnt, 'cumulative': cum})
         elif period == 'week':
             for i in range(6, -1, -1):
                 day_date = today - timedelta(days=i)
                 lbl = day_date.strftime('%a')
+                day_start = timezone.make_aware(datetime.combine(day_date, datetime.min.time()))
                 day_end = timezone.make_aware(datetime.combine(day_date, datetime.max.time()))
-                cnt = User.objects.filter(created_at__lte=day_end).count()
-                chart_data.append({'month': lbl, 'users': cnt if cnt > 0 else total_users})
+                cnt = User.objects.filter(created_at__gte=day_start, created_at__lte=day_end).count()
+                cum = User.objects.filter(created_at__lte=day_end).count()
+                chart_data.append({'month': lbl, 'users': cnt, 'cumulative': cum, 'date': day_date.strftime('%d %b')})
         elif period == 'month':
-            intervals = [1, 5, 10, 15, 20, 25, 30]
-            labels = ['1st', '5th', '10th', '15th', '20th', '25th', '30th']
-            for day_num, lbl in zip(intervals, labels):
+            import calendar
+            _, last_day = calendar.monthrange(today.year, today.month)
+            intervals = [
+                (1, 5, '1st-5th'),
+                (6, 10, '6th-10th'),
+                (11, 15, '11th-15th'),
+                (16, 20, '16th-20th'),
+                (21, 25, '21st-25th'),
+                (26, last_day, '26th-End')
+            ]
+            for d_start, d_end, lbl in intervals:
                 try:
-                    target_date = date(today.year, today.month, min(day_num, 28))
-                    target_dt = timezone.make_aware(datetime.combine(target_date, datetime.max.time()))
-                    cnt = User.objects.filter(created_at__lte=target_dt).count() if target_date <= today else total_users
-                    chart_data.append({'month': lbl, 'users': cnt if cnt > 0 else total_users})
+                    s_dt = timezone.make_aware(datetime.combine(date(today.year, today.month, d_start), datetime.min.time()))
+                    e_dt = timezone.make_aware(datetime.combine(date(today.year, today.month, min(d_end, last_day)), datetime.max.time()))
+                    cnt = User.objects.filter(created_at__gte=s_dt, created_at__lte=e_dt).count()
+                    cum = User.objects.filter(created_at__lte=e_dt).count()
+                    chart_data.append({'month': lbl, 'users': cnt, 'cumulative': cum})
                 except Exception:
-                    chart_data.append({'month': lbl, 'users': total_users})
+                    chart_data.append({'month': lbl, 'users': 0, 'cumulative': total_users})
         elif period in ('3month', '6month'):
             months_count = 3 if period == '3month' else 6
-            start_date_period = today - timedelta(days=30 * months_count)
             for i in range(months_count - 1, -1, -1):
                 m_date = today - timedelta(days=30 * i)
                 m_name = m_date.strftime('%b')
-                month_end = timezone.make_aware(datetime.combine(m_date.replace(day=min(m_date.day, 28)), datetime.max.time()))
-                cnt = User.objects.filter(created_at__lte=month_end).count()
-                chart_data.append({'month': m_name, 'users': cnt if cnt > 0 else total_users})
+                import calendar
+                _, l_day = calendar.monthrange(m_date.year, m_date.month)
+                s_dt = timezone.make_aware(datetime.combine(date(m_date.year, m_date.month, 1), datetime.min.time()))
+                e_dt = timezone.make_aware(datetime.combine(date(m_date.year, m_date.month, l_day), datetime.max.time()))
+                cnt = User.objects.filter(created_at__gte=s_dt, created_at__lte=e_dt).count()
+                cum = User.objects.filter(created_at__lte=e_dt).count()
+                chart_data.append({'month': m_name, 'users': cnt, 'cumulative': cum})
         else: # year
+            import calendar
             months_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
             curr_m_idx = today.month
             for idx, m_name in enumerate(months_names, start=1):
                 if idx <= curr_m_idx:
                     try:
-                        m_end = timezone.make_aware(datetime.combine(date(today.year, idx, 28), datetime.max.time()))
-                        cnt = User.objects.filter(created_at__lte=m_end).count()
+                        _, l_day = calendar.monthrange(today.year, idx)
+                        s_dt = timezone.make_aware(datetime.combine(date(today.year, idx, 1), datetime.min.time()))
+                        e_dt = timezone.make_aware(datetime.combine(date(today.year, idx, l_day), datetime.max.time()))
+                        cnt = User.objects.filter(created_at__gte=s_dt, created_at__lte=e_dt).count()
+                        cum = User.objects.filter(created_at__lte=e_dt).count()
                     except Exception:
-                        cnt = total_users
-                    chart_data.append({'month': m_name, 'users': cnt if cnt > 0 else total_users})
+                        cnt = 0
+                        cum = total_users
+                    chart_data.append({'month': m_name, 'users': cnt, 'cumulative': cum})
                 else:
-                    chart_data.append({'month': m_name, 'users': total_users})
+                    chart_data.append({'month': m_name, 'users': 0, 'cumulative': total_users})
 
         return Response({
             'period': period,
@@ -10887,10 +10925,17 @@ class SalesProfitSummaryView(APIView):
 
         trend = []
         if period == 'today':
-            hours = [9, 12, 15, 18, 21]
+            from zoneinfo import ZoneInfo
+            from datetime import datetime as dt_class, timezone as dt_timezone
+            ist = ZoneInfo('Asia/Kolkata')
+            hours_ist = [9, 12, 15, 18, 21]
             labels = ['9 AM', '12 PM', '3 PM', '6 PM', '9 PM']
-            for h, lbl in zip(hours, labels):
-                h_sales = float(base_qs.filter(created_at__date=today, created_at__hour__lte=h).aggregate(t=Sum('total_price'))['t'] or 0)
+            day_start_ist = dt_class(today.year, today.month, today.day, 0, 0, 0, tzinfo=ist)
+            day_start_utc = day_start_ist.astimezone(dt_timezone.utc)
+            for h_ist, lbl in zip(hours_ist, labels):
+                slot_end_ist = dt_class(today.year, today.month, today.day, h_ist, 59, 59, tzinfo=ist)
+                slot_end_utc = slot_end_ist.astimezone(dt_timezone.utc)
+                h_sales = float(base_qs.filter(created_at__gte=day_start_utc, created_at__lte=slot_end_utc).aggregate(t=Sum('total_price'))['t'] or 0)
                 trend.append({'name': lbl, 'sales': round(h_sales), 'profit': round(h_sales * 0.73)})
         elif period == 'week':
             for i in range(6, -1, -1):

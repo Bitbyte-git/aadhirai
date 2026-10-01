@@ -1,5 +1,5 @@
-import { useNavigate } from 'react-router-dom'
-import { useState, useRef, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import logo from '../assets/logo.png'
 import api from '../api'
 
@@ -29,6 +29,15 @@ function Icon({ name, size = 17, className = '' }) {
     gem: <path d="M6 3h12l4 6-10 12L2 9l4-6z" />,
     chart: <><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></>,
     bell: <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></>,
+    megaphone: <><path d="m3 11 18-5v12L3 14v-3z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" /></>,
+    creditCard: <><rect width="20" height="14" x="2" y="5" rx="2" /><line x1="2" x2="22" y1="10" y2="10" /></>,
+    hierarchy: <><rect x="9" y="3" width="6" height="4" rx="1" /><rect x="3" y="17" width="6" height="4" rx="1" /><rect x="15" y="17" width="6" height="4" rx="1" /><path d="M12 7v4m-6 6v-3a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v3" /></>,
+    shop: <><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></>,
+    help: <><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></>,
+    tag: <><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z" /><circle cx="7" cy="7" r=".5" fill="currentColor" /></>,
+    crown: <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14v2H5z" />,
+    cart: <><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" /></>,
+    check: <polyline points="20 6 9 17 4 12" />,
   }
   return <svg {...common}>{icons[name] || icons.search}</svg>
 }
@@ -47,12 +56,48 @@ export default function SuperAdminNavbar({
   onVoiceSearch,
 }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  const currentPath = location.pathname
   const [voiceQuery, setVoiceQuery] = useState('')
   const [isListening, setIsListening] = useState(false)
   const recognitionRef = useRef(null)
   const [openMenu, setOpenMenu] = useState(null)
   const closeTimerRef = useRef(null)
-  const [showMobileDrawer, setShowMobileDrawer] = useState(false)   // ── NEW: hamburger sidebar ──
+  const [showMobileDrawer, setShowMobileDrawer] = useState(false)   // ── Super Admin Command Menu Drawer ──
+  const [menuSearch, setMenuSearch] = useState('')
+  const [expandedSections, setExpandedSections] = useState({})
+  const [showSupportModal, setShowSupportModal] = useState(false)
+  const [showPromotionModal, setShowPromotionModal] = useState(false)
+
+  const toggleSection = (label) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [label]: !prev[label]
+    }))
+  }
+
+  // Close Command Menu on ESC key
+  useEffect(() => {
+    if (!showMobileDrawer) return
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') setShowMobileDrawer(false)
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [showMobileDrawer])
+
+  // Global ⌘K / Ctrl+K shortcut to focus global search
+  useEffect(() => {
+    const handleKbdShortcut = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        searchInputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleKbdShortcut)
+    return () => window.removeEventListener('keydown', handleKbdShortcut)
+  }, [])
+
   const [searchAlert, setSearchAlert] = useState(null)
 
   // ── ADVANCED GOOGLE / YOUTUBE SEARCH & VOICE ENGINE ──
@@ -1085,6 +1130,8 @@ export default function SuperAdminNavbar({
     ['Shop Hierarchy', () => navigate('/shop-hierarchy-grid')],
     ['Shop Hierarchy Tree', () => navigate('/shop-hierarchy-tree')],
     ['Shop Report', () => navigate('/shop-report')],
+  ]
+  const usersMenu = [
     ['Shop List', () => navigate('/superadmin/manage-users/shops')],
     ['Super Stockists', () => navigate('/superadmin/manage-users/super-stockist')],
     ['Distributors', () => navigate('/superadmin/manage-users/distributor')],
@@ -1125,6 +1172,7 @@ export default function SuperAdminNavbar({
     ['Wholesale Dealer', () => navigate('/promotions/wholesale-dealer')],
     ['Distributor', () => navigate('/promotions/distributor')],
     ['Super Stockist', () => navigate('/promotions/super-stockist')],
+    ['Sales Order List', () => navigate('/promotions/sales-order-list')],
   ]
   const payment = [
     ['All Sales', () => navigate('/superadmin-payments')],
@@ -1146,6 +1194,7 @@ export default function SuperAdminNavbar({
   const mobileMenuGroups = [
     ['Management', management],
     ['Announcements', announcements],
+    ['Users', usersMenu],
     ['Coins', coins],
     ['Reports', reports],
     ['Promotion', promotion],
@@ -1153,32 +1202,217 @@ export default function SuperAdminNavbar({
     ['Inventory', inventory],
   ]
 
-  const MenuGroup = ({ label, items }) => (
-    <div
-      className={`san-menu-group ${openMenu === label ? 'is-open' : ''}`}
-      onMouseEnter={() => openMenuNow(label)}
-      onMouseLeave={scheduleCloseMenu}
-    >
-      <button className="san-menu-trigger" type="button">{label}<Icon name="chevron" size={15} /></button>
-      <div className="san-menu-dropdown">
-        <div className="san-menu-title"><span>D</span>{label}</div>
-        {items.map(([text, action]) => (
-          <button
-            key={text}
-            type="button"
-            className="san-menu-link"
-            onClick={() => {
-              clearTimeout(closeTimerRef.current)
-              setOpenMenu(null)
-              action()
-            }}
-          >
-            {text}<b>-&gt;</b>
-          </button>
-        ))}
+  const adminEmail = localStorage.getItem('email') || localStorage.getItem('user_email') || 'superadmin@athirai.com'
+
+  const drawerManagementItems = [
+    { label: 'Today Gold Rate', action: () => { setShowTodayRates(true); fetchMetalPrices() } },
+    { label: 'Add Gold Rate', action: () => { setShowRatePopup(true); fetchMetalPrices() } },
+    { label: 'Add Product', path: '/add-product', action: () => navigate('/add-product') },
+    { label: 'Orders', path: '/admin-orders', action: () => navigate('/admin-orders') },
+    { label: 'Requests', action: () => { setShowRequests(true); setRequestMsg(''); fetchProfileRequests() } },
+    { label: 'Hierarchy Grid', path: '/superadmin-hierarchy-grid', action: () => navigate('/superadmin-hierarchy-grid') },
+    { label: 'Hierarchy Tree', path: '/superadmin-hierarchy', action: () => navigate('/superadmin-hierarchy') },
+    { label: 'Shop Hierarchy', path: '/shop-hierarchy-grid', action: () => navigate('/shop-hierarchy-grid') },
+    { label: 'Shop Hierarchy Tree', path: '/shop-hierarchy-tree', action: () => navigate('/shop-hierarchy-tree') },
+    { label: 'Shop Report', path: '/shop-report', action: () => navigate('/shop-report') },
+  ]
+
+  const drawerUsersItems = [
+    { label: 'Shop List', path: '/superadmin/manage-users/shops', action: () => navigate('/superadmin/manage-users/shops') },
+    { label: 'Super Stockists', path: '/superadmin/manage-users/super-stockist', action: () => navigate('/superadmin/manage-users/super-stockist') },
+    { label: 'Distributors', path: '/superadmin/manage-users/distributor', action: () => navigate('/superadmin/manage-users/distributor') },
+    { label: 'Wholesale Dealers', path: '/superadmin/manage-users/wholesale-dealer', action: () => navigate('/superadmin/manage-users/wholesale-dealer') },
+    { label: 'Retailers', path: '/superadmin/manage-users/retailer', action: () => navigate('/superadmin/manage-users/retailer') },
+    { label: 'Customers', path: '/superadmin/manage-users/customer', action: () => navigate('/superadmin/manage-users/customer') },
+    { label: 'Create Super Stockist', path: '/create-super-stockist', action: () => navigate('/create-super-stockist') },
+    { label: 'General Customer', path: '/general-customers', action: () => navigate('/general-customers') },
+    { label: 'Referral Customer', path: '/referral-customers', action: () => navigate('/referral-customers') },
+    { label: 'Create Customer', path: '/create-customer', action: () => navigate('/create-customer') },
+  ]
+
+  const drawerHierarchyItems = [
+    { label: 'Hierarchy Grid', path: '/superadmin-hierarchy-grid', action: () => navigate('/superadmin-hierarchy-grid') },
+    { label: 'Hierarchy Tree', path: '/superadmin-hierarchy', action: () => navigate('/superadmin-hierarchy') },
+    { label: 'Shop Hierarchy', path: '/shop-hierarchy-grid', action: () => navigate('/shop-hierarchy-grid') },
+    { label: 'Shop Hierarchy Tree', path: '/shop-hierarchy-tree', action: () => navigate('/shop-hierarchy-tree') },
+  ]
+
+  const drawerShopsItems = [
+    { label: 'Shop Report', path: '/shop-report', action: () => navigate('/shop-report') },
+    { label: 'Shop List', path: '/superadmin/manage-users/shops', action: () => navigate('/superadmin/manage-users/shops') },
+    { label: 'Super Stockists', path: '/superadmin/manage-users/super-stockist', action: () => navigate('/superadmin/manage-users/super-stockist') },
+    { label: 'Distributors', path: '/superadmin/manage-users/distributor', action: () => navigate('/superadmin/manage-users/distributor') },
+    { label: 'Wholesale Dealers', path: '/superadmin/manage-users/wholesale-dealer', action: () => navigate('/superadmin/manage-users/wholesale-dealer') },
+    { label: 'Retailers', path: '/superadmin/manage-users/retailer', action: () => navigate('/superadmin/manage-users/retailer') },
+    { label: 'Create Super Stockist', path: '/create-super-stockist', action: () => navigate('/create-super-stockist') },
+  ]
+
+  const drawerAnnouncementsItems = [
+    { label: 'Send Announcement', action: () => { setShowAnnouncement(true); setAnnouncementMsg('') } },
+    { label: 'My Announcements', action: () => { setShowMyAnnouncements(true); fetchMyAnnouncements() } },
+    { label: "Today's Birthdays", action: () => { setShowBirthdayList(true); fetchCelebrations() } },
+    { label: "Today's Anniversaries", action: () => { setShowAnniversaryList(true); fetchCelebrations() } },
+    { label: 'Joining Anniversaries', action: () => { setShowJoinDateList(true); fetchCelebrations() } },
+  ]
+
+  const drawerCoinsItems = [
+    { label: 'Add Coins', path: '/buy-coin', action: () => navigate('/buy-coin') },
+    { label: 'Available Coins', path: '/available-coins', action: () => navigate('/available-coins') },
+    { label: 'Requests Coins', path: '/coin-requests-page', action: () => navigate('/coin-requests-page') },
+    { label: 'Transaction Coins History', path: '/coin-transactions', action: () => navigate('/coin-transactions') },
+  ]
+
+  const drawerJewelleryItems = [
+    { label: 'Add Jewellery', path: '/add-jewellery', action: () => navigate('/add-jewellery') },
+    { label: 'Available Jewellery', path: '/available-jewellery', action: () => navigate('/available-jewellery') },
+    { label: 'Requests Jewellery', path: '/jewellery-requests', action: () => navigate('/jewellery-requests') },
+    { label: 'Jewellery Transactions', path: '/jewellery-transactions', action: () => navigate('/jewellery-transactions') },
+  ]
+
+  const drawerReportsItems = [
+    { label: 'Login Reward', path: '/coins-reward', action: () => navigate('/coins-reward') },
+    { label: 'Login Reward Transactions', path: '/login-reward-transactions', action: () => navigate('/login-reward-transactions') },
+    { label: 'Sales Report', path: '/sales-report', action: () => navigate('/sales-report') },
+    { label: 'Login Active', path: '/login-active', action: () => navigate('/login-active') },
+    { label: 'Login Inactive', path: '/login-inactive', action: () => navigate('/login-inactive') },
+  ]
+
+  const drawerPromotionItems = [
+    { label: 'Retailers', path: '/promotions/retailer', action: () => navigate('/promotions/retailer') },
+    { label: 'Wholesale Dealer', path: '/promotions/wholesale-dealer', action: () => navigate('/promotions/wholesale-dealer') },
+    { label: 'Distributor', path: '/promotions/distributor', action: () => navigate('/promotions/distributor') },
+    { label: 'Super Stockist', path: '/promotions/super-stockist', action: () => navigate('/promotions/super-stockist') },
+    { label: 'Sales Order List', path: '/promotions/sales-order-list', action: () => navigate('/promotions/sales-order-list') },
+  ]
+
+  const drawerPaymentItems = [
+    { label: 'All Sales', path: '/superadmin-payments', action: () => navigate('/superadmin-payments') },
+    { label: 'Athirai Profit', path: '/athirai-profit', action: () => navigate('/athirai-profit') },
+    { label: 'Athirai Revenue', path: '/athirai-revenue', action: () => navigate('/athirai-revenue') },
+    { label: 'General Customer Revenue', path: '/general-customer-revenue', action: () => navigate('/general-customer-revenue') },
+    { label: 'Residual Commission', path: '/superadmin-commission', action: () => navigate('/superadmin-commission') },
+    { label: 'My Commission', path: '/my-commission', action: () => navigate('/my-commission') },
+    { label: 'Commissions', path: '/commissions', action: () => navigate('/commissions') },
+    { label: 'Add AUG Coins', path: '/superadmin-send-coins', action: () => navigate('/superadmin-send-coins') },
+    { label: 'Autopay List', path: '/superadmin-autopay-list', action: () => navigate('/superadmin-autopay-list') },
+  ]
+
+  const drawerInventoryItems = [
+    { label: 'Add Product', path: '/add-product', action: () => navigate('/add-product') },
+    { label: 'Sold Out Products', path: '/sold-out-products', action: () => navigate('/sold-out-products') },
+    { label: 'Available Jewellery', path: '/available-jewellery', action: () => navigate('/available-jewellery') },
+    { label: 'Add Jewellery', path: '/add-jewellery', action: () => navigate('/add-jewellery') },
+  ]
+
+  const drawerMainGroups = [
+    { label: 'Management', icon: 'settings', items: drawerManagementItems },
+    { label: 'Announcements', icon: 'megaphone', items: drawerAnnouncementsItems },
+    { label: 'Users', icon: 'user', items: drawerUsersItems },
+    { label: 'Coins', icon: 'coin', items: drawerCoinsItems },
+    { label: 'Hierarchy', icon: 'hierarchy', items: drawerHierarchyItems },
+    { label: 'Shops', icon: 'shop', items: drawerShopsItems },
+    { label: 'Jewellery', icon: 'gem', items: drawerJewelleryItems },
+    { label: 'Reports', icon: 'chart', items: drawerReportsItems },
+    { label: 'Promotion', icon: 'tag', items: drawerPromotionItems },
+    { label: 'Payment', icon: 'creditCard', items: drawerPaymentItems },
+    { label: 'Inventory', icon: 'box', items: drawerInventoryItems },
+  ]
+
+  const drawerQuickAccess = [
+    { label: 'View Orders', path: '/admin-orders', icon: 'cart', bg: '#EAF7EE', color: '#059669', action: () => navigate('/admin-orders') },
+    { label: 'User Management', path: '/superadmin/manage-users/customer', icon: 'user', bg: '#E6F6F5', color: '#0D9488', action: () => navigate('/superadmin/manage-users/customer') },
+    { label: 'Add Announcement', path: null, icon: 'megaphone', bg: '#EBF4FE', color: '#0284C7', action: () => { setShowAnnouncement(true); setAnnouncementMsg('') } },
+    { label: 'Create Promotion', path: null, icon: 'tag', bg: '#FEF3E7', color: '#D97706', action: () => { setShowMobileDrawer(false); setShowPromotionModal(true) } },
+  ]
+
+  const allSearchableMenuItems = useMemo(() => {
+    const list = []
+    list.push({ title: 'Dashboard', section: 'MAIN', icon: 'home', path: '/super-admin', action: () => navigate('/super-admin') })
+    drawerQuickAccess.forEach(qa => {
+      list.push({ title: qa.label, section: 'QUICK ACCESS', icon: qa.icon, path: qa.path, action: qa.action })
+    })
+    drawerMainGroups.forEach(grp => {
+      grp.items.forEach(item => {
+        list.push({ title: item.label, section: grp.label, icon: grp.icon, path: item.path, action: item.action })
+      })
+    })
+    return list
+  }, [])
+
+  const filteredMenuItems = menuSearch.trim()
+    ? allSearchableMenuItems.filter(item =>
+        item.title.toLowerCase().includes(menuSearch.toLowerCase().trim()) ||
+        item.section.toLowerCase().includes(menuSearch.toLowerCase().trim())
+      )
+    : []
+
+  const groupIcons = {
+    Management: 'settings',
+    Announcements: 'megaphone',
+    Users: 'user',
+    Coins: 'coin',
+    Reports: 'chart',
+    Promotion: 'tag',
+    Payment: 'creditCard',
+    Inventory: 'box',
+  }
+
+  const MenuGroup = ({ label, items }) => {
+    const groupMatches = drawerMainGroups.find(g => g.label.toLowerCase() === label.toLowerCase())
+    const isGroupActive = groupMatches?.items.some(it => it.path && currentPath === it.path)
+    const iconName = groupIcons[label] || 'box'
+
+    return (
+      <div
+        className={`san-menu-group ${openMenu === label ? 'is-open' : ''} ${isGroupActive ? 'has-active-child' : ''}`}
+        onMouseEnter={() => openMenuNow(label)}
+        onMouseLeave={scheduleCloseMenu}
+      >
+        <button
+          className={`san-menu-trigger ${isGroupActive ? 'is-active' : ''}`}
+          type="button"
+          onClick={() => setOpenMenu(openMenu === label ? null : label)}
+          aria-expanded={openMenu === label}
+        >
+          <span className="san-menu-trigger-icon">
+            <Icon name={iconName} size={14} />
+          </span>
+          <span className="san-menu-trigger-text">{label}</span>
+          <span className={`san-menu-trigger-chevron ${openMenu === label ? 'is-rotated' : ''}`}>
+            <Icon name="chevron" size={11} />
+          </span>
+        </button>
+
+        <div className="san-menu-dropdown">
+          <div className="san-menu-dropdown-header">
+            <span className="san-menu-dropdown-tag">{label}</span>
+            <span className="san-menu-dropdown-count">{items.length} options</span>
+          </div>
+          <div className="san-menu-dropdown-list">
+            {items.map(([text, action]) => {
+              const matchedItem = groupMatches?.items.find(it => it.label === text)
+              const isSubActive = matchedItem?.path && currentPath === matchedItem.path
+              return (
+                <button
+                  key={text}
+                  type="button"
+                  className={`san-menu-link ${isSubActive ? 'is-active-link' : ''}`}
+                  onClick={() => {
+                    clearTimeout(closeTimerRef.current)
+                    setOpenMenu(null)
+                    action()
+                  }}
+                >
+                  <span className="san-menu-link-title">{text}</span>
+                  <span className="san-menu-link-arrow">›</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <>
@@ -1203,34 +1437,33 @@ export default function SuperAdminNavbar({
 .san-secure { margin-top: auto; border-radius: 8px; background: linear-gradient(145deg, #073B3F, #0C4044); border: 1px solid rgba(204,168,129,.32); padding: 24px 20px; color: #FDFDFC; box-shadow: 0 18px 36px rgba(7,59,63,.14); }
 .san-secure strong { display: block; font-size: 16px; margin-bottom: 8px; }
 .san-secure span { display: block; color: #D1DFDE; font-size: 13px; line-height: 1.6; }
-.san-top-shell { position: fixed; top: 0; left: 0; right: 0; z-index: 65; background: rgba(253,253,252,.98); border-bottom: 1px solid rgba(189,207,206,.74); box-shadow: 0 16px 38px rgba(7,59,63,.055); backdrop-filter: blur(16px); }
-.san-top-spacer { height: 104px; }
-@media (max-width: 1500px) { .san-top-spacer { height: 136px; } }
-@media (max-width: 1100px) { .san-top-spacer { height: 82px; } }
-@media (max-width: 640px) { .san-top-spacer { height: 128px; } }
-.san-top-inner { min-height: 104px; display: flex; align-items: center; gap: 12px; padding: 0 14px; flex-wrap: nowrap; }
-.san-navbar-brand { width: auto; min-width: 0; flex-shrink: 0; border: 0; background: transparent; display: flex; align-items: center; gap: 8px; padding: 0 12px 0 0; cursor: pointer; }
-.san-navbar-brand img { width: 54px; height: 54px; object-fit: contain; }
-.san-navbar-brand strong { display: block; font-family: Georgia, 'Times New Roman', serif; font-size: 26px; line-height: .95; font-weight: 850; letter-spacing: .02em; color: #073B3F; }
-.san-navbar-brand small { display: block; margin-top: 5px; color: #BB8958; font-size: 10px; font-weight: 900; letter-spacing: .24em; text-transform: uppercase; }
-.san-search-block { position: relative; width: 250px; flex-shrink: 1; display: flex; align-items: center; padding: 0; margin-right: 10px; transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
-@media (min-width: 1501px) {
-  .san-search-block.is-focused, .san-search-block:focus-within { width: 330px; }
-}
-@media (max-width: 1500px) {
-  .san-search-block { width: 100%; margin: 0; }
-}
-.san-search { height: 46px; width: 100%; border: 1.5px solid rgba(189,207,206,.95); border-radius: 9999px; background: #FFFFFF; color: #073B3F; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 14px; font-size: 14px; font-weight: 600; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(7,59,63,.04); }
-.san-search-block.is-focused .san-search, .san-search:focus-within { border-color: #073B3F; box-shadow: 0 4px 18px rgba(7,59,63,.14); }
-.san-search-icon-wrap { display: flex; align-items: center; color: #7A8987; flex-shrink: 0; }
-.san-search-input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #073B3F; font-size: 14px; font-weight: 600; font-family: inherit; }
-.san-search-input::placeholder { color: #7A8987; font-weight: 500; }
-.san-search-clear-btn { background: transparent; border: 0; color: #7A8987; cursor: pointer; padding: 4px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease; }
-.san-search-clear-btn:hover { background: #E7EDEC; color: #073B3F; }
-.san-search-kbd { font-size: 10px; font-family: inherit; font-weight: 700; background: #F0F4F4; color: #53615F; padding: 3px 6px; border-radius: 6px; border: 1px solid rgba(189,207,206,.8); white-space: nowrap; user-select: none; }
-.san-mic-btn { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid #0C4044; background: transparent; color: #0C4044; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
-.san-mic-btn:hover { background: #0C4044; color: #FFFFFF; transform: scale(1.06); }
-.san-mic-btn.is-listening { background: #C92035; border-color: #C92035; color: #FFFFFF; animation: san-mic-pulse 1.1s ease-in-out infinite; }
+.san-top-shell { position: fixed; top: 0; left: 0; right: 0; z-index: 90; background: rgba(255, 255, 255, 0.98); border-bottom: 1px solid rgba(7, 59, 63, 0.08); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 16px rgba(7, 59, 63, 0.03); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-sizing: border-box; max-width: 100vw; overflow-x: clip; }
+.san-top-spacer { height: 74px; }
+.san-top-inner { height: 74px; display: flex; align-items: center; justify-content: space-between; padding: 0 clamp(10px, 1.4vw, 24px); gap: clamp(6px, 0.8vw, 14px); width: 100%; box-sizing: border-box; max-width: 100%; }
+
+.san-nav-left { display: flex; align-items: center; flex-shrink: 0; min-width: 0; }
+.san-navbar-brand { border: 0; background: transparent; display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; text-decoration: none; transition: opacity 0.15s ease; flex-shrink: 0; }
+.san-navbar-brand:hover { opacity: 0.88; }
+.san-brand-logo-wrap { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 9px; background: rgba(7, 59, 63, 0.04); padding: 3px; flex-shrink: 0; border: 1px solid rgba(187, 137, 88, 0.2); }
+.san-brand-logo-wrap img { width: 100%; height: 100%; object-fit: contain; }
+.san-brand-text { display: flex; flex-direction: column; line-height: 1; text-align: left; }
+.san-brand-title { font-family: Georgia, 'Times New Roman', serif; font-size: clamp(16px, 1.15vw, 19px); font-weight: 850; letter-spacing: 0.03em; color: #073B3F; }
+.san-brand-badge { font-size: 8px; font-weight: 850; letter-spacing: 0.16em; color: #BB8958; margin-top: 3px; text-transform: uppercase; }
+.san-brand-divider { width: 1px; height: 24px; background: rgba(7, 59, 63, 0.1); margin: 0 clamp(6px, 0.8vw, 14px); flex-shrink: 0; }
+
+.san-search-block { position: relative; width: clamp(130px, 10vw, 200px); transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1); flex-shrink: 1; }
+.san-search-block.is-focused, .san-search-block:focus-within { width: clamp(170px, 14vw, 260px); }
+.san-search { height: 38px; width: 100%; border: 1px solid #DFE7E5; border-radius: 10px; background: #F7FAF9; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 11px; font-size: 13px; font-weight: 500; transition: all 0.18s ease; }
+.san-search-block.is-focused .san-search, .san-search:focus-within { border-color: #073B3F; background: #FFFFFF; box-shadow: 0 0 0 3px rgba(7, 59, 63, 0.08); }
+.san-search-icon-wrap { display: flex; align-items: center; color: #718280; flex-shrink: 0; }
+.san-search-input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #073B3F; font-size: 13px; font-weight: 500; font-family: inherit; }
+.san-search-input::placeholder { color: #8C9E9B; font-weight: 450; }
+.san-search-clear-btn { background: transparent; border: 0; color: #8C9E9B; cursor: pointer; padding: 3px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.san-search-clear-btn:hover { background: #E5EBEA; color: #073B3F; }
+.san-search-kbd { font-size: 10px; font-weight: 700; color: #718280; background: #FFFFFF; border: 1px solid #D5E0DD; border-radius: 5px; padding: 2px 5px; letter-spacing: 0.02em; white-space: nowrap; user-select: none; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); }
+.san-mic-btn { flex-shrink: 0; width: 28px; height: 28px; border-radius: 7px; border: 1px solid transparent; background: transparent; color: #556B68; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s ease; }
+.san-mic-btn:hover { background: #EAF0EE; color: #073B3F; }
+.san-mic-btn.is-listening { background: #DC2626; color: #FFFFFF; animation: san-mic-pulse 1.1s ease-in-out infinite; }
 @keyframes san-mic-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(201,32,53,.5); } 50% { box-shadow: 0 0 0 8px rgba(201,32,53,0); } }
 
 /* ── SUGGESTIONS DROPDOWN ── */
@@ -1292,82 +1525,174 @@ export default function SuperAdminNavbar({
 
 .san-voice-status-sub { font-size: 13px; color: #7A8987; font-weight: 700; margin-top: -6px; }
 
-.san-menu-center { flex: 1 1 auto; display: flex; justify-content: center; align-items: center; gap: 4px; }
-.san-menu-group { position: relative; display: flex; }
-.san-menu-trigger { border: 0; background: transparent; min-width: auto; flex-shrink: 0; padding: 6px 11px; color: #073B3F; font-family: inherit; font-size: 12px; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; white-space: nowrap; border-radius: 6px; transition: all 0.15s ease; }
-.san-menu-trigger:hover { background: rgba(7,59,63,0.06); }
-.san-actions-right { display: flex; align-items: center; gap: 14px; margin-left: auto; flex-shrink: 0; }
-.san-bell-btn { position: relative; background: transparent; border: none; cursor: pointer; color: #073B3F; display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 50%; transition: all 0.2s ease; }
-.san-bell-btn:hover { background: rgba(7,59,63,0.06); transform: scale(1.05); }
-.san-bell-badge { position: absolute; top: 0px; right: 0px; background: #C92035; color: #FFFFFF; font-size: 10px; font-weight: 800; width: 17px; height: 17px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid #FFFFFF; box-shadow: 0 2px 4px rgba(201,32,53,0.35); }
-.san-logout-link { display: flex; align-items: center; gap: 6px; background: transparent; border: none; color: #C92035; font-family: inherit; font-size: 12.5px; font-weight: 850; letter-spacing: 0.04em; cursor: pointer; padding: 6px 12px; border-radius: 8px; transition: all 0.2s ease; }
-.san-logout-link:hover { background: rgba(201,32,53,0.08); transform: translateY(-1px); }
-.san-menu-dropdown { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 0; padding: 22px 20px 18px; min-width: 280px; max-width: min(340px, calc(100vw - 24px)); max-height: calc(100vh - 120px); overflow-y: auto; background: #FDFDFC; border: 1.5px solid rgba(189,207,206,.85); box-shadow: 0 24px 60px rgba(7,59,63,.20); border-radius: 14px; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .16s ease, visibility .16s ease; z-index: 200; }
-.san-menu-group.is-open .san-menu-dropdown { opacity: 1; visibility: visible; pointer-events: auto; transform: translateX(-50%); }
-.san-menu-group:first-child .san-menu-dropdown,
-.san-menu-group:first-child.is-open .san-menu-dropdown { left: 0; transform: none; }
-.san-menu-group:last-of-type .san-menu-dropdown,
-.san-menu-group:last-of-type.is-open .san-menu-dropdown { left: auto; right: 0; transform: none; }
-.san-menu-title { display: flex; align-items: center; gap: 10px; font-family: Georgia, 'Times New Roman', serif; font-size: 20px; font-weight: 900; color: #073B3F; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid rgba(189,207,206,0.5); }
-.san-menu-title span { font-size: 22px; color: #BB8958; }
-.san-menu-link { width: 100%; border: 0; background: transparent; padding: 9px 10px; border-radius: 8px; text-align: left; color: #111817; font-size: 13.5px; font-weight: 750; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all 0.15s ease; }
-.san-menu-link:hover { background: rgba(12,64,68,0.06); color: #0C4044; transform: translateX(3px); }
-.san-menu-link b, .san-menu-foot { color: #0C4044; }
-.san-menu-foot { margin-top: 18px; border: 0; background: transparent; font-size: 13px; font-weight: 900; letter-spacing: .02em; cursor: pointer; }
-.san-mobile-logo { display: none; }
-.san-mobile-logo img { width: 46px; height: 46px; }
-.san-mobile-logo strong { font-family: Georgia, 'Times New Roman', serif; color: #073B3F; font-size: 25px; line-height: 1; }
-.san-mobile-logo small { display: block; color: #BB8958; font-size: 9px; font-weight: 900; letter-spacing: .2em; }
-.san-hamburger { display: flex; background: transparent; border: none; color: #0C4044; padding: 8px; cursor: pointer; align-items: center; justify-content: center; flex-shrink: 0; }
-.san-hamburger:hover { color: #073B3F; }
-.san-drawer-overlay { position: fixed; inset: 0; background: rgba(17,24,23,.55); backdrop-filter: blur(4px); z-index: 1400; }
-.san-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 300px; max-width: 88vw; background: #FDFDFC; z-index: 1401; box-shadow: -18px 0 48px rgba(7,59,63,.22); display: flex; flex-direction: column; padding: 20px 16px; gap: 6px; animation: sanSlideIn .25s ease-out; }
-@keyframes sanSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-.san-drawer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-bottom: 14px; border-bottom: 1px solid rgba(189,207,206,.7); }
-.san-drawer-title { font-family: Georgia, 'Times New Roman', serif; font-size: 17px; font-weight: 800; color: #073B3F; }
-.san-drawer-close { background: transparent; border: none; color: #0C4044; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 4px; }
-.san-drawer-link { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; border: none; background: transparent; color: #073B3F; font-size: 13.5px; font-weight: 800; cursor: pointer; text-align: left; width: 100%; transition: background 0.15s ease; }
-.san-drawer-link:hover, .san-drawer-link:active { background: rgba(12,64,68,0.06); color: #0C4044; }
-.san-drawer-link.logout { color: #C92035; }
-.san-drawer-groups { flex: 1; overflow-y: auto; padding-right: 4px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
-.san-drawer-group { padding: 12px 0; border-bottom: 1px solid rgba(189,207,206,.6); }
-.san-drawer-group strong { display: block; padding: 0 12px 6px; color: #A2764C; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; font-weight: 900; }
+.san-menu-center { display: flex; align-items: center; justify-content: center; gap: clamp(3px, 0.45vw, 8px); flex: 1 1 auto; min-width: 0; }
+.san-menu-group { position: relative; display: flex; align-items: center; flex-shrink: 0; }
+.san-menu-trigger { border: 1px solid transparent; background: transparent; padding: 6px clamp(5px, 0.45vw, 10px); border-radius: 9px; color: #263836; font-family: inherit; font-size: clamp(12px, 0.78vw, 13.5px); font-weight: 600; display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1); user-select: none; }
+.san-menu-trigger:hover { background: rgba(7, 59, 63, 0.05); color: #073B3F; border-color: rgba(7, 59, 63, 0.08); }
+.san-menu-trigger.is-active, .san-menu-group.has-active-child .san-menu-trigger { background: rgba(12, 64, 68, 0.07); color: #073B3F; font-weight: 750; border-color: rgba(187, 137, 88, 0.35); }
+.san-menu-group.is-open .san-menu-trigger { background: #073B3F; color: #FFFFFF; border-color: #073B3F; box-shadow: 0 4px 14px rgba(7, 59, 63, 0.15); }
+.san-menu-group.is-open .san-menu-trigger .san-menu-trigger-icon, .san-menu-group.is-open .san-menu-trigger .san-menu-trigger-chevron { color: #E5BF91; }
+.san-menu-trigger-icon { display: flex; align-items: center; color: #0C4044; opacity: 0.85; transition: color 0.15s ease; }
+.san-menu-trigger:hover .san-menu-trigger-icon { color: #073B3F; opacity: 1; }
+.san-menu-trigger-text { font-size: inherit; font-weight: inherit; color: inherit; letter-spacing: -0.01em; }
+.san-menu-trigger-chevron { display: flex; align-items: center; color: #8C9E9B; transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s ease; }
+.san-menu-trigger:hover .san-menu-trigger-chevron { color: #073B3F; }
+.san-menu-trigger-chevron.is-rotated { transform: rotate(180deg); }
 
-@media (max-width: 1500px) {
-  .san-top-inner { min-height: 136px; display: grid; grid-template-columns: auto minmax(220px,340px) 1fr auto; grid-template-rows: 74px 48px; column-gap: 18px; padding: 0 30px 12px; }
-  .san-navbar-brand { grid-column: 1; grid-row: 1; }
-  .san-search-block { grid-column: 2; grid-row: 1; width: 100%; margin: 0; padding: 0; }
-  .san-menu-center { grid-column: 1 / -1; grid-row: 2; width: 100%; height: 48px; justify-content: space-between; border-top: 1px solid rgba(189,207,206,.58); }
-  .san-menu-trigger { height: 100%; padding: 0 clamp(8px,1.2vw,18px); font-size: 12px; }
-  .san-hamburger { grid-column: 4; grid-row: 1; width: 42px; height: 42px; border: 1px solid rgba(189,207,206,.8); border-radius: 12px; background: #F7F9F8; }
+/* ── PREMIUM SAAS POPUP DROPDOWN ── */
+.san-menu-dropdown { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%) translateY(4px); min-width: 230px; max-width: 300px; background: #FFFFFF; border: 1.5px solid rgba(7, 59, 63, 0.1); border-radius: 12px; box-shadow: 0 16px 38px rgba(7, 59, 63, 0.12), 0 4px 12px rgba(0, 0, 0, 0.04); padding: 6px; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.16s ease; z-index: 1000; }
+.san-menu-group.is-open .san-menu-dropdown { opacity: 1; visibility: visible; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+.san-menu-group:first-child .san-menu-dropdown { left: 0; transform: translateY(4px); }
+.san-menu-group:first-child.is-open .san-menu-dropdown { transform: translateY(0); }
+.san-menu-group:last-of-type .san-menu-dropdown { left: auto; right: 0; transform: translateY(4px); }
+.san-menu-group:last-of-type.is-open .san-menu-dropdown { transform: translateY(0); }
+.san-menu-dropdown-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px 8px; border-bottom: 1px solid rgba(7, 59, 63, 0.06); margin-bottom: 4px; }
+.san-menu-dropdown-tag { font-size: 11px; font-weight: 750; color: #073B3F; letter-spacing: 0.03em; text-transform: uppercase; }
+.san-menu-dropdown-count { font-size: 10px; font-weight: 600; color: #8C9E9B; }
+.san-menu-dropdown-list { display: flex; flex-direction: column; gap: 2px; }
+.san-menu-link { width: 100%; border: 0; background: transparent; padding: 8px 10px; border-radius: 8px; text-align: left; color: #273735; font-size: 13px; font-weight: 600; font-family: inherit; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all 0.14s ease; }
+.san-menu-link:hover { background: #F2F7F6; color: #073B3F; transform: translateX(2px); }
+.san-menu-link.is-active-link { background: #EAF7EE; color: #00874E; font-weight: 700; }
+.san-menu-link-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.san-menu-link-arrow { color: #8C9E9B; font-size: 14px; line-height: 1; transition: transform 0.14s ease; }
+.san-menu-link:hover .san-menu-link-arrow { color: #073B3F; transform: translateX(2px); }
+.san-menu-link.is-active-link .san-menu-link-arrow { color: #00874E; }
+.san-mobile-logo { display: none !important; }
+
+/* ── RIGHT UTILITY CONTROLS ── */
+.san-actions-right { display: flex; align-items: center; gap: clamp(6px, 0.6vw, 10px); flex-shrink: 0; }
+.san-bell-btn { position: relative; width: 38px; height: 38px; border-radius: 10px; border: 1px solid rgba(7, 59, 63, 0.12); background: #FFFFFF; color: #073B3F; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.16s ease; flex-shrink: 0; }
+.san-bell-btn:hover { background: rgba(7, 59, 63, 0.05); border-color: rgba(7, 59, 63, 0.24); color: #073B3F; transform: translateY(-1px); }
+.san-bell-badge { position: absolute; top: -3px; right: -3px; background: #DC2626; color: #FFFFFF; font-size: 10px; font-weight: 800; min-width: 17px; height: 17px; border-radius: 9px; padding: 0 4px; display: flex; align-items: center; justify-content: center; border: 2px solid #FFFFFF; box-shadow: 0 2px 6px rgba(220, 38, 38, 0.35); animation: sanBadgePop 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes sanBadgePop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.san-util-divider { width: 1px; height: 22px; background: rgba(7, 59, 63, 0.12); margin: 0 2px; flex-shrink: 0; }
+.san-logout-link { display: flex; align-items: center; gap: 6px; background: rgba(220, 38, 38, 0.04); border: 1px solid rgba(220, 38, 38, 0.16); color: #DC2626; font-family: inherit; font-size: 12.5px; font-weight: 750; letter-spacing: 0.01em; cursor: pointer; padding: 7px 12px; border-radius: 9px; transition: all 0.16s ease; flex-shrink: 0; white-space: nowrap; }
+.san-logout-link:hover { background: rgba(220, 38, 38, 0.09); border-color: rgba(220, 38, 38, 0.3); color: #B91C1C; transform: translateY(-1px); }
+.san-hamburger { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 10px; border: 1px solid rgba(7, 59, 63, 0.14); background: #FFFFFF; color: #073B3F; cursor: pointer; transition: all 0.16s ease; flex-shrink: 0; }
+.san-hamburger:hover { background: #073B3F; color: #FFFFFF; border-color: #073B3F; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(7, 59, 63, 0.18); }
+.san-drawer-overlay { position: fixed; inset: 0; background: rgba(17,24,23,0.42); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 1400; animation: sanDrawerFade .2s ease-out; }
+@keyframes sanDrawerFade { from { opacity: 0; } to { opacity: 1; } }
+
+.san-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 350px; max-width: 90vw; background: #FFFFFF; z-index: 1401; box-shadow: -14px 0 45px rgba(7,59,63,0.16); border-left: 1px solid rgba(7,59,63,0.08); display: flex; flex-direction: column; animation: sanDrawerSlide .28s cubic-bezier(0.16, 1, 0.3, 1) forwards; user-select: none; }
+@keyframes sanDrawerSlide { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+.san-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 14px 20px; border-bottom: 1px solid rgba(189,207,206,0.28); flex-shrink: 0; }
+.san-drawer-title { font-family: inherit; font-size: 17px; font-weight: 800; color: #073B3F; letter-spacing: -0.01em; }
+.san-drawer-close { background: transparent; border: none; color: #4A5E5B; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; transition: all 0.15s ease; }
+.san-drawer-close:hover { background: #F0F4F3; color: #073B3F; }
+
+.san-drawer-profile { display: flex; align-items: center; gap: 12px; padding: 14px 20px 14px 20px; flex-shrink: 0; }
+.san-drawer-avatar { width: 44px; height: 44px; border-radius: 50%; background: #073B3F; border: 1.5px solid rgba(187,137,88,0.55); display: flex; align-items: center; justify-content: center; color: #E5BF91; flex-shrink: 0; box-shadow: 0 4px 12px rgba(7,59,63,0.18); }
+.san-drawer-user-info { display: flex; flex-direction: column; gap: 1.5px; min-width: 0; }
+.san-drawer-user-name { font-size: 14.5px; font-weight: 800; color: #111817; letter-spacing: -0.01em; }
+.san-drawer-user-email { font-size: 11.5px; color: #718280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.san-drawer-status { display: inline-flex; align-items: center; gap: 5.5px; font-size: 11px; font-weight: 700; color: #059669; margin-top: 1px; }
+.san-drawer-status-dot { width: 7px; height: 7px; border-radius: 50%; background: #10B981; box-shadow: 0 0 0 2px rgba(16,185,129,0.2); display: inline-block; animation: sanPulseDot 2s infinite; }
+@keyframes sanPulseDot { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.5); } 70% { box-shadow: 0 0 0 5px rgba(16,185,129,0); } 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); } }
+
+.san-drawer-search-wrap { padding: 0 20px 12px 20px; flex-shrink: 0; }
+.san-drawer-search-box { display: flex; align-items: center; gap: 9px; background: #F4F7F6; border: 1px solid #E1E8E6; border-radius: 11px; padding: 7px 12px; transition: all 0.18s ease; }
+.san-drawer-search-box:focus-within { border-color: #073B3F; background: #FFFFFF; box-shadow: 0 0 0 3px rgba(7,59,63,0.08); }
+.san-drawer-search-box svg { color: #8A9E9C; flex-shrink: 0; }
+.san-drawer-search-box input { border: none; background: transparent; outline: none; font-size: 13.5px; color: #111817; width: 100%; font-family: inherit; }
+.san-drawer-search-box input::placeholder { color: #8C9E9B; font-size: 13px; }
+.san-drawer-search-clear { background: transparent; border: none; color: #8C9E9B; cursor: pointer; padding: 2px; display: flex; align-items: center; }
+.san-drawer-search-clear:hover { color: #111817; }
+
+.san-drawer-body { flex: 1; overflow-y: auto; padding: 4px 14px 20px 14px; overscroll-behavior: contain; }
+.san-drawer-body::-webkit-scrollbar { width: 5px; }
+.san-drawer-body::-webkit-scrollbar-track { background: transparent; }
+.san-drawer-body::-webkit-scrollbar-thumb { background: #D5DFDC; border-radius: 10px; }
+.san-drawer-body::-webkit-scrollbar-thumb:hover { background: #AABBB6; }
+
+.san-section-header { font-size: 10.5px; font-weight: 800; letter-spacing: 0.1em; color: #C29358; text-transform: uppercase; padding: 14px 10px 6px 10px; display: flex; align-items: center; gap: 5px; }
+.san-section-header::before { content: "—"; font-weight: 700; color: #C29358; margin-right: 2px; }
+
+.san-drawer-item { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 8.5px 12px; border-radius: 10px; border: none; background: transparent; color: #1F2E2C; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; margin-bottom: 2px; text-align: left; }
+.san-drawer-item:hover { background: #F4F7F6; color: #073B3F; }
+.san-drawer-item.is-active { background: #EAF8F0; color: #00874E; font-weight: 750; }
+.san-drawer-item.is-active .san-drawer-item-icon { color: #00874E; }
+.san-drawer-item.has-active-child { color: #073B3F; font-weight: 700; }
+.san-drawer-item-left { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.san-drawer-item-icon { color: #5A706D; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: color 0.15s ease; }
+.san-drawer-item:hover .san-drawer-item-icon { color: #073B3F; }
+.san-drawer-item-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.san-drawer-chevron { color: #8E9E9C; display: flex; align-items: center; justify-content: center; transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1); font-size: 14px; font-weight: bold; }
+.san-drawer-chevron.is-expanded { transform: rotate(90deg); color: #073B3F; }
+
+.san-drawer-submenu { margin-left: 20px; padding-left: 14px; border-left: 1.5px solid #E2EAE8; margin-top: 2px; margin-bottom: 6px; display: flex; flex-direction: column; gap: 1px; animation: sanDrawerFade .15s ease; }
+.san-drawer-subitem { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border-radius: 8px; border: none; background: transparent; color: #4B605D; font-size: 12.5px; font-weight: 550; cursor: pointer; text-align: left; transition: all 0.14s ease; }
+.san-drawer-subitem:hover { background: #F4F7F6; color: #073B3F; padding-left: 13px; }
+.san-drawer-subitem.is-active { background: #EAF8F0; color: #00874E; font-weight: 750; }
+
+.san-drawer-qa-item { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 10px; border: none; background: transparent; color: #1F2E2C; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; margin-bottom: 3px; }
+.san-drawer-qa-item:hover { background: #F4F7F6; transform: translateX(2px); }
+.san-drawer-badge-icon { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+.san-drawer-search-results { display: flex; flex-direction: column; gap: 2px; }
+.san-drawer-search-count { font-size: 11px; font-weight: 750; color: #718280; padding: 6px 12px 10px 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+.san-drawer-item-texts { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.san-drawer-item-section-tag { font-size: 10px; color: #BB8958; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.san-drawer-empty-search { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 36px 16px; color: #8A9E9C; text-align: center; gap: 8px; }
+.san-drawer-empty-search p { margin: 0; font-size: 13px; font-weight: 550; color: #718280; }
+
+.san-drawer-logout { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; border: none; background: transparent; color: #DC2626; font-size: 13.5px; font-weight: 750; cursor: pointer; transition: all 0.15s ease; margin-top: 4px; }
+.san-drawer-logout:hover { background: rgba(220, 38, 38, 0.08); transform: translateX(2px); }
+
+@media (max-width: 1600px) {
+  .san-top-inner { padding: 0 14px; gap: 8px; }
+  .san-search-block { width: 160px; }
+  .san-search-block.is-focused { width: 220px; }
+  .san-menu-trigger { padding: 6px clamp(4px, 0.35vw, 7px); font-size: 12.5px; gap: 4px; }
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1366px) {
+  .san-top-inner { padding: 0 10px; gap: 6px; }
+  .san-brand-badge { display: none; }
+  .san-brand-divider { margin: 0 6px; }
+  .san-search-block { width: 135px; }
+  .san-search-block.is-focused { width: 180px; }
+  .san-search-kbd { display: none; }
+  .san-menu-trigger { padding: 5px 5px; font-size: 11.5px; gap: 3px; }
+  .san-logout-link span { display: none; }
+  .san-logout-link { padding: 7px; }
+}
+
+@media (max-width: 1260px) {
+  .san-menu-trigger-icon { display: none; }
+}
+
+@media (max-width: 1180px) {
   .san-sidebar { position: relative; width: 100%; min-height: 0; padding: 14px 16px; border-right: 0; border-bottom: 1px solid rgba(189,207,206,.72); }
   .san-brand { padding-bottom: 14px; }
   .san-side-nav { flex-direction: row; overflow-x: auto; margin-top: 12px; padding-bottom: 3px; }
   .san-side-link { height: 42px; flex: 0 0 auto; padding: 0 14px; }
   .san-quick, .san-secure { display: none; }
   .san-top-shell { margin-left: 0 !important; }
-  .san-top-inner { min-height: 82px; display: grid; grid-template-columns: auto minmax(180px,1fr) auto; grid-template-rows: 1fr; gap: 14px; padding: 0 20px; }
-  .san-navbar-brand { grid-column: 1; grid-row: 1; }
-  .san-navbar-brand img { width: 46px; height: 46px; }
-  .san-navbar-brand strong { font-size: 23px; }
-  .san-search-block { grid-column: 2; grid-row: 1; width: 100%; padding: 0; margin: 0; }
-  .san-menu-center { display: none; }
-  .san-hamburger { grid-column: 3; grid-row: 1; }
-  .san-mobile-logo { display: none !important; }
+  .san-menu-center { display: none !important; }
+  .san-search-block { width: 220px; }
+  .san-search-block.is-focused { width: 280px; }
 }
 
-@media (max-width: 640px) {
-  .san-top-inner { min-height: 128px; grid-template-columns: 1fr auto; grid-template-rows: 64px 52px; gap: 0 12px; padding: 0 14px 10px; }
-  .san-navbar-brand { grid-column: 1; grid-row: 1; }
-  .san-navbar-brand img { width: 40px; height: 40px; }
-  .san-navbar-brand strong { font-size: 21px; }
-  .san-navbar-brand small { font-size: 8px; }
-  .san-hamburger { grid-column: 2; grid-row: 1; }
-  .san-search-block { grid-column: 1 / -1; grid-row: 2; }
-  .san-search { height: 46px; }
+@media (max-width: 768px) {
+  .san-top-shell { height: 68px; }
+  .san-top-spacer { height: 68px; }
+  .san-top-inner { height: 68px; padding: 0 14px; gap: 10px; }
+  .san-brand-divider { display: none; }
+  .san-search-kbd { display: none; }
+  .san-search-block { width: 170px; }
+  .san-search-block.is-focused { width: 210px; }
+  .san-logout-link span { display: none; }
+  .san-logout-link { padding: 7px; }
+}
+
+@media (max-width: 520px) {
+  .san-brand-badge { display: none; }
+  .san-brand-title { font-size: 15px; }
+  .san-search-block { flex: 1; min-width: 0; width: auto; }
+  .san-search-block.is-focused { width: auto; }
+  .san-actions-right { gap: 6px; }
+  .san-util-divider { display: none; }
 }
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 @keyframes skelShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
@@ -1396,51 +1721,62 @@ export default function SuperAdminNavbar({
           </aside>
         )}
         <header className="san-top-shell" style={{ marginLeft: showSidebar ? 286 : 0 }}>
-          <div className="san-mobile-logo" onClick={() => navigate('/super-admin')}><img src={logo} alt="Athirai" /><div><strong>ATHIRAI</strong><small>SUPER ADMIN</small></div></div>
           <div className="san-top-inner">
-            <button className="san-navbar-brand" type="button" onClick={() => navigate('/super-admin')} title="Go to dashboard"><img src={logo} alt="Athirai" /><span><strong>ATHIRAI</strong><small>SUPER ADMIN</small></span></button>
-            <div
-              className={`san-search-block ${isSearchFocused || showSuggestions ? 'is-focused' : ''}`}
-              ref={searchContainerRef}
-            >
-              <div className="san-search">
-                <span className="san-search-icon-wrap">
-                  <Icon name="search" size={17} />
-                </span>
-                <input
-                  ref={searchInputRef}
-                  value={voiceQuery}
-                  onChange={handleInputChange}
-                  onFocus={handleInputFocus}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Search or speak..."
-                  aria-label="Voice or text search"
-                  className="san-search-input"
-                  autoComplete="off"
-                  spellCheck="false"
-                />
-                {voiceQuery && (
+            <div className="san-nav-left">
+              <button className="san-navbar-brand" type="button" onClick={() => navigate('/super-admin')} title="Go to dashboard">
+                <div className="san-brand-logo-wrap">
+                  <img src={logo} alt="Athirai" />
+                </div>
+                <div className="san-brand-text">
+                  <span className="san-brand-title">ATHIRAI</span>
+                  <span className="san-brand-badge">SUPER ADMIN</span>
+                </div>
+              </button>
+
+              <div className="san-brand-divider" />
+
+              <div
+                className={`san-search-block ${isSearchFocused || showSuggestions ? 'is-focused' : ''}`}
+                ref={searchContainerRef}
+              >
+                <div className="san-search">
+                  <span className="san-search-icon-wrap">
+                    <Icon name="search" size={15} />
+                  </span>
+                  <input
+                    ref={searchInputRef}
+                    value={voiceQuery}
+                    onChange={handleInputChange}
+                    onFocus={handleInputFocus}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Search anything..."
+                    aria-label="Global search"
+                    className="san-search-input"
+                    autoComplete="off"
+                    spellCheck="false"
+                  />
+                  {voiceQuery && (
+                    <button
+                      type="button"
+                      className="san-search-clear-btn"
+                      onClick={handleClearSearch}
+                      title="Clear search input"
+                      aria-label="Clear search"
+                    >
+                      <Icon name="close" size={13} />
+                    </button>
+                  )}
+
                   <button
                     type="button"
-                    className="san-search-clear-btn"
-                    onClick={handleClearSearch}
-                    title="Clear search input"
-                    aria-label="Clear search"
+                    className={`san-mic-btn ${isListening ? 'is-listening' : ''}`}
+                    onClick={startVoiceModal}
+                    title="Search with Voice"
+                    aria-label="Voice search"
                   >
-                    <Icon name="close" size={13} />
+                    <Icon name="mic" size={15} />
                   </button>
-                )}
-
-                <button
-                  type="button"
-                  className={`san-mic-btn ${isListening ? 'is-listening' : ''}`}
-                  onClick={startVoiceModal}
-                  title="Search with Voice (Google & YouTube style)"
-                  aria-label="Voice search"
-                >
-                  <Icon name="mic" size={16} />
-                </button>
-              </div>
+                </div>
 
               {/* ── GOOGLE / YOUTUBE STYLE AUTOCOMPLETE SUGGESTIONS ── */}
               {showSuggestions && (
@@ -1568,36 +1904,43 @@ export default function SuperAdminNavbar({
                 </div>
               )}
             </div>
-            <div className="san-menu-center">
-              <MenuGroup label="Management" items={management} />
-              <MenuGroup label="Announcements" items={announcements} />
-              <MenuGroup label="Coins" items={coins} />
-              <MenuGroup label="Reports" items={reports} />
-              <MenuGroup label="Promotion" items={promotion} />
-              <MenuGroup label="Payment" items={payment} />
-              <MenuGroup label="Inventory" items={inventory} />
-            </div>
+          </div>
 
-            <div className="san-actions-right">
-              <button
-                className="san-bell-btn"
-                type="button"
-                title="Notifications"
-                onClick={() => { setShowRequests(true); setRequestMsg(''); fetchProfileRequests() }}
-              >
-                <Icon name="bell" size={19} />
-                <span className="san-bell-badge">{profileRequests.length > 0 ? profileRequests.length : 3}</span>
-              </button>
+          <div className="san-menu-center">
+            <MenuGroup label="Management" items={management} />
+            <MenuGroup label="Announcements" items={announcements} />
+            <MenuGroup label="Users" items={usersMenu} />
+            <MenuGroup label="Coins" items={coins} />
+            <MenuGroup label="Reports" items={reports} />
+            <MenuGroup label="Promotion" items={promotion} />
+            <MenuGroup label="Payment" items={payment} />
+            <MenuGroup label="Inventory" items={inventory} />
+          </div>
 
-              <button className="san-logout-link" type="button" onClick={logout} title="Sign Out">
-                <Icon name="logout" size={15} />
-                <span>LOGOUT</span>
-              </button>
+          <div className="san-actions-right">
+            <button
+              className="san-bell-btn"
+              type="button"
+              title="Notifications"
+              onClick={() => { setShowRequests(true); setRequestMsg(''); fetchProfileRequests() }}
+            >
+              <Icon name="bell" size={18} />
+              {profileRequests.length > 0 && (
+                <span className="san-bell-badge">{profileRequests.length}</span>
+              )}
+            </button>
 
-              <button className="san-hamburger" type="button" onClick={() => setShowMobileDrawer(true)} aria-label="Open menu">
-                <Icon name="menu" size={22} />
-              </button>
-            </div>
+            <div className="san-util-divider" />
+
+            <button className="san-logout-link" type="button" onClick={logout} title="Sign Out">
+              <Icon name="logout" size={15} />
+              <span>Logout</span>
+            </button>
+
+            <button className="san-hamburger" type="button" onClick={() => setShowMobileDrawer(true)} aria-label="Open command menu" title="Command Menu">
+              <Icon name="menu" size={19} />
+            </button>
+          </div>
           </div>
         </header>
         <div className="san-top-spacer" />
@@ -2412,38 +2755,430 @@ export default function SuperAdminNavbar({
         </div>
       )}
 
-      {/* ── MOBILE HAMBURGER DRAWER ── */}
+      {/* ── SUPER ADMIN COMMAND MENU (SLIDE-OUT PANEL) ── */}
       {showMobileDrawer && (
         <>
           <div className="san-drawer-overlay" onClick={() => setShowMobileDrawer(false)} />
           <div className="san-drawer">
+            {/* HEADER */}
             <div className="san-drawer-head">
-              <span className="san-drawer-title">Command Menu</span>
-              <button className="san-drawer-close" onClick={() => setShowMobileDrawer(false)} aria-label="Close menu">
-                <Icon name="close" size={20} />
+              <span className="san-drawer-title">Super Admin Menu</span>
+              <button
+                className="san-drawer-close"
+                onClick={() => setShowMobileDrawer(false)}
+                aria-label="Close menu"
+              >
+                <Icon name="close" size={17} />
               </button>
             </div>
-            <div className="san-drawer-groups">
-              {mobileMenuGroups.map(([label, items]) => (
-                <section className="san-drawer-group" key={label}>
-                  <strong>{label}</strong>
-                  {items.map(([text, action]) => (
-                    <button className="san-drawer-link" type="button" key={text} onClick={() => { setShowMobileDrawer(false); action() }}>
-                      <span>{text}</span><span>↗</span>
+
+            {/* PROFILE SECTION */}
+            <div className="san-drawer-profile">
+              <div className="san-drawer-avatar">
+                <Icon name="crown" size={21} />
+              </div>
+              <div className="san-drawer-user-info">
+                <span className="san-drawer-user-name">Super Admin</span>
+                <span className="san-drawer-user-email">{adminEmail}</span>
+                <span className="san-drawer-status">
+                  <span className="san-drawer-status-dot" /> Online
+                </span>
+              </div>
+            </div>
+
+            {/* SEARCH INPUT */}
+            <div className="san-drawer-search-wrap">
+              <div className="san-drawer-search-box">
+                <Icon name="search" size={15} />
+                <input
+                  type="text"
+                  placeholder="Search menu..."
+                  value={menuSearch}
+                  onChange={(e) => setMenuSearch(e.target.value)}
+                />
+                {menuSearch && (
+                  <button
+                    type="button"
+                    className="san-drawer-search-clear"
+                    onClick={() => setMenuSearch('')}
+                    aria-label="Clear search"
+                  >
+                    <Icon name="close" size={13} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* SCROLLABLE BODY */}
+            <div className="san-drawer-body">
+              {menuSearch.trim() ? (
+                /* SEARCH FILTERED RESULTS */
+                <div className="san-drawer-search-results">
+                  <div className="san-drawer-search-count">
+                    {filteredMenuItems.length} {filteredMenuItems.length === 1 ? 'result' : 'results'} found
+                  </div>
+                  {filteredMenuItems.length > 0 ? (
+                    filteredMenuItems.map((item, idx) => {
+                      const isActive = item.path && currentPath === item.path
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          className={`san-drawer-item ${isActive ? 'is-active' : ''}`}
+                          onClick={() => {
+                            setShowMobileDrawer(false)
+                            setMenuSearch('')
+                            item.action()
+                          }}
+                        >
+                          <div className="san-drawer-item-left">
+                            <span className="san-drawer-item-icon">
+                              <Icon name={item.icon || 'arrowRight'} size={16} />
+                            </span>
+                            <div className="san-drawer-item-texts">
+                              <span className="san-drawer-item-title">{item.title}</span>
+                              <span className="san-drawer-item-section-tag">{item.section}</span>
+                            </div>
+                          </div>
+                          <span className="san-drawer-chevron">›</span>
+                        </button>
+                      )
+                    })
+                  ) : (
+                    <div className="san-drawer-empty-search">
+                      <Icon name="search" size={24} />
+                      <p>No menu items matching "{menuSearch}"</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* REGULAR COLLAPSIBLE MENU SECTIONS */
+                <>
+                  {/* MAIN SECTION */}
+                  <div className="san-section-header">MAIN</div>
+                  
+                  {/* Dashboard Item */}
+                  <button
+                    type="button"
+                    className={`san-drawer-item ${(currentPath === '/super-admin' || currentPath === '/') ? 'is-active' : ''}`}
+                    onClick={() => {
+                      setShowMobileDrawer(false)
+                      navigate('/super-admin')
+                    }}
+                  >
+                    <div className="san-drawer-item-left">
+                      <span className="san-drawer-item-icon">
+                        <Icon name="home" size={17} />
+                      </span>
+                      <span className="san-drawer-item-title">Dashboard</span>
+                    </div>
+                  </button>
+
+                  {/* Collapsible Groups */}
+                  {drawerMainGroups.map((group) => {
+                    const isExpanded = !!expandedSections[group.label]
+                    const hasActiveChild = group.items.some(it => it.path && currentPath === it.path)
+
+                    return (
+                      <div key={group.label} className="san-drawer-group-wrap">
+                        <button
+                          type="button"
+                          className={`san-drawer-item ${hasActiveChild ? 'has-active-child' : ''}`}
+                          onClick={() => toggleSection(group.label)}
+                        >
+                          <div className="san-drawer-item-left">
+                            <span className="san-drawer-item-icon">
+                              <Icon name={group.icon} size={17} />
+                            </span>
+                            <span className="san-drawer-item-title">{group.label}</span>
+                          </div>
+                          <span className={`san-drawer-chevron ${isExpanded ? 'is-expanded' : ''}`}>›</span>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="san-drawer-submenu">
+                            {group.items.map((sub, sIdx) => {
+                              const isSubActive = sub.path && currentPath === sub.path
+                              return (
+                                <button
+                                  key={sIdx}
+                                  type="button"
+                                  className={`san-drawer-subitem ${isSubActive ? 'is-active' : ''}`}
+                                  onClick={() => {
+                                    setShowMobileDrawer(false)
+                                    sub.action()
+                                  }}
+                                >
+                                  <span>{sub.label}</span>
+                                  {isSubActive && <Icon name="check" size={13} />}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+
+                  {/* QUICK ACCESS SECTION */}
+                  <div className="san-section-header">QUICK ACCESS</div>
+                  {drawerQuickAccess.map((qa, qIdx) => (
+                    <button
+                      key={qIdx}
+                      type="button"
+                      className="san-drawer-qa-item"
+                      onClick={() => {
+                        setShowMobileDrawer(false)
+                        qa.action()
+                      }}
+                    >
+                      <div className="san-drawer-item-left">
+                        <span className="san-drawer-badge-icon" style={{ background: qa.bg, color: qa.color }}>
+                          <Icon name={qa.icon} size={16} />
+                        </span>
+                        <span className="san-drawer-item-title">{qa.label}</span>
+                      </div>
+                      <span className="san-drawer-chevron">›</span>
                     </button>
                   ))}
-                </section>
-              ))}
-              <section className="san-drawer-group">
-                <strong>Inventory</strong>
-                <button className="san-drawer-link" type="button" onClick={() => { setShowMobileDrawer(false); navigate('/sold-out-products') }}><span>Stock</span><span>↗</span></button>
-              </section>
+
+                  {/* SUPPORT SECTION */}
+                  <div className="san-section-header">SUPPORT</div>
+                  <button
+                    type="button"
+                    className="san-drawer-item"
+                    onClick={() => {
+                      setShowMobileDrawer(false)
+                      setShowSupportModal(true)
+                    }}
+                  >
+                    <div className="san-drawer-item-left">
+                      <span className="san-drawer-item-icon">
+                        <Icon name="help" size={17} />
+                      </span>
+                      <span className="san-drawer-item-title">Help & Support</span>
+                    </div>
+                    <span className="san-drawer-chevron">›</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="san-drawer-logout"
+                    onClick={() => {
+                      setShowMobileDrawer(false)
+                      logout()
+                    }}
+                  >
+                    <Icon name="logout" size={18} />
+                    <span>Logout</span>
+                  </button>
+                </>
+              )}
             </div>
-            <button className="san-drawer-link logout" onClick={() => { setShowMobileDrawer(false); logout() }}>
-              <Icon name="logout" size={18} />Logout
-            </button>
           </div>
         </>
+      )}
+
+      {/* ── ATHIRAI HELP & SUPPORT MODAL ── */}
+      {showSupportModal && (
+        <div
+          onClick={() => setShowSupportModal(false)}
+          style={{
+            position: 'fixed', inset: 0,
+            background: 'rgba(17,24,23,0.45)',
+            backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)',
+            zIndex: 1600,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#FFFFFF',
+              borderRadius: '20px',
+              maxWidth: '440px',
+              width: '100%',
+              padding: '24px 26px',
+              boxShadow: '0 24px 60px rgba(7,59,63,0.22)',
+              border: '1px solid rgba(189,207,206,0.5)',
+              position: 'relative',
+              animation: 'sanAlertSlideUp 0.22s ease-out'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#EAF7EE', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="help" size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: '#073B3F' }}>Help & Support</h3>
+                  <small style={{ color: '#718280', fontSize: '12px' }}>Athirai Super Admin Desk</small>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSupportModal(false)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#718280', padding: '4px' }}
+              >
+                <Icon name="close" size={18} />
+              </button>
+            </div>
+
+            <div style={{ background: '#F8FAF9', borderRadius: '12px', padding: '14px 16px', marginBottom: '16px', border: '1px solid #E5EBEA', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                <span style={{ color: '#718280' }}>Priority Support:</span>
+                <strong style={{ color: '#073B3F' }}>support@athirai.com</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                <span style={{ color: '#718280' }}>Direct Helpline:</span>
+                <strong style={{ color: '#073B3F' }}>+91 98765 43210</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                <span style={{ color: '#718280' }}>Availability:</span>
+                <span style={{ color: '#059669', fontWeight: 700 }}>24/7 Dedicated Support</span>
+              </div>
+            </div>
+
+            <p style={{ margin: '0 0 18px 0', fontSize: '12.5px', color: '#556B68', lineHeight: 1.5 }}>
+              Need assistance with Super Admin privileges, user commissions, rate locks, or technical issues? Contact the Athirai support team anytime.
+            </p>
+
+            <button
+              onClick={() => setShowSupportModal(false)}
+              style={{
+                width: '100%',
+                padding: '11px',
+                background: '#073B3F',
+                border: 'none',
+                borderRadius: '10px',
+                color: '#FFFFFF',
+                fontWeight: 700,
+                fontSize: '13.5px',
+                cursor: 'pointer',
+                transition: 'background 0.15s ease'
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── ATHIRAI PROMOTIONS SELECTOR MODAL ── */}
+      {showPromotionModal && (
+        <div
+          onClick={() => setShowPromotionModal(false)}
+          style={{
+            position: 'fixed', inset: 0,
+            background: 'rgba(17,24,23,0.45)',
+            backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)',
+            zIndex: 1600,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#FFFFFF',
+              borderRadius: '22px',
+              maxWidth: '520px',
+              width: '100%',
+              padding: '26px 28px',
+              boxShadow: '0 24px 60px rgba(7,59,63,0.22)',
+              border: '1px solid rgba(189,207,206,0.5)',
+              position: 'relative',
+              animation: 'sanAlertSlideUp 0.22s ease-out'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#FEF3E7', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="tag" size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#073B3F' }}>Promotions Management</h3>
+                  <small style={{ color: '#718280', fontSize: '12px' }}>Select promotion category to view or create</small>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPromotionModal(false)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#718280', padding: '4px' }}
+              >
+                <Icon name="close" size={18} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+              {[
+                { title: 'Retailers Promotion', path: '/promotions/retailer', desc: 'Promotional offers, retailer schemes & margin bonuses', bg: '#EAF7EE', color: '#059669', icon: 'tag' },
+                { title: 'Wholesale Dealer Promotion', path: '/promotions/wholesale-dealer', desc: 'Bulk trade incentive tiers & wholesale volume promotions', bg: '#EFF6FF', color: '#2563EB', icon: 'tag' },
+                { title: 'Distributor Promotion', path: '/promotions/distributor', desc: 'Regional supply campaigns, targets & distributor bonuses', bg: '#FEF3E7', color: '#D97706', icon: 'tag' },
+                { title: 'Super Stockist Promotion', path: '/promotions/super-stockist', desc: 'Enterprise volume tiers & super stockist benefits', bg: '#FDF4FF', color: '#9333EA', icon: 'tag' },
+                { title: 'Promotion Sales Order List', path: '/promotions/sales-order-list', desc: 'Track and manage all orders linked to promotions', bg: '#F0FDF4', color: '#16A34A', icon: 'orders' },
+              ].map((promo, pIdx) => (
+                <button
+                  key={pIdx}
+                  type="button"
+                  onClick={() => {
+                    setShowPromotionModal(false)
+                    navigate(promo.path)
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    border: '1px solid #E5EBEA',
+                    background: '#FDFDFC',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = '#F4F7F6'
+                    e.currentTarget.style.borderColor = '#073B3F'
+                    e.currentTarget.style.transform = 'translateY(-1px)'
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = '#FDFDFC'
+                    e.currentTarget.style.borderColor = '#E5EBEA'
+                    e.currentTarget.style.transform = 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: promo.bg, color: promo.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Icon name={promo.icon} size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 750, color: '#073B3F' }}>{promo.title}</div>
+                      <div style={{ fontSize: '11.5px', color: '#718280', marginTop: '2px' }}>{promo.desc}</div>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '18px', color: '#8A9E9C', fontWeight: 600 }}>›</span>
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setShowPromotionModal(false)}
+              style={{
+                width: '100%',
+                padding: '11px',
+                background: '#F0F4F3',
+                border: 'none',
+                borderRadius: '10px',
+                color: '#073B3F',
+                fontWeight: 700,
+                fontSize: '13.5px',
+                cursor: 'pointer'
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ── PROOF DOCUMENT PREVIEW MODAL ── */}

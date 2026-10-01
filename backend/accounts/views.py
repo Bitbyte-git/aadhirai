@@ -25,7 +25,7 @@ from io import BytesIO
 from django.http import FileResponse, HttpResponse
 import csv
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
@@ -3334,6 +3334,9 @@ def _admin_orders_period_queryset(period, start_date, end_date):
         qs = qs.filter(created_at__date__gte=start_of_week, created_at__date__lte=today)
     elif period == 'month':
         qs = qs.filter(created_at__year=today.year, created_at__month=today.month)
+    elif period == '3month':
+        start_3m = today - timedelta(days=90)
+        qs = qs.filter(created_at__date__gte=start_3m, created_at__date__lte=today)
     elif period == 'year':
         qs = qs.filter(created_at__year=today.year)
     elif period == 'custom' and start_date and end_date:
@@ -9415,7 +9418,7 @@ def _inr_fmt(n):
     return f"Rs. {'-' if neg else ''}{s}.{frac:02d}"
 
 
-def _build_report_pdf(title, subtitle, period_label, stats, columns, rows, col_widths=None, total_rows=None):
+def _build_report_pdf(title, subtitle, period_label, stats, columns, rows, col_widths=None, total_rows=None, landscape_mode=False):
     """Shared Athirai-branded PDF report builder — every 'Download Report'
     button across the 6 Payment pages (All Sales / Athirai Revenue / General
     Customer Revenue / Super Admin Commission / My Commission / Commissions)
@@ -9432,7 +9435,8 @@ def _build_report_pdf(title, subtitle, period_label, stats, columns, rows, col_w
     note below is accurate."""
     truncated_by = max(0, (total_rows or len(rows)) - len(rows))
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=30, bottomMargin=34, leftMargin=32, rightMargin=32)
+    pagesize = landscape(A4) if landscape_mode else A4
+    doc = SimpleDocTemplate(buffer, pagesize=pagesize, topMargin=26, bottomMargin=26, leftMargin=26, rightMargin=26)
     styles = getSampleStyleSheet()
     content_width = doc.width
     elements = []
@@ -9562,10 +9566,23 @@ class GenericTablePDFView(APIView):
         rows = rows[:REPORT_MAX_ROWS]
         stats_tuples = [(str(s.get('label', ''))[:60], str(s.get('value', ''))[:40]) for s in stats if isinstance(s, dict)][:6]
 
+        col_widths_input = data.get('col_widths')
+        landscape_mode = bool(data.get('landscape', False))
+        actual_widths = None
+        if isinstance(col_widths_input, list) and len(col_widths_input) == len(columns):
+            # Landscape A4 width is 841.89 pt (margin 2*26 = 52 -> 789.89 pt). Portrait is 595.28 pt (margin 52 -> 543.28 pt).
+            available_w = 789.89 if landscape_mode else 543.28
+            try:
+                actual_widths = [float(w) * available_w if float(w) <= 1.0 else float(w) for w in col_widths_input]
+            except (ValueError, TypeError):
+                actual_widths = None
+
         buffer = _build_report_pdf(
             title=title, subtitle=subtitle, period_label=period_label,
             stats=stats_tuples, columns=[str(c)[:60] for c in columns], rows=rows,
+            col_widths=actual_widths,
             total_rows=total_rows,
+            landscape_mode=landscape_mode,
         )
         safe_name = ''.join(c if c.isalnum() or c in '-_' else '-' for c in title.lower())[:60] or 'report'
         return FileResponse(buffer, as_attachment=True, filename=f'{safe_name}.pdf', content_type='application/pdf')

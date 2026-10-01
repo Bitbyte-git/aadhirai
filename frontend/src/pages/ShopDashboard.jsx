@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import ShopNavbar from '../collection/ShopNavbar'
+import CopyShopUrlButton from '../collection/CopyShopUrlButton'
 import { IrdOrderTrendPanel, IrdDonutPanel, IrdIcon, irdPalette, IRD_STYLES } from './AdminDashboard'
 import '../components/skeleton.css'
 
@@ -204,7 +205,20 @@ export default function ShopDashboard() {
           <h1>{shop?.shop_name || 'Shop Dashboard'}</h1>
           {shop?.shop_id && <small>{shop.shop_id} · {shop.shop_type === 'virtual' ? 'Virtual Shop' : 'Physical Shop'}</small>}
         </div>
-        <button className="shd-profile-btn" onClick={openProfile}>My Profile</button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <CopyShopUrlButton
+            label="Copy URL"
+            style={{
+              borderRadius: '12px',
+              padding: '10px 18px',
+              fontSize: '13px',
+              fontWeight: 800,
+              background: '#FDFDFC',
+              border: '1px solid rgba(12,64,68,.28)',
+            }}
+          />
+          <button className="shd-profile-btn" onClick={openProfile}>My Profile</button>
+        </div>
       </div>
 
       <ShopQuickStats />

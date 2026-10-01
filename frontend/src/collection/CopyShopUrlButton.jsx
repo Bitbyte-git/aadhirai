@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function CopyShopUrlButton({ style, label = "Copy Shop URL" }) {
+export default function CopyShopUrlButton({ style, label = "Copy URL" }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {

@@ -1,10 +1,7 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api";
-import CustomerFooter from "../collection/CustomerFooter";
 import CopyUrlButton from "../collection/CopyUrlButton";
-import CustomDropdown from "../components/CustomDropdown";
-
-const OCCUPATIONS = ["employee", "business", "others"];
 
 const emptyForm = {
   initial: "",
@@ -26,17 +23,19 @@ const emptyForm = {
   state: "",
   aadhaar_no: "",
   pan_no: "",
-  occupation: "",
+  occupation: "employee",
   occupation_detail: "",
   annual_salary: "",
   assigned_promotor_id: "",
 };
 
-
 export default function CreateCustomer() {
+  const navigate = useNavigate();
   const [form, setForm] = useState(emptyForm);
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [msg, setMsg] = useState("");
   const [successPopup, setSuccessPopup] = useState(null);
   const [errorPopup, setErrorPopup] = useState(null);
@@ -66,7 +65,6 @@ export default function CreateCustomer() {
     return ["Please verify the information you entered and try again."];
   };
 
-  // Info of the customer who is currently logged in (creating this new customer)
   const [superCustomer, setSuperCustomer] = useState(null);
   const [superCustomerLoading, setSuperCustomerLoading] = useState(true);
 
@@ -131,6 +129,7 @@ export default function CreateCustomer() {
           const po = data[0].PostOffice[0];
           setForm((prev) => ({
             ...prev,
+            town_name: po.Name || prev.town_name,
             city_name: po.District || prev.city_name,
             district: po.District || prev.district,
             state: po.State || prev.state,
@@ -161,10 +160,10 @@ export default function CreateCustomer() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "married_status" && value !== "married") {
-      setForm({ ...form, married_status: value, anniversary_date: "" });
+      setForm((prev) => ({ ...prev, married_status: value, anniversary_date: "" }));
       return;
     }
-    setForm({ ...form, [name]: value });
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
@@ -225,920 +224,1262 @@ export default function CreateCustomer() {
   };
 
   return (
-    <div className="cc-page">
+    <div className="as-container">
       <style>{`
-        .cc-page {
-          min-height: 100vh;
-          background: var(--bb-bg, #FDFDFC);
-          color: var(--bb-ink, #111817);
-        }
-
-        .cc-shell {
-          width: calc(100% - 48px);
-          max-width: 1120px;
-          margin: 0 auto;
-          padding: 36px 0 64px;
+        .as-container {
+          min-height: calc(100vh - 74px);
+          background: #F4F7F6;
+          padding: 30px clamp(18px, 2.5vw, 36px) 60px;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
           box-sizing: border-box;
+          color: #11201E;
         }
-
-        .cc-header {
+        .as-shell {
+          width: 100%;
+          max-width: 1320px;
+          margin: 0 auto;
+        }
+        .as-header-wrap {
           display: flex;
-          align-items: flex-end;
+          align-items: center;
           justify-content: space-between;
+          margin-bottom: 24px;
           gap: 16px;
-          margin-bottom: 22px;
           flex-wrap: wrap;
         }
-
-        .cc-kicker {
-          color: var(--bb-teal-dark, #073B3F);
-          font-size: 12px;
-          font-weight: 900;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
+        .as-header-left {
+          display: flex;
+          align-items: center;
+          gap: 14px;
         }
-
-        .cc-header h1 {
-          margin: 4px 0 0;
-          color: #1a1a1a;
-          font-family: Georgia, "Times New Roman", serif;
-          font-size: 1.9rem;
-          font-weight: 600;
-          line-height: 1.1;
+        .as-header-icon {
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          background: #073B3F;
+          color: #FFFFFF;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 14px rgba(7, 59, 63, 0.2);
+          flex-shrink: 0;
         }
-
-        .cc-header p {
-          margin: 6px 0 0;
-          color: var(--bb-muted, #7A8987);
+        .as-header-title {
+          font-size: 22px;
+          font-weight: 800;
+          color: #073B3F;
+          letter-spacing: -0.01em;
+          margin: 0;
+        }
+        .as-header-sub {
           font-size: 13px;
+          font-weight: 500;
+          color: #647B78;
+          margin-top: 3px;
+        }
+        .as-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .as-back-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 9px 18px;
+          background: #FFFFFF;
+          border: 1px solid #D5E0DD;
+          border-radius: 10px;
+          color: #455A57;
+          font-size: 13px;
+          font-weight: 650;
+          cursor: pointer;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+          transition: all 0.16s ease;
+        }
+        .as-back-btn:hover {
+          background: #F4F7F6;
+          border-color: #073B3F;
+          color: #073B3F;
+          transform: translateY(-1px);
         }
 
-        .cc-msg {
-          border-radius: 12px;
-          padding: 13px 18px;
-          font-size: 14px;
-          font-weight: 700;
-          margin-bottom: 20px;
-        }
-
-        .cc-msg.success {
-          background: rgba(12, 64, 68, 0.08);
-          border: 1px solid rgba(12, 64, 68, 0.28);
-          color: #0C4044;
-        }
-
-        .cc-msg.error {
-          background: rgba(201, 32, 53, 0.08);
-          border: 1px solid rgba(201, 32, 53, 0.28);
-          color: #C92035;
-        }
-
-        .cc-card {
-          background: #fff;
-          border: 1px solid #D1DFDE;
+        .as-card {
+          background: #FFFFFF;
+          border: 1px solid #DFE8E6;
           border-radius: 20px;
-          padding: 30px 32px;
-          margin-bottom: 26px;
-          box-shadow: 0 10px 28px rgba(7,59,63,0.06);
+          padding: 28px 30px;
+          box-shadow: 0 4px 24px rgba(7, 59, 63, 0.04);
         }
-
-        .cc-section-title {
-          color: var(--bb-teal-dark, #073B3F);
-          font-family: Georgia, "Times New Roman", serif;
-          font-size: 20px;
-          font-weight: 600;
-          margin: 0 0 20px;
+        .as-section-card {
+          background: #FAFCFC;
+          border: 1px solid #E6EEED;
+          border-radius: 14px;
+          padding: 22px 24px;
+          margin-bottom: 22px;
         }
-
-        .cc-sub-label {
-          color: var(--bb-teal-dark, #073B3F);
-          font-size: 12px;
-          font-weight: 900;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          margin: 4px 0 14px;
-          padding-bottom: 10px;
-          border-bottom: 1px solid #D1DFDE;
-        }
-
-        .cc-grid {
-          display: grid;
-          gap: 16px;
+        .as-section-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
           margin-bottom: 20px;
         }
+        .as-section-head-left {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .as-section-icon {
+          width: 32px;
+          height: 32px;
+          border-radius: 9px;
+          background: #073B3F;
+          color: #FFFFFF;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          box-shadow: 0 2px 8px rgba(7, 59, 63, 0.18);
+        }
+        .as-section-title {
+          font-size: 14.5px;
+          font-weight: 800;
+          color: #073B3F;
+          letter-spacing: -0.01em;
+        }
+        .as-section-sub {
+          font-size: 11.5px;
+          color: #6C827F;
+          font-weight: 500;
+          margin-top: 1px;
+        }
 
-        .cc-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
-        .cc-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
-        .cc-grid.cols-init { grid-template-columns: 0.4fr 1fr 1fr; }
+        .as-grid-3 {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px 18px;
+        }
+        .as-grid-2 {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px 18px;
+        }
+        .as-span-3 {
+          grid-column: span 3;
+        }
 
-        .cc-field label {
-          display: block;
-          color: var(--bb-muted, #7A8987);
+        .as-field {
+          display: flex;
+          flex-direction: column;
+        }
+        .as-label {
           font-size: 12px;
           font-weight: 700;
-          margin-bottom: 7px;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
+          color: #2F4340;
+          margin-bottom: 6px;
+          display: flex;
+          align-items: center;
+          gap: 3px;
         }
-
-        .cc-field input,
-        .cc-field select {
-          width: 100%;
-          background: #FDFDFC;
-          border: 1px solid #BDCFCE;
-          border-radius: 12px;
-          padding: 12px 14px;
-          color: #111817;
-          font-size: 14px;
+        .as-req {
+          color: #DC2626;
+          font-weight: 800;
+        }
+        .as-input-wrap {
+          position: relative;
+          display: flex;
+          align-items: center;
+          background: #FFFFFF;
+          border: 1.5px solid #D7E3E1;
+          border-radius: 11px;
+          height: 48px;
+          padding: 0 13px;
+          transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .as-input-wrap:focus-within {
+          border-color: #073B3F;
+          box-shadow: 0 0 0 3px rgba(7, 59, 63, 0.08);
+          background: #FFFFFF;
+        }
+        .as-input-wrap.has-error {
+          border-color: #DC2626;
+        }
+        .as-input-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #7B928F;
+          margin-right: 10px;
+          flex-shrink: 0;
+        }
+        .as-input {
+          border: none;
           outline: none;
-          box-sizing: border-box;
-          transition: border-color 150ms ease, box-shadow 150ms ease;
+          background: transparent;
+          width: 100%;
+          height: 100%;
+          color: #0E1F1D;
+          font-size: 13.5px;
+          font-weight: 500;
+          font-family: inherit;
         }
-
-        .cc-field select {
+        .as-input::placeholder {
+          color: #92A6A3;
+          font-weight: 450;
+        }
+        .as-select {
+          border: none;
+          outline: none;
+          background: transparent;
+          width: 100%;
+          height: 100%;
+          color: #0E1F1D;
+          font-size: 13.5px;
+          font-weight: 500;
+          font-family: inherit;
+          cursor: pointer;
           appearance: none;
           -webkit-appearance: none;
-          -moz-appearance: none;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23073B3F' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-          background-repeat: no-repeat;
-          background-position: right 14px center;
-          background-size: 14px;
-          padding-right: 38px;
-          cursor: pointer;
         }
-
-        .cc-field input:focus,
-        .cc-field select:focus {
-          border-color: #073B3F;
-          box-shadow: 0 0 0 3px rgba(7,59,63,0.10);
-        }
-
-        .cc-field.error input {
-          border-color: #C92035;
-        }
-
-        .cc-field-error {
-          color: #C92035;
-          font-size: 12px;
-          margin-top: 6px;
-        }
-
-        .cc-field.readonly input {
-          background: #F3F3F0;
-          color: #073B3F;
-          font-weight: 700;
-          opacity: 0.85;
-          cursor: not-allowed;
-        }
-
-        .cc-field.readonly input::placeholder {
-          color: #7A8987;
-          font-weight: 500;
-        }
-
-        .cc-super-card {
-          background: rgba(7,59,63,0.04);
-          border: 1px solid rgba(7,59,63,0.18);
-          border-radius: 14px;
-          padding: 18px 20px 4px;
-          margin-bottom: 20px;
-        }
-
-        .cc-super-note {
-          margin: -8px 0 16px;
-          color: var(--bb-muted, #7A8987);
-          font-size: 12px;
-        }
-
-        .cc-actions {
+        .as-select-chevron {
+          color: #7B928F;
+          pointer-events: none;
           display: flex;
-          gap: 12px;
-          margin-top: 6px;
+          align-items: center;
+          margin-left: 6px;
         }
-
-        .cc-btn-primary {
-          padding: 13px 30px;
-          background: #073B3F;
+        .as-readonly-pill {
+          background: #F1F6F5;
+          border-color: #DDE7E5;
+          cursor: not-allowed;
+          user-select: none;
+        }
+        .as-readonly-code {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 13px;
+          font-weight: 600;
+          color: #37504D;
+        }
+        .as-eye-btn {
+          background: transparent;
           border: none;
-          border-radius: 999px;
-          font-weight: 800;
-          color: #fff;
-          font-size: 14px;
+          color: #839794;
           cursor: pointer;
-          box-shadow: 0 14px 30px rgba(7,59,63,0.24);
-          transition: transform 160ms ease;
+          padding: 4px;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: color 0.15s ease;
+          margin-left: 6px;
         }
-
-        .cc-btn-primary:hover { transform: translateY(-2px); }
-
-        .cc-btn-secondary {
-          padding: 13px 24px;
-          background: #F3F3F0;
-          border: 1px solid #D1DFDE;
-          border-radius: 999px;
+        .as-eye-btn:hover {
           color: #073B3F;
-          font-size: 14px;
-          font-weight: 700;
+        }
+
+        .as-submit-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px 28px;
+          background: #073B3F;
+          border: 1px solid #073B3F;
+          border-radius: 12px;
+          font-weight: 750;
+          color: #FFFFFF;
+          font-size: 14.5px;
           cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          box-shadow: 0 4px 14px rgba(7, 59, 63, 0.18);
+        }
+        .as-submit-btn:hover:not(:disabled) {
+          background: #0C4E53;
+          border-color: #0C4E53;
+          transform: translateY(-1px);
+          box-shadow: 0 6px 18px rgba(7, 59, 63, 0.26);
         }
 
-
-
-        @media (max-width: 900px) {
-          .cc-grid.cols-3 { grid-template-columns: repeat(2, 1fr); }
+        @media (max-width: 1024px) {
+          .as-grid-3 {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .as-span-3 {
+            grid-column: span 2;
+          }
         }
-
-        @media (max-width: 640px) {
-          .cc-shell { width: calc(100% - 20px); padding: 18px 0 36px; }
-          .cc-card { padding: 20px 14px; border-radius: 14px; margin-bottom: 18px; }
-          .cc-grid.cols-2,
-          .cc-grid.cols-3,
-          .cc-grid.cols-init { grid-template-columns: 1fr; gap: 12px; }
-          .cc-actions { flex-direction: column; gap: 10px; }
-          .cc-actions button { width: 100%; min-height: 48px; justify-content: center; }
-          .cc-field input,
-          .cc-field select { font-size: 16px; min-height: 46px; }
-          .cc-header h1 { font-size: 1.55rem; }
-        }
-
-        @media (max-width: 480px) {
-          .cc-shell { width: calc(100% - 16px); padding: 14px 0 28px; }
-          .cc-card { padding: 16px 12px; }
-          .cc-section-title { font-size: 18px; margin-bottom: 14px; }
+        @media (max-width: 768px) {
+          .as-container {
+            padding: 18px 14px 50px !important;
+          }
+          .as-card {
+            padding: 18px 16px !important;
+            border-radius: 16px !important;
+          }
+          .as-section-card {
+            padding: 16px 14px !important;
+            border-radius: 14px !important;
+          }
+          .as-grid-3, .as-grid-2 {
+            grid-template-columns: 1fr !important;
+            gap: 14px !important;
+          }
+          .as-span-3 {
+            grid-column: span 1 !important;
+          }
+          .as-header-wrap {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 14px;
+          }
+          .as-header-actions {
+            width: 100%;
+            display: flex;
+            gap: 10px;
+          }
+          .as-header-actions button, .as-header-actions .bb-copy-url-btn {
+            flex: 1;
+            text-align: center;
+            justify-content: center;
+          }
+          .as-submit-btn {
+            width: 100% !important;
+            justify-content: center;
+            padding: 14px 20px !important;
+          }
         }
       `}</style>
 
-      <div className="cc-shell">
-        <div className="cc-header">
-          <div>
-            <span className="cc-kicker">Customer Management</span>
-            <h1>Create Customer</h1>
-            <p>Fill in the details below to register a new customer.</p>
+      <div className="as-shell">
+        {/* Page Header */}
+        <div className="as-header-wrap">
+          <div className="as-header-left">
+            <div className="as-header-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="as-header-title">Create Customer</h1>
+              <div className="as-header-sub">
+                Fill in the details below to register a new customer in the network
+              </div>
+            </div>
+          </div>
+
+          <div className="as-header-actions">
+            <CopyUrlButton
+              style={{
+                borderRadius: '10px',
+                padding: '9px 18px',
+                background: '#FFFFFF',
+                border: '1px solid #D5E0DD',
+                fontSize: '13px',
+                fontWeight: 650,
+                color: '#073B3F',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="as-back-btn"
+              title="Go back"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+              <span>Back</span>
+            </button>
           </div>
         </div>
 
-        {msg && <div className={`cc-msg ${msgType}`}>{msg}</div>}
-
-        <div className="cc-card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-            <h2 className="cc-section-title">New Customer Details</h2>
-            <CopyUrlButton />
-          </div>
-
+        {/* Master Form Card */}
+        <div className="as-card">
           <form onSubmit={handleSubmit}>
-            <p className="cc-sub-label">Personal Info</p>
-            <div className="cc-grid cols-init">
-              <div className="cc-field">
-                <label>Initial</label>
-                <input name="initial" value={form.initial} onChange={handleChange} maxLength={5} />
-              </div>
-              <div className="cc-field">
-                <label>First Name *</label>
-                <input name="first_name" value={form.first_name} onChange={handleChange} required maxLength={100} />
-              </div>
-              <div className="cc-field">
-                <label>Last Name *</label>
-                <input name="last_name" value={form.last_name} onChange={handleChange} required maxLength={100} />
-              </div>
-            </div>
 
-            <div className="cc-grid cols-3">
-              <div className="cc-field">
-                <label>Mobile *</label>
-                <input name="mobile_number" maxLength={10} value={form.mobile_number} onChange={handleChange} required />
-              </div>
-              <div className="cc-field">
-                <label>Email *</label>
-                <input type="email" name="email" value={form.email} onChange={handleChange} required />
-              </div>
-              <div className="cc-field">
-                <label>Password *</label>
-                <input type="password" name="password" value={form.password} onChange={handleChange} required />
-              </div>
-            </div>
-
-            <div className="cc-grid cols-3">
-              <div className={`cc-field ${passwordError ? "error" : ""}`}>
-                <label>Confirm Password *</label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => {
-                    setConfirmPassword(e.target.value);
-                    setPasswordError("");
-                  }}
-                  required
-                />
-                {passwordError && <div className="cc-field-error">{passwordError}</div>}
-              </div>
-            </div>
-
-            <div className="cc-grid cols-3">
-              <div className="cc-field">
-                <label>Gender</label>
-                <CustomDropdown
-                  value={form.gender}
-                  onChange={(val) => setForm((prev) => ({ ...prev, gender: val }))}
-                  options={[
-                    { value: "male", label: "Male" },
-                    { value: "female", label: "Female" },
-                    { value: "other", label: "Other" },
-                  ]}
-                  placeholder="Select"
-                  style={{ width: "100%" }}
-                  buttonStyle={{ height: "46px", borderRadius: "12px", border: "1px solid #BDCFCE", background: "#FDFDFC" }}
-                />
-              </div>
-              <div className="cc-field">
-                <label>DOB</label>
-                <input type="date" name="dob" value={form.dob} onChange={handleChange} />
-              </div>
-              <div className="cc-field">
-                <label>Married Status</label>
-                <CustomDropdown
-                  value={form.married_status}
-                  onChange={(val) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      married_status: val,
-                      anniversary_date: val === "married" ? prev.anniversary_date : "",
-                    }))
-                  }
-                  options={[
-                    { value: "single", label: "Single" },
-                    { value: "married", label: "Married" },
-                    { value: "other", label: "Other" },
-                  ]}
-                  placeholder="Select"
-                  style={{ width: "100%" }}
-                  buttonStyle={{ height: "46px", borderRadius: "12px", border: "1px solid #BDCFCE", background: "#FDFDFC" }}
-                />
-              </div>
-            </div>
-
-            {form.married_status === "married" && (
-              <div className="cc-grid cols-3">
-                <div className="cc-field">
-                  <label>Anniversary Date</label>
-                  <input
-                    type="date"
-                    name="anniversary_date"
-                    value={form.anniversary_date}
-                    onChange={handleChange}
-                  />
+            {/* ── SECTION 1: PERSONAL INFORMATION ── */}
+            <div className="as-section-card">
+              <div className="as-section-header">
+                <div className="as-section-head-left">
+                  <div className="as-section-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="as-section-title">Personal Information</div>
+                    <div className="as-section-sub">Customer identity and profile records</div>
+                  </div>
                 </div>
               </div>
-            )}
 
-            <p className="cc-sub-label">Address</p>
-            <div className="cc-grid cols-3">
-              <div className="cc-field">
-                <label>Door No *</label>
-                <input name="door_no" value={form.door_no} onChange={handleChange} required />
-              </div>
-              <div className="cc-field">
-                <label>Street Name *</label>
-                <input name="street_name" value={form.street_name} onChange={handleChange} required />
-              </div>
-              <div className="cc-field">
-                <label>Pincode *</label>
-                <input
-                  name="pincode"
-                  value={form.pincode}
-                  onChange={handlePincodeChange}
-                  required
-                  maxLength={6}
-                  inputMode="numeric"
-                  placeholder="6-digit pincode"
-                />
-                {pincodeLookupMsg && (
-                  <div
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      marginTop: "4px",
-                      color: pincodeLookupMsg.includes("auto-filled")
-                        ? "#0C4044"
-                        : pincodeLookupMsg.includes("not found") || pincodeLookupMsg.includes("Unable")
-                        ? "#C92035"
-                        : "#7A8987",
-                    }}
-                  >
-                    {pincodeLookupMsg}
+              <div className="as-grid-3">
+                {/* Initial */}
+                <div className="as-field">
+                  <label className="as-label">Initial</label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </span>
+                    <input
+                      name="initial"
+                      maxLength={5}
+                      value={form.initial}
+                      onChange={handleChange}
+                      placeholder="e.g. S."
+                      className="as-input"
+                    />
+                  </div>
+                </div>
+
+                {/* First Name */}
+                <div className="as-field">
+                  <label className="as-label">
+                    First Name <span className="as-req">*</span>
+                  </label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </span>
+                    <input
+                      name="first_name"
+                      maxLength={100}
+                      value={form.first_name}
+                      onChange={handleChange}
+                      required
+                      placeholder="Given name"
+                      className="as-input"
+                    />
+                  </div>
+                </div>
+
+                {/* Last Name */}
+                <div className="as-field">
+                  <label className="as-label">
+                    Last Name <span className="as-req">*</span>
+                  </label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </span>
+                    <input
+                      name="last_name"
+                      maxLength={100}
+                      value={form.last_name}
+                      onChange={handleChange}
+                      required
+                      placeholder="Family name"
+                      className="as-input"
+                    />
+                  </div>
+                </div>
+
+                {/* Mobile Number */}
+                <div className="as-field">
+                  <label className="as-label">
+                    Mobile Number <span className="as-req">*</span>
+                  </label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                    </span>
+                    <input
+                      name="mobile_number"
+                      maxLength={10}
+                      value={form.mobile_number}
+                      onChange={handleChange}
+                      required
+                      inputMode="numeric"
+                      placeholder="10-digit mobile"
+                      className="as-input"
+                    />
+                  </div>
+                </div>
+
+                {/* Gender */}
+                <div className="as-field">
+                  <label className="as-label">Gender</label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                    </span>
+                    <select name="gender" value={form.gender} onChange={handleChange} className="as-select">
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <span className="as-select-chevron">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Date of Birth */}
+                <div className="as-field">
+                  <label className="as-label">Date of Birth</label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    </span>
+                    <input
+                      type="date"
+                      name="dob"
+                      value={form.dob}
+                      onChange={handleChange}
+                      className="as-input"
+                    />
+                  </div>
+                </div>
+
+                {/* Marital Status */}
+                <div className="as-field">
+                  <label className="as-label">Married Status</label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                    </span>
+                    <select name="married_status" value={form.married_status} onChange={handleChange} className="as-select">
+                      <option value="single">Single</option>
+                      <option value="married">Married</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <span className="as-select-chevron">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Anniversary Date */}
+                {form.married_status === 'married' && (
+                  <div className="as-field">
+                    <label className="as-label">Anniversary Date</label>
+                    <div className="as-input-wrap">
+                      <span className="as-input-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                      </span>
+                      <input
+                        type="date"
+                        name="anniversary_date"
+                        value={form.anniversary_date}
+                        onChange={handleChange}
+                        className="as-input"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
-              <div className="cc-field">
-                <label>Town *</label>
-                <input name="town_name" value={form.town_name} onChange={handleChange} required />
+            </div>
+
+            {/* ── SECTION 2: ACCOUNT & SECURITY ── */}
+            <div className="as-section-card">
+              <div className="as-section-header">
+                <div className="as-section-head-left">
+                  <div className="as-section-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="as-section-title">Account &amp; Security</div>
+                    <div className="as-section-sub">Login credentials and account access</div>
+                  </div>
+                </div>
               </div>
-              <div className="cc-field">
-                <label>City *</label>
-                <input name="city_name" value={form.city_name} onChange={handleChange} required />
-              </div>
-              <div className="cc-field">
-                <label>District *</label>
-                <input name="district" value={form.district} onChange={handleChange} required />
-              </div>
-              <div className="cc-field">
-                <label>State *</label>
-                <input name="state" value={form.state} onChange={handleChange} required />
+
+              <div className="as-grid-3">
+                {/* Email Address */}
+                <div className="as-field">
+                  <label className="as-label">
+                    Email Address <span className="as-req">*</span>
+                  </label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                    </span>
+                    <input
+                      type="email"
+                      name="email"
+                      value={form.email}
+                      onChange={handleChange}
+                      required
+                      placeholder="customer@athirai.com"
+                      className="as-input"
+                    />
+                  </div>
+                </div>
+
+                {/* Password */}
+                <div className="as-field">
+                  <label className="as-label">
+                    Password <span className="as-req">*</span>
+                  </label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </span>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="password"
+                      value={form.password}
+                      onChange={handleChange}
+                      required
+                      placeholder="••••••••"
+                      className="as-input"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="as-eye-btn"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm Password */}
+                <div className="as-field">
+                  <label className="as-label">
+                    Confirm Password <span className="as-req">*</span>
+                  </label>
+                  <div className={`as-input-wrap ${passwordError ? 'has-error' : ''}`}>
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </span>
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        setPasswordError("");
+                      }}
+                      required
+                      placeholder="Confirm password"
+                      className="as-input"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="as-eye-btn"
+                      title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showConfirmPassword ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                      )}
+                    </button>
+                  </div>
+                  {passwordError && (
+                    <div style={{ color: '#DC2626', fontSize: '11.5px', fontWeight: 650, marginTop: '4px' }}>
+                      {passwordError}
+                    </div>
+                  )}
+                  {confirmPassword && !passwordError && (
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: confirmPassword === form.password ? '#009957' : '#DC2626', marginTop: '4px' }}>
+                      {confirmPassword === form.password ? '✓ Passwords match' : '✕ Passwords do not match'}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            <p className="cc-sub-label">Identity</p>
-            <div className="cc-grid cols-2">
-              <div className="cc-field">
-                <label>Aadhaar No *</label>
-                <input name="aadhaar_no" value={form.aadhaar_no} onChange={handleChange} required maxLength={12} />
+            {/* ── SECTION 3: ADDRESS ── */}
+            <div className="as-section-card">
+              <div className="as-section-header">
+                <div className="as-section-head-left">
+                  <div className="as-section-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1 1 16 0Z" />
+                      <circle cx="12" cy="10" r="3" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="as-section-title">Address</div>
+                    <div className="as-section-sub">Residential address and postal location</div>
+                  </div>
+                </div>
               </div>
-              <div className="cc-field">
-                <label>PAN No *</label>
-                <input name="pan_no" value={form.pan_no} onChange={handleChange} required maxLength={10} />
+
+              <div className="as-grid-3">
+                {/* Door No */}
+                <div className="as-field">
+                  <label className="as-label">
+                    Door No <span className="as-req">*</span>
+                  </label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                    </span>
+                    <input
+                      name="door_no"
+                      value={form.door_no}
+                      onChange={handleChange}
+                      required
+                      placeholder="e.g. 10/B"
+                      className="as-input"
+                    />
+                  </div>
+                </div>
+
+                {/* Street Name */}
+                <div className="as-field">
+                  <label className="as-label">
+                    Street Name <span className="as-req">*</span>
+                  </label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6H5a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h13l4-3.5L18 6Z"/><path d="M12 13v9"/><path d="M12 2v4"/></svg>
+                    </span>
+                    <input
+                      name="street_name"
+                      value={form.street_name}
+                      onChange={handleChange}
+                      required
+                      placeholder="Street name"
+                      className="as-input"
+                    />
+                  </div>
+                </div>
+
+                {/* Pincode */}
+                <div className="as-field">
+                  <label className="as-label">
+                    Pincode <span className="as-req">*</span>
+                  </label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                    </span>
+                    <input
+                      name="pincode"
+                      value={form.pincode}
+                      onChange={handlePincodeChange}
+                      required
+                      maxLength={6}
+                      inputMode="numeric"
+                      placeholder="6-digit pincode"
+                      className="as-input"
+                    />
+                  </div>
+                  {pincodeLookupMsg && (
+                    <div style={{ fontSize: '11px', fontWeight: 700, marginTop: '4px', color: pincodeLookupMsg.includes('auto-filled') ? '#073B3F' : '#DC2626' }}>
+                      {pincodeLookupMsg}
+                    </div>
+                  )}
+                </div>
+
+                {/* Town */}
+                <div className="as-field">
+                  <label className="as-label">
+                    Town <span className="as-req">*</span>
+                  </label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18"/><path d="M6 21V7l8-4v18"/><path d="M14 11h4v10"/></svg>
+                    </span>
+                    <input
+                      name="town_name"
+                      value={form.town_name}
+                      onChange={handleChange}
+                      required
+                      placeholder="Town / Locality"
+                      className="as-input"
+                    />
+                  </div>
+                </div>
+
+                {/* City */}
+                <div className="as-field">
+                  <label className="as-label">
+                    City <span className="as-req">*</span>
+                  </label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18"/><path d="M6 21V7l8-4v18"/><path d="M14 11h4v10"/><path d="M9 9h1"/><path d="M9 13h1"/><path d="M9 17h1"/></svg>
+                    </span>
+                    <input
+                      name="city_name"
+                      value={form.city_name}
+                      onChange={handleChange}
+                      required
+                      placeholder="City"
+                      className="as-input"
+                    />
+                  </div>
+                </div>
+
+                {/* District */}
+                <div className="as-field">
+                  <label className="as-label">
+                    District <span className="as-req">*</span>
+                  </label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z"/></svg>
+                    </span>
+                    <input
+                      name="district"
+                      value={form.district}
+                      onChange={handleChange}
+                      required
+                      placeholder="District"
+                      className="as-input"
+                    />
+                  </div>
+                </div>
+
+                {/* State */}
+                <div className="as-field">
+                  <label className="as-label">
+                    State <span className="as-req">*</span>
+                  </label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
+                    </span>
+                    <input
+                      name="state"
+                      value={form.state}
+                      onChange={handleChange}
+                      required
+                      placeholder="State"
+                      className="as-input"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
-            <p className="cc-sub-label">Occupation</p>
-            <div className="cc-grid cols-3">
-              <div className="cc-field">
-                <label>Occupation *</label>
-                <CustomDropdown
-                  value={form.occupation}
-                  onChange={(val) => setForm((prev) => ({ ...prev, occupation: val }))}
-                  options={[
-                    { value: "employee", label: "Employee" },
-                    { value: "business", label: "Business" },
-                    { value: "others", label: "Others" },
-                  ]}
-                  placeholder="Select"
-                  style={{ width: "100%" }}
-                  buttonStyle={{ height: "46px", borderRadius: "12px", border: "1px solid #BDCFCE", background: "#FDFDFC" }}
-                />
+            {/* ── SECTION 4: IDENTITY ── */}
+            <div className="as-section-card">
+              <div className="as-section-header">
+                <div className="as-section-head-left">
+                  <div className="as-section-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                      <path d="m9 12 2 2 4-4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="as-section-title">Identity</div>
+                    <div className="as-section-sub">Statutory identity documents (Aadhaar &amp; PAN)</div>
+                  </div>
+                </div>
               </div>
-              <div className="cc-field">
-                <label>Detail</label>
-                <input name="occupation_detail" value={form.occupation_detail} onChange={handleChange} />
-              </div>
-              <div className="cc-field">
-                <label>Annual Salary *</label>
-                <input name="annual_salary" value={form.annual_salary} onChange={handleChange} required />
+
+              <div className="as-grid-2">
+                {/* Aadhaar No */}
+                <div className="as-field">
+                  <label className="as-label">
+                    Aadhaar No <span className="as-req">*</span>
+                  </label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><line x1="15" y1="8" x2="17" y2="8"/><line x1="15" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="17" y2="16"/></svg>
+                    </span>
+                    <input
+                      name="aadhaar_no"
+                      value={form.aadhaar_no}
+                      onChange={handleChange}
+                      required
+                      maxLength={12}
+                      inputMode="numeric"
+                      placeholder="12-digit Aadhaar number"
+                      className="as-input"
+                    />
+                  </div>
+                </div>
+
+                {/* PAN No */}
+                <div className="as-field">
+                  <label className="as-label">
+                    PAN No <span className="as-req">*</span>
+                  </label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </span>
+                    <input
+                      name="pan_no"
+                      value={form.pan_no}
+                      onChange={(e) => setForm((p) => ({ ...p, pan_no: e.target.value.toUpperCase() }))}
+                      required
+                      maxLength={10}
+                      placeholder="10-character PAN"
+                      className="as-input"
+                      style={{ textTransform: 'uppercase' }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
-            <p className="cc-sub-label">
-              {superCustomer?.role === "promotor" ? "Promotor Info" : "Super Admin Info"}
-            </p>
-            {superCustomer?.role === "promotor" ? (
-              <div className="cc-grid cols-3">
-                <div className="cc-field">
-                  <label>Promotor ID *</label>
-                  <select
-                    name="assigned_promotor_id"
-                    value={form.assigned_promotor_id || ""}
-                    onChange={handlePromotorChange}
-                  >
-                    <option value="">Select Promotor ID</option>
-                    {allPromotors.map((p, idx) => (
-                      <option key={p.promotor_id || p.id || idx} value={p.id}>
-                        {p.promotor_id || `PR-${p.id}`} {p.first_name ? `(${p.first_name} ${p.last_name || ""})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="cc-field readonly">
-                  <label>Promotor Name</label>
-                  <input
-                    value={selectedPromotor ? `${selectedPromotor.first_name || ""} ${selectedPromotor.last_name || ""}`.trim() : ""}
-                    readOnly
-                    placeholder="Auto fetch"
-                  />
-                </div>
-                <div className="cc-field readonly">
-                  <label>Promotor Contact</label>
-                  <input
-                    value={selectedPromotor?.mobile_number || selectedPromotor?.promotor_contact_no || ""}
-                    readOnly
-                    placeholder="Auto fetch"
-                  />
+            {/* ── SECTION 5: OCCUPATION ── */}
+            <div className="as-section-card">
+              <div className="as-section-header">
+                <div className="as-section-head-left">
+                  <div className="as-section-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="7" width="20" height="14" rx="2" />
+                      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="as-section-title">Occupation</div>
+                    <div className="as-section-sub">Employment details and income bracket</div>
+                  </div>
                 </div>
               </div>
-            ) : (
-              <div className="cc-grid cols-3">
-                <div className="cc-field readonly">
-                  <label>Super Admin ID</label>
-                  <input
-                    value={superCustomerLoading ? "Fetching..." : (superCustomer?.id || "SUPER_ADMIN")}
-                    readOnly
-                    placeholder="Auto fetch"
-                  />
-                </div>
-                <div className="cc-field readonly">
-                  <label>Super Admin Name</label>
-                  <input
-                    value={superCustomerLoading ? "Fetching..." : (superCustomerName || superCustomer?.name || "Super Admin")}
-                    readOnly
-                    placeholder="Auto fetch"
-                  />
-                </div>
-                <div className="cc-field readonly">
-                  <label>Super Admin Contact</label>
-                  <input
-                    value={superCustomerLoading ? "Fetching..." : (superCustomer?.phone || superCustomer?.email || "Super Admin")}
-                    readOnly
-                    placeholder="Auto fetch"
-                  />
-                </div>
-              </div>
-            )}
 
-            <div className="cc-actions">
-              <button type="submit" className="cc-btn-primary" disabled={submitting}>
-                {submitting ? "Creating Customer..." : "Create Customer"}
+              <div className="as-grid-3">
+                {/* Occupation */}
+                <div className="as-field">
+                  <label className="as-label">
+                    Occupation <span className="as-req">*</span>
+                  </label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                    </span>
+                    <select
+                      name="occupation"
+                      value={form.occupation}
+                      onChange={handleChange}
+                      required
+                      className="as-select"
+                    >
+                      <option value="employee">Employee</option>
+                      <option value="business">Business</option>
+                      <option value="others">Others</option>
+                    </select>
+                    <span className="as-select-chevron">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Detail */}
+                <div className="as-field">
+                  <label className="as-label">Detail</label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </span>
+                    <input
+                      name="occupation_detail"
+                      value={form.occupation_detail}
+                      onChange={handleChange}
+                      placeholder="e.g. Software Engineer / Retailer"
+                      className="as-input"
+                    />
+                  </div>
+                </div>
+
+                {/* Annual Salary */}
+                <div className="as-field">
+                  <label className="as-label">
+                    Annual Salary <span className="as-req">*</span>
+                  </label>
+                  <div className="as-input-wrap">
+                    <span className="as-input-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    </span>
+                    <input
+                      name="annual_salary"
+                      value={form.annual_salary}
+                      onChange={handleChange}
+                      required
+                      placeholder="e.g. 500000"
+                      className="as-input"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── SECTION 6: HIERARCHY / REFERRAL INFO ── */}
+            <div className="as-section-card">
+              <div className="as-section-header">
+                <div className="as-section-head-left">
+                  <div className="as-section-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <line x1="19" y1="8" x2="19" y2="14" />
+                      <line x1="22" y1="11" x2="16" y2="11" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="as-section-title">
+                      {superCustomer?.role === "promotor" ? "Promotor Assignment" : "Super Admin Attribution"}
+                    </div>
+                    <div className="as-section-sub">Network hierarchy connection</div>
+                  </div>
+                </div>
+              </div>
+
+              {superCustomer?.role === "promotor" ? (
+                <div className="as-grid-3">
+                  <div className="as-field">
+                    <label className="as-label">
+                      Promotor ID <span className="as-req">*</span>
+                    </label>
+                    <div className="as-input-wrap">
+                      <span className="as-input-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                      </span>
+                      <select
+                        name="assigned_promotor_id"
+                        value={form.assigned_promotor_id || ""}
+                        onChange={handlePromotorChange}
+                        className="as-select"
+                      >
+                        <option value="">Select Promotor ID</option>
+                        {allPromotors.map((p, idx) => (
+                          <option key={p.promotor_id || p.id || idx} value={p.id}>
+                            {p.promotor_id || `PR-${p.id}`} {p.first_name ? `(${p.first_name} ${p.last_name || ""})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="as-select-chevron">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="as-field">
+                    <label className="as-label">Promotor Name</label>
+                    <div className="as-input-wrap as-readonly-pill">
+                      <span className="as-input-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      </span>
+                      <input
+                        value={selectedPromotor ? `${selectedPromotor.first_name || ""} ${selectedPromotor.last_name || ""}`.trim() : ""}
+                        readOnly
+                        placeholder="Auto fetch"
+                        className="as-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="as-field">
+                    <label className="as-label">Promotor Contact</label>
+                    <div className="as-input-wrap as-readonly-pill">
+                      <span className="as-input-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                      </span>
+                      <input
+                        value={selectedPromotor?.mobile_number || selectedPromotor?.promotor_contact_no || ""}
+                        readOnly
+                        placeholder="Auto fetch"
+                        className="as-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="as-grid-3">
+                  <div className="as-field">
+                    <label className="as-label">Super Admin ID</label>
+                    <div className="as-input-wrap as-readonly-pill">
+                      <span className="as-input-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><line x1="15" y1="8" x2="17" y2="8"/><line x1="15" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="17" y2="16"/></svg>
+                      </span>
+                      <input
+                        value={superCustomerLoading ? "Fetching..." : (superCustomer?.id || "SUPER_ADMIN")}
+                        readOnly
+                        placeholder="Auto fetch"
+                        className="as-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="as-field">
+                    <label className="as-label">Super Admin Name</label>
+                    <div className="as-input-wrap as-readonly-pill">
+                      <span className="as-input-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      </span>
+                      <input
+                        value={superCustomerLoading ? "Fetching..." : (superCustomerName || superCustomer?.name || "Super Admin")}
+                        readOnly
+                        placeholder="Auto fetch"
+                        className="as-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="as-field">
+                    <label className="as-label">Super Admin Contact</label>
+                    <div className="as-input-wrap as-readonly-pill">
+                      <span className="as-input-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                      </span>
+                      <input
+                        value={superCustomerLoading ? "Fetching..." : (superCustomer?.phone || superCustomer?.email || "Super Admin")}
+                        readOnly
+                        placeholder="Auto fetch"
+                        className="as-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Actions CTA */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px' }}>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="as-submit-btn"
+                style={{ opacity: submitting ? 0.7 : 1, cursor: submitting ? 'not-allowed' : 'pointer' }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                <span>{submitting ? 'Creating Customer...' : 'Create Customer'}</span>
+                {!submitting && (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                )}
               </button>
               <button
                 type="button"
-                className="cc-btn-secondary"
-                onClick={() => {
-                  setForm(emptyForm);
-                  setConfirmPassword("");
-                  setPasswordError("");
-                  setMsg("");
-                }}
+                onClick={() => navigate(-1)}
+                className="as-back-btn"
               >
-                Reset
+                Cancel
               </button>
             </div>
           </form>
         </div>
       </div>
 
-      {/* ── SUCCESS POPUP MODAL ── */}
+      {/* Success Popup Modal */}
       {successPopup && (
         <div
           onClick={() => setSuccessPopup(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(7, 31, 34, 0.55)",
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px",
-          }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(7,31,34,0.6)', backdropFilter: 'blur(8px)', zIndex: 1400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "#FFFFFF",
-              borderRadius: "24px",
-              width: "100%",
-              maxWidth: "500px",
-              overflow: "hidden",
-              boxShadow: "0 24px 60px rgba(7, 59, 63, 0.25)",
-              border: "1px solid rgba(204, 168, 129, 0.35)",
-            }}
+            style={{ background: '#FFFFFF', borderRadius: '24px', width: '100%', maxWidth: '480px', padding: '32px 30px', boxShadow: '0 30px 80px rgba(7,31,34,0.3)', border: '1px solid rgba(204,168,129,0.3)', textAlign: 'center' }}
           >
-            {/* Header */}
-            <div
-              style={{
-                background: "linear-gradient(135deg, #073B3F 0%, #0F5C62 100%)",
-                padding: "24px 28px",
-                color: "#FFFFFF",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                <div
-                  style={{
-                    width: "44px",
-                    height: "44px",
-                    borderRadius: "14px",
-                    background: "rgba(16, 185, 129, 0.2)",
-                    border: "1px solid rgba(16, 185, 129, 0.4)",
-                    color: "#34D399",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "22px",
-                    fontWeight: 900,
-                  }}
-                >
-                  ✓
-                </div>
-                <div>
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      fontWeight: 800,
-                      letterSpacing: "0.12em",
-                      textTransform: "uppercase",
-                      color: "#E1C497",
-                      display: "block",
-                      marginBottom: "2px",
-                    }}
-                  >
-                    CUSTOMER CREATION SUCCESS
-                  </span>
-                  <h3 style={{ margin: 0, fontSize: "19px", fontWeight: 800 }}>
-                    {successPopup.title}
-                  </h3>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSuccessPopup(null)}
-                style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "50%",
-                  background: "rgba(255, 255, 255, 0.12)",
-                  border: "1px solid rgba(255, 255, 255, 0.2)",
-                  color: "#FFFFFF",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  fontSize: "16px",
-                }}
-              >
-                ✕
-              </button>
+            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,167,103,0.12)', border: '2px solid #00A767', margin: '0 auto 18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00A767" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
             </div>
+            <h3 style={{ margin: '0 0 8px', fontSize: '22px', fontWeight: 800, color: '#073B3F' }}>
+              {successPopup.title}
+            </h3>
+            <p style={{ margin: '0 0 20px', fontSize: '13.5px', color: '#53615F' }}>
+              Customer registered successfully into the Athirai network.
+            </p>
 
-            {/* Details */}
-            <div style={{ padding: "24px 28px" }}>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(2, 1fr)",
-                  gap: "12px",
-                  marginBottom: "20px",
-                }}
-              >
-                {successPopup.customer_id && (
-                  <div
-                    style={{
-                      gridColumn: "span 2",
-                      padding: "14px 16px",
-                      background: "#F4F8F7",
-                      borderRadius: "14px",
-                      border: "1px solid #D9E8E6",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <div>
-                      <small
-                        style={{
-                          display: "block",
-                          fontSize: "10px",
-                          fontWeight: 800,
-                          textTransform: "uppercase",
-                          color: "#728A87",
-                          marginBottom: "2px",
-                        }}
-                      >
-                        Generated Customer ID
-                      </small>
-                      <strong
-                        style={{
-                          fontFamily: "monospace",
-                          fontSize: "16px",
-                          color: "#073B3F",
-                        }}
-                      >
-                        {successPopup.customer_id}
-                      </strong>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await navigator.clipboard.writeText(successPopup.customer_id);
-                        setCopiedId(true);
-                        setTimeout(() => setCopiedId(false), 2000);
-                      }}
-                      style={{
-                        padding: "6px 12px",
-                        background: copiedId ? "#D1FAE5" : "#FFFFFF",
-                        border: "1px solid #C4D9D6",
-                        borderRadius: "8px",
-                        fontSize: "11.5px",
-                        fontWeight: 700,
-                        color: copiedId ? "#065F46" : "#073B3F",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {copiedId ? "Copied! ✓" : "Copy ID ⧉"}
-                    </button>
+            {successPopup.customer_id && (
+              <div style={{ background: '#F8FBFB', border: '1px solid #D5E5E2', borderRadius: '14px', padding: '14px 18px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: '10.5px', fontWeight: 800, color: '#BB8958', letterSpacing: '0.1em', textTransform: 'uppercase' }}>CUSTOMER ID</div>
+                  <div style={{ fontSize: '18px', fontWeight: 900, fontFamily: 'monospace', color: '#073B3F', marginTop: '2px' }}>
+                    {successPopup.customer_id}
                   </div>
-                )}
-
-                <div style={{ padding: "12px 14px", background: "#F8FAF9", borderRadius: "12px", border: "1px solid #E8EFEF" }}>
-                  <small style={{ display: "block", fontSize: "10px", fontWeight: 800, textTransform: "uppercase", color: "#728A87", marginBottom: "2px" }}>
-                    Customer Name
-                  </small>
-                  <strong style={{ color: "#073B3F", fontSize: "13.5px" }}>
-                    {successPopup.name || "—"}
-                  </strong>
                 </div>
-
-                <div style={{ padding: "12px 14px", background: "#F8FAF9", borderRadius: "12px", border: "1px solid #E8EFEF" }}>
-                  <small style={{ display: "block", fontSize: "10px", fontWeight: 800, textTransform: "uppercase", color: "#728A87", marginBottom: "2px" }}>
-                    City
-                  </small>
-                  <strong style={{ color: "#073B3F", fontSize: "13.5px" }}>
-                    {successPopup.city || "—"}
-                  </strong>
-                </div>
-
-                <div style={{ padding: "12px 14px", background: "#F8FAF9", borderRadius: "12px", border: "1px solid #E8EFEF" }}>
-                  <small style={{ display: "block", fontSize: "10px", fontWeight: 800, textTransform: "uppercase", color: "#728A87", marginBottom: "2px" }}>
-                    Email
-                  </small>
-                  <strong style={{ color: "#073B3F", fontSize: "13px", wordBreak: "break-all" }}>
-                    {successPopup.email || "—"}
-                  </strong>
-                </div>
-
-                <div style={{ padding: "12px 14px", background: "#F8FAF9", borderRadius: "12px", border: "1px solid #E8EFEF" }}>
-                  <small style={{ display: "block", fontSize: "10px", fontWeight: 800, textTransform: "uppercase", color: "#728A87", marginBottom: "2px" }}>
-                    Mobile Number
-                  </small>
-                  <strong style={{ color: "#073B3F", fontSize: "13.5px" }}>
-                    {successPopup.mobile || "—"}
-                  </strong>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
                 <button
                   type="button"
-                  onClick={() => setSuccessPopup(null)}
-                  style={{
-                    padding: "11px 26px",
-                    background: "#073B3F",
-                    border: "none",
-                    borderRadius: "12px",
-                    color: "#FFFFFF",
-                    fontSize: "13.5px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    boxShadow: "0 4px 14px rgba(7, 59, 63, 0.2)",
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(successPopup.customer_id);
+                    setCopiedId(true);
+                    setTimeout(() => setCopiedId(false), 2000);
                   }}
+                  style={{ padding: '8px 14px', background: copiedId ? '#00A767' : '#073B3F', color: '#FFFFFF', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s ease' }}
                 >
-                  Done
+                  {copiedId ? '✓ Copied!' : 'Copy ID'}
                 </button>
               </div>
+            )}
+
+            <div style={{ textAlign: 'left', background: '#FAFBFB', border: '1px solid #EDF2F1', borderRadius: '12px', padding: '12px 16px', marginBottom: '24px', fontSize: '13px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #F0F4F4' }}>
+                <span style={{ color: '#7A8987' }}>Name:</span>
+                <strong style={{ color: '#073B3F' }}>{successPopup.name}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #F0F4F4' }}>
+                <span style={{ color: '#7A8987' }}>Email:</span>
+                <strong style={{ color: '#073B3F' }}>{successPopup.email}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #F0F4F4' }}>
+                <span style={{ color: '#7A8987' }}>Mobile:</span>
+                <strong style={{ color: '#073B3F' }}>{successPopup.mobile}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                <span style={{ color: '#7A8987' }}>City:</span>
+                <strong style={{ color: '#073B3F' }}>{successPopup.city || '—'}</strong>
+              </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => { setSuccessPopup(null); navigate(-1); }}
+              className="as-submit-btn"
+              style={{ width: '100%', justifyContent: 'center' }}
+            >
+              Done &amp; Continue
+            </button>
           </div>
         </div>
       )}
 
-      {/* ── PROFESSIONAL ERROR POPUP MODAL ── */}
+      {/* Error Popup Modal */}
       {errorPopup && (
         <div
           onClick={() => setErrorPopup(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(7, 31, 34, 0.55)",
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px",
-          }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(7,31,34,0.6)', backdropFilter: 'blur(8px)', zIndex: 1400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "#FFFFFF",
-              borderRadius: "24px",
-              width: "100%",
-              maxWidth: "480px",
-              overflow: "hidden",
-              boxShadow: "0 24px 60px rgba(220, 38, 38, 0.2)",
-              border: "1px solid rgba(239, 68, 68, 0.3)",
-            }}
+            style={{ background: '#FFFFFF', borderRadius: '24px', width: '100%', maxWidth: '480px', padding: '32px 30px', boxShadow: '0 30px 80px rgba(7,31,34,0.3)', border: '1px solid rgba(220,38,38,0.3)', textAlign: 'center' }}
           >
-            <div
-              style={{
-                background: "linear-gradient(135deg, #DC2626 0%, #991B1B 100%)",
-                padding: "22px 26px",
-                color: "#FFFFFF",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
+            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(220,38,38,0.12)', border: '2px solid #DC2626', margin: '0 auto 18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </div>
+            <h3 style={{ margin: '0 0 8px', fontSize: '22px', fontWeight: 800, color: '#073B3F' }}>
+              {errorPopup.title}
+            </h3>
+            <div style={{ textAlign: 'left', background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: '12px', padding: '14px 18px', margin: '18px 0 24px', maxHeight: '200px', overflowY: 'auto' }}>
+              {errorPopup.errors.map((err, i) => (
+                <div key={i} style={{ color: '#DC2626', fontSize: '13px', fontWeight: 600, marginBottom: i < errorPopup.errors.length - 1 ? '8px' : 0 }}>
+                  • {err}
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setErrorPopup(null)}
+              className="as-submit-btn"
+              style={{ width: '100%', justifyContent: 'center' }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                <div
-                  style={{
-                    width: "42px",
-                    height: "42px",
-                    borderRadius: "12px",
-                    background: "rgba(255, 255, 255, 0.2)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "20px",
-                    fontWeight: 900,
-                  }}
-                >
-                  !
-                </div>
-                <div>
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      fontWeight: 800,
-                      letterSpacing: "0.12em",
-                      textTransform: "uppercase",
-                      color: "#FEE2E2",
-                      display: "block",
-                      marginBottom: "2px",
-                    }}
-                  >
-                    SUBMISSION ERROR
-                  </span>
-                  <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 800 }}>
-                    {errorPopup.title}
-                  </h3>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setErrorPopup(null)}
-                style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "50%",
-                  background: "rgba(255, 255, 255, 0.15)",
-                  border: "1px solid rgba(255, 255, 255, 0.25)",
-                  color: "#FFFFFF",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  fontSize: "16px",
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ padding: "24px 28px" }}>
-              <p style={{ margin: "0 0 14px", color: "#6B7280", fontSize: "13.5px" }}>
-                Please review and correct the following items:
-              </p>
-              <div
-                style={{
-                  background: "#FEF2F2",
-                  border: "1px solid #FEE2E2",
-                  borderRadius: "14px",
-                  padding: "14px 18px",
-                  marginBottom: "20px",
-                }}
-              >
-                <ul style={{ margin: 0, paddingLeft: "18px", color: "#991B1B", fontSize: "13.5px", lineHeight: 1.6 }}>
-                  {errorPopup.errors.map((msg, i) => (
-                    <li key={i} style={{ fontWeight: 600 }}>{msg}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <button
-                  type="button"
-                  onClick={() => setErrorPopup(null)}
-                  style={{
-                    padding: "10px 24px",
-                    background: "#DC2626",
-                    border: "none",
-                    borderRadius: "12px",
-                    color: "#FFFFFF",
-                    fontSize: "13px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                  }}
-                >
-                  Review & Fix
-                </button>
-              </div>
-            </div>
+              Close &amp; Fix Issues
+            </button>
           </div>
         </div>
       )}
-
-      <CustomerFooter />
     </div>
   );
 }

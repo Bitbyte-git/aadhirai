@@ -4,8 +4,8 @@ import logo from '../assets/logo.png'
 import api from '../api'
 
 
-function Icon({ name, size = 17 }) {
-  const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true }
+function Icon({ name, size = 17, className = '' }) {
+  const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, className }
   const icons = {
     home: <><path d="M3 11.5 12 4l9 7.5" /><path d="M5 10.5V21h14V10.5" /><path d="M9 21v-6h6v6" /></>,
     box: <><path d="M21 8 12 3 3 8l9 5 9-5Z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></>,
@@ -19,8 +19,18 @@ function Icon({ name, size = 17 }) {
     menu: <><path d="M3 6h18" /><path d="M3 12h18" /><path d="M3 18h18" /></>,
     close: <><path d="M18 6 6 18" /><path d="m6 6 12 12" /></>,
     stock: <><path d="M20 7 12 3 4 7" /><path d="M4 7v10l8 4 8-4V7" /><path d="M4 7l8 4 8-4" /><path d="M12 11v10" /></>,
+    search: <><circle cx="11" cy="11" r="7" /><path d="m21 21-4.35-4.35" /></>,
+    clock: <><circle cx="12" cy="12" r="9" /><polyline points="12 6 12 12 16 14" /></>,
+    trash: <><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></>,
+    user: <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
+    arrowRight: <><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></>,
+    spark: <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z" />,
+    coin: <><circle cx="12" cy="12" r="9" /><path d="M12 7v10" /><path d="M15 9.5a2.5 2.5 0 0 0-5 0c0 3 5 2 5 5a2.5 2.5 0 0 1-5 0" /></>,
+    gem: <path d="M6 3h12l4 6-10 12L2 9l4-6z" />,
+    chart: <><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></>,
+    bell: <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></>,
   }
-  return <svg {...common}>{icons[name]}</svg>
+  return <svg {...common}>{icons[name] || icons.search}</svg>
 }
 
 export default function SuperAdminNavbar({
@@ -44,6 +54,50 @@ export default function SuperAdminNavbar({
   const closeTimerRef = useRef(null)
   const [showMobileDrawer, setShowMobileDrawer] = useState(false)   // ── NEW: hamburger sidebar ──
   const [searchAlert, setSearchAlert] = useState(null)
+
+  // ── ADVANCED GOOGLE / YOUTUBE SEARCH & VOICE ENGINE ──
+  const [showVoiceModal, setShowVoiceModal] = useState(false)
+  const [voiceInterim, setVoiceInterim] = useState('')
+  const [voiceStatus, setVoiceStatus] = useState('ready') // 'ready' | 'listening' | 'processing' | 'error'
+  const [voiceErrorMsg, setVoiceErrorMsg] = useState('')
+  const [isSearchFocused, setIsSearchFocused] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [selectedIndex, setSelectedIndex] = useState(-1)
+  const [recentSearches, setRecentSearches] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('san_recent_searches') || '[]')
+    } catch { return [] }
+  })
+  const [apiUsers, setApiUsers] = useState([])
+  const [isSearchingApi, setIsSearchingApi] = useState(false)
+  const searchInputRef = useRef(null)
+  const searchContainerRef = useRef(null)
+  const apiDebounceRef = useRef(null)
+
+  const addRecentSearch = (term) => {
+    if (!term || !term.trim()) return
+    const clean = term.trim()
+    setRecentSearches(prev => {
+      const next = [clean, ...prev.filter(x => x.toLowerCase() !== clean.toLowerCase())].slice(0, 6)
+      try { localStorage.setItem('san_recent_searches', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
+
+  const removeRecentSearch = (e, term) => {
+    e.stopPropagation()
+    setRecentSearches(prev => {
+      const next = prev.filter(x => x !== term)
+      try { localStorage.setItem('san_recent_searches', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
+
+  const clearRecentSearches = (e) => {
+    e.stopPropagation()
+    setRecentSearches([])
+    try { localStorage.removeItem('san_recent_searches') } catch {}
+  }
 
   const showSearchAlert = (title, message, query = '', type = 'warning', showSuggestions = true) => {
     setSearchAlert({
@@ -239,125 +293,772 @@ export default function SuperAdminNavbar({
     closeTimerRef.current = setTimeout(() => setOpenMenu(null), 200)
   }
 
-  const PAGE_ROUTES = [
-    { keywords: ['inactive'], path: '/login-inactive' },
-    { keywords: ['active list', 'active users', 'login active'], path: '/login-active' },
-    { keywords: ['add product'], path: '/add-product' },
-    { keywords: ['orders', 'admin orders'], path: '/admin-orders' },
-    { keywords: ['hierarchy tree'], path: '/superadmin-hierarchy' },
-    { keywords: ['hierarchy grid', 'hierarchy'], path: '/superadmin-hierarchy-grid' },
-    { keywords: ['hierarchy sales report', 'sales count'], path: '/hierarchy-sales-count' },
-    { keywords: ['sales report'], path: '/sales-report' },
-    { keywords: ['buy coin'], path: '/buy-coin' },
-    { keywords: ['available coin', 'available coins', 'stored coin'], path: '/available-coins' },
-    { keywords: ['coin requests'], path: '/coin-requests-page' },
-    { keywords: ['coin transactions'], path: '/coin-transactions' },
-    { keywords: ['retailer'], path: '/promotions/retailer' },
-    { keywords: ['wholesale dealer'], path: '/promotions/wholesale-dealer' },
-    { keywords: ['distributor'], path: '/promotions/distributor' },
-    { keywords: ['super stockist'], path: '/promotions/super-stockist' },
-    { keywords: ['all sales', 'revenue', 'payments'], path: '/superadmin-payments' },
-    { keywords: ['athirai revenue', 'net revenue'], path: '/athirai-revenue' },
-    { keywords: ['general customer revenue', 'direct purchase'], path: '/general-customer-revenue' },
-    { keywords: ['residual commission', 'super admin commission'], path: '/superadmin-commission' },
-    { keywords: ['my commission'], path: '/my-commission' },
-    { keywords: ['commissions', 'leaderboard commission'], path: '/commissions' },
-    { keywords: ['add aug coin', 'send coin'], path: '/superadmin-send-coins' },
-    { keywords: ['autopay'], path: '/superadmin-autopay-list' },
-    { keywords: ['today birthday', 'birthday'], path: '/super-admin?open=birthday' },
-    { keywords: ['work anniversary', 'join date', 'join anniversary'], path: '/super-admin?open=joindate' },
-    { keywords: ['anniversary'], path: '/super-admin?open=anniversary' },
-    { keywords: ['gold rate', 'today rate', 'today gold rate'], path: '/super-admin?open=today-rates' },
-    { keywords: ['requests', 'profile request'], path: '/super-admin?open=requests' },
-    { keywords: ['send announcement'], path: '/super-admin?open=announcement' },
-    { keywords: ['my announcements'], path: '/super-admin?open=myannouncements' },
-  ]
-
-  const submitVoiceSearch = async (query) => {
-    const q = (query || '').trim()
-    if (!q) return
-    setVoiceQuery('')
-
-    const lower = q.toLowerCase()
-
-    // Fast check: strip route keywords
-    const allRouteKeywords = PAGE_ROUTES.flatMap(p => p.keywords)
-    const stripPattern = new RegExp(
-      [...allRouteKeywords, 'show', 'open', 'of'].sort((a, b) => b.length - a.length).join('|'),
-      'gi'
-    )
-    const nameOnly = lower.replace(stripPattern, '').trim()
-
-    // Match page routes directly
-    for (const page of PAGE_ROUTES) {
-      if (page?.keywords?.some(k => lower.includes(k))) {
-        navigate(page.path)
-        return
+  // ── KEYBOARD SHORTCUTS & CLICK OUTSIDE ──
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        searchInputRef.current?.focus()
+        setShowSuggestions(true)
+      } else if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        e.preventDefault()
+        searchInputRef.current?.focus()
+        setShowSuggestions(true)
       }
     }
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [])
 
-    // Try finding person / customer / partner
-    const searchQuery = nameOnly || q
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSuggestions(false)
+        setIsSearchFocused(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // ── LIVE DIRECTORY / CUSTOMER SEARCH DEBOUNCE ──
+  useEffect(() => {
+    const q = voiceQuery.trim()
+    if (!q || q.length < 2) {
+      setApiUsers([])
+      setIsSearchingApi(false)
+      return
+    }
+    clearTimeout(apiDebounceRef.current)
+    setIsSearchingApi(true)
+    apiDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await api.get(`/users/search/?q=${encodeURIComponent(q)}`)
+        const data = res.data?.results || res.data || []
+        setApiUsers(Array.isArray(data) ? data.slice(0, 4) : [])
+      } catch {
+        setApiUsers([])
+      } finally {
+        setIsSearchingApi(false)
+      }
+    }, 260)
+    return () => clearTimeout(apiDebounceRef.current)
+  }, [voiceQuery])
+
+  // ── AUDIO CHIME FEEDBACK (GOOGLE / YOUTUBE STYLE) ──
+  const playChime = (type = 'start') => {
     try {
-      const res = await api.get(`/users/search/?q=${encodeURIComponent(searchQuery)}`)
+      const AudioCtx = window.AudioContext || window.webkitAudioContext
+      if (!AudioCtx) return
+      const ctx = new AudioCtx()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      if (type === 'start') {
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(520, ctx.currentTime)
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12)
+        gain.gain.setValueAtTime(0.08, ctx.currentTime)
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22)
+        osc.start(ctx.currentTime)
+        osc.stop(ctx.currentTime + 0.22)
+      } else if (type === 'success') {
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime)
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1)
+        gain.gain.setValueAtTime(0.08, ctx.currentTime)
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25)
+        osc.start(ctx.currentTime)
+        osc.stop(ctx.currentTime + 0.25)
+      }
+    } catch { /* audio not allowed */ }
+  }
+
+  // ── MASTER SEARCH CATALOG WITH RICH SLANG & TAMIL VOCABULARY ──
+  const SEARCH_CATALOG = [
+    {
+      id: 'today-rates',
+      title: 'Today Gold Rate',
+      category: 'Rates & Gold',
+      icon: 'rate',
+      description: 'View today 22K, 24K gold, silver and platinum rates',
+      action: () => { if (onTodayRates) onTodayRates(); else { setShowTodayRates(true); fetchMetalPrices() } },
+      keywords: ['gold rate', 'rate', 'gold price', 'metal price', 'today rate', 'today gold rate', 'thangam', 'thangam rate', 'thanga vilai', 'thangam ethana', 'rate evlo', 'rate paakanum', 'vellie rate', 'silver', 'platinum', 'தங்க விலை', 'தங்கம்', 'விலை', 'வெள்ளி', '22k', '24k']
+    },
+    {
+      id: 'add-rate',
+      title: 'Add / Update Gold Rate',
+      category: 'Rates & Gold',
+      icon: 'rate',
+      description: 'Update live market prices for gold, silver and platinum',
+      action: () => { if (onGoldRate) onGoldRate(); else { setShowRatePopup(true); fetchMetalPrices() } },
+      keywords: ['add gold rate', 'update gold rate', 'rate entry', 'enter rate', 'rate add', 'rate podanum', 'rate maathanum', 'rate update', 'விலை சேர்க்க']
+    },
+    {
+      id: 'admin-orders',
+      title: 'Admin Orders',
+      category: 'Orders & Catalog',
+      icon: 'orders',
+      path: '/admin-orders',
+      description: 'Customer orders, invoices and fulfillment status',
+      keywords: ['orders', 'order', 'admin orders', 'all orders', 'customer orders', 'booking', 'orders list', 'order status', 'order kaatu', 'aadar', 'ஆர்டர்கள்', 'ஆர்டர்', 'புக்கிங்']
+    },
+    {
+      id: 'add-product',
+      title: 'Add New Product',
+      category: 'Orders & Catalog',
+      icon: 'box',
+      path: '/add-product',
+      description: 'Create and list brand new product inventory',
+      keywords: ['add product', 'new product', 'create product', 'products', 'product add', 'puthu product', 'porul', 'item', 'பொருள்', 'பொருட்கள்', 'பொருள் சேர்க்க']
+    },
+    {
+      id: 'inventory-stock',
+      title: 'Inventory & Sold Out',
+      category: 'Orders & Catalog',
+      icon: 'stock',
+      path: '/sold-out-products',
+      description: 'View out-of-stock items and current inventory levels',
+      keywords: ['inventory', 'stock', 'sold out', 'sold out products', 'stock list', 'சரக்கு', 'இருப்பு']
+    },
+    {
+      id: 'add-jewellery',
+      title: 'Add Jewellery',
+      category: 'Coins & Jewellery',
+      icon: 'gem',
+      path: '/add-jewellery',
+      description: 'Upload jewellery design with weight and purity',
+      keywords: ['add jewellery', 'jewellery add', 'new jewellery', 'naga podanum', 'நகை சேர்க்க']
+    },
+    {
+      id: 'available-jewellery',
+      title: 'Available Jewellery',
+      category: 'Coins & Jewellery',
+      icon: 'gem',
+      path: '/available-jewellery',
+      description: 'Browse available necklaces, bangles, rings and sets',
+      keywords: ['available jewellery', 'jewellery', 'jewelry', 'jewellery list', 'naga', 'nagai', 'thanga nagai', 'jewel', 'நகைகள்', 'நகை', 'நகை பட்டியல்']
+    },
+    {
+      id: 'jewellery-requests',
+      title: 'Jewellery Requests',
+      category: 'Coins & Jewellery',
+      icon: 'gem',
+      path: '/jewellery-requests',
+      description: 'Review and approve customer jewellery purchase requests',
+      keywords: ['jewellery requests', 'jewellery approval', 'naga request', 'நகை கோரிக்கை']
+    },
+    {
+      id: 'jewellery-transactions',
+      title: 'Jewellery Transactions',
+      category: 'Coins & Jewellery',
+      icon: 'gem',
+      path: '/jewellery-transactions',
+      description: 'Audit history of all jewellery transfers and sales',
+      keywords: ['jewellery transactions', 'jewellery history', 'naga parimatram']
+    },
+    {
+      id: 'buy-coin',
+      title: 'Buy & Add Coins',
+      category: 'Coins & Jewellery',
+      icon: 'coin',
+      path: '/buy-coin',
+      action: onAddCoins ? () => onAddCoins() : undefined,
+      description: 'Purchase and add physical gold/silver coins to vault',
+      keywords: ['add coins', 'buy coin', 'coin vanga', 'kaasu vanga', 'காசு வாங்க', 'நாணயம் வாங்க']
+    },
+    {
+      id: 'available-coins',
+      title: 'Available Coins',
+      category: 'Coins & Jewellery',
+      icon: 'coin',
+      path: '/available-coins',
+      description: 'Current vault coin stock and denominations',
+      keywords: ['available coins', 'coins', 'coin', 'kaasu', 'thanga kaasu', 'stored coins', 'நாணயம்', 'காசு', 'நாணயங்கள்']
+    },
+    {
+      id: 'coin-requests',
+      title: 'Coin Requests',
+      category: 'Coins & Jewellery',
+      icon: 'coin',
+      path: '/coin-requests-page',
+      description: 'Pending member requests for gold coin purchases',
+      keywords: ['coin requests', 'kaasu request', 'requests coins']
+    },
+    {
+      id: 'coin-transactions',
+      title: 'Coin Transactions',
+      category: 'Coins & Jewellery',
+      icon: 'coin',
+      path: '/coin-transactions',
+      description: 'Complete ledger of all coin transfers and purchases',
+      keywords: ['coin transactions', 'coin history', 'kaasu parimatram']
+    },
+    {
+      id: 'send-aug-coins',
+      title: 'Send AUG Coins',
+      category: 'Coins & Jewellery',
+      icon: 'coin',
+      path: '/superadmin-send-coins',
+      description: 'Directly credit and allocate AUG coins to members',
+      keywords: ['add aug coin', 'send coin', 'aug coins', 'send coins', 'coin anupu']
+    },
+    {
+      id: 'super-stockists',
+      title: 'Super Stockists',
+      category: 'Network & Users',
+      icon: 'user',
+      path: '/superadmin/manage-users/super-stockist',
+      description: 'Top-tier Super Stockist franchise directory',
+      keywords: ['super stockist', 'super stockists', 'stockist', 'stockists', 'ஸ்டாக்கிஸ்ட்']
+    },
+    {
+      id: 'distributors',
+      title: 'Distributors',
+      category: 'Network & Users',
+      icon: 'user',
+      path: '/superadmin/manage-users/distributor',
+      description: 'Manage regional distributors and accounts',
+      keywords: ['distributor', 'distributors', 'டிஸ்ட்ரிபியூட்டர்', 'விநியோகஸ்தர்']
+    },
+    {
+      id: 'wholesale-dealers',
+      title: 'Wholesale Dealers',
+      category: 'Network & Users',
+      icon: 'user',
+      path: '/superadmin/manage-users/wholesale-dealer',
+      description: 'B2B Wholesale jewelers and merchant accounts',
+      keywords: ['wholesale dealer', 'wholesale dealers', 'dealer', 'dealers', 'wholesale', 'டீலர்', 'மொத்த வியாபாரி']
+    },
+    {
+      id: 'retailers',
+      title: 'Retailers',
+      category: 'Network & Users',
+      icon: 'user',
+      path: '/superadmin/manage-users/retailer',
+      description: 'Retail jewelers and showcase partners',
+      keywords: ['retailer', 'retailers', 'சில்லறை விற்பனையாளர்', 'சில்லறை']
+    },
+    {
+      id: 'customers',
+      title: 'Manage Customers',
+      category: 'Network & Users',
+      icon: 'user',
+      path: '/superadmin/manage-users/customer',
+      description: 'Customer list, verification, wallet & orders',
+      keywords: ['customer', 'customers', 'manage customers', 'vadikkaiyalar', 'customer thedu', 'வாடிக்கையாளர்', 'வாடிக்கையாளர்கள்']
+    },
+    {
+      id: 'general-customers',
+      title: 'General Customers',
+      category: 'Network & Users',
+      icon: 'user',
+      path: '/general-customers',
+      description: 'Walk-in and unregistered direct retail customers',
+      keywords: ['general customer', 'general customers', 'பொது வாடிக்கையாளர்']
+    },
+    {
+      id: 'referral-customers',
+      title: 'Referral Customers',
+      category: 'Network & Users',
+      icon: 'user',
+      path: '/referral-customers',
+      description: 'Members registered through sponsorship referrals',
+      keywords: ['referral customer', 'referral customers', 'ரெபரல்']
+    },
+    {
+      id: 'create-customer',
+      title: 'Create Customer',
+      category: 'Network & Users',
+      icon: 'user',
+      path: '/create-customer',
+      description: 'Onboard a new customer profile manually',
+      keywords: ['create customer', 'new customer', 'add customer', 'புதிய வாடிக்கையாளர்']
+    },
+    {
+      id: 'create-super-stockist',
+      title: 'Create Super Stockist',
+      category: 'Network & Users',
+      icon: 'user',
+      path: '/create-super-stockist',
+      description: 'Create and appoint a new Super Stockist account',
+      keywords: ['create super stockist', 'new super stockist', 'add stockist']
+    },
+    {
+      id: 'hierarchy-grid',
+      title: 'Hierarchy Grid',
+      category: 'Network & Users',
+      icon: 'user',
+      path: '/superadmin-hierarchy-grid',
+      description: 'Compact table view of all levels, uplines and downlines',
+      keywords: ['hierarchy grid', 'hierarchy', 'network grid', 'team grid', 'members grid', 'ஹைரார்க்கி', 'அமைப்பு']
+    },
+    {
+      id: 'hierarchy-tree',
+      title: 'Hierarchy Tree',
+      category: 'Network & Users',
+      icon: 'user',
+      path: '/superadmin-hierarchy',
+      description: 'Visual interactive hierarchy tree diagram',
+      keywords: ['hierarchy tree', 'tree view', 'organisation tree', 'network tree', 'மர அமைப்பு']
+    },
+    {
+      id: 'shop-list',
+      title: 'Shop List',
+      category: 'Network & Users',
+      icon: 'home',
+      path: '/superadmin/manage-users/shops',
+      description: 'Athirai retail merchant shops & stores',
+      keywords: ['shops', 'shop list', 'manage shops', 'kadai', 'kadai list', 'கடைகள்', 'கடை']
+    },
+    {
+      id: 'shop-hierarchy',
+      title: 'Shop Hierarchy',
+      category: 'Network & Users',
+      icon: 'home',
+      path: '/shop-hierarchy-grid',
+      description: 'Franchise and branch shop structure grid',
+      keywords: ['shop hierarchy', 'shop tree', 'branch tree']
+    },
+    {
+      id: 'shop-report',
+      title: 'Shop Report',
+      category: 'Reports & Finance',
+      icon: 'chart',
+      path: '/shop-report',
+      description: 'Sales, footfall and performance metrics per shop',
+      keywords: ['shop report', 'kadai report', 'shop sales', 'கடை அறிக்கை']
+    },
+    {
+      id: 'sales-report',
+      title: 'Sales Report',
+      category: 'Reports & Finance',
+      icon: 'chart',
+      path: '/sales-report',
+      description: 'Total revenue, product sales breakdowns and trends',
+      keywords: ['sales report', 'sales', 'sales summary', 'viyabaram', 'வியாபாரம்', 'விற்பனை', 'விற்பனை அறிக்கை']
+    },
+    {
+      id: 'hierarchy-sales-count',
+      title: 'Hierarchy Sales Count',
+      category: 'Reports & Finance',
+      icon: 'chart',
+      path: '/hierarchy-sales-count',
+      description: 'Downline sales volume, team points and milestones',
+      keywords: ['hierarchy sales report', 'sales count', 'sales count report']
+    },
+    {
+      id: 'athirai-profit',
+      title: 'Athirai Profit (73% & Commissions)',
+      category: 'Reports & Finance',
+      icon: 'chart',
+      path: '/athirai-profit',
+      description: 'Comprehensive 73% share, balance commissions, and general customer net profit',
+      keywords: ['athirai profit', 'profit', '73%', 'balance commission', 'superadmin profit', 'labam', 'லாபம்']
+    },
+    {
+      id: 'athirai-revenue',
+      title: 'Athirai Net Revenue',
+      category: 'Reports & Finance',
+      icon: 'chart',
+      path: '/athirai-revenue',
+      description: 'Company net turnover, gross margins and profits',
+      keywords: ['athirai revenue', 'net revenue', 'company revenue', 'varumanam', 'வருமானம்']
+    },
+    {
+      id: 'payments',
+      title: 'All Sales & Payments',
+      category: 'Reports & Finance',
+      icon: 'chart',
+      path: '/superadmin-payments',
+      description: 'Full payment gateway transaction records',
+      keywords: ['all sales', 'payments', 'payment list', 'panam', 'பணம்']
+    },
+    {
+      id: 'commissions',
+      title: 'Commissions',
+      category: 'Reports & Finance',
+      icon: 'chart',
+      path: '/commissions',
+      description: 'Multi-level commission payouts and status',
+      keywords: ['commissions', 'commission', 'leaderboard commission', 'கம்மிஷன்']
+    },
+    {
+      id: 'my-commission',
+      title: 'My Commission',
+      category: 'Reports & Finance',
+      icon: 'chart',
+      path: '/my-commission',
+      description: 'Superadmin direct revenue share & commission logs',
+      keywords: ['my commission', 'own commission']
+    },
+    {
+      id: 'residual-commission',
+      title: 'Residual Commission',
+      category: 'Reports & Finance',
+      icon: 'chart',
+      path: '/superadmin-commission',
+      description: 'Ongoing residual earnings and monthly incentives',
+      keywords: ['residual commission', 'super admin commission']
+    },
+    {
+      id: 'autopay',
+      title: 'Autopay List',
+      category: 'Reports & Finance',
+      icon: 'chart',
+      path: '/superadmin-autopay-list',
+      description: 'Automated bank clearing and payouts queue',
+      keywords: ['autopay', 'autopay list', 'auto payout']
+    },
+    {
+      id: 'coins-reward',
+      title: 'Login Reward',
+      category: 'Reports & Finance',
+      icon: 'coin',
+      path: '/coins-reward',
+      description: 'Daily member login streak reward settings',
+      keywords: ['login reward', 'rewards', 'daily reward', 'ரிவார்ட்']
+    },
+    {
+      id: 'login-reward-tx',
+      title: 'Login Reward Transactions',
+      category: 'Reports & Finance',
+      icon: 'coin',
+      path: '/login-reward-transactions',
+      description: 'Member attendance and reward disbursement log',
+      keywords: ['login reward transactions', 'reward history']
+    },
+    {
+      id: 'login-active',
+      title: 'Login Active Users',
+      category: 'Network & Users',
+      icon: 'user',
+      path: '/login-active',
+      description: 'Members who logged in recently',
+      keywords: ['login active', 'active list', 'active users', 'active members', 'செயலில் உள்ளவர்கள்']
+    },
+    {
+      id: 'login-inactive',
+      title: 'Login Inactive Users',
+      category: 'Network & Users',
+      icon: 'user',
+      path: '/login-inactive',
+      description: 'Dormant user accounts needing follow-up',
+      keywords: ['login inactive', 'inactive list', 'inactive users', 'செயலற்றவர்கள்']
+    },
+    {
+      id: 'birthdays',
+      title: "Today's Birthdays",
+      category: 'Celebrations',
+      icon: 'spark',
+      description: 'View members celebrating birthdays today and send wishes',
+      action: () => { if (onBirthdays) onBirthdays(); else { setShowBirthdayList(true); fetchCelebrations() } },
+      keywords: ['today birthday', 'birthday', 'birthdays', 'piranthanal', 'piranthanaal', 'பிறந்தநாள்']
+    },
+    {
+      id: 'anniversaries',
+      title: "Today's Anniversaries",
+      category: 'Celebrations',
+      icon: 'spark',
+      description: 'Members celebrating wedding anniversaries today',
+      action: () => { if (onAnniversaries) onAnniversaries(); else { setShowAnniversaryList(true); fetchCelebrations() } },
+      keywords: ['today anniversary', 'anniversary', 'anniversaries', 'wedding anniversary', 'kalyana naal', 'திருமண நாள்']
+    },
+    {
+      id: 'join-dates',
+      title: 'Joining Anniversaries',
+      category: 'Celebrations',
+      icon: 'spark',
+      description: 'Members completing 1+ years with Athirai family',
+      action: () => { if (onWorkAnniversaries) onWorkAnniversaries(); else { setShowJoinDateList(true); fetchCelebrations() } },
+      keywords: ['joining anniversary', 'join date', 'work anniversary', 'join anniversary', 'சேர்க்கை நாள்']
+    },
+    {
+      id: 'announcements',
+      title: 'Send Announcement',
+      category: 'Announcements',
+      icon: 'alert',
+      description: 'Publish system notifications to apps and portals',
+      action: () => { if (onSendAnnouncement) onSendAnnouncement(); else { setShowAnnouncement(true); setAnnouncementMsg('') } },
+      keywords: ['send announcement', 'announcement', 'broadcast', 'arivippu', 'செய்தி', 'அறிவிப்பு']
+    },
+    {
+      id: 'my-announcements',
+      title: 'My Announcements',
+      category: 'Announcements',
+      icon: 'alert',
+      description: 'History of previous notices and announcements',
+      action: () => { if (onMyAnnouncements) onMyAnnouncements(); else { setShowMyAnnouncements(true); fetchMyAnnouncements() } },
+      keywords: ['my announcements', 'announcements list', 'past announcements']
+    },
+    {
+      id: 'requests',
+      title: 'Profile Update Requests',
+      category: 'Management',
+      icon: 'alert',
+      description: 'Review bank, phone and profile change submissions',
+      action: () => { if (onRequests) onRequests(); else { setShowRequests(true); setRequestMsg(''); fetchProfileRequests() } },
+      keywords: ['requests', 'profile request', 'approval', 'kyc approval', 'கோரிக்கை', 'கோரிக்கைகள்']
+    },
+  ]
+
+  // ── POWER SEARCH EXECUTOR (TAMIL / TANGLISH / ENGLISH / SLANG) ──
+  const executeSearch = async (query) => {
+    const raw = (query || '').trim()
+    if (!raw) return
+
+    addRecentSearch(raw)
+    setVoiceQuery('')
+    setShowSuggestions(false)
+    setIsSearchFocused(false)
+
+    const lower = raw.toLowerCase()
+
+    // 1. Direct or keyword match in SEARCH_CATALOG
+    let bestMatch = null
+    let bestScore = 0
+
+    for (const item of SEARCH_CATALOG) {
+      if (item.title.toLowerCase() === lower) {
+        bestMatch = item
+        bestScore = 100
+        break
+      }
+      for (const kw of item.keywords) {
+        const kwLower = kw.toLowerCase()
+        if (lower === kwLower) {
+          bestMatch = item
+          bestScore = 95
+          break
+        }
+        if (lower.includes(kwLower) || kwLower.includes(lower)) {
+          const score = 80 + Math.min(kwLower.length, 10)
+          if (score > bestScore) {
+            bestScore = score
+            bestMatch = item
+          }
+        }
+      }
+      if (bestScore === 100) break
+    }
+
+    if (bestMatch && bestScore >= 80) {
+      if (bestMatch.action) {
+        bestMatch.action()
+      } else if (bestMatch.path) {
+        navigate(bestMatch.path)
+      }
+      return
+    }
+
+    // 2. Fallback check for user/customer query in backend
+    try {
+      const res = await api.get(`/users/search/?q=${encodeURIComponent(raw)}`)
       const found = res.data?.results || res.data || []
-      if (found.length > 0) {
-        navigate(`/superadmin/manage-users/customer?search=${encodeURIComponent(searchQuery)}`)
+      if (Array.isArray(found) && found.length > 0) {
+        navigate(`/superadmin/manage-users/customer?search=${encodeURIComponent(raw)}`)
         return
       }
     } catch { /* ignore */ }
 
-    // Fallback: search alert modal
+    // 3. If partial match exists in catalog with lower score
+    if (bestMatch) {
+      if (bestMatch.action) {
+        bestMatch.action()
+      } else if (bestMatch.path) {
+        navigate(bestMatch.path)
+      }
+      return
+    }
+
+    // 4. Show navigation alert notice with quick suggestions
     showSearchAlert(
-      'Navigation Notice',
-      `No direct page or record matched "${query}". Please check the quick suggestions below:`,
-      query,
+      'Search Result',
+      `No direct page or record matched "${raw}". You can choose from top recommendations below:`,
+      raw,
       'info',
       true
     )
   }
 
-  const toggleMic = () => {
-    if (isListening) {
-      if (recognitionRef.current) recognitionRef.current.stop()
-      setIsListening(false)
-      return
-    }
+  // Backwards compatibility alias
+  const submitVoiceSearch = executeSearch
+
+  // ── YOUTUBE / GOOGLE VOICE MODAL CONTROLS ──
+  const startVoiceModal = () => {
+    setShowVoiceModal(true)
+    setVoiceInterim('')
+    setVoiceErrorMsg('')
+    setVoiceStatus('listening')
+    startSpeechRecognition()
+  }
+
+  const startSpeechRecognition = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognition) {
-      showSearchAlert('Feature Not Supported', 'Voice search is not supported in this browser. Please use Google Chrome or Microsoft Edge.', '', 'warning', false)
+      setVoiceStatus('error')
+      setVoiceErrorMsg('Voice search is not supported in this browser. Please use Chrome, Edge or Safari.')
       return
     }
-    const recognition = new SpeechRecognition()
-    recognition.lang = 'en-IN'
-    recognition.interimResults = false
-    recognition.maxAlternatives = 1
 
-    recognition.onstart = () => setIsListening(true)
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort() } catch {}
+    }
+
+    playChime('start')
+    const recognition = new SpeechRecognition()
+    recognition.lang = navigator.language?.startsWith('ta') ? 'ta-IN' : 'en-IN'
+    recognition.interimResults = true
+    recognition.maxAlternatives = 1
+    recognition.continuous = false
+
+    recognition.onstart = () => {
+      setIsListening(true)
+      setVoiceStatus('listening')
+      setVoiceErrorMsg('')
+    }
+
+    recognition.onresult = (event) => {
+      let interim = ''
+      let finalTranscript = ''
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript
+        } else {
+          interim += event.results[i][0].transcript
+        }
+      }
+      const currentText = finalTranscript || interim
+      setVoiceInterim(currentText)
+
+      if (finalTranscript) {
+        setVoiceStatus('processing')
+        playChime('success')
+        setTimeout(() => {
+          setShowVoiceModal(false)
+          setIsListening(false)
+          executeSearch(finalTranscript)
+        }, 400)
+      }
+    }
+
     recognition.onerror = (event) => {
       setIsListening(false)
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-        showSearchAlert('Microphone Access Blocked', 'Microphone permission is blocked. Click the microphone icon in your browser address bar and choose "Allow".', '', 'warning', false)
+        setVoiceStatus('error')
+        setVoiceErrorMsg('Microphone access blocked. Click the lock/camera icon in your address bar and allow microphone access.')
       } else if (event.error === 'no-speech') {
-        showSearchAlert('No Speech Detected', 'No voice input was detected. Please click the mic button and speak clearly.', '', 'info', false)
-      } else if (event.error === 'language-not-supported') {
-        showSearchAlert('Language Not Supported', 'Speech recognition language is not supported by your browser.', '', 'warning', false)
+        setVoiceStatus('error')
+        setVoiceErrorMsg('No speech detected. Please tap the microphone and speak again.')
       } else {
-        showSearchAlert('Voice Recognition Issue', `Voice search encountered an issue (${event.error}). Please try again.`, '', 'error', false)
+        setVoiceStatus('error')
+        setVoiceErrorMsg(`Voice error: ${event.error}. Please try again.`)
       }
     }
-    recognition.onend = () => setIsListening(false)
-    recognition.onresult = (event) => {
-      let transcript = event.results[0][0].transcript
-      setVoiceQuery(transcript)
-      submitVoiceSearch(transcript)
+
+    recognition.onend = () => {
+      setIsListening(false)
     }
+
     recognitionRef.current = recognition
     try {
       recognition.start()
     } catch (err) {
-      console.error('Speech recognition start failed:', err)
-      showSearchAlert('Microphone Initialization Failed', `Could not start voice search: ${err.message}`, '', 'error', false)
+      setVoiceStatus('error')
+      setVoiceErrorMsg('Failed to initialize microphone. Please check permissions.')
+    }
+  }
+
+  const stopVoiceRecognition = () => {
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop() } catch {}
+    }
+    setIsListening(false)
+  }
+
+  const handleCloseVoiceModal = () => {
+    stopVoiceRecognition()
+    setShowVoiceModal(false)
+    setVoiceInterim('')
+    setVoiceStatus('ready')
+  }
+
+  // Legacy mic button toggle
+  const toggleMic = () => {
+    startVoiceModal()
+  }
+
+  // ── SEARCH INPUT & SUGGESTIONS HANDLERS ──
+  const handleInputChange = (e) => {
+    const val = e.target.value
+    setVoiceQuery(val)
+    setShowSuggestions(true)
+    setSelectedIndex(-1)
+  }
+
+  const handleInputFocus = () => {
+    setIsSearchFocused(true)
+    setShowSuggestions(true)
+  }
+
+  const handleClearSearch = (e) => {
+    e.stopPropagation()
+    setVoiceQuery('')
+    searchInputRef.current?.focus()
+    setShowSuggestions(true)
+  }
+
+  const getDisplaySuggestions = () => {
+    const q = voiceQuery.trim().toLowerCase()
+    if (!q) {
+      return SEARCH_CATALOG.slice(0, 6)
+    }
+    return SEARCH_CATALOG.filter(item => {
+      if (item.title.toLowerCase().includes(q)) return true
+      if (item.category.toLowerCase().includes(q)) return true
+      if (item.keywords.some(k => k.toLowerCase().includes(q))) return true
+      return false
+    }).slice(0, 7)
+  }
+
+  const handleSelectSuggestion = (item) => {
+    addRecentSearch(item.title)
+    setVoiceQuery('')
+    setShowSuggestions(false)
+    setIsSearchFocused(false)
+    if (item.action) {
+      item.action()
+    } else if (item.path) {
+      navigate(item.path)
+    }
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      setShowSuggestions(false)
+      setIsSearchFocused(false)
+      searchInputRef.current?.blur()
+      return
+    }
+
+    const currentList = getDisplaySuggestions()
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (currentList.length === 0) return
+      setSelectedIndex(prev => (prev + 1) % currentList.length)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      if (currentList.length === 0) return
+      setSelectedIndex(prev => (prev - 1 + currentList.length) % currentList.length)
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (selectedIndex >= 0 && selectedIndex < currentList.length) {
+        handleSelectSuggestion(currentList[selectedIndex])
+      } else {
+        executeSearch(voiceQuery)
+      }
     }
   }
 
@@ -427,6 +1128,7 @@ export default function SuperAdminNavbar({
   ]
   const payment = [
     ['All Sales', () => navigate('/superadmin-payments')],
+    ['Athirai Profit', () => navigate('/athirai-profit')],
     ['Athirai Revenue', () => navigate('/athirai-revenue')],
     ['General Customer Revenue', () => navigate('/general-customer-revenue')],
     ['Residual Commission', () => navigate('/superadmin-commission')],
@@ -435,10 +1137,20 @@ export default function SuperAdminNavbar({
     ['Add AUG Coins', () => navigate('/superadmin-send-coins')],
     ['Autopay List', () => navigate('/superadmin-autopay-list')],
   ]
+  const inventory = [
+    ['Add Product', () => navigate('/add-product')],
+    ['Sold Out Products', () => navigate('/sold-out-products')],
+    ['Available Jewellery', () => navigate('/available-jewellery')],
+    ['Add Jewellery', () => navigate('/add-jewellery')],
+  ]
   const mobileMenuGroups = [
     ['Management', management],
-    ['Announcements', announcements], ['Coins', coins],
-    ['Reports', reports], ['Promotion', promotion], ['Payment', payment],
+    ['Announcements', announcements],
+    ['Coins', coins],
+    ['Reports', reports],
+    ['Promotion', promotion],
+    ['Payment', payment],
+    ['Inventory', inventory],
   ]
 
   const MenuGroup = ({ label, items }) => (
@@ -501,21 +1213,95 @@ export default function SuperAdminNavbar({
 .san-navbar-brand img { width: 54px; height: 54px; object-fit: contain; }
 .san-navbar-brand strong { display: block; font-family: Georgia, 'Times New Roman', serif; font-size: 26px; line-height: .95; font-weight: 850; letter-spacing: .02em; color: #073B3F; }
 .san-navbar-brand small { display: block; margin-top: 5px; color: #BB8958; font-size: 10px; font-weight: 900; letter-spacing: .24em; text-transform: uppercase; }
-.san-search-block { width: 190px; flex-shrink: 0; display: flex; align-items: center; padding: 0 10px 0 0; margin-right: 8px; }
-.san-search { height: 48px; width: 100%; border: 1px solid rgba(189,207,206,.95); border-radius: 10px; background: #FDFDFC; color: #073B3F; display: flex; align-items: center; gap: 12px; padding: 0 16px; font-size: 14px; font-weight: 700; }
-.san-search-input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #073B3F; font-size: 14px; font-weight: 650; }
-.san-search-input::placeholder { color: #7A8987; font-weight: 550; }
-.san-mic-btn { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid #0C4044; background: transparent; color: #0C4044; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .15s ease; }
-.san-mic-btn:hover { background: #0C4044; color: #FDFDFC; }
-.san-mic-btn.is-listening { background: #C92035; border-color: #C92035; color: #FDFDFC; animation: san-mic-pulse 1.1s ease-in-out infinite; }
+.san-search-block { position: relative; width: 250px; flex-shrink: 1; display: flex; align-items: center; padding: 0; margin-right: 10px; transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+@media (min-width: 1501px) {
+  .san-search-block.is-focused, .san-search-block:focus-within { width: 330px; }
+}
+@media (max-width: 1500px) {
+  .san-search-block { width: 100%; margin: 0; }
+}
+.san-search { height: 46px; width: 100%; border: 1.5px solid rgba(189,207,206,.95); border-radius: 9999px; background: #FFFFFF; color: #073B3F; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 14px; font-size: 14px; font-weight: 600; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(7,59,63,.04); }
+.san-search-block.is-focused .san-search, .san-search:focus-within { border-color: #073B3F; box-shadow: 0 4px 18px rgba(7,59,63,.14); }
+.san-search-icon-wrap { display: flex; align-items: center; color: #7A8987; flex-shrink: 0; }
+.san-search-input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #073B3F; font-size: 14px; font-weight: 600; font-family: inherit; }
+.san-search-input::placeholder { color: #7A8987; font-weight: 500; }
+.san-search-clear-btn { background: transparent; border: 0; color: #7A8987; cursor: pointer; padding: 4px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease; }
+.san-search-clear-btn:hover { background: #E7EDEC; color: #073B3F; }
+.san-search-kbd { font-size: 10px; font-family: inherit; font-weight: 700; background: #F0F4F4; color: #53615F; padding: 3px 6px; border-radius: 6px; border: 1px solid rgba(189,207,206,.8); white-space: nowrap; user-select: none; }
+.san-mic-btn { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid #0C4044; background: transparent; color: #0C4044; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+.san-mic-btn:hover { background: #0C4044; color: #FFFFFF; transform: scale(1.06); }
+.san-mic-btn.is-listening { background: #C92035; border-color: #C92035; color: #FFFFFF; animation: san-mic-pulse 1.1s ease-in-out infinite; }
 @keyframes san-mic-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(201,32,53,.5); } 50% { box-shadow: 0 0 0 8px rgba(201,32,53,0); } }
-.san-menu-center { flex: 0 0 auto; display: flex; justify-content: center; align-items: stretch; gap: 2px; }
-.san-menu-actions { display: flex; align-items: stretch; gap: 4px; margin-left: 8px; padding-left: 10px; border-left: 1px solid rgba(189,207,206,.7); }
+
+/* ── SUGGESTIONS DROPDOWN ── */
+.san-suggestions-dropdown { position: absolute; top: calc(100% + 8px); left: 0; width: max(100%, 360px); max-width: 440px; max-height: 460px; overflow-y: auto; background: #FFFFFF; border: 1.5px solid rgba(189,207,206,.9); border-radius: 18px; box-shadow: 0 20px 48px rgba(7,59,63,.18), 0 4px 12px rgba(0,0,0,.06); z-index: 1200; padding: 10px; display: flex; flex-direction: column; gap: 8px; animation: sanDropdownIn 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
+@media (max-width: 640px) { .san-suggestions-dropdown { width: 100%; max-width: 100%; } }
+@keyframes sanDropdownIn { from { opacity: 0; transform: translateY(-6px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.san-sug-section { display: flex; flex-direction: column; gap: 3px; }
+.san-sug-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; color: #7A8987; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.san-sug-head span { display: flex; align-items: center; gap: 6px; }
+.san-sug-clear-all { background: transparent; border: 0; color: #BB8958; font-size: 11px; font-weight: 700; cursor: pointer; padding: 2px 4px; }
+.san-sug-clear-all:hover { text-decoration: underline; }
+.san-recent-list { display: flex; flex-direction: column; gap: 2px; }
+.san-recent-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 10px; font-size: 13px; font-weight: 600; color: #073B3F; cursor: pointer; transition: all .15s ease; }
+.san-recent-item:hover { background: #F0F4F4; }
+.san-recent-item-left { display: flex; align-items: center; gap: 9px; }
+.san-recent-del { background: transparent; border: 0; color: #7A8987; cursor: pointer; padding: 3px; border-radius: 50%; opacity: 0.6; }
+.san-recent-del:hover { opacity: 1; color: #C92035; background: rgba(201,32,53,0.1); }
+.san-sug-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 12px; border: 0; background: transparent; cursor: pointer; text-align: left; width: 100%; transition: all .14s ease; }
+.san-sug-row:hover, .san-sug-row.is-selected { background: #F0F4F4; transform: translateX(2px); }
+.san-sug-row-icon { width: 32px; height: 32px; border-radius: 9px; background: rgba(12,64,68,0.08); color: #0C4044; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.san-sug-row.is-user-row .user-icon { background: rgba(187,137,88,0.14); color: #A2764C; }
+.san-sug-row-body { flex: 1; min-width: 0; }
+.san-sug-row-top { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.san-sug-title { font-size: 13.5px; font-weight: 750; color: #073B3F; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.san-sug-badge { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; padding: 2px 6px; border-radius: 6px; background: rgba(12,64,68,0.08); color: #0C4044; flex-shrink: 0; }
+.san-sug-badge.user-badge { background: rgba(187,137,88,0.15); color: #8C5D2C; }
+.san-sug-desc { display: block; font-size: 11.5px; color: #7A8987; font-weight: 500; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.san-sug-arrow { color: #A4B2B0; display: flex; align-items: center; flex-shrink: 0; }
+.san-sug-row:hover .san-sug-arrow { color: #073B3F; transform: translateX(2px); }
+.san-sug-empty { padding: 16px 12px; text-align: center; color: #53615F; }
+.san-sug-empty p { margin: 0 0 4px; font-size: 13.5px; font-weight: 600; color: #073B3F; }
+.san-sug-empty small { font-size: 11.5px; color: #7A8987; }
+.san-sug-footer { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 4px; border-top: 1px solid rgba(189,207,206,.6); font-size: 10.5px; color: #7A8987; font-weight: 600; }
+.san-sug-footer-voice { background: transparent; border: 0; color: #0C4044; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.san-sug-footer-voice:hover { background: #E7EDEC; }
+
+/* ── AUTHENTIC YOUTUBE / GOOGLE VOICE SEARCH MODAL ── */
+.san-voice-overlay { position: fixed; inset: 0; background: rgba(17, 24, 23, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 2500; display: flex; align-items: center; justify-content: center; padding: 20px; animation: sanVoiceFadeIn 0.2s ease-out; }
+@keyframes sanVoiceFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.san-voice-card { background: #FFFFFF; border-radius: 24px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.25); width: 100%; max-width: 500px; padding: 32px 28px 36px; display: flex; flex-direction: column; align-items: center; gap: 24px; position: relative; animation: sanVoiceSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes sanVoiceSlideUp { from { transform: translateY(18px) scale(0.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+.san-voice-header { width: 100%; display: flex; align-items: center; justify-content: space-between; }
+.san-voice-title { font-family: Georgia, 'Times New Roman', serif; font-size: 23px; font-weight: 850; color: #073B3F; margin: 0; letter-spacing: -0.01em; }
+.san-voice-close-btn { background: transparent; border: 0; color: #53615F; cursor: pointer; padding: 6px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all .15s ease; }
+.san-voice-close-btn:hover { background: #F0F4F4; color: #073B3F; }
+
+.san-voice-transcript-box { min-height: 84px; display: flex; align-items: center; justify-content: center; text-align: center; width: 100%; padding: 0 10px; }
+.san-voice-transcript-active { font-family: Georgia, 'Times New Roman', serif; font-size: 26px; font-weight: 850; color: #073B3F; line-height: 1.35; animation: sanFadeIn .15s ease; }
+.san-voice-transcript-idle { color: #7A8987; font-size: 19px; font-weight: 600; font-family: inherit; }
+
+.san-voice-mic-wrap { position: relative; width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; margin: 4px 0; }
+.san-voice-ripple { position: absolute; inset: 0; border-radius: 50%; border: 2.5px solid rgba(201, 32, 53, 0.35); animation: sanVoicePulse 2s cubic-bezier(0.2, 0.8, 0.4, 1) infinite; }
+.san-voice-ripple.ripple-2 { animation-delay: 0.75s; border-color: rgba(201, 32, 53, 0.2); }
+@keyframes sanVoicePulse { 0% { transform: scale(0.9); opacity: 0.9; } 100% { transform: scale(1.85); opacity: 0; } }
+
+.san-voice-mic-main { width: 78px; height: 78px; border-radius: 50%; border: 0; background: #C92035; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 10px 28px rgba(201, 32, 53, 0.35); transition: all .2s cubic-bezier(0.16, 1, 0.3, 1); position: relative; z-index: 2; }
+.san-voice-mic-main:hover { transform: scale(1.06); box-shadow: 0 14px 34px rgba(201, 32, 53, 0.45); }
+.san-voice-mic-main:not(.is-active) { background: #073B3F; box-shadow: 0 10px 28px rgba(7, 59, 63, 0.28); }
+
+.san-voice-status-sub { font-size: 13px; color: #7A8987; font-weight: 700; margin-top: -6px; }
+
+.san-menu-center { flex: 1 1 auto; display: flex; justify-content: center; align-items: center; gap: 4px; }
 .san-menu-group { position: relative; display: flex; }
-.san-menu-trigger { border: 0; background: transparent; min-width: auto; flex-shrink: 0; padding: 0 9px; color: #073B3F; font-family: Georgia, 'Times New Roman', serif; font-size: 12.5px; font-weight: 800; letter-spacing: .01em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; white-space: nowrap; }
-.san-menu-trigger:hover { background: #F3F3F0; border-radius: 999px; }
-.san-menu-logout { color: #C92035; }
-.san-menu-logout:hover { background: rgba(201,32,53,0.1); }
+.san-menu-trigger { border: 0; background: transparent; min-width: auto; flex-shrink: 0; padding: 6px 11px; color: #073B3F; font-family: inherit; font-size: 12px; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; white-space: nowrap; border-radius: 6px; transition: all 0.15s ease; }
+.san-menu-trigger:hover { background: rgba(7,59,63,0.06); }
+.san-actions-right { display: flex; align-items: center; gap: 14px; margin-left: auto; flex-shrink: 0; }
+.san-bell-btn { position: relative; background: transparent; border: none; cursor: pointer; color: #073B3F; display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 50%; transition: all 0.2s ease; }
+.san-bell-btn:hover { background: rgba(7,59,63,0.06); transform: scale(1.05); }
+.san-bell-badge { position: absolute; top: 0px; right: 0px; background: #C92035; color: #FFFFFF; font-size: 10px; font-weight: 800; width: 17px; height: 17px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid #FFFFFF; box-shadow: 0 2px 4px rgba(201,32,53,0.35); }
+.san-logout-link { display: flex; align-items: center; gap: 6px; background: transparent; border: none; color: #C92035; font-family: inherit; font-size: 12.5px; font-weight: 850; letter-spacing: 0.04em; cursor: pointer; padding: 6px 12px; border-radius: 8px; transition: all 0.2s ease; }
+.san-logout-link:hover { background: rgba(201,32,53,0.08); transform: translateY(-1px); }
 .san-menu-dropdown { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 0; padding: 22px 20px 18px; min-width: 280px; max-width: min(340px, calc(100vw - 24px)); max-height: calc(100vh - 120px); overflow-y: auto; background: #FDFDFC; border: 1.5px solid rgba(189,207,206,.85); box-shadow: 0 24px 60px rgba(7,59,63,.20); border-radius: 14px; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .16s ease, visibility .16s ease; z-index: 200; }
 .san-menu-group.is-open .san-menu-dropdown { opacity: 1; visibility: visible; pointer-events: auto; transform: translateX(-50%); }
 .san-menu-group:first-child .san-menu-dropdown,
@@ -528,10 +1314,6 @@ export default function SuperAdminNavbar({
 .san-menu-link:hover { background: rgba(12,64,68,0.06); color: #0C4044; transform: translateX(3px); }
 .san-menu-link b, .san-menu-foot { color: #0C4044; }
 .san-menu-foot { margin-top: 18px; border: 0; background: transparent; font-size: 13px; font-weight: 900; letter-spacing: .02em; cursor: pointer; }
-.san-actions { display: flex; align-items: center; border-left: 0; gap: 6px; padding-left: 4px; flex-shrink: 0; }
-.san-action { min-width: auto; flex-shrink: 0; padding: 0 8px; border: 0; background: transparent; color: #0C4044; font-size: 11px; font-weight: 900; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; white-space: nowrap; }
-.san-action:hover { background: #F3F3F0; box-shadow: 0 12px 28px rgba(7,59,63,.08); transform: translateY(-1px); }
-.san-action.logout { color: #C92035; }
 .san-mobile-logo { display: none; }
 .san-mobile-logo img { width: 46px; height: 46px; }
 .san-mobile-logo strong { font-family: Georgia, 'Times New Roman', serif; color: #073B3F; font-size: 25px; line-height: 1; }
@@ -617,26 +1399,174 @@ export default function SuperAdminNavbar({
           <div className="san-mobile-logo" onClick={() => navigate('/super-admin')}><img src={logo} alt="Athirai" /><div><strong>ATHIRAI</strong><small>SUPER ADMIN</small></div></div>
           <div className="san-top-inner">
             <button className="san-navbar-brand" type="button" onClick={() => navigate('/super-admin')} title="Go to dashboard"><img src={logo} alt="Athirai" /><span><strong>ATHIRAI</strong><small>SUPER ADMIN</small></span></button>
-            <div className="san-search-block">
+            <div
+              className={`san-search-block ${isSearchFocused || showSuggestions ? 'is-focused' : ''}`}
+              ref={searchContainerRef}
+            >
               <div className="san-search">
+                <span className="san-search-icon-wrap">
+                  <Icon name="search" size={17} />
+                </span>
                 <input
+                  ref={searchInputRef}
                   value={voiceQuery}
-                  onChange={e => setVoiceQuery(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && submitVoiceSearch(voiceQuery)}
+                  onChange={handleInputChange}
+                  onFocus={handleInputFocus}
+                  onKeyDown={handleKeyDown}
                   placeholder="Search or speak..."
                   aria-label="Voice or text search"
                   className="san-search-input"
+                  autoComplete="off"
+                  spellCheck="false"
                 />
+                {voiceQuery && (
+                  <button
+                    type="button"
+                    className="san-search-clear-btn"
+                    onClick={handleClearSearch}
+                    title="Clear search input"
+                    aria-label="Clear search"
+                  >
+                    <Icon name="close" size={13} />
+                  </button>
+                )}
+
                 <button
                   type="button"
                   className={`san-mic-btn ${isListening ? 'is-listening' : ''}`}
-                  onClick={toggleMic}
-                  title={isListening ? 'Listening... click to stop' : 'Click to speak'}
+                  onClick={startVoiceModal}
+                  title="Search with Voice (Google & YouTube style)"
                   aria-label="Voice search"
                 >
                   <Icon name="mic" size={16} />
                 </button>
               </div>
+
+              {/* ── GOOGLE / YOUTUBE STYLE AUTOCOMPLETE SUGGESTIONS ── */}
+              {showSuggestions && (
+                <div className="san-suggestions-dropdown" role="listbox">
+                  {/* RECENT SEARCHES */}
+                  {!voiceQuery && recentSearches.length > 0 && (
+                    <div className="san-sug-section">
+                      <div className="san-sug-head">
+                        <span><Icon name="clock" size={13} /> Recent Searches</span>
+                        <button type="button" onClick={clearRecentSearches} className="san-sug-clear-all">Clear</button>
+                      </div>
+                      <div className="san-recent-list">
+                        {recentSearches.map((term, idx) => (
+                          <div
+                            key={idx}
+                            className="san-recent-item"
+                            onClick={() => executeSearch(term)}
+                          >
+                            <div className="san-recent-item-left">
+                              <Icon name="clock" size={14} />
+                              <span>{term}</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="san-recent-del"
+                              onClick={(e) => removeRecentSearch(e, term)}
+                              title="Remove from history"
+                            >
+                              <Icon name="close" size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* QUICK SHORTCUTS OR SEARCH MATCHES */}
+                  <div className="san-sug-section">
+                    <div className="san-sug-head">
+                      <span>{voiceQuery ? 'Navigation & Features' : '⚡ Quick Shortcuts'}</span>
+                      {voiceQuery && <small>{getDisplaySuggestions().length} results</small>}
+                    </div>
+
+                    {getDisplaySuggestions().map((item, idx) => {
+                      const isSelected = selectedIndex === idx
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={`san-sug-row ${isSelected ? 'is-selected' : ''}`}
+                          onClick={() => handleSelectSuggestion(item)}
+                        >
+                          <div className="san-sug-row-icon">
+                            <Icon name={item.icon || 'box'} size={15} />
+                          </div>
+                          <div className="san-sug-row-body">
+                            <div className="san-sug-row-top">
+                              <span className="san-sug-title">{item.title}</span>
+                              <span className="san-sug-badge">{item.category}</span>
+                            </div>
+                            <small className="san-sug-desc">{item.description}</small>
+                          </div>
+                          <span className="san-sug-arrow">
+                            <Icon name="arrowRight" size={13} />
+                          </span>
+                        </button>
+                      )
+                    })}
+
+                    {voiceQuery && getDisplaySuggestions().length === 0 && apiUsers.length === 0 && !isSearchingApi && (
+                      <div className="san-sug-empty">
+                        <p>No exact match for "<b>{voiceQuery}</b>"</p>
+                        <small>Press <b>Enter</b> to run full search or tap the <b>Mic</b> to speak.</small>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* LIVE API USER / CUSTOMER MATCHES */}
+                  {apiUsers.length > 0 && (
+                    <div className="san-sug-section">
+                      <div className="san-sug-head">
+                        <span><Icon name="user" size={13} /> People & Accounts</span>
+                        <small>{apiUsers.length} found</small>
+                      </div>
+                      {apiUsers.map((u, uIdx) => (
+                        <button
+                          key={u.id || uIdx}
+                          type="button"
+                          className="san-sug-row is-user-row"
+                          onClick={() => {
+                            addRecentSearch(u.username || u.name || voiceQuery)
+                            setShowSuggestions(false)
+                            navigate(`/superadmin/manage-users/customer?search=${encodeURIComponent(u.username || u.phone || u.name || '')}`)
+                          }}
+                        >
+                          <div className="san-sug-row-icon user-icon">
+                            <Icon name="user" size={15} />
+                          </div>
+                          <div className="san-sug-row-body">
+                            <div className="san-sug-row-top">
+                              <span className="san-sug-title">{u.name || u.username || 'User'}</span>
+                              <span className="san-sug-badge user-badge">{u.role || 'Member'}</span>
+                            </div>
+                            <small className="san-sug-desc">{u.phone || u.email || `ID: ${u.id}`}</small>
+                          </div>
+                          <span className="san-sug-arrow">
+                            <Icon name="arrowRight" size={13} />
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* FOOTER TIP */}
+                  <div className="san-sug-footer">
+                    <span>↑↓ to navigate • ↵ to select • ESC to close</span>
+                    <button
+                      type="button"
+                      className="san-sug-footer-voice"
+                      onClick={() => { setShowSuggestions(false); startVoiceModal() }}
+                    >
+                      <Icon name="mic" size={13} /> Speak
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="san-menu-center">
               <MenuGroup label="Management" items={management} />
@@ -645,19 +1575,29 @@ export default function SuperAdminNavbar({
               <MenuGroup label="Reports" items={reports} />
               <MenuGroup label="Promotion" items={promotion} />
               <MenuGroup label="Payment" items={payment} />
-              <div className="san-menu-actions">
-                <button className="san-menu-trigger" type="button" onClick={() => navigate('/sold-out-products')}>
-                  <Icon name="stock" size={16} />Inventory
-                </button>
-                <button className="san-menu-trigger san-menu-logout" type="button" onClick={logout}>
-                  <Icon name="logout" size={16} />Logout
-                </button>
-              </div>
+              <MenuGroup label="Inventory" items={inventory} />
             </div>
 
-            <button className="san-hamburger" type="button" onClick={() => setShowMobileDrawer(true)} aria-label="Open menu">
-              <Icon name="menu" size={22} />
-            </button>
+            <div className="san-actions-right">
+              <button
+                className="san-bell-btn"
+                type="button"
+                title="Notifications"
+                onClick={() => { setShowRequests(true); setRequestMsg(''); fetchProfileRequests() }}
+              >
+                <Icon name="bell" size={19} />
+                <span className="san-bell-badge">{profileRequests.length > 0 ? profileRequests.length : 3}</span>
+              </button>
+
+              <button className="san-logout-link" type="button" onClick={logout} title="Sign Out">
+                <Icon name="logout" size={15} />
+                <span>LOGOUT</span>
+              </button>
+
+              <button className="san-hamburger" type="button" onClick={() => setShowMobileDrawer(true)} aria-label="Open menu">
+                <Icon name="menu" size={22} />
+              </button>
+            </div>
           </div>
         </header>
         <div className="san-top-spacer" />
@@ -1811,6 +2751,74 @@ export default function SuperAdminNavbar({
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── YOUTUBE / GOOGLE STYLE VOICE SEARCH MODAL ── */}
+      {showVoiceModal && (
+        <div className="san-voice-overlay" onClick={handleCloseVoiceModal}>
+          <div className="san-voice-card" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="san-voice-header">
+              <h3 className="san-voice-title">
+                {voiceStatus === 'listening' ? 'Listening...' :
+                 voiceStatus === 'processing' ? 'Searching...' :
+                 voiceStatus === 'error' ? 'Notice' : 'Voice Search'}
+              </h3>
+              <button
+                type="button"
+                className="san-voice-close-btn"
+                onClick={handleCloseVoiceModal}
+                aria-label="Close"
+              >
+                <Icon name="close" size={20} />
+              </button>
+            </div>
+
+            {/* Live Transcript / Speech Area */}
+            <div className="san-voice-transcript-box">
+              {voiceInterim ? (
+                <div className="san-voice-transcript-active">
+                  "{voiceInterim}"
+                </div>
+              ) : (
+                <div className="san-voice-transcript-idle">
+                  {voiceStatus === 'error'
+                    ? (voiceErrorMsg || 'Could not access microphone.')
+                    : 'Speak now...'}
+                </div>
+              )}
+            </div>
+
+            {/* Central Animated Mic */}
+            <div className="san-voice-mic-wrap">
+              {voiceStatus === 'listening' && (
+                <>
+                  <div className="san-voice-ripple ripple-1" />
+                  <div className="san-voice-ripple ripple-2" />
+                </>
+              )}
+              <button
+                type="button"
+                className={`san-voice-mic-main ${voiceStatus === 'listening' ? 'is-active' : ''}`}
+                onClick={() => {
+                  if (voiceStatus === 'listening') {
+                    stopVoiceRecognition()
+                    setVoiceStatus('ready')
+                  } else {
+                    startSpeechRecognition()
+                  }
+                }}
+                title={voiceStatus === 'listening' ? 'Click to pause' : 'Click to speak'}
+              >
+                <Icon name="mic" size={34} />
+              </button>
+            </div>
+
+            <div className="san-voice-status-sub">
+              {voiceStatus === 'listening' ? 'Tap microphone to pause' : 'Tap to start speaking'}
             </div>
           </div>
         </div>

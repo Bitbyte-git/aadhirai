@@ -58,6 +58,7 @@ const Recharge = lazy(() => import('./collection/Recharge'))
 const OrderPayment = lazy(() => import('./Orders/OrderPayment'))
 const SuperAdminPayments = lazy(() => import('./payments/SuperAdminPayments'))
 const AthiraiRevenue = lazy(() => import('./payments/AthiraiRevenue'))
+const AthiraiProfit = lazy(() => import('./payments/AthiraiProfit'))
 const GeneralCustomerRevenue = lazy(() => import('./payments/GeneralCustomerRevenue'))
 const ResidualCommission = lazy(() => import('./payments/ResidualCommission'))
 const MyCommission = lazy(() => import('./payments/MyCommission'))
@@ -382,6 +383,7 @@ export default function App() {
           <Route path="/order-payment" element={<WithCustomerNavbar><OrderPayment /></WithCustomerNavbar>} />
           <Route path="/superadmin-payments" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><SuperAdminPayments /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/athirai-revenue" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><AthiraiRevenue /></WithSuperAdminNavbar></ProtectedRoute>} />
+          <Route path="/athirai-profit" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><AthiraiProfit /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/general-customer-revenue" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><GeneralCustomerRevenue /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/superadmin-commission" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><ResidualCommission /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/my-commission" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><MyCommission /></WithSuperAdminNavbar></ProtectedRoute>} />

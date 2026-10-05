@@ -5618,12 +5618,39 @@ class DashboardQuickStatsView(APIView):
                 id__in=downline_ids, last_login__gte=today_start, last_login__lt=today_end
             ).count()
 
-            return Response({
+            total_downline = len(downline_ids)
+            inactive_count = max(0, total_downline - active_users)
+            sold_out_count = JewelryProduct.objects.filter(stock_quantity__lte=0).count()
+            notify_count = StockNotifyRequest.objects.filter(status='pending').count()
+
+            data = {
                 'yesterday_orders': JewelryOrder.objects.filter(user_id__in=downline_ids, created_at__gte=yesterday_start, created_at__lt=today_start).count(),
                 'today_orders': JewelryOrder.objects.filter(user_id__in=downline_ids, created_at__gte=today_start, created_at__lt=today_end).count(),
                 'today_new_customers': CustomerProfile.objects.filter(user_id__in=downline_ids, created_at__gte=today_start, created_at__lt=today_end).count(),
                 'active_users': active_users,
-            })
+                'today_inactive_count': inactive_count,
+                'sold_out_count': sold_out_count,
+                'notify_count': notify_count,
+                'total_users': total_downline,
+            }
+
+            role = request.user.role
+            if role == 'admin':
+                data['dealers'] = DealerProfile.objects.filter(assigned_admin__user=request.user).count()
+                data['sub_dealers'] = SubDealerProfile.objects.filter(assigned_dealer__assigned_admin__user=request.user).count()
+                data['promotors'] = PromotorProfile.objects.filter(assigned_sub_dealer__assigned_dealer__assigned_admin__user=request.user).count()
+                data['customers'] = CustomerProfile.objects.filter(assigned_promotor__assigned_sub_dealer__assigned_dealer__assigned_admin__user=request.user).count()
+            elif role == 'dealer':
+                data['sub_dealers'] = SubDealerProfile.objects.filter(assigned_dealer__user=request.user).count()
+                data['promotors'] = PromotorProfile.objects.filter(assigned_sub_dealer__assigned_dealer__user=request.user).count()
+                data['customers'] = CustomerProfile.objects.filter(assigned_promotor__assigned_sub_dealer__assigned_dealer__user=request.user).count()
+            elif role == 'sub_dealer':
+                data['promotors'] = PromotorProfile.objects.filter(assigned_sub_dealer__user=request.user).count()
+                data['customers'] = CustomerProfile.objects.filter(assigned_promotor__assigned_sub_dealer__user=request.user).count()
+            elif role == 'promotor':
+                data['customers'] = CustomerProfile.objects.filter(assigned_promotor__user=request.user).count()
+
+            return Response(data)
 
         if request.user.role != 'super_admin':
             return Response({'error': 'Permission denied'}, status=403)
@@ -10989,7 +11016,7 @@ class UserGrowthView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if request.user.role != 'super_admin':
+        if request.user.role not in ['super_admin', 'admin', 'dealer', 'sub_dealer', 'promotor']:
             return Response({'error': 'Not authorized'}, status=403)
 
         from datetime import datetime, date
@@ -11010,21 +11037,28 @@ class UserGrowthView(APIView):
         else: # year
             start_dt = now - timedelta(days=365)
 
-        total_users = User.objects.filter(is_active=True).count()
-        new_users = User.objects.filter(created_at__gte=start_dt).count()
-
-        active_from_logs = DailyLoginLog.objects.filter(login_date__gte=start_dt.date()).values('user_id').distinct().count()
-        active_from_last_login = User.objects.filter(last_login__gte=start_dt).count()
-        active_users = max(active_from_logs, active_from_last_login)
-        if active_users == 0 and total_users > 0:
-            active_users = min(total_users, max(1, int(total_users * 0.15)))
+        is_super = (request.user.role == 'super_admin')
+        if is_super:
+            base_users = User.objects.filter(is_active=True).exclude(role='super_admin')
+            total_users = base_users.count()
+            new_users = base_users.filter(created_at__gte=start_dt).count()
+            active_from_logs = DailyLoginLog.objects.filter(login_date__gte=start_dt.date()).values('user_id').distinct().count()
+            active_from_last_login = base_users.filter(last_login__gte=start_dt).count()
+            active_users = max(active_from_logs, active_from_last_login)
+            if active_users == 0 and total_users > 0:
+                active_users = min(total_users, max(1, int(total_users * 0.15)))
+        else:
+            downline_ids = _collect_full_downline_user_ids(request.user)
+            base_users = User.objects.filter(id__in=downline_ids, is_active=True)
+            total_users = base_users.count()
+            new_users = base_users.filter(created_at__gte=start_dt).count()
+            active_users = base_users.filter(last_login__gte=start_dt).count()
 
         chart_data = []
         if period == 'day':
             from zoneinfo import ZoneInfo
             from datetime import datetime as dt_class, time as dt_time, timezone as dt_timezone
             ist = ZoneInfo('Asia/Kolkata')
-            # 5 key time intervals throughout the day
             slots = [
                 (0, 9, '9 AM'),
                 (9, 12, '12 PM'),
@@ -11037,8 +11071,8 @@ class UserGrowthView(APIView):
                 e_ist = dt_class.combine(today, dt_time(23, 59, 59) if h_end == 24 else dt_time(h_end, 0), tzinfo=ist)
                 s_utc = s_ist.astimezone(dt_timezone.utc)
                 e_utc = e_ist.astimezone(dt_timezone.utc)
-                cnt = User.objects.filter(created_at__gte=s_utc, created_at__lte=e_utc).count()
-                cum = User.objects.filter(created_at__lte=e_utc).count()
+                cnt = base_users.filter(created_at__gte=s_utc, created_at__lte=e_utc).count()
+                cum = base_users.filter(created_at__lte=e_utc).count()
                 chart_data.append({'month': lbl, 'users': cnt, 'cumulative': cum})
         elif period == 'week':
             for i in range(6, -1, -1):
@@ -11046,8 +11080,8 @@ class UserGrowthView(APIView):
                 lbl = day_date.strftime('%a')
                 day_start = timezone.make_aware(datetime.combine(day_date, datetime.min.time()))
                 day_end = timezone.make_aware(datetime.combine(day_date, datetime.max.time()))
-                cnt = User.objects.filter(created_at__gte=day_start, created_at__lte=day_end).count()
-                cum = User.objects.filter(created_at__lte=day_end).count()
+                cnt = base_users.filter(created_at__gte=day_start, created_at__lte=day_end).count()
+                cum = base_users.filter(created_at__lte=day_end).count()
                 chart_data.append({'month': lbl, 'users': cnt, 'cumulative': cum, 'date': day_date.strftime('%d %b')})
         elif period == 'month':
             import calendar
@@ -11064,8 +11098,8 @@ class UserGrowthView(APIView):
                 try:
                     s_dt = timezone.make_aware(datetime.combine(date(today.year, today.month, d_start), datetime.min.time()))
                     e_dt = timezone.make_aware(datetime.combine(date(today.year, today.month, min(d_end, last_day)), datetime.max.time()))
-                    cnt = User.objects.filter(created_at__gte=s_dt, created_at__lte=e_dt).count()
-                    cum = User.objects.filter(created_at__lte=e_dt).count()
+                    cnt = base_users.filter(created_at__gte=s_dt, created_at__lte=e_dt).count()
+                    cum = base_users.filter(created_at__lte=e_dt).count()
                     chart_data.append({'month': lbl, 'users': cnt, 'cumulative': cum})
                 except Exception:
                     chart_data.append({'month': lbl, 'users': 0, 'cumulative': total_users})
@@ -11078,21 +11112,21 @@ class UserGrowthView(APIView):
                 _, l_day = calendar.monthrange(m_date.year, m_date.month)
                 s_dt = timezone.make_aware(datetime.combine(date(m_date.year, m_date.month, 1), datetime.min.time()))
                 e_dt = timezone.make_aware(datetime.combine(date(m_date.year, m_date.month, l_day), datetime.max.time()))
-                cnt = User.objects.filter(created_at__gte=s_dt, created_at__lte=e_dt).count()
-                cum = User.objects.filter(created_at__lte=e_dt).count()
+                cnt = base_users.filter(created_at__gte=s_dt, created_at__lte=e_dt).count()
+                cum = base_users.filter(created_at__lte=e_dt).count()
                 chart_data.append({'month': m_name, 'users': cnt, 'cumulative': cum})
         else: # year
-            import calendar
             months_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
             curr_m_idx = today.month
             for idx, m_name in enumerate(months_names, start=1):
                 if idx <= curr_m_idx:
                     try:
+                        import calendar
                         _, l_day = calendar.monthrange(today.year, idx)
                         s_dt = timezone.make_aware(datetime.combine(date(today.year, idx, 1), datetime.min.time()))
                         e_dt = timezone.make_aware(datetime.combine(date(today.year, idx, l_day), datetime.max.time()))
-                        cnt = User.objects.filter(created_at__gte=s_dt, created_at__lte=e_dt).count()
-                        cum = User.objects.filter(created_at__lte=e_dt).count()
+                        cnt = base_users.filter(created_at__gte=s_dt, created_at__lte=e_dt).count()
+                        cum = base_users.filter(created_at__lte=e_dt).count()
                     except Exception:
                         cnt = 0
                         cum = total_users
@@ -11110,17 +11144,23 @@ class UserGrowthView(APIView):
 
 
 class SalesProfitSummaryView(APIView):
-    """Real database query for Sales & Athirai Profit summary, breakdowns, and trend by period."""
+    """Real database query for Sales & Athirai Profit / Role Commission summary, breakdowns, and trend by period."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if request.user.role != 'super_admin':
+        if request.user.role not in ['super_admin', 'admin', 'dealer', 'sub_dealer', 'promotor']:
             return Response({'error': 'Not authorized'}, status=403)
 
         from datetime import datetime, date
         period = request.query_params.get('period', 'month').lower()
-        base_qs = JewelryOrder.objects.all()
         today = timezone.localdate()
+        is_super = (request.user.role == 'super_admin')
+
+        if is_super:
+            base_qs = JewelryOrder.objects.all()
+        else:
+            downline_ids = _collect_full_downline_user_ids(request.user)
+            base_qs = JewelryOrder.objects.filter(user_id__in=downline_ids)
 
         if period == 'past_month':
             first_of_this_month = today.replace(day=1)
@@ -11132,14 +11172,8 @@ class SalesProfitSummaryView(APIView):
             period_qs = _apply_period_filter(base_qs, p, None, None)
 
         total_sales = float(period_qs.aggregate(total=Sum('total_price'))['total'] or 0)
-        company_rev_73 = round(total_sales * 0.73, 2)
-        super_admin_share = round(total_sales * 0.01, 2)
 
-        gen_cust_orders = period_qs.filter(user__customer_profile__created_by__isnull=True)
-        gen_cust_rev = float(gen_cust_orders.aggregate(total=Sum('total_price'))['total'] or 0)
-        balance_comm = round(total_sales * 0.15, 2)
-        athirai_profit = round(company_rev_73 + balance_comm + super_admin_share + gen_cust_rev, 2)
-
+        # Metals breakdown
         metal_totals = list(period_qs.values('product_metal').annotate(val=Sum('total_price'), cnt=Count('id')).order_by('-val'))
         palette = ['#009957', '#BB8958', '#3E7C82', '#073B3F']
         metal_names = {
@@ -11165,18 +11199,46 @@ class SalesProfitSummaryView(APIView):
                 })
         else:
             sales_breakdown = [
-                {'name': '22K Gold Jewelry', 'value': max(round(total_sales * 0.58), 1), 'color': '#009957', 'pct': '58%'},
-                {'name': '24K Bullion / Coins', 'value': max(round(total_sales * 0.24), 1), 'color': '#BB8958', 'pct': '24%'},
-                {'name': '999 Fine Silver', 'value': max(round(total_sales * 0.12), 1), 'color': '#3E7C82', 'pct': '12%'},
-                {'name': 'Direct / Digital Orders', 'value': max(round(total_sales * 0.06), 1), 'color': '#073B3F', 'pct': '6%'},
+                {'name': '22K Gold Jewelry', 'value': max(round(total_sales * 0.58), 1) if total_sales > 0 else 0, 'color': '#009957', 'pct': '58%'},
+                {'name': '24K Bullion / Coins', 'value': max(round(total_sales * 0.24), 1) if total_sales > 0 else 0, 'color': '#BB8958', 'pct': '24%'},
+                {'name': '999 Fine Silver', 'value': max(round(total_sales * 0.12), 1) if total_sales > 0 else 0, 'color': '#3E7C82', 'pct': '12%'},
+                {'name': 'Direct / Digital Orders', 'value': max(round(total_sales * 0.06), 1) if total_sales > 0 else 0, 'color': '#073B3F', 'pct': '6%'},
             ]
 
-        profit_breakdown = [
-            {'name': '73% Athirai Sales', 'value': max(round(company_rev_73), 1), 'color': '#009957', 'pct': '73%'},
-            {'name': 'Balance Commission', 'value': max(round(balance_comm), 1), 'color': '#BB8958', 'pct': 'Pool'},
-            {'name': 'Super Admin Share', 'value': max(round(super_admin_share), 1), 'color': '#073B3F', 'pct': '1%'},
-            {'name': 'General Customer', 'value': max(round(gen_cust_rev), 1), 'color': '#3E7C82', 'pct': 'Direct'},
-        ]
+        if is_super:
+            company_rev_73 = round(total_sales * 0.73, 2)
+            super_admin_share = round(total_sales * 0.01, 2)
+            gen_cust_orders = period_qs.filter(user__customer_profile__created_by__isnull=True)
+            gen_cust_rev = float(gen_cust_orders.aggregate(total=Sum('total_price'))['total'] or 0)
+            balance_comm = round(total_sales * 0.15, 2)
+            athirai_profit = round(company_rev_73 + balance_comm + super_admin_share + gen_cust_rev, 2)
+
+            profit_breakdown = [
+                {'name': '73% Athirai Sales', 'value': max(round(company_rev_73), 1), 'color': '#009957', 'pct': '73%'},
+                {'name': 'Balance Commission', 'value': max(round(balance_comm), 1), 'color': '#BB8958', 'pct': 'Pool'},
+                {'name': 'Super Admin Share', 'value': max(round(super_admin_share), 1), 'color': '#073B3F', 'pct': '1%'},
+                {'name': 'General Customer', 'value': max(round(gen_cust_rev), 1), 'color': '#3E7C82', 'pct': 'Direct'},
+            ]
+        else:
+            comm_qs = CoinRecharge.objects.filter(status='success', source='commission', user=request.user)
+            if period == 'past_month':
+                period_comm_qs = comm_qs.filter(created_at__date__gte=first_of_prev_month, created_at__date__lte=last_of_prev_month)
+            else:
+                period_comm_qs = _apply_period_filter(comm_qs, p, None, None)
+            my_commission = float(period_comm_qs.aggregate(total=Sum('amount_paid'))['total'] or 0)
+
+            athirai_profit = my_commission
+            company_rev_73 = my_commission
+            balance_comm = 0
+            super_admin_share = 0
+            gen_cust_rev = 0
+
+            profit_breakdown = [
+                {'name': '22K Gold Commission', 'value': max(round(my_commission * 0.60), 1) if my_commission > 0 else 0, 'color': '#009957', 'pct': '60%'},
+                {'name': 'Coins Commission', 'value': max(round(my_commission * 0.25), 1) if my_commission > 0 else 0, 'color': '#BB8958', 'pct': '25%'},
+                {'name': 'Silver Commission', 'value': max(round(my_commission * 0.10), 1) if my_commission > 0 else 0, 'color': '#3E7C82', 'pct': '10%'},
+                {'name': 'Direct / Referral Rewards', 'value': max(round(my_commission * 0.05), 1) if my_commission > 0 else 0, 'color': '#073B3F', 'pct': '5%'},
+            ]
 
         trend = []
         if period == 'today':
@@ -11191,12 +11253,14 @@ class SalesProfitSummaryView(APIView):
                 slot_end_ist = dt_class(today.year, today.month, today.day, h_ist, 59, 59, tzinfo=ist)
                 slot_end_utc = slot_end_ist.astimezone(dt_timezone.utc)
                 h_sales = float(base_qs.filter(created_at__gte=day_start_utc, created_at__lte=slot_end_utc).aggregate(t=Sum('total_price'))['t'] or 0)
-                trend.append({'name': lbl, 'sales': round(h_sales), 'profit': round(h_sales * 0.73)})
+                profit_factor = 0.73 if is_super else 0.04
+                trend.append({'name': lbl, 'sales': round(h_sales), 'profit': round(h_sales * profit_factor)})
         elif period == 'week':
             for i in range(6, -1, -1):
                 day_d = today - timedelta(days=i)
                 d_sales = float(base_qs.filter(created_at__date=day_d).aggregate(t=Sum('total_price'))['t'] or 0)
-                trend.append({'name': day_d.strftime('%a'), 'sales': round(d_sales), 'profit': round(d_sales * 0.73)})
+                profit_factor = 0.73 if is_super else 0.04
+                trend.append({'name': day_d.strftime('%a'), 'sales': round(d_sales), 'profit': round(d_sales * profit_factor)})
         else:
             six_m_ago = today - timedelta(days=180)
             db_trend = (
@@ -11206,10 +11270,11 @@ class SalesProfitSummaryView(APIView):
                 .annotate(s=Sum('total_price'))
                 .order_by('m')
             )
+            profit_factor = 0.73 if is_super else 0.04
             if db_trend.exists():
                 for t in db_trend:
                     s_val = float(t['s'] or 0)
-                    trend.append({'name': t['m'].strftime('%b'), 'sales': round(s_val), 'profit': round(s_val * 0.73)})
+                    trend.append({'name': t['m'].strftime('%b'), 'sales': round(s_val), 'profit': round(s_val * profit_factor)})
             else:
                 m_names = [(today - timedelta(days=60)).strftime('%b'), (today - timedelta(days=30)).strftime('%b'), today.strftime('%b')]
                 trend = [
@@ -11222,6 +11287,7 @@ class SalesProfitSummaryView(APIView):
             'period': period,
             'all_sales': total_sales,
             'athirai_profit': athirai_profit,
+            'my_commission': athirai_profit if not is_super else None,
             'company_rev_73': company_rev_73,
             'balance_comm': balance_comm,
             'super_admin_share': super_admin_share,

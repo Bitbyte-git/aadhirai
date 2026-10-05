@@ -258,270 +258,86 @@ export default function InternalRoleNavbar({
           left: 0;
           right: 0;
           z-index: 900;
-          background: rgba(253, 253, 252, 0.98);
-          border-bottom: 1px solid rgba(189, 207, 206, 0.75);
-          box-shadow: 0 10px 30px rgba(7, 59, 63, 0.06);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
+          background: rgba(255, 255, 255, 0.98);
+          border-bottom: 1px solid rgba(7, 59, 63, 0.08);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 16px rgba(7, 59, 63, 0.03);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
         }
         .irn-top-spacer {
           height: 74px;
         }
         .irn-inner {
+          height: 74px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 8px 24px;
-          max-width: 1600px;
-          margin: 0 auto;
+          padding: 0 clamp(10px, 1.4vw, 24px);
+          gap: clamp(6px, 0.8vw, 14px);
           width: 100%;
-          gap: 12px;
+          box-sizing: border-box;
+          max-width: 100%;
         }
 
-        /* ── BRAND LOGO & TITLE ── */
-        .irn-brand {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          background: transparent;
-          border: 0;
-          padding: 0;
-          cursor: pointer;
-          flex-shrink: 0;
-          text-align: left;
-          text-decoration: none;
-        }
-        .irn-brand img {
-          width: 42px;
-          height: 42px;
-          object-fit: contain;
-        }
-        .irn-brand-text {
-          display: flex;
-          flex-direction: column;
-        }
-        .irn-brand strong {
-          display: block;
-          font-family: Georgia, 'Times New Roman', serif;
-          font-size: 22px;
-          line-height: 1;
-          font-weight: 900;
-          letter-spacing: 0.03em;
-          color: #073B3F;
-        }
-        .irn-brand small {
-          display: block;
-          margin-top: 3px;
-          color: #BB8958;
-          font-size: 8.5px;
-          font-weight: 850;
-          letter-spacing: 0.22em;
-          text-transform: uppercase;
-        }
+        /* ── BRAND LOGO & TITLE (Matching SuperAdminNavbar) ── */
+        .irn-nav-left { display: flex; align-items: center; flex-shrink: 0; min-width: 0; }
+        .san-navbar-brand { border: 0; background: transparent; display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; text-decoration: none; transition: opacity 0.15s ease; flex-shrink: 0; }
+        .san-navbar-brand:hover { opacity: 0.88; }
+        .san-brand-logo-wrap { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 9px; background: rgba(7, 59, 63, 0.04); padding: 3px; flex-shrink: 0; border: 1px solid rgba(187, 137, 88, 0.2); }
+        .san-brand-logo-wrap img { width: 100%; height: 100%; object-fit: contain; }
+        .san-brand-text { display: flex; flex-direction: column; line-height: 1; text-align: left; }
+        .san-brand-title { font-family: Georgia, 'Times New Roman', serif; font-size: clamp(16px, 1.15vw, 19px); font-weight: 850; letter-spacing: 0.03em; color: #073B3F; }
+        .san-brand-badge { font-size: 8px; font-weight: 850; letter-spacing: 0.16em; color: #BB8958; margin-top: 3px; text-transform: uppercase; }
+        .san-brand-divider { width: 1px; height: 24px; background: rgba(7, 59, 63, 0.1); margin: 0 clamp(6px, 0.8vw, 14px); flex-shrink: 0; }
 
-        /* ── DESKTOP CENTER NAVIGATION ── */
-        .irn-menu {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 3px;
-          flex-wrap: nowrap;
-          flex: 1;
-          max-width: 960px;
-          margin: 0 10px;
-        }
-        .irn-group {
-          position: relative;
-          display: inline-flex;
-        }
-        .irn-trigger {
-          border: 0;
-          background: transparent;
-          padding: 8px 10px;
-          color: #073B3F;
-          font-family: Georgia, 'Times New Roman', serif;
-          font-size: 12px;
-          font-weight: 850;
-          text-transform: uppercase;
-          letter-spacing: 0.02em;
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          cursor: pointer;
-          white-space: nowrap;
-          border-radius: 9px;
-          transition: all 0.16s ease;
-        }
-        .irn-trigger:hover, .irn-trigger.is-active {
-          background: #EDF3F1;
-          color: #0C4044;
-        }
-        .irn-trigger-aug {
-          background: rgba(204, 168, 129, 0.14);
-          color: #8C5E28;
-          font-weight: 900;
-          border: 1px solid rgba(204, 168, 129, 0.35);
-        }
-        .irn-trigger-aug:hover {
-          background: rgba(204, 168, 129, 0.28);
-          color: #6C4212;
-        }
+        /* ── SEARCH BLOCK ── */
+        .san-search-block { position: relative; width: clamp(130px, 10vw, 200px); transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1); flex-shrink: 1; }
+        .san-search-block.is-focused, .san-search-block:focus-within { width: clamp(170px, 14vw, 260px); }
+        .san-search { height: 38px; width: 100%; border: 1px solid #DFE7E5; border-radius: 10px; background: #F7FAF9; display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: 13px; font-weight: 500; transition: all 0.18s ease; }
+        .san-search-block.is-focused .san-search, .san-search:focus-within { border-color: #073B3F; background: #FFFFFF; box-shadow: 0 0 0 3px rgba(7, 59, 63, 0.08); }
+        .san-search-icon-wrap { display: flex; align-items: center; color: #718280; flex-shrink: 0; }
+        .san-search-input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #073B3F; font-size: 13px; font-weight: 500; font-family: inherit; }
+        .san-search-input::placeholder { color: #8C9E9B; font-weight: 450; }
 
-        /* ── DESKTOP DROPDOWN ── */
-        .irn-drop {
-          position: absolute;
-          top: calc(100% + 6px);
-          left: 50%;
-          transform: translateX(-50%) translateY(8px);
-          min-width: 250px;
-          padding: 16px 18px;
-          background: rgba(255, 255, 255, 0.99);
-          border: 1px solid rgba(189, 207, 206, 0.85);
-          box-shadow: 0 24px 60px rgba(7, 59, 63, 0.16), 0 4px 14px rgba(7, 59, 63, 0.06);
-          border-radius: 14px;
-          opacity: 0;
-          visibility: hidden;
-          pointer-events: none;
-          transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-          z-index: 1000;
-        }
-        .irn-group:hover .irn-drop, .irn-group.is-active .irn-drop {
-          opacity: 1;
-          visibility: visible;
-          pointer-events: auto;
-          transform: translateX(-50%) translateY(0);
-        }
-        .irn-title {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-family: Georgia, 'Times New Roman', serif;
-          font-size: 15px;
-          font-weight: 900;
-          color: #073B3F;
-          margin-bottom: 10px;
-          padding-bottom: 6px;
-          border-bottom: 1px solid #EDF3F2;
-        }
-        .irn-title span {
-          color: #BB8958;
-        }
-        .irn-link {
-          width: 100%;
-          border: 0;
-          background: transparent;
-          padding: 8px 10px;
-          border-radius: 8px;
-          text-align: left;
-          color: #111817;
-          font-size: 12px;
-          font-weight: 700;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-        .irn-link:hover {
-          color: #0C4044;
-          background: #EDF3F1;
-          transform: translateX(3px);
-        }
-        .irn-badge {
-          min-width: 18px;
-          height: 18px;
-          border-radius: 999px;
-          background: #C92035;
-          color: #FFFFFF;
-          font-size: 9px;
-          font-weight: 850;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0 5px;
-        }
+        /* ── DESKTOP CENTER NAVIGATION (SuperAdmin Style) ── */
+        .san-menu-center { display: flex; align-items: center; justify-content: center; gap: clamp(3px, 0.45vw, 8px); flex: 1 1 auto; min-width: 0; }
+        .san-menu-group { position: relative; display: flex; align-items: center; flex-shrink: 0; }
+        .san-menu-trigger { border: 1px solid transparent; background: transparent; padding: 6px clamp(5px, 0.45vw, 10px); border-radius: 9px; color: #263836; font-family: inherit; font-size: clamp(12px, 0.78vw, 13.5px); font-weight: 600; display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1); user-select: none; }
+        .san-menu-trigger:hover { background: rgba(7, 59, 63, 0.05); color: #073B3F; border-color: rgba(7, 59, 63, 0.08); }
+        .san-menu-trigger.is-active, .san-menu-group.is-open .san-menu-trigger { background: #073B3F; color: #FFFFFF; border-color: #073B3F; box-shadow: 0 4px 14px rgba(7, 59, 63, 0.15); }
+        .san-menu-trigger.is-aug { background: rgba(204, 168, 129, 0.15); color: #8C5E28; font-weight: 750; border-color: rgba(204, 168, 129, 0.35); }
+        .san-menu-trigger.is-aug:hover { background: rgba(204, 168, 129, 0.28); color: #6C4212; }
+        .san-menu-trigger-chevron { display: flex; align-items: center; color: #8C9E9B; transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s ease; }
+        .san-menu-group.is-open .san-menu-trigger-chevron { color: #E5BF91; transform: rotate(180deg); }
 
-        /* ── RIGHT ACTIONS ── */
-        .irn-actions {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          flex-shrink: 0;
-        }
-        .irn-action {
-          height: 38px;
-          border: 1px solid transparent;
-          background: transparent;
-          color: #0C4044;
-          font-size: 12px;
-          font-weight: 800;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          cursor: pointer;
-          border-radius: 999px;
-          padding: 0 12px;
-          position: relative;
-          white-space: nowrap;
-          transition: all 0.16s ease;
-        }
-        .irn-action:hover {
-          background: #EDF3F1;
-          border-color: rgba(189, 207, 206, 0.7);
-        }
-        .irn-action.danger {
-          color: #C92035;
-          background: rgba(201, 32, 53, 0.05);
-          border-color: rgba(201, 32, 53, 0.18);
-        }
-        .irn-action.danger:hover {
-          background: #C92035;
-          color: #FFFFFF;
-        }
-        .irn-action .irn-badge {
-          position: absolute;
-          top: -2px;
-          right: -2px;
-        }
+        /* ── SAAS POPUP DROPDOWN (Matching SuperAdminNavbar) ── */
+        .san-menu-dropdown { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%) translateY(4px); min-width: 220px; max-width: 280px; background: #FFFFFF; border: 1.5px solid rgba(7, 59, 63, 0.1); border-radius: 12px; box-shadow: 0 16px 38px rgba(7, 59, 63, 0.12), 0 4px 12px rgba(0, 0, 0, 0.04); padding: 6px; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.16s ease; z-index: 1000; }
+        .san-menu-group:hover .san-menu-dropdown, .san-menu-group.is-open .san-menu-dropdown { opacity: 1; visibility: visible; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+        .san-menu-dropdown-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px 8px; border-bottom: 1px solid rgba(7, 59, 63, 0.06); margin-bottom: 4px; }
+        .san-menu-dropdown-tag { font-size: 11px; font-weight: 750; color: #073B3F; letter-spacing: 0.03em; text-transform: uppercase; }
+        .san-menu-dropdown-count { font-size: 10px; font-weight: 600; color: #8C9E9B; }
+        .san-menu-dropdown-list { display: flex; flex-direction: column; gap: 2px; }
+        .san-menu-link { width: 100%; border: 0; background: transparent; padding: 8px 10px; border-radius: 8px; text-align: left; color: #273735; font-size: 13px; font-weight: 600; font-family: inherit; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all 0.14s ease; }
+        .san-menu-link:hover { background: #F2F7F6; color: #073B3F; transform: translateX(2px); }
+        .san-menu-link-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .san-menu-link-arrow { color: #8C9E9B; font-size: 13px; line-height: 1; transition: transform 0.14s ease; }
+        .san-menu-link:hover .san-menu-link-arrow { color: #073B3F; transform: translateX(2px); }
+        .san-badge-pill { min-width: 17px; height: 17px; border-radius: 999px; background: #C92035; color: #FFFFFF; font-size: 9.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; }
 
-        /* ── MOBILE MENU BUTTON ── */
-        .irn-mobile-menu-btn {
-          display: none;
-          height: 38px;
-          padding: 0 14px;
-          background: #073B3F;
-          border: none;
-          border-radius: 10px;
-          color: #FFFFFF;
-          font-size: 11.5px;
-          font-weight: 800;
-          letter-spacing: 0.05em;
-          align-items: center;
-          gap: 7px;
-          cursor: pointer;
-          transition: all 0.18s ease;
-          box-shadow: 0 4px 12px rgba(7, 59, 63, 0.18);
-          flex-shrink: 0;
-        }
-        .irn-mobile-menu-btn:hover {
-          background: #0C4044;
-          transform: translateY(-1px);
-        }
+        /* ── RIGHT ACTIONS (Matching SuperAdminNavbar) ── */
+        .san-actions-right { display: flex; align-items: center; gap: clamp(6px, 0.7vw, 12px); flex-shrink: 0; }
+        .san-bell-btn { position: relative; width: 38px; height: 38px; border-radius: 10px; border: 1px solid #DFE7E5; background: #F7FAF9; color: #0C4044; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.16s ease; }
+        .san-bell-btn:hover { background: #EAEFEF; border-color: #0C4044; }
+        .san-bell-badge { position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; border-radius: 999px; background: #C92035; color: #FFFFFF; font-size: 9.5px; font-weight: 850; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid #FFFFFF; }
+        .san-util-divider { width: 1px; height: 22px; background: rgba(7, 59, 63, 0.1); margin: 0 2px; }
+        .san-logout-link { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 10px; border: 1px solid #DFE7E5; background: #F7FAF9; color: #556664; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: all 0.16s ease; }
+        .san-logout-link:hover { background: #FEE2E2; color: #DC2626; border-color: #FCA5A5; }
+        .san-hamburger { display: none; width: 38px; height: 38px; border-radius: 10px; border: 1px solid #DFE7E5; background: #F7FAF9; color: #0C4044; align-items: center; justify-content: center; cursor: pointer; }
 
-        /* ── RESPONSIVE BREAKPOINTS ── */
-        @media (max-width: 1260px) {
-          .irn-menu {
-            display: none !important;
-          }
-          .irn-mobile-menu-btn {
-            display: inline-flex !important;
-          }
-          /* On screens under 1260px, hide desktop Profile and Logout from top bar, they live inside drawer */
-          .irn-actions .irn-action:not([title*="Announcements"]):not([title*="Bell"]):not(.irn-bell-btn) {
-            display: none !important;
-          }
+        @media (max-width: 1100px) {
+          .san-menu-center { display: none !important; }
+          .san-hamburger { display: flex !important; }
+          .san-logout-link { display: none !important; }
         }
 
         @media (max-width: 580px) {
@@ -1087,104 +903,126 @@ export default function InternalRoleNavbar({
 
       <header className="irn-top">
         <div className="irn-inner">
-          {/* ── BRAND ── */}
-          <button
-            className="irn-brand"
-            type="button"
-            onClick={() => navigate(homePath)}
-            title="Go to dashboard"
-          >
-            <img src={logo} alt="Luxiva" />
-            <div className="irn-brand-text">
-              <strong>LUXIVA</strong>
-              <small>{currentTierLabel}</small>
-            </div>
-          </button>
+          {/* ── BRAND LOGO & TITLE (Matching SuperAdminNavbar) ── */}
+          <div className="irn-nav-left">
+            <button
+              className="san-navbar-brand"
+              type="button"
+              onClick={() => navigate(homePath)}
+              title="Go to dashboard"
+            >
+              <div className="san-brand-logo-wrap">
+                <img src={logo} alt="Athirai" />
+              </div>
+              <div className="san-brand-text">
+                <span className="san-brand-title">ATHIRAI</span>
+                <span className="san-brand-badge">{currentTierLabel}</span>
+              </div>
+            </button>
+            <div className="san-brand-divider" />
 
-          {/* ── DESKTOP MENU (Hidden below 1260px) ── */}
-          <nav className="irn-menu" aria-label="Main Navigation">
+            {/* Quick Search */}
+            <div className="san-search-block">
+              <div className="san-search">
+                <div className="san-search-icon-wrap">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.35-4.35" /></svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search anything..."
+                  className="san-search-input"
+                  onClick={() => setDrawerOpen(true)}
+                  readOnly
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ── DESKTOP MENU (SuperAdmin Styling) ── */}
+          <nav className="san-menu-center" aria-label="Main Navigation">
             {groups.map(group => (
               group.label === 'My Rewards' ? (
                 <button
                   key={group.label}
                   type="button"
-                  className="irn-trigger irn-trigger-aug"
+                  className="san-menu-trigger is-aug"
                   onClick={() => runItem(group.items[0])}
                   title="AUG Coin Quick Recharge"
                 >
-                  🪙 {group.items[0].label}
+                  🪙 <span className="san-menu-trigger-text">{group.items[0].label}</span>
                 </button>
               ) : (
                 <div
-                  className={`irn-group ${activeGroup === group.label ? 'is-active' : ''}`}
+                  className={`san-menu-group ${activeGroup === group.label ? 'is-open' : ''}`}
                   key={group.label}
                   onMouseEnter={() => setActiveGroup(group.label)}
                   onMouseLeave={() => setActiveGroup(null)}
                 >
                   <button
-                    className={`irn-trigger ${activeGroup === group.label ? 'is-active' : ''}`}
+                    className={`san-menu-trigger ${activeGroup === group.label ? 'is-active' : ''}`}
                     type="button"
                     onClick={() => setActiveGroup(curr => curr === group.label ? null : group.label)}
                     aria-expanded={activeGroup === group.label}
                   >
-                    {group.label}
-                    <NavIcon type="chevron" size={14} />
+                    <span className="san-menu-trigger-text">{group.label}</span>
+                    <svg className={`san-menu-trigger-chevron ${activeGroup === group.label ? 'is-rotated' : ''}`} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="m6 9 6 6 6-6" /></svg>
                   </button>
-                  <div className="irn-drop">
-                    <div className="irn-title">
-                      <span>●</span> {group.label}
+                  <div className="san-menu-dropdown">
+                    <div className="san-menu-dropdown-header">
+                      <span className="san-menu-dropdown-tag">{group.label}</span>
+                      <span className="san-menu-dropdown-count">{group.items.length} items</span>
                     </div>
-                    {group.items.map(item => (
-                      <button
-                        key={item.label}
-                        type="button"
-                        className="irn-link"
-                        onClick={() => runItem(item)}
-                      >
-                        <span>{item.label}</span>
-                        {item.badge ? (
-                          <span className="irn-badge">{item.badge > 99 ? '99+' : item.badge}</span>
-                        ) : (
-                          <span style={{ color: '#8C9E9C', fontSize: '12px' }}>→</span>
-                        )}
-                      </button>
-                    ))}
+                    <div className="san-menu-dropdown-list">
+                      {group.items.map(item => (
+                        <button
+                          key={item.label}
+                          type="button"
+                          className="san-menu-link"
+                          onClick={() => runItem(item)}
+                        >
+                          <span className="san-menu-link-title">{item.label}</span>
+                          {item.badge ? (
+                            <span className="san-badge-pill">{item.badge > 99 ? '99+' : item.badge}</span>
+                          ) : (
+                            <span className="san-menu-link-arrow">→</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )
             ))}
           </nav>
 
-          {/* ── RIGHT ACTIONS ── */}
-          <div className="irn-actions">
-            {actions.map(item => {
-              const isBell = item.icon === 'bell'
-              return (
-                <button
-                  key={item.label}
-                  type="button"
-                  className={`irn-action ${item.variant === 'danger' ? 'danger' : ''} ${isBell ? 'irn-bell-btn' : ''}`}
-                  onClick={() => item.action ? item.action() : (item.path ? navigate(item.path) : logout())}
-                  title={item.label}
-                >
-                  <NavIcon type={item.icon || 'dot'} size={17} />
-                  {!isBell && <span>{item.label}</span>}
-                  {item.badge ? (
-                    <span className="irn-badge">{item.badge > 99 ? '99+' : item.badge}</span>
-                  ) : null}
-                </button>
-              )
-            })}
-
-            {/* ── MOBILE / TABLET MENU TOGGLE BUTTON (Visible <= 1260px) ── */}
+          {/* ── RIGHT ACTIONS (Matching SuperAdminNavbar) ── */}
+          <div className="san-actions-right">
             <button
-              className="irn-mobile-menu-btn"
+              className="san-bell-btn"
+              type="button"
+              title="Announcements"
+              onClick={openAnnouncements}
+            >
+              <NavIcon type="bell" size={17} />
+              {unreadCount > 0 && (
+                <span className="san-bell-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+              )}
+            </button>
+
+            <div className="san-util-divider" />
+
+            <button className="san-logout-link" type="button" onClick={logout} title="Sign Out">
+              <NavIcon type="logout" size={14} />
+              <span>Logout</span>
+            </button>
+
+            <button
+              className="san-hamburger"
               type="button"
               onClick={() => setDrawerOpen(true)}
               aria-label="Open Navigation Menu"
             >
               <NavIcon type="menu" size={18} />
-              <span>MENU</span>
             </button>
           </div>
         </div>
@@ -1203,9 +1041,9 @@ export default function InternalRoleNavbar({
             {/* Drawer Header */}
             <div className="irn-drawer-head">
               <div className="irn-drawer-brand">
-                <img src={logo} alt="Luxiva" />
+                <img src={logo} alt="Athirai" />
                 <div>
-                  <strong>LUXIVA</strong>
+                  <strong>ATHIRAI</strong>
                   <small>{currentTierLabel}</small>
                 </div>
               </div>

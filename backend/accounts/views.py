@@ -5,7 +5,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from rest_framework.decorators import api_view, permission_classes
 from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink, EmailOTP, Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent, StockSale, StockNotifyRequest
-from django.db.models import Prefetch, Count, Q, Sum, Max, Min, F, Value
+from django.db.models import Prefetch, Count, Q, Sum, Max, Min, F, Value, Case, When, DecimalField
 from django.core.cache import cache   # ── NEW: for month_rollup/status caching ──
 from django.db.models.functions import TruncHour, TruncDate, TruncWeek, TruncMonth
 from .serializers import *
@@ -10725,6 +10725,91 @@ class PaymentsSummaryView(APIView):
                     self._serialize_order_txn(
                         o,
                         amount=(Decimal(str(o.total_price)) * my_comm_pct / Decimal('100')).quantize(Decimal('0.01'))
+                    ) for o in page_txns
+                ],
+            })
+
+        elif view == 'super_admin_commission' and request.user.role == 'super_admin':
+            # ── Super Admin Residual Commission (leftover unallocated pool balance) ──
+            # 27% Commission Pool:
+            # - Direct customer (no referral): 26% balance (1% fixed to My Commission)
+            # - Referred customer (levels 1-4 take 10%): 16% balance (1% fixed to My Commission)
+            base_qs = JewelryOrder.objects.annotate(
+                residual_pct=Case(
+                    When(user__customer_profile__created_by__isnull=True, then=Decimal('26.00')),
+                    default=Decimal('16.00'),
+                    output_field=DecimalField(max_digits=5, decimal_places=2)
+                )
+            ).annotate(
+                residual_amount=F('total_price') * F('residual_pct') / Decimal('100')
+            )
+            period_qs = _apply_period_filter(base_qs, period, start_date, end_date)
+
+            total_revenue = period_qs.aggregate(total=Sum('residual_amount'))['total'] or Decimal('0.00')
+            total_revenue = Decimal(str(total_revenue)).quantize(Decimal('0.01'))
+            total_transactions = period_qs.count()
+            total_coins_sold = int(total_revenue * COIN_RATE_PER_RUPEE)
+
+            payment_breakdown = [
+                {
+                    'method': r['payment_method'], 'count': r['count'],
+                    'total': float((Decimal(str(r['total'] or 0))).quantize(Decimal('0.01'))),
+                }
+                for r in period_qs.values('payment_method').annotate(count=Count('id'), total=Sum('residual_amount')).order_by('-total')
+            ]
+
+            six_months_ago = timezone.localdate() - timedelta(days=180)
+            trend_qs = (
+                base_qs.filter(created_at__date__gte=six_months_ago)
+                .annotate(month=TruncMonth('created_at'))
+                .values('month')
+                .annotate(revenue=Sum('residual_amount'), transactions=Count('id'))
+                .order_by('month')
+            )
+            monthly_trend = [
+                {
+                    'month': t['month'].strftime('%b %Y'),
+                    'revenue': float(Decimal(str(t['revenue'])).quantize(Decimal('0.01'))),
+                    'transactions': int(t['transactions']),
+                }
+                for t in trend_qs
+            ]
+
+            txn_qs = period_qs.select_related('user', 'user__customer_profile').order_by('-created_at')
+
+            if export_csv:
+                export_orders = list(txn_qs[:REPORT_MAX_ROWS])
+                profile_map = _bulk_profile_id_map([o.user for o in export_orders])
+                buffer = _build_report_pdf(
+                    title='Residual Commission Report',
+                    subtitle="Leftover unallocated commission balance from the payout pool, retained by Super Admin.",
+                    period_label=_period_label(period, start_date, end_date),
+                    stats=[('Total Residual Commission', _inr_fmt(total_revenue)), ('AUG Coins Credited', f'{total_coins_sold:,}'), ('Transactions', total_transactions)],
+                    columns=['Order ID', 'Buyer', 'Residual Amount', 'Payment Method', 'Date'],
+                    rows=[[o.order_id, profile_map.get(o.user_id) or o.user.email, _inr_fmt(o.residual_amount), o.payment_method, o.created_at.strftime('%d-%b-%Y %H:%M')] for o in export_orders],
+                    total_rows=total_transactions,
+                )
+                return FileResponse(buffer, as_attachment=True, filename=f'residual-commission-report-{period}.pdf', content_type='application/pdf')
+
+            start = (page - 1) * page_size
+            page_txns = txn_qs[start:start + page_size]
+
+            return Response({
+                'view': view,
+                'period': period,
+                'total_revenue': float(total_revenue),
+                'total_coins_sold': total_coins_sold,
+                'total_transactions': total_transactions,
+                'monthly_trend': monthly_trend,
+                'payment_breakdown': payment_breakdown,
+                'page': page,
+                'page_size': page_size,
+                'total_pages': max(1, (total_transactions + page_size - 1) // page_size),
+                'has_more': start + page_size < total_transactions,
+                'transactions': [
+                    self._serialize_order_txn(
+                        o,
+                        amount=Decimal(str(o.residual_amount)).quantize(Decimal('0.01'))
                     ) for o in page_txns
                 ],
             })

@@ -10384,11 +10384,35 @@ class PaymentsSummaryView(APIView):
                 txn_id = f"WTX{num}" if num else f"WTX{o.id}"
             elif o.payment_method in ('cash_on_delivery', 'cash'):
                 txn_id = f"COD{num}" if num else f"COD{o.id}"
+            elif o.payment_method == 'upi':
+                txn_id = f"UPI{num}" if num else f"UPI{o.id}"
+            elif o.payment_method in ('net_banking', 'netbanking'):
+                txn_id = f"NBK{num}" if num else f"NBK{o.id}"
+            elif o.payment_method in ('credit_card', 'debit_card', 'card'):
+                txn_id = f"CRD{num}" if num else f"CRD{o.id}"
+            elif o.payment_method == 'razorpay':
+                txn_id = f"RZP{num}" if num else f"RZP{o.id}"
             else:
-                txn_id = o.order_id
+                txn_id = f"TXN{num}" if num else f"TXN{o.id}"
 
         actual_amount = float(amount if amount is not None else o.total_price)
+        total_order_val = float(o.total_price or 0)
         coins = int(Decimal(str(o.total_price)) * COIN_RATE_PER_RUPEE) if o.payment_method == 'wallet' else 0
+
+        # Determine 4-pillar financial streams for this transaction
+        is_gen_cust = False
+        if o.user and hasattr(o.user, 'customer_profile'):
+            is_gen_cust = o.user.customer_profile.created_by is None
+        elif not o.user:
+            is_gen_cust = True
+
+        super_admin_comm = round(total_order_val * 0.01, 2)
+        if is_gen_cust:
+            gen_cust_rev = total_order_val
+            balance_comm = None  # N/A for direct general customer orders
+        else:
+            gen_cust_rev = None  # N/A for referral/network hierarchy orders
+            balance_comm = round(total_order_val * 0.15, 2)
 
         phone = o.customer_phone or (disp_info.get('phone') if disp_info else '') or getattr(o.user, 'phone', '') or ''
 
@@ -10405,9 +10429,14 @@ class PaymentsSummaryView(APIView):
             'state': o.state or '',
             'status': o.status,
             'payment_status': o.payment_status or o.status,
+            'turnover': total_order_val,
             'amount': actual_amount,
             'coins': coins,
             'payment_method': o.payment_method,
+            'is_general_customer': is_gen_cust,
+            'super_admin_commission': super_admin_comm,
+            'balance_commission': balance_comm,
+            'general_customer_revenue': gen_cust_rev,
             'created_at': o.created_at,
         }
 
@@ -11109,7 +11138,7 @@ class SalesProfitSummaryView(APIView):
         gen_cust_orders = period_qs.filter(user__customer_profile__created_by__isnull=True)
         gen_cust_rev = float(gen_cust_orders.aggregate(total=Sum('total_price'))['total'] or 0)
         balance_comm = round(total_sales * 0.15, 2)
-        athirai_profit = round(company_rev_73 + balance_comm + super_admin_share, 2)
+        athirai_profit = round(company_rev_73 + balance_comm + super_admin_share + gen_cust_rev, 2)
 
         metal_totals = list(period_qs.values('product_metal').annotate(val=Sum('total_price'), cnt=Count('id')).order_by('-val'))
         palette = ['#009957', '#BB8958', '#3E7C82', '#073B3F']
@@ -11540,7 +11569,7 @@ def _next_occurrence(day):
             ny, nm = today.year, today.month + 1
         last_day_next_month = calendar.monthrange(ny, nm)[1]
         safe_day = min(day, last_day_next_month)
-        candidate = date(ny, nm, safe_day)
+        candidate = date(ny, nm, safe_day)  
     return candidate
 
 

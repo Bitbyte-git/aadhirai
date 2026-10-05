@@ -226,7 +226,7 @@ export default function AthiraiProfit() {
   const [copiedId, setCopiedId] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTxn, setSelectedTxn] = useState(null)
-  const [openMenuId, setOpenMenuId] = useState(null)
+  const [menuAnchor, setMenuAnchor] = useState(null)
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false)
   const [chartMetric, setChartMetric] = useState('profit') // 'profit' | 'sales'
   const [hoveredSlice, setHoveredSlice] = useState(null)
@@ -245,14 +245,20 @@ export default function AthiraiProfit() {
   const PAGE_SIZE = 100
   const abortControllerRef = useRef(null)
 
-  // Close open popovers on outside click
+  // Close open popovers on outside click or scroll
   useEffect(() => {
     const handleOutside = () => {
-      setOpenMenuId(null)
+      setMenuAnchor(null)
       setIsDateDropdownOpen(false)
     }
     window.addEventListener('click', handleOutside)
-    return () => window.removeEventListener('click', handleOutside)
+    window.addEventListener('scroll', handleOutside, true)
+    window.addEventListener('resize', handleOutside)
+    return () => {
+      window.removeEventListener('click', handleOutside)
+      window.removeEventListener('scroll', handleOutside, true)
+      window.removeEventListener('resize', handleOutside)
+    }
   }, [])
 
   const fetchProfitData = useCallback(async (p = 1, period = activeFilter, from = customFrom, to = customTo, isPageNav = false) => {
@@ -423,8 +429,8 @@ export default function AthiraiProfit() {
   const generalCustomerRevenue = Number(genCustData?.total_revenue) || 0
   const superAdminDirectComm = totalOrderValue * 0.01 // 1% Super Admin fixed share
 
-  // Total Athirai Net Profit
-  const totalAthiraiProfit = companyShare73 + balanceCommission + superAdminDirectComm
+  // Total Athirai Net Profit (All 4 components: 73% Company + Residual Pool + Super Admin 1% + General Customer Direct)
+  const totalAthiraiProfit = companyShare73 + balanceCommission + superAdminDirectComm + generalCustomerRevenue
 
   // Breakdown Chart Data (Pie Chart with real percentages)
   const breakdownData = useMemo(() => {
@@ -1279,7 +1285,11 @@ export default function AthiraiProfit() {
 
         .ref-table-scroll {
           overflow-x: auto;
+          overflow-y: visible;
+          min-height: 280px;
+          padding-bottom: 24px;
           width: 100%;
+          -webkit-overflow-scrolling: touch;
         }
 
         .ref-table {
@@ -1434,11 +1444,22 @@ export default function AthiraiProfit() {
           background: #fff;
           border: 1px solid ${BORDER};
           border-radius: 8px;
-          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-          z-index: 50;
-          min-width: 160px;
-          overflow: hidden;
-          padding: 4px;
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0,0,0,0.04);
+          z-index: 1000;
+          min-width: 175px;
+          padding: 5px;
+          animation: refPopFadeIn 0.15s ease-out;
+        }
+
+        .ref-menu-popover.up {
+          top: auto;
+          bottom: calc(100% + 6px);
+          box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.15), 0 -2px 6px rgba(0,0,0,0.04);
+        }
+
+        @keyframes refPopFadeIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
         }
 
         .ref-menu-item {
@@ -2245,20 +2266,27 @@ export default function AthiraiProfit() {
                 <table className="ref-table">
                   <thead>
                     <tr>
+                      <th style={{ width: 55, textAlign: 'center' }}>S.NO</th>
                       <th>DATE & TIME</th>
                       <th>TRANSACTION ID</th>
                       <th>ORDER ID</th>
                       <th>CUSTOMER</th>
                       <th>TURNOVER</th>
                       <th>73% ATHIRAI PROFIT</th>
+                      <th>BALANCE COMMISSION</th>
+                      <th>SUPER ADMIN (1%)</th>
+                      <th>GENERAL CUSTOMER</th>
                       <th>PAYMENT MODE</th>
-                      <th>ACTION</th>
+                      <th style={{ width: 60, textAlign: 'center' }}>ACTION</th>
                     </tr>
                   </thead>
                   <tbody>
                     {tableLoading ? (
                       Array.from({ length: 10 }).map((_, idx) => (
                         <tr key={`tbl-skel-${idx}`}>
+                          <td style={{ textAlign: 'center' }}>
+                            <div className="ref-skeleton-bar" style={{ width: 22, height: 13, margin: '0 auto' }} />
+                          </td>
                           <td>
                             <div className="ref-skeleton-bar" style={{ width: 110, height: 13 }} />
                           </td>
@@ -2281,28 +2309,57 @@ export default function AthiraiProfit() {
                             <div className="ref-skeleton-bar" style={{ width: 85, height: 14 }} />
                           </td>
                           <td>
+                            <div className="ref-skeleton-bar" style={{ width: 75, height: 14 }} />
+                          </td>
+                          <td>
+                            <div className="ref-skeleton-bar" style={{ width: 65, height: 14 }} />
+                          </td>
+                          <td>
+                            <div className="ref-skeleton-bar" style={{ width: 75, height: 14 }} />
+                          </td>
+                          <td>
                             <div className="ref-skeleton-bar" style={{ width: 70, height: 20, borderRadius: 12 }} />
                           </td>
-                          <td style={{ textAlign: 'right' }}>
-                            <div className="ref-skeleton-bar" style={{ width: 28, height: 28, borderRadius: 6, display: 'inline-block' }} />
+                          <td style={{ textAlign: 'center' }}>
+                            <div className="ref-skeleton-bar" style={{ width: 28, height: 28, borderRadius: 6, margin: '0 auto' }} />
                           </td>
                         </tr>
                       ))
                     ) : filteredTxns.length === 0 ? (
                       <tr>
-                        <td colSpan="8" style={{ textAlign: 'center', padding: '40px 0', color: MUTED }}>
+                        <td colSpan="12" style={{ textAlign: 'center', padding: '40px 0', color: MUTED }}>
                           No transactions found for the selected period.
                         </td>
                       </tr>
                     ) : (
-                      filteredTxns.map((t) => {
+                      filteredTxns.map((t, idx) => {
                         const style = getMethodStyle(t.payment_method)
                         const cust = getCustomerDisplay(t)
-                        const rawAmount = Number(t.amount) || 0
+                        const rawAmount = Number(t.turnover || t.amount) || 0
                         const profitShare = Number((rawAmount * 0.73).toFixed(2))
+
+                        const isGen = t.is_general_customer != null
+                          ? t.is_general_customer
+                          : (t.general_customer_revenue != null && t.general_customer_revenue > 0)
+
+                        const balanceComm = t.balance_commission != null
+                          ? Number(t.balance_commission)
+                          : (isGen ? null : Number((rawAmount * 0.15).toFixed(2)))
+
+                        const superAdminComm = t.super_admin_commission != null
+                          ? Number(t.super_admin_commission)
+                          : Number((rawAmount * 0.01).toFixed(2))
+
+                        const genCustRevenue = t.general_customer_revenue != null
+                          ? Number(t.general_customer_revenue)
+                          : (isGen ? rawAmount : null)
 
                         return (
                           <tr key={t.transaction_id || t.order_id}>
+                            {/* S.NO */}
+                            <td style={{ textAlign: 'center', color: MUTED, fontWeight: 700, fontSize: 12 }}>
+                              {((page - 1) * PAGE_SIZE) + idx + 1}
+                            </td>
                             <td style={{ color: MUTED, fontSize: 12 }}>
                               {fmtDate(t.created_at)}
                             </td>
@@ -2333,6 +2390,18 @@ export default function AthiraiProfit() {
                             <td style={{ fontWeight: 800, color: '#059669' }}>
                               {inr(profitShare)}
                             </td>
+                            {/* Balance Commission (Residual Pool) */}
+                            <td style={{ fontWeight: 700, color: balanceComm ? '#2563EB' : MUTED }}>
+                              {balanceComm ? inr(balanceComm) : 'N/A'}
+                            </td>
+                            {/* Super Admin Commission (1%) */}
+                            <td style={{ fontWeight: 700, color: superAdminComm ? '#D97706' : MUTED }}>
+                              {superAdminComm ? inr(superAdminComm) : 'N/A'}
+                            </td>
+                            {/* General Customer Revenue */}
+                            <td style={{ fontWeight: 700, color: genCustRevenue ? '#059669' : MUTED }}>
+                              {genCustRevenue ? inr(genCustRevenue) : 'N/A'}
+                            </td>
                             <td>
                               <span
                                 className="ref-badge"
@@ -2341,44 +2410,30 @@ export default function AthiraiProfit() {
                                 {style.label}
                               </span>
                             </td>
-                            <td>
-                              <div style={{ position: 'relative', display: 'inline-block' }}>
-                                <button
-                                  type="button"
-                                  className="ref-action-btn"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setOpenMenuId(openMenuId === t.order_id ? null : t.order_id)
-                                  }}
-                                >
-                                  ⋯
-                                </button>
-
-                                {openMenuId === t.order_id && (
-                                  <div className="ref-menu-popover">
-                                    <button
-                                      type="button"
-                                      className="ref-menu-item"
-                                      onClick={() => {
-                                        setSelectedTxn(t)
-                                        setOpenMenuId(null)
-                                      }}
-                                    >
-                                      View Order Details
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="ref-menu-item"
-                                      onClick={() => {
-                                        copyToClipboard(t.order_id)
-                                        setOpenMenuId(null)
-                                      }}
-                                    >
-                                      Copy Order ID
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
+                            <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                className="ref-action-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (menuAnchor && menuAnchor.txn?.order_id === t.order_id) {
+                                    setMenuAnchor(null)
+                                    return
+                                  }
+                                  const rect = e.currentTarget.getBoundingClientRect()
+                                  const spaceBelow = window.innerHeight - rect.bottom
+                                  const openUp = spaceBelow < 150 && rect.top > 150
+                                  setMenuAnchor({
+                                    txn: t,
+                                    openUp,
+                                    top: openUp ? undefined : (rect.bottom + 4),
+                                    bottom: openUp ? (window.innerHeight - rect.top + 4) : undefined,
+                                    right: Math.max(12, window.innerWidth - rect.right),
+                                  })
+                                }}
+                              >
+                                ⋯
+                              </button>
                             </td>
                           </tr>
                         )
@@ -2387,6 +2442,44 @@ export default function AthiraiProfit() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Floating Viewport Fixed Action Menu (Zero Clipping, Never Cutoff by Table/Header) */}
+              {menuAnchor && (
+                <div
+                  className="ref-menu-popover"
+                  style={{
+                    position: 'fixed',
+                    top: menuAnchor.top != null ? `${menuAnchor.top}px` : 'auto',
+                    bottom: menuAnchor.bottom != null ? `${menuAnchor.bottom}px` : 'auto',
+                    right: `${menuAnchor.right}px`,
+                    zIndex: 99999,
+                    minWidth: 180,
+                    boxShadow: '0 18px 40px rgba(12,64,68,.22), 0 4px 12px rgba(0,0,0,.08)',
+                  }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    className="ref-menu-item"
+                    onClick={() => {
+                      setSelectedTxn(menuAnchor.txn)
+                      setMenuAnchor(null)
+                    }}
+                  >
+                    View Order Details
+                  </button>
+                  <button
+                    type="button"
+                    className="ref-menu-item"
+                    onClick={() => {
+                      copyToClipboard(menuAnchor.txn?.order_id)
+                      setMenuAnchor(null)
+                    }}
+                  >
+                    Copy Order ID
+                  </button>
+                </div>
+              )}
 
               {/* Numbered Pagination */}
               {totalPages > 1 && (

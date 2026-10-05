@@ -250,25 +250,32 @@ export default function AllSalesDashboard({
   const [copiedId, setCopiedId] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTxn, setSelectedTxn] = useState(null)
-  const [openMenuId, setOpenMenuId] = useState(null)
+  const [menuAnchor, setMenuAnchor] = useState(null) // { txn, top, bottom, right }
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false)
   const [isMetricDropdownOpen, setIsMetricDropdownOpen] = useState(false)
   const [chartMetric, setChartMetric] = useState('revenue') // 'revenue' | 'transactions'
+  const [hoveredSlice, setHoveredSlice] = useState(null)
 
   const PAGE_SIZE = 100
   const [tableLoading, setTableLoading] = useState(false)
 
   const fetchIdRef = useRef(0)
 
-  // Close open popovers on outside click
+  // Close open popovers on outside click or scroll
   useEffect(() => {
     const handleOutside = () => {
-      setOpenMenuId(null)
+      setMenuAnchor(null)
       setIsDateDropdownOpen(false)
       setIsMetricDropdownOpen(false)
     }
     window.addEventListener('click', handleOutside)
-    return () => window.removeEventListener('click', handleOutside)
+    window.addEventListener('scroll', handleOutside, true)
+    window.addEventListener('resize', handleOutside)
+    return () => {
+      window.removeEventListener('click', handleOutside)
+      window.removeEventListener('scroll', handleOutside, true)
+      window.removeEventListener('resize', handleOutside)
+    }
   }, [])
 
   const fetchData = async (p = 1, period = activeFilter, from = customFrom, to = customTo, isPageNav = false) => {
@@ -1003,8 +1010,8 @@ export default function AllSalesDashboard({
 
         .ref-donut-wrapper {
           position: relative;
-          width: 185px;
-          height: 185px;
+          width: 200px;
+          height: 200px;
           margin: 0 auto;
           flex-shrink: 0;
         }
@@ -1016,13 +1023,21 @@ export default function AllSalesDashboard({
           transform: translate(-50%, -50%);
           text-align: center;
           pointer-events: none;
+          max-width: 115px;
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
         }
 
         .ref-donut-center-val {
-          font-size: 21px;
-          font-weight: 800;
+          font-size: 19px;
+          font-weight: 850;
           color: ${PRIMARY};
-          line-height: 1;
+          line-height: 1.1;
+          letter-spacing: -0.01em;
+          white-space: nowrap;
         }
 
         .ref-donut-center-lbl {
@@ -1032,6 +1047,8 @@ export default function AllSalesDashboard({
           text-transform: uppercase;
           letter-spacing: 0.8px;
           margin-top: 3px;
+          line-height: 1.15;
+          text-align: center;
         }
 
         .ref-breakdown-table-box {
@@ -1254,6 +1271,9 @@ export default function AllSalesDashboard({
         .ref-table-scroll {
           width: 100%;
           overflow-x: auto;
+          overflow-y: visible;
+          min-height: 280px;
+          padding-bottom: 24px;
           -webkit-overflow-scrolling: touch;
         }
 
@@ -1330,16 +1350,28 @@ export default function AllSalesDashboard({
         /* Action Popover Floating Menu */
         .ref-action-popover {
           position: absolute;
-          right: 20px;
-          top: 44px;
+          right: 18px;
+          top: calc(100% + 4px);
           background: #fff;
           border: 1px solid ${BORDER};
           border-radius: 10px;
-          box-shadow: 0 10px 28px rgba(14, 67, 72, 0.14);
-          z-index: 100;
-          min-width: 175px;
+          box-shadow: 0 14px 34px rgba(14, 67, 72, 0.18), 0 2px 8px rgba(0, 0, 0, 0.06);
+          z-index: 1000;
+          min-width: 180px;
           padding: 6px 0;
           text-align: left;
+          animation: refPopFadeIn 0.15s ease-out;
+        }
+
+        .ref-action-popover.up {
+          top: auto;
+          bottom: calc(100% + 4px);
+          box-shadow: 0 -14px 34px rgba(14, 67, 72, 0.18), 0 -2px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        @keyframes refPopFadeIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
         }
 
         .ref-action-popover-item {
@@ -1555,21 +1587,60 @@ export default function AllSalesDashboard({
 
         @media (max-width: 860px) {
           .ref-kpi-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr 1fr;
           }
           .ref-donut-container {
             grid-template-columns: 1fr;
             text-align: center;
+            gap: 20px;
           }
           .ref-dashboard-wrapper {
-            padding: 20px 16px 60px;
+            padding: 16px 14px 60px;
           }
           .ref-header {
             flex-direction: column;
             align-items: stretch;
+            gap: 14px;
           }
           .ref-download-btn {
             justify-content: center;
+            width: 100%;
+          }
+        }
+
+        @media (max-width: 580px) {
+          .ref-kpi-grid {
+            grid-template-columns: 1fr;
+          }
+          .ref-summary-tiles {
+            grid-template-columns: 1fr;
+          }
+          .ref-tabs-group {
+            width: 100%;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 4px;
+          }
+          .ref-tab {
+            flex-shrink: 0;
+            padding: 7px 14px;
+            font-size: 12px;
+          }
+          .ref-filters-row {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+          }
+          .ref-date-range-btn {
+            width: 100%;
+            justify-content: space-between;
+          }
+          .ref-txns-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+            padding: 14px 16px;
           }
         }
       `}</style>
@@ -1915,7 +1986,7 @@ export default function AllSalesDashboard({
                   </div>
                 ) : (
                   <div className="ref-donut-container">
-                    {/* Donut with Center Total */}
+                    {/* Donut with Interactive Center Sync */}
                     <div className="ref-donut-wrapper">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -1925,31 +1996,54 @@ export default function AllSalesDashboard({
                             nameKey="name"
                             cx="50%"
                             cy="50%"
-                            innerRadius={58}
-                            outerRadius={85}
+                            innerRadius={62}
+                            outerRadius={88}
                             paddingAngle={2.5}
+                            minAngle={5}
                             stroke="#fff"
                             strokeWidth={2}
+                            onMouseEnter={(_, idx) => setHoveredSlice(idx)}
+                            onMouseLeave={() => setHoveredSlice(null)}
+                            onClick={(_, idx) => setHoveredSlice(prev => prev === idx ? null : idx)}
                             isAnimationActive={true}
-                            animationDuration={1000}
-                            animationEasing="ease-in-out"
+                            animationDuration={800}
                           >
                             {donutData.map((entry, index) => (
-                              <Cell key={`donut-${index}`} fill={entry.color} />
+                              <Cell
+                                key={`donut-${index}`}
+                                fill={entry.color}
+                                opacity={hoveredSlice === null || hoveredSlice === index ? 1 : 0.35}
+                                style={{ outline: 'none', cursor: 'pointer', transition: 'all 0.2s ease' }}
+                              />
                             ))}
                           </Pie>
-                          <Tooltip content={<CustomPieTooltip />} />
                         </PieChart>
                       </ResponsiveContainer>
                       <div className="ref-donut-center-info">
-                        <div className="ref-donut-center-val">
-                          <AnimatedNumber value={summary.total_transactions} />
-                        </div>
-                        <div className="ref-donut-center-lbl">TOTAL TRANSACTIONS</div>
+                        {hoveredSlice !== null && donutData[hoveredSlice] ? (
+                          <>
+                            <div className="ref-donut-center-val" style={{ fontSize: 15, color: donutData[hoveredSlice].color, fontWeight: 800 }}>
+                              {inr(donutData[hoveredSlice].total)}
+                            </div>
+                            <div className="ref-donut-center-lbl" style={{ color: DARK, fontWeight: 800, fontSize: 10 }}>
+                              {donutData[hoveredSlice].name}
+                            </div>
+                            <div style={{ fontSize: 9.5, color: MUTED, fontWeight: 700, marginTop: 2 }}>
+                              {donutData[hoveredSlice].count.toLocaleString('en-IN')} orders ({donutData[hoveredSlice].percentage?.toFixed(1) || 0}%)
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="ref-donut-center-val">
+                              <AnimatedNumber value={summary.total_transactions} />
+                            </div>
+                            <div className="ref-donut-center-lbl">TOTAL TRANSACTIONS</div>
+                          </>
+                        )}
                       </div>
                     </div>
 
-                    {/* Breakdown List Table with Explicit Column Separations */}
+                    {/* Breakdown List Table with Explicit Column Separations & Hover Sync */}
                     <div className="ref-breakdown-table-box">
                       <table className="ref-breakdown-table">
                         <thead>
@@ -1961,12 +2055,22 @@ export default function AllSalesDashboard({
                           </tr>
                         </thead>
                         <tbody>
-                          {breakdownList.map(b => (
-                            <tr key={b.method}>
+                          {breakdownList.map((b, bIdx) => (
+                            <tr
+                              key={b.method}
+                              onMouseEnter={() => setHoveredSlice(bIdx)}
+                              onMouseLeave={() => setHoveredSlice(null)}
+                              onClick={() => setHoveredSlice(prev => prev === bIdx ? null : bIdx)}
+                              style={{
+                                cursor: 'pointer',
+                                background: hoveredSlice === bIdx ? 'rgba(13, 148, 136, 0.08)' : 'transparent',
+                                transition: 'background 0.15s ease'
+                              }}
+                            >
                               <td className="ref-td-method">
                                 <div className="ref-method-name-cell">
                                   <span className="ref-method-dot" style={{ background: b.color }} />
-                                  <span>{b.label}</span>
+                                  <span style={{ fontWeight: hoveredSlice === bIdx ? 800 : 700 }}>{b.label}</span>
                                 </div>
                               </td>
                               <td className="ref-td-count">
@@ -2161,7 +2265,7 @@ export default function AllSalesDashboard({
                   <table className="ref-data-table">
                     <thead>
                       <tr>
-                        <th style={{ width: 50, textAlign: 'center' }}>#</th>
+                        <th style={{ width: 60, textAlign: 'center' }}>S.NO</th>
                         <th style={{ textAlign: 'left', minWidth: 200 }}>Customer</th>
                         <th style={{ textAlign: 'left', minWidth: 170 }}>Order ID</th>
                         <th style={{ textAlign: 'right', minWidth: 120, paddingRight: 24 }}>Amount</th>
@@ -2195,7 +2299,6 @@ export default function AllSalesDashboard({
                         filteredTxns.map((t, idx) => {
                           const style = getMethodStyle(t.payment_method)
                           const isCopied = copiedId === (t.order_id || t.transaction_id)
-                          const isMenuOpen = openMenuId === (t.order_id || idx)
 
                           return (
                             <tr
@@ -2203,8 +2306,8 @@ export default function AllSalesDashboard({
                               onClick={() => setSelectedTxn(t)}
                               style={{ cursor: 'pointer' }}
                             >
-                              {/* # */}
-                              <td style={{ textAlign: 'center', color: MUTED, fontWeight: 600, fontSize: 11.5 }}>
+                              {/* S.NO */}
+                              <td style={{ textAlign: 'center', color: MUTED, fontWeight: 700, fontSize: 12 }}>
                                 {startIdx + idx}
                               </td>
 
@@ -2281,14 +2384,27 @@ export default function AllSalesDashboard({
                                 {fmtDate(t.created_at)}
                               </td>
 
-                              {/* Interactive Action Menu (SVG 3-dots button + Dropdown Popover) */}
-                              <td style={{ textAlign: 'center', position: 'relative' }} onClick={e => e.stopPropagation()}>
+                              {/* Interactive Action Menu (SVG 3-dots button) */}
+                              <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                                 <button
                                   type="button"
                                   className="ref-action-icon-btn"
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    setOpenMenuId(isMenuOpen ? null : (t.order_id || idx))
+                                    if (menuAnchor && menuAnchor.txn?.order_id === t.order_id) {
+                                      setMenuAnchor(null)
+                                      return
+                                    }
+                                    const rect = e.currentTarget.getBoundingClientRect()
+                                    const spaceBelow = window.innerHeight - rect.bottom
+                                    const openUp = spaceBelow < 165 && rect.top > 165
+                                    setMenuAnchor({
+                                      txn: t,
+                                      openUp,
+                                      top: openUp ? undefined : (rect.bottom + 4),
+                                      bottom: openUp ? (window.innerHeight - rect.top + 4) : undefined,
+                                      right: Math.max(12, window.innerWidth - rect.right),
+                                    })
                                   }}
                                   title="Order actions"
                                 >
@@ -2298,57 +2414,6 @@ export default function AllSalesDashboard({
                                     <circle cx="12" cy="19" r="2.2" />
                                   </svg>
                                 </button>
-
-                                {isMenuOpen && (
-                                  <div className="ref-action-popover" onClick={e => e.stopPropagation()}>
-                                    <button
-                                      type="button"
-                                      className="ref-action-popover-item"
-                                      onClick={() => {
-                                        setSelectedTxn(t)
-                                        setOpenMenuId(null)
-                                      }}
-                                    >
-                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                        <circle cx="12" cy="12" r="3" />
-                                      </svg>
-                                      View Order Details
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      className="ref-action-popover-item"
-                                      onClick={() => {
-                                        copyToClipboard(t.order_id)
-                                        setOpenMenuId(null)
-                                      }}
-                                    >
-                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                                      </svg>
-                                      Copy Order ID
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      className="ref-action-popover-item"
-                                      onClick={() => {
-                                        setSelectedTxn(t)
-                                        setOpenMenuId(null)
-                                        setTimeout(() => window.print(), 350)
-                                      }}
-                                    >
-                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <polyline points="6 9 6 2 18 2 18 9" />
-                                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-                                        <rect x="6" y="14" width="12" height="8" />
-                                      </svg>
-                                      Print Order Slip
-                                    </button>
-                                  </div>
-                                )}
                               </td>
                             </tr>
                           )
@@ -2356,6 +2421,71 @@ export default function AllSalesDashboard({
                       )}
                     </tbody>
                   </table>
+                </div>
+              )}
+
+              {/* Viewport Floating Fixed Action Popover (Zero Clipping, Never Cutoff by Table/Header) */}
+              {menuAnchor && (
+                <div
+                  className="ref-action-popover"
+                  style={{
+                    position: 'fixed',
+                    top: menuAnchor.top != null ? `${menuAnchor.top}px` : 'auto',
+                    bottom: menuAnchor.bottom != null ? `${menuAnchor.bottom}px` : 'auto',
+                    right: `${menuAnchor.right}px`,
+                    zIndex: 99999,
+                    minWidth: 190,
+                    boxShadow: '0 18px 40px rgba(12,64,68,.22), 0 4px 12px rgba(0,0,0,.08)',
+                  }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    className="ref-action-popover-item"
+                    onClick={() => {
+                      setSelectedTxn(menuAnchor.txn)
+                      setMenuAnchor(null)
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    View Order Details
+                  </button>
+
+                  <button
+                    type="button"
+                    className="ref-action-popover-item"
+                    onClick={() => {
+                      copyToClipboard(menuAnchor.txn?.order_id)
+                      setMenuAnchor(null)
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                    Copy Order ID
+                  </button>
+
+                  <button
+                    type="button"
+                    className="ref-action-popover-item"
+                    onClick={() => {
+                      const tPrint = menuAnchor.txn
+                      setSelectedTxn(tPrint)
+                      setMenuAnchor(null)
+                      setTimeout(() => window.print(), 350)
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="6 9 6 2 18 2 18 9" />
+                      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                      <rect x="6" y="14" width="12" height="8" />
+                    </svg>
+                    Print Order Slip
+                  </button>
                 </div>
               )}
 

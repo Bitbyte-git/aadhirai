@@ -704,6 +704,83 @@ const styles = `
     background-size: 200% 100%;
     animation: shimmerPulse 1.6s infinite ease-in-out;
   }
+
+  @media (max-width: 1080px) {
+    .cms-kpi-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .cms-main {
+      padding: 16px 12px 0;
+    }
+    .cms-kpi-grid {
+      grid-template-columns: 1fr;
+    }
+    .cms-headrow {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 14px;
+    }
+    .cms-download-btn {
+      width: 100%;
+      justify-content: center;
+    }
+    .cms-role-tabs {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 4px;
+    }
+    .cms-role-tab {
+      flex-shrink: 0;
+    }
+    .cms-filters-row {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+    }
+    .cms-filters-pills {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 4px;
+    }
+    .cms-filter-pill {
+      flex-shrink: 0;
+    }
+    .cms-date-dropdown-btn {
+      width: 100%;
+      justify-content: space-between;
+    }
+    .cms-panel-head {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+    }
+    .cms-chart {
+      gap: 16px;
+    }
+    .cms-bar-col {
+      min-width: 60px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .cms-title {
+      font-size: 24px;
+    }
+    .cms-card {
+      padding: 16px;
+    }
+    .cms-card-num {
+      font-size: 22px;
+    }
+    .cms-chart-wrap {
+      padding: 16px 8px;
+    }
+  }
 `
 
 export default function Commissions() {
@@ -1272,7 +1349,7 @@ export default function Commissions() {
                   <table className="cms-table">
                     <thead>
                       <tr>
-                        <th style={{ width: 50, textAlign: 'center' }}>Rank</th>
+                        <th style={{ width: 60, textAlign: 'center' }}>S.NO</th>
                         <th style={{ minWidth: 220, textAlign: 'left' }}>Earner / Recipient</th>
                         <th style={{ minWidth: 160, textAlign: 'left' }}>Member ID</th>
                         <th style={{ minWidth: 140, textAlign: 'left' }}>City / Location</th>
@@ -1300,10 +1377,10 @@ export default function Commissions() {
                               onClick={() => toggleHistory(r.user_id)}
                               style={{ cursor: 'pointer' }}
                             >
-                              {/* Rank */}
+                              {/* S.NO / Rank */}
                               <td style={{ textAlign: 'center' }}>
-                                <span className={`cms-rank-badge ${rankClass}`}>
-                                  {rank <= 3 ? (rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉') : rank}
+                                <span className={`cms-rank-badge ${rankClass}`} title={`S.No ${rank}`}>
+                                  {rank <= 3 ? (rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉') : `#${rank}`}
                                 </span>
                               </td>
 

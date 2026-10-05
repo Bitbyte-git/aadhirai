@@ -10654,6 +10654,81 @@ class PaymentsSummaryView(APIView):
                 ],
             })
 
+        elif view == 'my_commission' and request.user.role == 'super_admin':
+            # ── Super Admin's own fixed 1% share across ALL platform orders ──
+            my_comm_pct = Decimal('1.00')
+            base_qs = JewelryOrder.objects.all()
+            period_qs = _apply_period_filter(base_qs, period, start_date, end_date)
+
+            total_order_value = period_qs.aggregate(total=Sum('total_price'))['total'] or 0
+            total_revenue = (Decimal(str(total_order_value)) * my_comm_pct / Decimal('100')).quantize(Decimal('0.01'))
+            total_transactions = period_qs.count()
+            total_coins_sold = int(total_revenue * COIN_RATE_PER_RUPEE)
+
+            payment_breakdown = [
+                {
+                    'method': r['payment_method'], 'count': r['count'],
+                    'total': float((Decimal(str(r['total'] or 0)) * my_comm_pct / Decimal('100')).quantize(Decimal('0.01'))),
+                }
+                for r in period_qs.values('payment_method').annotate(count=Count('id'), total=Sum('total_price')).order_by('-total')
+            ]
+
+            six_months_ago = timezone.localdate() - timedelta(days=180)
+            trend_qs = (
+                base_qs.filter(created_at__date__gte=six_months_ago)
+                .annotate(month=TruncMonth('created_at'))
+                .values('month')
+                .annotate(revenue=Sum('total_price'), transactions=Count('id'))
+                .order_by('month')
+            )
+            monthly_trend = [
+                {
+                    'month': t['month'].strftime('%b %Y'),
+                    'revenue': float((Decimal(str(t['revenue'])) * my_comm_pct / Decimal('100')).quantize(Decimal('0.01'))),
+                    'transactions': int(t['transactions']),
+                }
+                for t in trend_qs
+            ]
+
+            txn_qs = period_qs.select_related('user', 'user__customer_profile').order_by('-created_at')
+
+            if export_csv:
+                export_orders = list(txn_qs[:REPORT_MAX_ROWS])
+                profile_map = _bulk_profile_id_map([o.user for o in export_orders])
+                buffer = _build_report_pdf(
+                    title='My Commission Report (1%)',
+                    subtitle="Super Admin's own fixed 1% share, credited on every order across the platform.",
+                    period_label=_period_label(period, start_date, end_date),
+                    stats=[('Total 1% Commission', _inr_fmt(total_revenue)), ('AUG Coins Credited', f'{total_coins_sold:,}'), ('Transactions', total_transactions)],
+                    columns=['Order ID', 'Buyer', 'Commission (1%)', 'Payment Method', 'Date'],
+                    rows=[[o.order_id, profile_map.get(o.user_id) or o.user.email, _inr_fmt(Decimal(str(o.total_price)) * Decimal('0.01')), o.payment_method, o.created_at.strftime('%d-%b-%Y %H:%M')] for o in export_orders],
+                    total_rows=total_transactions,
+                )
+                return FileResponse(buffer, as_attachment=True, filename=f'my-commission-report-{period}.pdf', content_type='application/pdf')
+
+            start = (page - 1) * page_size
+            page_txns = txn_qs[start:start + page_size]
+
+            return Response({
+                'view': view,
+                'period': period,
+                'total_revenue': float(total_revenue),
+                'total_coins_sold': total_coins_sold,
+                'total_transactions': total_transactions,
+                'monthly_trend': monthly_trend,
+                'payment_breakdown': payment_breakdown,
+                'page': page,
+                'page_size': page_size,
+                'total_pages': max(1, (total_transactions + page_size - 1) // page_size),
+                'has_more': start + page_size < total_transactions,
+                'transactions': [
+                    self._serialize_order_txn(
+                        o,
+                        amount=(Decimal(str(o.total_price)) * my_comm_pct / Decimal('100')).quantize(Decimal('0.01'))
+                    ) for o in page_txns
+                ],
+            })
+
         elif view in ('super_admin_commission', 'my_commission', 'team_commission'):
             if view == 'team_commission':
                 downline_ids = _collect_full_downline_user_ids(request.user)
@@ -10735,6 +10810,9 @@ class PaymentsSummaryView(APIView):
                 'transactions': [
                     {
                         'transaction_id': r.related_order.order_id if r.related_order else (r.transaction_id or '—'),
+                        'order_id': r.related_order.order_id if r.related_order else (r.transaction_id or '—'),
+                        'customer_name': (r.related_order.customer_name or '') if r.related_order else '',
+                        'customer_id': get_user_profile_id(r.related_order.user) if r.related_order else '',
                         'buyer': get_user_profile_id(r.related_order.user) if r.related_order else '—',
                         'amount': float(r.amount_paid),
                         'coins': r.coins_credited,

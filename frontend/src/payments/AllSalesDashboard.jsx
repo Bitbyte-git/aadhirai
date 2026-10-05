@@ -49,16 +49,21 @@ const FILTERS = [
 ]
 
 const DATE_DROPDOWN_OPTIONS = [
-  { key: 'year', label: 'Year 2026' },
   { key: 'month', label: 'This Month' },
-  { key: 'week', label: 'Last 7 Days' },
   { key: 'today', label: 'Today' },
+  { key: 'week', label: 'Last 7 Days' },
+  { key: 'year', label: 'Year 2026' },
   { key: 'all', label: 'All Time' },
   { key: 'custom', label: 'Custom Range' },
 ]
 
 function inr(n) {
-  return `₹ ${Math.round(Number(n) || 0).toLocaleString('en-IN')}`
+  const num = Number(n) || 0
+  const hasDecimals = num % 1 !== 0
+  return `₹ ${num.toLocaleString('en-IN', {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: 2,
+  })}`
 }
 
 function fmtDate(d) {
@@ -117,14 +122,16 @@ function getCustomerDisplay(t) {
   }
 }
 
-function AnimatedNumber({ value, prefix = '', suffix = '', duration = 800 }) {
+function AnimatedNumber({ value, prefix = '', suffix = '', duration = 650 }) {
   const [displayVal, setDisplayVal] = useState(0)
   const animRef = useRef(null)
   const currentValRef = useRef(0)
 
+  const endVal = Number(value || 0)
+  const hasDecimals = endVal % 1 !== 0
+
   useEffect(() => {
     const startVal = currentValRef.current
-    const endVal = Number(value || 0)
     if (startVal === endVal) {
       setDisplayVal(endVal)
       return
@@ -136,7 +143,7 @@ function AnimatedNumber({ value, prefix = '', suffix = '', duration = 800 }) {
       const elapsed = now - startTime
       const progress = Math.min(elapsed / duration, 1)
       const ease = 1 - Math.pow(1 - progress, 3)
-      const current = Math.round(startVal + (endVal - startVal) * ease)
+      const current = startVal + (endVal - startVal) * ease
       currentValRef.current = current
       setDisplayVal(current)
       if (progress < 1) {
@@ -150,12 +157,15 @@ function AnimatedNumber({ value, prefix = '', suffix = '', duration = 800 }) {
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current)
     }
-  }, [value, duration])
+  }, [value, duration, endVal])
 
   return (
     <span>
       {prefix}
-      {displayVal.toLocaleString('en-IN')}
+      {displayVal.toLocaleString('en-IN', {
+        minimumFractionDigits: hasDecimals ? 2 : 0,
+        maximumFractionDigits: 2,
+      })}
       {suffix}
     </span>
   )
@@ -232,7 +242,7 @@ export default function AllSalesDashboard({
   const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
-  const [activeFilter, setActiveFilter] = useState('year')
+  const [activeFilter, setActiveFilter] = useState('month')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
   const [downloading, setDownloading] = useState(false)
@@ -306,7 +316,7 @@ export default function AllSalesDashboard({
   }
 
   useEffect(() => {
-    fetchData(1, 'year', '', '', false)
+    fetchData(1, 'month', '', '', false)
   }, [])
 
   const handleFilterClick = (key) => {
@@ -416,6 +426,71 @@ export default function AllSalesDashboard({
   }, [txns, searchQuery])
 
   const trendData = useMemo(() => {
+    if (activeFilter === 'today') {
+      const hourSlots = [
+        { label: '06:00', start: 6, end: 8 },
+        { label: '09:00', start: 9, end: 11 },
+        { label: '12:00', start: 12, end: 14 },
+        { label: '15:00', start: 15, end: 17 },
+        { label: '18:00', start: 18, end: 20 },
+        { label: '21:00', start: 21, end: 23 },
+      ]
+      const buckets = hourSlots.map(slot => ({
+        month: slot.label,
+        revenue: 0,
+        transactions: 0,
+      }))
+      if (txns && txns.length > 0) {
+        txns.forEach(t => {
+          if (!t.created_at) return
+          const d = new Date(t.created_at)
+          const h = d.getHours()
+          const amt = Number(t.amount) || 0
+          const idx = buckets.findIndex((_, i) => h >= hourSlots[i].start && h <= hourSlots[i].end)
+          const target = idx !== -1 ? idx : (h < 6 ? 0 : buckets.length - 1)
+          buckets[target].revenue = Number((buckets[target].revenue + amt).toFixed(2))
+          buckets[target].transactions += 1
+        })
+      } else if (Number(summary?.total_revenue || 0) > 0) {
+        buckets[2].revenue = Number(Number(summary.total_revenue).toFixed(2))
+        buckets[2].transactions = summary.total_transactions || 1
+      }
+      return buckets
+    }
+
+    if (activeFilter === 'week') {
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+      const dayBuckets = days.map(d => ({ month: d, revenue: 0, transactions: 0 }))
+      if (txns && txns.length > 0) {
+        txns.forEach(t => {
+          if (!t.created_at) return
+          const d = new Date(t.created_at)
+          const dayIdx = (d.getDay() + 6) % 7
+          const amt = Number(t.amount) || 0
+          dayBuckets[dayIdx].revenue = Number((dayBuckets[dayIdx].revenue + amt).toFixed(2))
+          dayBuckets[dayIdx].transactions += 1
+        })
+      }
+      return dayBuckets
+    }
+
+    if (activeFilter === 'month') {
+      const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4']
+      const weekBuckets = weeks.map(w => ({ month: w, revenue: 0, transactions: 0 }))
+      if (txns && txns.length > 0) {
+        txns.forEach(t => {
+          if (!t.created_at) return
+          const d = new Date(t.created_at)
+          const dateNum = d.getDate()
+          const weekIdx = Math.min(3, Math.floor((dateNum - 1) / 7))
+          const amt = Number(t.amount) || 0
+          weekBuckets[weekIdx].revenue = Number((weekBuckets[weekIdx].revenue + amt).toFixed(2))
+          weekBuckets[weekIdx].transactions += 1
+        })
+      }
+      return weekBuckets
+    }
+
     if (!summary?.monthly_trend || summary.monthly_trend.length === 0) return []
     const totalRev = Number(summary.total_revenue) || 1
     const totalTxns = Number(summary.total_transactions) || 0
@@ -427,11 +502,11 @@ export default function AllSalesDashboard({
       }
       return {
         month: t.month,
-        revenue: rev,
+        revenue: Number(rev.toFixed(2)),
         transactions: txnsCount,
       }
     })
-  }, [summary?.monthly_trend, summary?.total_revenue, summary?.total_transactions])
+  }, [activeFilter, txns, summary?.monthly_trend, summary?.total_revenue, summary?.total_transactions])
 
   // Highest month dynamically derived from real monthly_trend
   const realSummary = useMemo(() => {
@@ -836,6 +911,19 @@ export default function AllSalesDashboard({
           font-size: 11.5px;
           font-weight: 500;
           color: ${MUTED};
+        }
+
+        /* ── Shimmer Skeleton Animation ── */
+        @keyframes shimmerPulse {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+
+        .ref-shimmer {
+          background: linear-gradient(90deg, #F0F4F4 25%, #E2EAEA 50%, #F0F4F4 75%);
+          background-size: 200% 100%;
+          animation: shimmerPulse 1.6s infinite ease-in-out;
+          border-radius: 6px;
         }
 
         /* ── 4. Main Analytics: Sales Performance & Payment Breakdown ── */
@@ -1790,7 +1878,7 @@ export default function AllSalesDashboard({
                             if (val >= 10000000) return `₹ ${(val / 10000000).toFixed(1)}Cr`
                             if (val >= 100000) return `₹ ${(val / 100000).toFixed(1)}L`
                             if (val >= 1000) return `₹ ${(val / 1000).toFixed(0)}K`
-                            return `₹ ${val}`
+                            return `₹ ${val % 1 !== 0 ? Number(val.toFixed(2)) : val}`
                           }}
                         />
                         <Tooltip content={<CustomAreaTooltip metric={chartMetric} />} />
@@ -1938,7 +2026,7 @@ export default function AllSalesDashboard({
                           if (val >= 10000000) return `₹ ${(val / 10000000).toFixed(1)}Cr`
                           if (val >= 100000) return `₹ ${(val / 100000).toFixed(1)}L`
                           if (val >= 1000) return `₹ ${(val / 1000).toFixed(0)}K`
-                          return `₹ ${val}`
+                          return `₹ ${val % 1 !== 0 ? Number(val.toFixed(2)) : val}`
                         }}
                       />
                       <Tooltip content={<CustomBarTooltip />} />

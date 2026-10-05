@@ -94,7 +94,7 @@ const FILTERS = [
 ]
 
 export default function PaymentsPageBase({ view, kicker, title, note, revenueLabel, coinsLabel = 'Coins Sold', showBreakdown = false }) {
-  if (view === 'all_sales') {
+  if (['all_sales', 'athirai_revenue', 'general_customer_revenue', 'super_admin_commission', 'my_commission', 'team_commission'].includes(view)) {
     return (
       <AllSalesDashboard
         view={view}
@@ -115,7 +115,7 @@ export default function PaymentsPageBase({ view, kicker, title, note, revenueLab
   const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
-  const [activeFilter, setActiveFilter] = useState('today')
+  const [activeFilter, setActiveFilter] = useState('month')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
 
@@ -151,7 +151,7 @@ export default function PaymentsPageBase({ view, kicker, title, note, revenueLab
     }
   }
 
-  useEffect(() => { fetchData(1, 'today', '', '') }, [])
+  useEffect(() => { fetchData(1, 'month', '', '') }, [])
 
   const handleFilterClick = key => {
     setActiveFilter(key)
@@ -205,7 +205,14 @@ export default function PaymentsPageBase({ view, kicker, title, note, revenueLab
     setDownloading(false)
   }
 
-  const inr = n => `Rs. ${Math.round(n || 0).toLocaleString('en-IN')}`
+  const inr = n => {
+    const num = Number(n) || 0
+    const hasDecimals = num % 1 !== 0
+    return `₹ ${num.toLocaleString('en-IN', {
+      minimumFractionDigits: hasDecimals ? 2 : 0,
+      maximumFractionDigits: 2,
+    })}`
+  }
   const fmtDate = d => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
   const fmtMethod = m => (m || 'other').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 

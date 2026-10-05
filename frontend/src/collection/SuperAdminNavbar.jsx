@@ -1357,14 +1357,694 @@ export default function SuperAdminNavbar({
     Inventory: 'box',
   }
 
+  const ALL_NAV_SECTIONS = {
+    Management: [
+      {
+        category: 'Rates & Operations',
+        items: [
+          {
+            label: 'Today Gold Rate',
+            path: null,
+            action: () => { setShowTodayRates(true); fetchMetalPrices() },
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 19V5" /><path d="M4 19h16" /><path d="m7 15 4-4 3 3 5-7" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Add Gold Rate',
+            path: null,
+            action: () => { setShowRatePopup(true); fetchMetalPrices() },
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Add Product',
+            path: '/add-product',
+            action: () => navigate('/add-product'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 8 12 3 3 8l9 5 9-5Z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Orders',
+            path: '/admin-orders',
+            action: () => navigate('/admin-orders'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Requests',
+            path: null,
+            action: () => { setShowRequests(true); setRequestMsg(''); fetchProfileRequests() },
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+            ),
+          },
+        ],
+      },
+      {
+        category: 'Hierarchies & Reports',
+        items: [
+          {
+            label: 'Hierarchy Grid',
+            path: '/superadmin-hierarchy-grid',
+            action: () => navigate('/superadmin-hierarchy-grid'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Hierarchy Tree',
+            path: '/superadmin-hierarchy',
+            action: () => navigate('/superadmin-hierarchy'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="3" width="6" height="4" rx="1" /><rect x="3" y="17" width="6" height="4" rx="1" /><rect x="15" y="17" width="6" height="4" rx="1" /><path d="M12 7v4m-6 6v-3a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v3" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Shop Hierarchy',
+            path: '/shop-hierarchy-grid',
+            action: () => navigate('/shop-hierarchy-grid'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Shop Hierarchy Tree',
+            path: '/shop-hierarchy-tree',
+            action: () => navigate('/shop-hierarchy-tree'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="5" r="3" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="18" r="3" /><path d="M12 8v5M6 15v-2h12v2" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Shop Report',
+            path: '/shop-report',
+            action: () => navigate('/shop-report'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
+              </svg>
+            ),
+          },
+        ],
+      },
+    ],
+    Announcements: [
+      {
+        category: 'Broadcasts',
+        items: [
+          {
+            label: 'Send Announcement',
+            path: null,
+            action: () => { setShowAnnouncement(true); setAnnouncementMsg('') },
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m3 11 18-5v12L3 14v-3z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+              </svg>
+            ),
+          },
+          {
+            label: 'My Announcements',
+            path: null,
+            action: () => { setShowMyAnnouncements(true); fetchMyAnnouncements() },
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+              </svg>
+            ),
+          },
+        ],
+      },
+      {
+        category: 'Celebrations',
+        items: [
+          {
+            label: "Today's Birthdays",
+            path: null,
+            action: () => { setShowBirthdayList(true); fetchCelebrations() },
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8" /><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1" /><path d="M2 21h20" /><path d="M7 8v2" /><path d="M12 8v2" /><path d="M17 8v2" />
+              </svg>
+            ),
+          },
+          {
+            label: "Today's Anniversaries",
+            path: null,
+            action: () => { setShowAnniversaryList(true); fetchCelebrations() },
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Joining Anniversaries',
+            path: null,
+            action: () => { setShowJoinDateList(true); fetchCelebrations() },
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="18" height="18" x="3" y="4" rx="2" ry="2" /><line x1="16" x2="16" y1="2" y2="6" /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" />
+              </svg>
+            ),
+          },
+        ],
+      },
+    ],
+    Users: [
+      {
+        category: 'Hierarchy Users',
+        items: [
+          {
+            label: 'Shop List',
+            path: '/superadmin/manage-users/shops',
+            action: () => navigate('/superadmin/manage-users/shops'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Super Stockists',
+            path: '/superadmin/manage-users/super-stockist',
+            action: () => navigate('/superadmin/manage-users/super-stockist'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14v2H5z" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Distributors',
+            path: '/superadmin/manage-users/distributor',
+            action: () => navigate('/superadmin/manage-users/distributor'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="1" y="3" width="15" height="13" /><polygon points="16 8 20 8 23 11 23 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Wholesale Dealers',
+            path: '/superadmin/manage-users/wholesale-dealer',
+            action: () => navigate('/superadmin/manage-users/wholesale-dealer'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="20" height="14" x="2" y="7" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Retailers',
+            path: '/superadmin/manage-users/retailer',
+            action: () => navigate('/superadmin/manage-users/retailer'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" /><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4" /><path d="M2 7h20" />
+              </svg>
+            ),
+          },
+        ],
+      },
+      {
+        category: 'Customers & Registration',
+        items: [
+          {
+            label: 'Customers',
+            path: '/superadmin/manage-users/customer',
+            action: () => navigate('/superadmin/manage-users/customer'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Create Super Stockist',
+            path: '/create-super-stockist',
+            action: () => navigate('/create-super-stockist'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" />
+              </svg>
+            ),
+          },
+          {
+            label: 'General Customer',
+            path: '/general-customers',
+            action: () => navigate('/general-customers'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Referral Customer',
+            path: '/referral-customers',
+            action: () => navigate('/referral-customers'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Create Customer',
+            path: '/create-customer',
+            action: () => navigate('/create-customer'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" />
+              </svg>
+            ),
+          },
+        ],
+      },
+    ],
+    Coins: [
+      {
+        category: 'Coins',
+        items: [
+          {
+            label: 'Add Coins',
+            path: '/buy-coin',
+            action: () => navigate('/buy-coin'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Available Coins',
+            path: '/available-coins',
+            action: () => navigate('/available-coins'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9" /><path d="M12 7v10" /><path d="M15 9.5a2.5 2.5 0 0 0-5 0c0 3 5 2 5 5a2.5 2.5 0 0 1-5 0" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Requests Coins',
+            path: '/coin-requests-page',
+            action: () => navigate('/coin-requests-page'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Transaction Coins History',
+            path: '/coin-transactions',
+            action: () => navigate('/coin-transactions'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9" /><polyline points="12 6 12 12 16 14" />
+              </svg>
+            ),
+          },
+        ],
+      },
+      {
+        category: 'Jewellery',
+        items: [
+          {
+            label: 'Add Jewellery',
+            path: '/add-jewellery',
+            action: () => navigate('/add-jewellery'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 3h12l4 6-10 12L2 9l4-6z" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Available Jewellery',
+            path: '/available-jewellery',
+            action: () => navigate('/available-jewellery'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 3h12l4 6-10 12L2 9l4-6z" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Requests Jewellery',
+            path: '/jewellery-requests',
+            action: () => navigate('/jewellery-requests'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Jewellery Transactions',
+            path: '/jewellery-transactions',
+            action: () => navigate('/jewellery-transactions'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9" /><polyline points="12 6 12 12 16 14" />
+              </svg>
+            ),
+          },
+        ],
+      },
+    ],
+    Reports: [
+      {
+        category: 'Sales & Rewards',
+        items: [
+          {
+            label: 'Sales Report',
+            path: '/sales-report',
+            action: () => navigate('/sales-report'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Login Reward',
+            path: '/coins-reward',
+            action: () => navigate('/coins-reward'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 12 20 22 4 22 4 12" /><rect width="20" height="5" x="2" y="7" /><line x1="12" x2="12" y1="22" y2="7" /><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" /><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Login Reward Transactions',
+            path: '/login-reward-transactions',
+            action: () => navigate('/login-reward-transactions'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+              </svg>
+            ),
+          },
+        ],
+      },
+      {
+        category: 'User Activity',
+        items: [
+          {
+            label: 'Login Active',
+            path: '/login-active',
+            action: () => navigate('/login-active'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Login Inactive',
+            path: '/login-inactive',
+            action: () => navigate('/login-inactive'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            ),
+          },
+        ],
+      },
+    ],
+    Promotion: [
+      {
+        category: 'Partner Promotions',
+        items: [
+          {
+            label: 'Super Stockist',
+            path: '/promotions/super-stockist',
+            action: () => navigate('/promotions/super-stockist'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14v2H5z" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Distributor',
+            path: '/promotions/distributor',
+            action: () => navigate('/promotions/distributor'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="1" y="3" width="15" height="13" /><polygon points="16 8 20 8 23 11 23 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Wholesale Dealer',
+            path: '/promotions/wholesale-dealer',
+            action: () => navigate('/promotions/wholesale-dealer'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="20" height="14" x="2" y="7" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Retailers',
+            path: '/promotions/retailer',
+            action: () => navigate('/promotions/retailer'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" /><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4" /><path d="M2 7h20" />
+              </svg>
+            ),
+          },
+        ],
+      },
+      {
+        category: 'Orders',
+        items: [
+          {
+            label: 'Sales Order List',
+            path: '/promotions/sales-order-list',
+            action: () => navigate('/promotions/sales-order-list'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /><path d="M9 14h6" /><path d="M9 18h6" /><path d="M9 10h6" />
+              </svg>
+            ),
+          },
+        ],
+      },
+    ],
+    Payment: [
+      {
+        category: 'Sales & Revenue',
+        items: [
+          {
+            label: 'All Sales',
+            path: '/superadmin-payments',
+            action: () => navigate('/superadmin-payments'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="20" x2="12" y2="10" />
+                <line x1="18" y1="20" x2="18" y2="4" />
+                <line x1="6" y1="20" x2="6" y2="16" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Athirai Profit',
+            path: '/athirai-profit',
+            action: () => navigate('/athirai-profit'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 3h12l4 6-10 12L2 9l4-6z" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Athirai Revenue',
+            path: '/athirai-revenue',
+            action: () => navigate('/athirai-revenue'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 19V5" />
+                <path d="M4 19h16" />
+                <path d="m7 15 4-4 3 3 5-7" />
+              </svg>
+            ),
+          },
+          {
+            label: 'General Customer Revenue',
+            path: '/general-customer-revenue',
+            action: () => navigate('/general-customer-revenue'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            ),
+          },
+        ],
+      },
+      {
+        category: 'Commissions',
+        items: [
+          {
+            label: 'Residual Commission',
+            path: '/superadmin-commission',
+            action: () => navigate('/superadmin-commission'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+              </svg>
+            ),
+          },
+          {
+            label: 'My Commission',
+            path: '/my-commission',
+            action: () => navigate('/my-commission'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Commissions',
+            path: '/commissions',
+            action: () => navigate('/commissions'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="3" width="6" height="4" rx="1" />
+                <rect x="3" y="17" width="6" height="4" rx="1" />
+                <rect x="15" y="17" width="6" height="4" rx="1" />
+                <path d="M12 7v4m-6 6v-3a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v3" />
+              </svg>
+            ),
+          },
+        ],
+      },
+      {
+        category: 'Coins & Mandates',
+        items: [
+          {
+            label: 'Add AUG Coins',
+            path: '/superadmin-send-coins',
+            action: () => navigate('/superadmin-send-coins'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v10" />
+                <path d="M15 9.5a2.5 2.5 0 0 0-5 0c0 3 5 2 5 5a2.5 2.5 0 0 1-5 0" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Autopay List',
+            path: '/superadmin-autopay-list',
+            action: () => navigate('/superadmin-autopay-list'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="20" height="14" x="2" y="5" rx="2" />
+                <line x1="2" x2="22" y1="10" y2="10" />
+              </svg>
+            ),
+          },
+        ],
+      },
+    ],
+    Inventory: [
+      {
+        category: 'Products',
+        items: [
+          {
+            label: 'Add Product',
+            path: '/add-product',
+            action: () => navigate('/add-product'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 8 12 3 3 8l9 5 9-5Z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Sold Out Products',
+            path: '/sold-out-products',
+            action: () => navigate('/sold-out-products'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 8 12 3 3 8l9 5 9-5Z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /><line x1="9" y1="10" x2="15" y2="16" /><line x1="15" y1="10" x2="9" y2="16" />
+              </svg>
+            ),
+          },
+        ],
+      },
+      {
+        category: 'Jewellery',
+        items: [
+          {
+            label: 'Available Jewellery',
+            path: '/available-jewellery',
+            action: () => navigate('/available-jewellery'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 3h12l4 6-10 12L2 9l4-6z" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Add Jewellery',
+            path: '/add-jewellery',
+            action: () => navigate('/add-jewellery'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 3h12l4 6-10 12L2 9l4-6z" />
+              </svg>
+            ),
+          },
+        ],
+      },
+    ],
+  }
+
   const MenuGroup = ({ label, items }) => {
+    const sections = ALL_NAV_SECTIONS[label]
     const groupMatches = drawerMainGroups.find(g => g.label.toLowerCase() === label.toLowerCase())
     const isGroupActive = groupMatches?.items.some(it => it.path && currentPath === it.path)
     const iconName = groupIcons[label] || 'box'
+    const groupClass = `group-${label.toLowerCase()}`
 
     return (
       <div
-        className={`san-menu-group ${openMenu === label ? 'is-open' : ''} ${isGroupActive ? 'has-active-child' : ''}`}
+        className={`san-menu-group ${openMenu === label ? 'is-open' : ''} ${isGroupActive ? 'has-active-child' : ''} ${groupClass} ${label.toLowerCase() === 'payment' ? 'is-payment-group' : ''}`}
         onMouseEnter={() => openMenuNow(label)}
         onMouseLeave={scheduleCloseMenu}
       >
@@ -1383,36 +2063,86 @@ export default function SuperAdminNavbar({
           </span>
         </button>
 
-        <div className="san-menu-dropdown">
-          <div className="san-menu-dropdown-header">
-            <span className="san-menu-dropdown-tag">{label}</span>
-            <span className="san-menu-dropdown-count">{items.length} options</span>
+        <div className={`san-dropdown-menu san-payment-dropdown san-dropdown-${label.toLowerCase()}`} role="menu" aria-label={`${label} Navigation`}>
+          <div className="san-dropdown-head san-payment-dropdown-head">
+            <span className="san-dropdown-tag san-payment-dropdown-tag">{label}</span>
           </div>
-          <div className="san-menu-dropdown-list">
-            {items.map(([text, action]) => {
-              const matchedItem = groupMatches?.items.find(it => it.label === text)
-              const isSubActive = matchedItem?.path && currentPath === matchedItem.path
-              return (
-                <button
-                  key={text}
-                  type="button"
-                  className={`san-menu-link ${isSubActive ? 'is-active-link' : ''}`}
-                  onClick={() => {
-                    clearTimeout(closeTimerRef.current)
-                    setOpenMenu(null)
-                    action()
-                  }}
-                >
-                  <span className="san-menu-link-title">{text}</span>
-                  <span className="san-menu-link-arrow">›</span>
-                </button>
-              )
-            })}
+
+          <div className="san-dropdown-body san-payment-dropdown-body">
+            {sections ? (
+              sections.map((grp, gIdx) => (
+                <div key={grp.category} className="san-dropdown-group-block san-payment-group-block">
+                  {gIdx > 0 && <div className="san-dropdown-group-divider san-payment-group-divider" />}
+                  <div className="san-dropdown-group-label san-payment-group-label">{grp.category}</div>
+                  <div className="san-dropdown-group-items san-payment-group-items">
+                    {grp.items.map((item) => {
+                      const isSubActive = item.path && currentPath === item.path
+                      return (
+                        <button
+                          key={item.label}
+                          type="button"
+                          role="menuitem"
+                          className={`san-dropdown-menu-item san-payment-menu-item ${isSubActive ? 'is-active' : ''}`}
+                          onClick={() => {
+                            clearTimeout(closeTimerRef.current)
+                            setOpenMenu(null)
+                            item.action()
+                          }}
+                        >
+                          <div className="san-dropdown-item-left san-payment-item-left">
+                            <span className="san-dropdown-item-icon san-payment-item-icon">
+                              {item.icon}
+                            </span>
+                            <span className="san-dropdown-item-text san-payment-item-text">{item.label}</span>
+                          </div>
+                          <span className="san-dropdown-item-arrow san-payment-item-arrow">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))
+            ) : (
+              items.map(([text, action]) => {
+                const matchedItem = groupMatches?.items.find(it => it.label === text)
+                const isSubActive = matchedItem?.path && currentPath === matchedItem.path
+                return (
+                  <button
+                    key={text}
+                    type="button"
+                    role="menuitem"
+                    className={`san-dropdown-menu-item san-payment-menu-item ${isSubActive ? 'is-active' : ''}`}
+                    onClick={() => {
+                      clearTimeout(closeTimerRef.current)
+                      setOpenMenu(null)
+                      action()
+                    }}
+                  >
+                    <div className="san-dropdown-item-left san-payment-item-left">
+                      <span className="san-dropdown-item-icon san-payment-item-icon">
+                        <Icon name="box" size={14} />
+                      </span>
+                      <span className="san-dropdown-item-text">{text}</span>
+                    </div>
+                    <span className="san-dropdown-item-arrow san-payment-item-arrow">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    </span>
+                  </button>
+                )
+              })
+            )}
           </div>
         </div>
       </div>
     )
   }
+
 
   return (
     <>
@@ -1557,6 +2287,222 @@ export default function SuperAdminNavbar({
 .san-menu-link-arrow { color: #8C9E9B; font-size: 14px; line-height: 1; transition: transform 0.14s ease; }
 .san-menu-link:hover .san-menu-link-arrow { color: #073B3F; transform: translateX(2px); }
 .san-menu-link.is-active-link .san-menu-link-arrow { color: #00874E; }
+
+/* ── PREMIUM ATHIRAI ENTERPRISE SAAS PAYMENT MENU DROPDOWN ── */
+.san-payment-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: 330px;
+  background: #FFFFFF;
+  border: 1.5px solid rgba(7, 59, 63, 0.12);
+  border-radius: 14px;
+  box-shadow: 0 20px 48px rgba(7, 59, 63, 0.14), 0 4px 16px rgba(0, 0, 0, 0.04);
+  padding: 8px 6px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.16s ease;
+  z-index: 1000;
+  max-height: min(580px, calc(100vh - 88px));
+  overflow-y: auto;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(7, 59, 63, 0.15) transparent;
+}
+.san-menu-group.is-open .san-payment-dropdown,
+.san-menu-group.is-open .san-dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+.san-menu-group.group-management .san-dropdown-menu,
+.san-menu-group.group-announcements .san-dropdown-menu {
+  left: 0;
+  right: auto;
+  transform: translateY(4px);
+}
+.san-menu-group.group-management.is-open .san-dropdown-menu,
+.san-menu-group.group-announcements.is-open .san-dropdown-menu {
+  transform: translateY(0);
+}
+.san-menu-group.group-users .san-dropdown-menu,
+.san-menu-group.group-coins .san-dropdown-menu,
+.san-menu-group.group-reports .san-dropdown-menu {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%) translateY(4px);
+}
+.san-menu-group.group-users.is-open .san-dropdown-menu,
+.san-menu-group.group-coins.is-open .san-dropdown-menu,
+.san-menu-group.group-reports.is-open .san-dropdown-menu {
+  transform: translateX(-50%) translateY(0);
+}
+.san-menu-group.group-promotion .san-dropdown-menu,
+.san-menu-group.group-payment .san-dropdown-menu,
+.san-menu-group.group-inventory .san-dropdown-menu,
+.san-menu-group.is-payment-group .san-payment-dropdown {
+  left: auto;
+  right: -16px;
+  transform: translateY(4px);
+}
+.san-menu-group.group-promotion.is-open .san-dropdown-menu,
+.san-menu-group.group-payment.is-open .san-dropdown-menu,
+.san-menu-group.group-inventory.is-open .san-dropdown-menu,
+.san-menu-group.is-payment-group.is-open .san-payment-dropdown {
+  transform: translateY(0);
+}
+.san-payment-dropdown::-webkit-scrollbar {
+  width: 5px;
+}
+.san-payment-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+.san-payment-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(7, 59, 63, 0.15);
+  border-radius: 999px;
+}
+.san-payment-dropdown::-webkit-scrollbar-thumb:hover {
+  background: rgba(7, 59, 63, 0.3);
+}
+.san-payment-dropdown-head {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px 7px;
+  border-bottom: 1px solid rgba(7, 59, 63, 0.07);
+  margin-bottom: 4px;
+}
+.san-payment-dropdown-tag {
+  font-size: 11px;
+  font-weight: 850;
+  color: #073B3F;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.san-payment-dropdown-body {
+  display: flex;
+  flex-direction: column;
+}
+.san-payment-group-block {
+  display: flex;
+  flex-direction: column;
+}
+.san-payment-group-divider {
+  height: 1px;
+  background: rgba(7, 59, 63, 0.06);
+  margin: 5px 8px 3px;
+}
+.san-payment-group-label {
+  padding: 6px 10px 3px;
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #8C9E9B;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+}
+.san-payment-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5px;
+}
+.san-payment-menu-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 6.5px 9px;
+  border-radius: 9px;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+  position: relative;
+}
+.san-payment-menu-item:hover {
+  background: #F4F8F7;
+  transform: translateX(2px);
+}
+.san-payment-menu-item.is-active {
+  background: #EAF7EE;
+}
+.san-payment-menu-item.is-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: #00874E;
+  border-radius: 0 3px 3px 0;
+}
+.san-payment-item-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  flex: 1;
+}
+.san-payment-item-icon {
+  width: 27px;
+  height: 27px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(7, 59, 63, 0.05);
+  color: #073B3F;
+  flex-shrink: 0;
+  transition: all 0.14s ease;
+}
+.san-payment-menu-item:hover .san-payment-item-icon {
+  background: #E5F0EE;
+  color: #073B3F;
+}
+.san-payment-menu-item.is-active .san-payment-item-icon {
+  background: #073B3F;
+  color: #E5BF91;
+  box-shadow: 0 2px 7px rgba(7, 59, 63, 0.2);
+}
+.san-payment-item-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1A2D2B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+  transition: color 0.14s ease;
+}
+.san-payment-menu-item:hover .san-payment-item-text {
+  color: #073B3F;
+}
+.san-payment-menu-item.is-active .san-payment-item-text {
+  color: #00874E;
+  font-weight: 750;
+}
+.san-payment-item-arrow {
+  color: #8C9E9B;
+  font-size: 13px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  transition: transform 0.14s ease, color 0.14s ease;
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+.san-payment-menu-item:hover .san-payment-item-arrow {
+  color: #073B3F;
+  transform: translateX(2px);
+}
+.san-payment-menu-item.is-active .san-payment-item-arrow {
+  color: #00874E;
+}
 .san-mobile-logo { display: none !important; }
 
 /* ── RIGHT UTILITY CONTROLS ── */

@@ -6,8 +6,9 @@ export default function SuperAdminPayments() {
       view="all_sales"
       kicker="Super Admin"
       title="All Sales"
-      note="Full order value across the entire platform — no commission or any deduction, straight order totals."
+      note="Track platform-wide sales, order value, transactions and payment performance."
       revenueLabel="Total Order Value"
+      coinsLabel="Coins Sold"
       showBreakdown
     />
   )

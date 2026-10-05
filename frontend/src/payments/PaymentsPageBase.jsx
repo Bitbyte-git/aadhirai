@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { SkeletonText } from '../components/Skeleton'
+import AllSalesDashboard from './AllSalesDashboard'
 
 const PRIMARY = '#073B3F'
 const DEEP = '#0C4044'
@@ -93,6 +94,20 @@ const FILTERS = [
 ]
 
 export default function PaymentsPageBase({ view, kicker, title, note, revenueLabel, coinsLabel = 'Coins Sold', showBreakdown = false }) {
+  if (view === 'all_sales') {
+    return (
+      <AllSalesDashboard
+        view={view}
+        kicker={kicker}
+        title={title}
+        note={note}
+        revenueLabel={revenueLabel}
+        coinsLabel={coinsLabel}
+        showBreakdown={showBreakdown}
+      />
+    )
+  }
+
   const [summary, setSummary] = useState(null)
   const [txns, setTxns] = useState([])
   const [page, setPage] = useState(1)

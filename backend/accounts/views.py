@@ -10316,7 +10316,9 @@ def _apply_period_filter(qs, period, start_date, end_date, date_field='created_a
     today = timezone.localdate()
     f = f'{date_field}__date'
 
-    if period == 'today':
+    if period == 'all':
+        return qs
+    elif period == 'today':
         qs = qs.filter(**{f: today})
     elif period == 'week':
         start_of_week = today - timedelta(days=today.weekday())
@@ -10356,12 +10358,69 @@ class PaymentsSummaryView(APIView):
     INTERNAL_ROLES = {'super_admin', 'admin', 'dealer', 'sub_dealer', 'promotor'}
     SUPER_ADMIN_ONLY_VIEWS = {'all_sales', 'general_customer_revenue', 'athirai_revenue', 'super_admin_commission'}
 
+    @staticmethod
+    def _serialize_order_txn(o, amount=None):
+        disp_info = get_user_display_info(o.user) if o.user else {}
+        cust_id = disp_info.get('user_id_str') or (get_user_profile_id(o.user) if o.user else '') or ''
+
+        # Determine Customer Name and Customer ID accurately
+        order_cust_name = (o.customer_name or '').strip()
+        disp_name = (disp_info.get('name') or '').strip() if disp_info else ''
+        user_name = f"{getattr(o.user, 'first_name', '')} {getattr(o.user, 'last_name', '')}".strip() if o.user else ''
+        email = getattr(o.user, 'email', 'Customer') if o.user else 'Customer'
+
+        # If customer_name in DB was saved as an ID (like BBCUS20260000001), treat it as cust_id
+        if order_cust_name.startswith('BBCUS') or (order_cust_name.startswith('BB') and any(c.isdigit() for c in order_cust_name)):
+            if not cust_id:
+                cust_id = order_cust_name
+            cust_name = disp_name or user_name or email
+        else:
+            cust_name = order_cust_name or disp_name or user_name or email
+
+        txn_id = o.razorpay_payment_id
+        if not txn_id:
+            num = o.order_id.replace('BBORD', '').replace('ORD', '')
+            if o.payment_method == 'wallet':
+                txn_id = f"WTX{num}" if num else f"WTX{o.id}"
+            elif o.payment_method in ('cash_on_delivery', 'cash'):
+                txn_id = f"COD{num}" if num else f"COD{o.id}"
+            else:
+                txn_id = o.order_id
+
+        actual_amount = float(amount if amount is not None else o.total_price)
+        coins = int(Decimal(str(o.total_price)) * COIN_RATE_PER_RUPEE) if o.payment_method == 'wallet' else 0
+
+        phone = o.customer_phone or (disp_info.get('phone') if disp_info else '') or getattr(o.user, 'phone', '') or ''
+
+        return {
+            'transaction_id': txn_id,
+            'order_id': o.order_id,
+            'customer_id': cust_id,
+            'customer_name': cust_name,
+            'buyer': cust_name,
+            'customer_phone': phone,
+            'product_name': o.product_name or 'Jewelry Order',
+            'quantity': o.quantity or 1,
+            'city': o.city or '',
+            'state': o.state or '',
+            'status': o.status,
+            'payment_status': o.payment_status or o.status,
+            'amount': actual_amount,
+            'coins': coins,
+            'payment_method': o.payment_method,
+            'created_at': o.created_at,
+        }
+
     def get(self, request):
         if request.user.role not in self.INTERNAL_ROLES:
             return Response({'error': 'Not authorized'}, status=403)
 
         page = max(int(request.query_params.get('page', 1)), 1)
-        page_size = 15
+        try:
+            page_size = max(1, min(1000, int(request.query_params.get('page_size', 100))))
+        except (ValueError, TypeError):
+            page_size = 100
+
         period = request.query_params.get('period', 'today')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
@@ -10398,15 +10457,19 @@ class PaymentsSummaryView(APIView):
                 base_qs.filter(created_at__date__gte=six_months_ago)
                 .annotate(month=TruncMonth('created_at'))
                 .values('month')
-                .annotate(revenue=Sum('total_price'))
+                .annotate(revenue=Sum('total_price'), transactions=Count('id'))
                 .order_by('month')
             )
             monthly_trend = [
-                {'month': t['month'].strftime('%b %Y'), 'revenue': float(t['revenue'])}
+                {
+                    'month': t['month'].strftime('%b %Y'),
+                    'revenue': float(t['revenue']),
+                    'transactions': int(t['transactions']),
+                }
                 for t in trend_qs
             ]
 
-            txn_qs = period_qs.select_related('user').order_by('-created_at')
+            txn_qs = period_qs.select_related('user', 'user__customer_profile').order_by('-created_at')
 
             if export_csv:
                 export_orders = list(txn_qs[:REPORT_MAX_ROWS])
@@ -10434,17 +10497,10 @@ class PaymentsSummaryView(APIView):
                 'monthly_trend': monthly_trend,
                 'payment_breakdown': payment_breakdown,
                 'page': page,
+                'page_size': page_size,
+                'total_pages': max(1, (total_transactions + page_size - 1) // page_size),
                 'has_more': start + page_size < total_transactions,
-                'transactions': [
-                    {
-                        'transaction_id': o.order_id,
-                        'buyer': get_user_profile_id(o.user) or o.user.email,
-                        'amount': float(o.total_price),
-                        'coins': None,
-                        'payment_method': o.payment_method,
-                        'created_at': o.created_at,
-                    } for o in page_txns
-                ],
+                'transactions': [self._serialize_order_txn(o) for o in page_txns],
             })
 
         elif view == 'general_customer_revenue':
@@ -10509,17 +10565,10 @@ class PaymentsSummaryView(APIView):
                 'monthly_trend': monthly_trend,
                 'payment_breakdown': payment_breakdown,
                 'page': page,
+                'page_size': page_size,
+                'total_pages': max(1, (total_transactions + page_size - 1) // page_size),
                 'has_more': start + page_size < total_transactions,
-                'transactions': [
-                    {
-                        'transaction_id': o.order_id,
-                        'buyer': get_user_profile_id(o.user) or o.user.email,
-                        'amount': float(o.total_price),
-                        'coins': None,
-                        'payment_method': o.payment_method,
-                        'created_at': o.created_at,
-                    } for o in page_txns
-                ],
+                'transactions': [self._serialize_order_txn(o) for o in page_txns],
             })
 
         elif view == 'athirai_revenue':
@@ -10594,17 +10643,14 @@ class PaymentsSummaryView(APIView):
                 'monthly_trend': monthly_trend,
                 'payment_breakdown': payment_breakdown,
                 'page': page,
+                'page_size': page_size,
+                'total_pages': max(1, (total_transactions + page_size - 1) // page_size),
                 'has_more': start + page_size < total_transactions,
                 'transactions': [
-                    {
-                        'transaction_id': o.order_id,
-                        'buyer': get_user_profile_id(o.user) or o.user.email,
-                        'amount': float((Decimal(str(o.total_price)) * company_share_pct / Decimal('100')).quantize(Decimal('0.01'))),
-                        'order_total': float(o.total_price),
-                        'coins': None,
-                        'payment_method': o.payment_method,
-                        'created_at': o.created_at,
-                    } for o in page_txns
+                    self._serialize_order_txn(
+                        o,
+                        amount=(Decimal(str(o.total_price)) * company_share_pct / Decimal('100')).quantize(Decimal('0.01'))
+                    ) for o in page_txns
                 ],
             })
 

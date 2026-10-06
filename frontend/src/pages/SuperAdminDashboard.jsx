@@ -1041,6 +1041,8 @@ export default function SuperAdminDashboard() {
     salesBreakdown: [],
     breakdown: []
   })
+  const salesProfitCacheRef = useRef({})
+  const userGrowthCacheRef = useRef({})
 
   useEffect(() => {
     const timer = setInterval(() => setLiveTime(new Date()), 1000)
@@ -1762,18 +1764,27 @@ export default function SuperAdminDashboard() {
 
   // Fetch real User Growth analytics
   const fetchUserGrowth = async (period = userGrowthPeriod, membersOverride = null) => {
-    setUserGrowthLoading(true)
+    const cached = userGrowthCacheRef.current[period]
+    if (cached) {
+      setUserGrowthStats(cached.stats)
+      setUserGrowthChartData(cached.chartData)
+    } else {
+      setUserGrowthLoading(true)
+    }
     const members = membersOverride || allMembersList
     try {
       const res = await api.get(`/superadmin/user-growth/?period=${period}`)
       if (res.data && res.data.total_users !== undefined) {
-        setUserGrowthStats({
+        const stats = {
           total: res.data.total_users ?? (members?.length || totalUsers),
           newUsers: res.data.new_users ?? 0,
           activeUsers: res.data.active_users ?? 0,
-        })
-        if (res.data.chart_data && res.data.chart_data.length > 0) {
-          setUserGrowthChartData(res.data.chart_data)
+        }
+        const chartData = res.data.chart_data && res.data.chart_data.length > 0 ? res.data.chart_data : []
+        userGrowthCacheRef.current[period] = { stats, chartData }
+        setUserGrowthStats(stats)
+        if (chartData.length > 0) {
+          setUserGrowthChartData(chartData)
         }
         setUserGrowthLoading(false)
         return
@@ -1805,22 +1816,28 @@ export default function SuperAdminDashboard() {
     const newUsersCount = (members || []).filter(m => m._joined && new Date(m._joined) >= cutoff).length
     const activeCount = quickStats.active_users || loginStatus.active_count || (newUsersCount > 0 ? newUsersCount : Math.min(total, 5))
 
-    setUserGrowthStats({
+    const fallbackStats = {
       total,
       newUsers: newUsersCount,
       activeUsers: activeCount,
-    })
+    }
+    setUserGrowthStats(fallbackStats)
     setUserGrowthLoading(false)
   }
 
   // Fetch real Sales & Athirai Profit from dedicated backend API with Neon DB fallback
   const fetchSalesProfit = async (period = profitPeriod, ordersOverride = null) => {
-    setSalesProfitLoading(true)
+    const cached = salesProfitCacheRef.current[period]
+    if (cached) {
+      setSalesProfitData(cached)
+    } else {
+      setSalesProfitLoading(true)
+    }
     const activeOrders = ordersOverride || rawOrders
     try {
       const res = await api.get(`/superadmin/sales-profit-summary/?period=${period}`)
       if (res.data && res.data.all_sales !== undefined) {
-        setSalesProfitData({
+        const payload = {
           allSales: res.data.all_sales ?? 0,
           athiraiProfit: res.data.athirai_profit ?? 0,
           companyRev73: res.data.company_rev_73 ?? 0,
@@ -1831,7 +1848,9 @@ export default function SuperAdminDashboard() {
           profitBreakdown: res.data.profit_breakdown || [],
           breakdown: res.data.profit_breakdown || [],
           monthlyTrend: res.data.monthly_trend || [],
-        })
+        }
+        salesProfitCacheRef.current[period] = payload
+        setSalesProfitData(payload)
         setSalesProfitLoading(false)
         return
       }
@@ -1841,6 +1860,7 @@ export default function SuperAdminDashboard() {
 
     if (activeOrders && activeOrders.length > 0) {
       const calculated = computeRealSalesProfit(activeOrders, period)
+      salesProfitCacheRef.current[period] = calculated
       setSalesProfitData(calculated)
     } else {
       try {
@@ -1848,6 +1868,7 @@ export default function SuperAdminDashboard() {
         const ordList = ordRes.data || []
         setRawOrders(ordList)
         const calculated = computeRealSalesProfit(ordList, period)
+        salesProfitCacheRef.current[period] = calculated
         setSalesProfitData(calculated)
       } catch (err) {
         console.error('Real orders fetch fallback error:', err)
@@ -2447,6 +2468,7 @@ export default function SuperAdminDashboard() {
           display: flex;
           flex-direction: column;
           gap: 20px;
+          overflow-x: hidden;
         }
         .sa-welcome-card {
           background: #FFFFFF;
@@ -2668,7 +2690,13 @@ export default function SuperAdminDashboard() {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 10px;
           margin-bottom: 18px;
+        }
+        .sa-saas-card select {
+          max-width: 130px;
+          box-sizing: border-box;
         }
         .sa-saas-card-title {
           display: flex;
@@ -2811,11 +2839,22 @@ export default function SuperAdminDashboard() {
         .sa-role-dist-wrap {
           display: flex;
           align-items: center;
-          gap: 12px;
+          justify-content: center;
+          gap: 16px;
           flex: 1;
           min-width: 0;
           width: 100%;
           box-sizing: border-box;
+        }
+        .sa-role-pie-box {
+          position: relative;
+          width: 160px;
+          height: 160px;
+          margin: 0 auto;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .sa-role-table {
           flex: 1;
@@ -2912,7 +2951,7 @@ export default function SuperAdminDashboard() {
           flex: 1;
           align-items: stretch;
         }
-        @media (max-width: 600px) {
+        @media (max-width: 860px) {
           .sa-revenue-income-grid {
             grid-template-columns: 1fr;
           }
@@ -3031,12 +3070,36 @@ export default function SuperAdminDashboard() {
           .sa-bottom-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 680px) {
-          .sa-dashboard-container { padding: 14px 14px 36px; }
-          .sa-welcome-card { flex-direction: column; align-items: flex-start; gap: 14px; }
-          .sa-kpi-grid-v2 { grid-template-columns: 1fr; }
+          .sa-dashboard-container { padding: 12px 10px 32px; gap: 14px; }
+          .sa-welcome-card { flex-direction: column; align-items: flex-start; gap: 14px; padding: 16px 14px; }
+          .sa-welcome-left { gap: 12px; }
+          .sa-welcome-icon-box { width: 42px; height: 42px; }
+          .sa-welcome-title { font-size: 18px; }
+          .sa-welcome-sub { font-size: 12px; }
+          .sa-welcome-actions { width: 100%; display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+          .sa-welcome-gold-btn, .sa-welcome-right { width: 100%; box-sizing: border-box; justify-content: flex-start; }
+          .sa-kpi-grid-v2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+          .sa-kpi-card-v2 { padding: 12px 10px !important; gap: 10px !important; border-radius: 12px !important; min-width: 0 !important; }
+          .sa-kpi-icon-wrap { width: 38px !important; height: 38px !important; border-radius: 10px !important; }
+          .sa-kpi-icon-wrap svg { width: 18px !important; height: 18px !important; }
+          .sa-kpi-title { font-size: 9.5px !important; letter-spacing: 0.04em !important; }
+          .sa-kpi-num { font-size: 20px !important; }
+          .sa-kpi-trend { font-size: 10.5px !important; }
+          .sa-saas-card { padding: 16px 14px !important; border-radius: 14px !important; }
+          .sa-saas-card-title { font-size: 14.5px !important; }
+          .sa-qa-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+          .sa-role-dist-wrap { flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 14px !important; }
+          .sa-role-pie-box { margin: 0 auto !important; }
+          .sa-role-table { width: 100% !important; }
+          .sa-footer-banner { flex-direction: column; align-items: flex-start; gap: 16px; padding: 22px 18px; border-radius: 16px 16px 0 0; }
+          .sa-footer-motto { font-size: 20px; }
+          .sa-footer-right { width: 100%; justify-content: space-between; }
+        }
+        @media (max-width: 420px) {
           .sa-qa-grid { grid-template-columns: 1fr; }
-          .sa-role-dist-wrap { flex-direction: column; }
-          .sa-footer-banner { flex-direction: column; align-items: flex-start; gap: 18px; }
+          .sa-kpi-grid-v2 { gap: 8px !important; }
+          .sa-kpi-card-v2 { padding: 10px 8px !important; gap: 8px !important; }
+          .sa-kpi-num { font-size: 18px !important; }
         }
       `}</style>
 
@@ -3329,7 +3392,7 @@ export default function SuperAdminDashboard() {
             </div>
 
             {/* 2-Panel Visual Representation: Donut & Line Graph */}
-            <div className="sa-revenue-income-grid">
+            <div className="sa-revenue-income-grid" style={{ transition: 'opacity 0.25s ease', opacity: salesProfitLoading ? 0.7 : 1 }}>
               {/* Left: REVENUE BREAKDOWN / SALES BREAKDOWN (Pie/Donut Chart) */}
               <div className="sa-revenue-breakdown-col">
                 <div className="sa-sub-chart-title">
@@ -3348,6 +3411,8 @@ export default function SuperAdminDashboard() {
                         outerRadius={78}
                         paddingAngle={2}
                         dataKey="value"
+                        isAnimationActive={true}
+                        animationDuration={450}
                       >
                         {(activeSalesProfitTab === 'sales'
                           ? (salesProfitData.salesBreakdown || [])
@@ -3424,6 +3489,8 @@ export default function SuperAdminDashboard() {
                         strokeWidth={2.4}
                         dot={{ r: 3.5, fill: '#009957', stroke: '#FFFFFF', strokeWidth: 1.5 }}
                         activeDot={{ r: 5.5, fill: '#073B3F', stroke: '#FFFFFF', strokeWidth: 2 }}
+                        isAnimationActive={true}
+                        animationDuration={450}
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -3457,7 +3524,7 @@ export default function SuperAdminDashboard() {
 
             <div className="sa-role-dist-wrap">
               {/* Donut Chart */}
-              <div style={{ position: 'relative', width: '160px', height: '160px', flexShrink: 0 }}>
+              <div className="sa-role-pie-box" style={{ position: 'relative', width: '160px', height: '160px', margin: '0 auto', flexShrink: 0 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -3595,7 +3662,7 @@ export default function SuperAdminDashboard() {
             </div>
 
             {/* Area Chart with Emerald Gradient */}
-            <div style={{ width: '100%', height: '175px', position: 'relative' }}>
+            <div style={{ width: '100%', height: '175px', position: 'relative', transition: 'opacity 0.25s ease', opacity: userGrowthLoading ? 0.7 : 1 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={(userGrowthChartData && userGrowthChartData.length > 0) ? userGrowthChartData : userGrowthData} margin={{ top: 12, right: 14, left: -22, bottom: 0 }}>
                   <defs>
@@ -3635,6 +3702,8 @@ export default function SuperAdminDashboard() {
                     fill="url(#userGrowthGrad)"
                     dot={{ r: 3.5, fill: '#009957', stroke: '#FFFFFF', strokeWidth: 1.5 }}
                     activeDot={{ r: 6.5, fill: '#073B3F', stroke: '#FFFFFF', strokeWidth: 2 }}
+                    isAnimationActive={true}
+                    animationDuration={450}
                   />
                 </AreaChart>
               </ResponsiveContainer>

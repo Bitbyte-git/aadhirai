@@ -1,14 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import ShopNavbar from '../collection/ShopNavbar'
 import CopyShopUrlButton from '../collection/CopyShopUrlButton'
-import { IrdOrderTrendPanel, IrdDonutPanel, IrdIcon, irdPalette, IRD_STYLES } from './AdminDashboard'
+import { IrdOrderTrendPanel, IrdDonutPanel, irdPalette } from './AdminDashboard'
 import '../components/skeleton.css'
-
-// ── Shop Dashboard — same layout as the Admin (Super Stockist) dashboard:
-// 4 quick-stat cards → Order Volume graph → Shop Types + Today's Login Status
-// → Shop Management (Hierarchy / Sales Report / Create Shop / Shop List) ──
 
 function SectionHeader({ icon, label }) {
   const paths = {
@@ -18,7 +14,7 @@ function SectionHeader({ icon, label }) {
     briefcase: <><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></>,
   }
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '10px', marginBottom: '20px', background: 'linear-gradient(90deg, rgba(12,64,68,0.08), rgba(12,64,68,0.02))' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '10px', marginBottom: '16px', background: 'linear-gradient(90deg, rgba(12,64,68,0.08), rgba(12,64,68,0.02))' }}>
       <div style={{ width: '30px', height: '30px', borderRadius: '9px', flexShrink: 0, background: 'linear-gradient(135deg,#0C4044,#073B3F)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FDFDFC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           {paths[icon] || paths.shop}
@@ -37,54 +33,6 @@ const PROFILE_FIELDS = [
   ['pan_no', 'PAN'], ['gst_no', 'GST'], ['msme_no', 'MSME'],
 ]
 
-// ── 4 cards — same look as AdminQuickStats ──
-function ShopQuickStats() {
-  const [stats, setStats] = useState({ yesterday_orders: 0, today_orders: 0, today_new_shops: 0, active_users: 0, total_sub_shops: 0 })
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let current = true
-    api.get('/dashboard-quick-stats/')
-      .then(res => { if (current) setStats(prev => ({ ...prev, ...res.data })) })
-      .catch(() => {})
-      .finally(() => { if (current) setLoading(false) })
-    return () => { current = false }
-  }, [])
-
-  const cards = [
-    { label: 'Yesterday Order', value: stats.yesterday_orders, sub: 'orders', note: 'Compared to today', color: '#9B31FF', bg: '#F5EAFF' },
-    { label: 'Today Order', value: stats.today_orders, sub: 'orders', note: 'Orders placed today', color: '#00A767', bg: '#EAF8F0' },
-    { label: 'Today New Shop', value: stats.today_new_shops, sub: '', note: 'Joined your network today', color: '#00A767', bg: '#EAF8F0' },
-    { label: 'Active Shop', value: stats.active_users, sub: `of ${stats.total_sub_shops}`, note: 'Logged in today', color: '#2563EB', bg: '#EAF2FF' },
-  ]
-
-  return (
-    <div className="shd-qstats">
-      {loading ? (
-        Array.from({ length: 4 }).map((_, i) => (
-          <div key={`skel-${i}`} className="shd-qcard">
-            <div className="sa-kpi-skel-icon" style={{ width: '44px', height: '44px', borderRadius: '10px', marginBottom: '14px' }} />
-            <div className="sa-kpi-skel-line" style={{ width: '65%', height: '11px', marginBottom: '12px' }} />
-            <div className="sa-kpi-skel-line" style={{ width: '40%', height: '26px', marginBottom: '12px' }} />
-            <div className="sa-kpi-skel-line" style={{ width: '55%', height: '11px' }} />
-          </div>
-        ))
-      ) : (
-        cards.map(kpi => (
-          <div key={kpi.label} className="shd-qcard">
-            <div className="shd-qicon" style={{ background: kpi.bg, color: kpi.color }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 6h15l-2 9H8L6 3H3" /><circle cx="9" cy="20" r="1.5" /><circle cx="18" cy="20" r="1.5" /></svg>
-            </div>
-            <div className="shd-qlabel">{kpi.label}</div>
-            <div><span className="shd-qvalue">{kpi.value}</span>{kpi.sub ? <span className="shd-qsub">{kpi.sub}</span> : null}</div>
-            <div className="shd-qnote">{kpi.note}</div>
-          </div>
-        ))
-      )}
-    </div>
-  )
-}
-
 export default function ShopDashboard() {
   const navigate = useNavigate()
   const [shop, setShop] = useState(null)
@@ -94,16 +42,31 @@ export default function ShopDashboard() {
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
 
+  const [stats, setStats] = useState({ yesterday_orders: 0, today_orders: 0, today_new_shops: 0, active_users: 0, total_sub_shops: 0 })
+  const [statsLoading, setStatsLoading] = useState(true)
+
   const [typeCounts, setTypeCounts] = useState({ physical: 0, virtual: 0 })
   const [typeLoading, setTypeLoading] = useState(true)
   const [login, setLogin] = useState({ active: 0, inactive: 0 })
   const [loginLoading, setLoginLoading] = useState(true)
 
-  const text = '#111817'
-  const subtext = '#7A8987'
-  const inp = { width: '100%', background: '#FDFDFC', border: '1px solid #BDCFCE', borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box' }
-  const lbl = { display: 'block', color: subtext, fontSize: '11px', fontWeight: 800, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.09em' }
-  const sectionCard = { background: '#FDFDFC', border: '1px solid rgba(189,207,206,0.55)', borderRadius: '16px', padding: '22px 24px', marginBottom: '4px' }
+  // Live Gold Rate & Live Clock
+  const [goldRate, setGoldRate] = useState(null)
+  const [liveTime, setLiveTime] = useState(new Date())
+
+  useEffect(() => {
+    const timer = setInterval(() => setLiveTime(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    api.get('/metal-rates/')
+      .then(res => {
+        const d = Array.isArray(res.data) ? res.data[0] : res.data
+        if (d?.gold_22k) setGoldRate(parseFloat(d.gold_22k))
+      })
+      .catch(() => {})
+  }, [])
 
   const fetchShopInfo = async () => {
     try {
@@ -117,11 +80,16 @@ export default function ShopDashboard() {
   useEffect(() => {
     let current = true
     fetchShopInfo()
+    api.get('/dashboard-quick-stats/')
+      .then(res => { if (current) setStats(prev => ({ ...prev, ...res.data })) })
+      .catch(() => {})
+      .finally(() => { if (current) setStatsLoading(false) })
+
     api.get('/shop-dashboard-stats/')
       .then(res => { if (current) setTypeCounts({ physical: res.data.physical_count || 0, virtual: res.data.virtual_count || 0 }) })
       .catch(() => {})
       .finally(() => { if (current) setTypeLoading(false) })
-    // sub-shops only — the logged-in shop itself isn't counted as "team" login
+
     api.get('/shop-list/', { params: { limit: 1 } })
       .then(res => { if (current) setLogin({ active: res.data.today_active_count || 0, inactive: res.data.today_inactive_count || 0 }) })
       .catch(() => {})
@@ -156,108 +124,744 @@ export default function ShopDashboard() {
     setSaving(false)
   }
 
-  const typeData = [
+  const typeData = useMemo(() => [
     { name: 'Physical', value: typeCounts.physical, color: irdPalette.teal },
     { name: 'Virtual', value: typeCounts.virtual, color: irdPalette.gold },
-  ].filter(d => d.value > 0)
-  const loginData = [
+  ].filter(d => d.value > 0), [typeCounts])
+
+  const loginData = useMemo(() => [
     { name: 'Active', value: login.active, color: irdPalette.teal },
     { name: 'Inactive', value: login.inactive, color: irdPalette.red },
-  ]
+  ], [login])
+
   const goShopList = status => navigate('/superadmin/manage-users/shops', { state: status ? { todayStatus: status } : undefined })
 
+  const text = '#111817'
+  const subtext = '#7A8987'
+  const inp = { width: '100%', background: '#FDFDFC', border: '1px solid #BDCFCE', borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box' }
+  const lbl = { display: 'block', color: subtext, fontSize: '11px', fontWeight: 800, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.09em' }
+  const sectionCard = { background: '#FDFDFC', border: '1px solid rgba(189,207,206,0.55)', borderRadius: '16px', padding: '22px 24px', marginBottom: '4px' }
+
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)', color: text, fontFamily: '"Inter",system-ui,sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)', color: text, fontFamily: '"Inter",system-ui,sans-serif', position: 'relative' }}>
       <ShopNavbar onProfile={openProfile} />
+
       <style>{`
-        ${IRD_STYLES}
-        .shd-head{max-width:1500px;margin:34px auto 0;padding:0 46px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;box-sizing:border-box}
-        .shd-head p{margin:0 0 6px;color:#BB8958;font-size:12px;font-weight:900;letter-spacing:.18em;text-transform:uppercase}
-        .shd-head h1{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-size:clamp(30px,4vw,44px);font-weight:700;color:#0C4044;line-height:1}
-        .shd-head small{display:block;margin-top:6px;color:#7A8987;font-size:12.5px;font-weight:700;font-family:monospace}
-        .shd-profile-btn{border:1px solid rgba(12,64,68,.28);background:#FDFDFC;color:#0C4044;border-radius:12px;padding:10px 18px;font-size:13px;font-weight:900;cursor:pointer}
-        .shd-profile-btn:hover{background:#0C4044;color:#FDFDFC}
-        .shd-qstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;max-width:1500px;margin:22px auto 0;padding:0 46px;box-sizing:border-box}
-        .shd-qcard{background:#FDFDFC;border:1px solid rgba(189,207,206,.78);border-radius:14px;padding:20px 22px;min-height:130px;box-shadow:0 18px 46px rgba(7,59,63,.07)}
-        .shd-qicon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
-        .shd-qlabel{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#0C4044;margin-bottom:8px}
-        .shd-qvalue{font-size:26px;font-weight:900;color:#00152a}
-        .shd-qsub{margin-left:8px;font-size:15px;color:#111817}
-        .shd-qnote{font-size:12px;color:#009957;margin-top:8px}
-        .shd-body{max-width:1500px;margin:0 auto;padding-bottom:46px}
-        .shd-body .ird-shell{padding:24px 46px 0}
-        @media(max-width:1180px){.shd-qstats{grid-template-columns:repeat(2,minmax(0,1fr))}}
-        @media(max-width:760px){
-          .shd-head{padding:0 14px;margin-top:22px}
-          .shd-qstats{padding:0 14px}
-          .shd-qcard{padding:14px;min-height:0}
-          .shd-qicon{width:36px;height:36px;margin-bottom:8px}
-          .shd-qvalue{font-size:20px}
-          .shd-body .ird-shell{padding:18px 14px 0}
-          .shd-form-grid{grid-template-columns:1fr !important}
-          .shd-form-grid > div{grid-column:auto !important}
+        /* ── Full SaaS Dashboard Styles (Matching SuperAdmin & Admin Dashboards) ── */
+        .sa-dashboard-container {
+          width: 100%;
+          max-width: 1540px;
+          margin: 0 auto;
+          padding: 24px 28px 48px;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          font-family: 'Inter', system-ui, -apple-system, sans-serif;
+          overflow-x: hidden;
+        }
+        .sa-welcome-card {
+          background: #FFFFFF;
+          border-radius: 18px;
+          border: 1px solid #E6ECEB;
+          padding: 24px 30px;
+          box-shadow: 0 4px 20px rgba(7, 59, 63, 0.03);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          position: relative;
+          overflow: hidden;
+        }
+        .sa-welcome-card::after {
+          content: '';
+          position: absolute;
+          right: -20px;
+          top: -20px;
+          bottom: -20px;
+          width: 260px;
+          background: radial-gradient(circle at 80% 50%, rgba(204,168,129,0.14), transparent 70%);
+          pointer-events: none;
+        }
+        .sa-welcome-left {
+          display: flex;
+          align-items: center;
+          gap: 18px;
+          position: relative;
+          z-index: 2;
+        }
+        .sa-welcome-icon-box {
+          width: 52px;
+          height: 52px;
+          border-radius: 50%;
+          background: #FAF1E6;
+          border: 1.5px solid #F3DEC4;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #BB8958;
+          flex-shrink: 0;
+        }
+        .sa-welcome-title {
+          font-size: 24px;
+          font-weight: 800;
+          color: #073B3F;
+          letter-spacing: -0.02em;
+          margin: 0;
+        }
+        .sa-welcome-sub {
+          font-size: 13.5px;
+          color: #6E7D7B;
+          margin-top: 4px;
+          font-weight: 500;
+        }
+        .sa-welcome-actions {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+          position: relative;
+          z-index: 2;
+        }
+        .sa-welcome-gold-display {
+          display: inline-flex;
+          align-items: center;
+          gap: 11px;
+          background: #FFFFFF;
+          border: 1.5px solid rgba(187, 137, 88, 0.45);
+          border-radius: 14px;
+          padding: 8px 16px;
+          color: #073B3F;
+          box-shadow: 0 2px 10px rgba(7, 59, 63, 0.05), 0 1px 3px rgba(187, 137, 88, 0.1);
+        }
+        .sa-welcome-gold-icon {
+          width: 34px;
+          height: 34px;
+          border-radius: 10px;
+          background: linear-gradient(135deg, #0C4044 0%, #073B3F 100%);
+          color: #E5BF91;
+          border: 1px solid rgba(187, 137, 88, 0.35);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .sa-welcome-gold-text {
+          display: flex;
+          flex-direction: column;
+          text-align: left;
+          line-height: 1.15;
+        }
+        .sa-welcome-gold-label {
+          font-size: 12px;
+          font-weight: 800;
+          color: #073B3F;
+        }
+        .sa-welcome-gold-val {
+          font-size: 11.5px;
+          font-weight: 750;
+          color: #BB8958;
+          margin-top: 2px;
+        }
+        .sa-welcome-right {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          background: #F8FAF9;
+          border: 1px solid #E2EAE8;
+          border-radius: 14px;
+          padding: 10px 18px;
+          position: relative;
+          z-index: 2;
+        }
+        .sa-btn-profile-top {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: #073B3F;
+          color: #FDFDFC;
+          border: none;
+          border-radius: 12px;
+          padding: 10px 18px;
+          font-size: 13px;
+          font-weight: 800;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 4px 12px rgba(7, 59, 63, 0.2);
+        }
+        .sa-btn-profile-top:hover {
+          background: #0C4E53;
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(7, 59, 63, 0.28);
+        }
+        .sa-kpi-grid-v2 {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 18px;
+          width: 100%;
+        }
+        .sa-kpi-card-v2 {
+          background: #FFFFFF;
+          border: 1px solid #E4ECEB;
+          border-radius: 16px;
+          padding: 22px 24px;
+          box-shadow: 0 4px 16px rgba(7, 59, 63, 0.025);
+          display: flex;
+          align-items: center;
+          gap: 18px;
+          transition: transform 0.22s ease, box-shadow 0.22s ease;
+          position: relative;
+          overflow: hidden;
+        }
+        .sa-kpi-card-v2:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 24px rgba(7, 59, 63, 0.06);
+        }
+        .sa-kpi-icon-wrap {
+          width: 52px;
+          height: 52px;
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .sa-kpi-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+        .sa-kpi-title {
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #556664;
+        }
+        .sa-kpi-num {
+          font-size: 30px;
+          font-weight: 800;
+          color: #071A2D;
+          line-height: 1.1;
+        }
+        .sa-kpi-trend {
+          font-size: 12px;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .sa-middle-grid {
+          display: grid;
+          grid-template-columns: 1.45fr 1fr;
+          gap: 18px;
+          width: 100%;
+          align-items: stretch;
+        }
+        .sa-bottom-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 18px;
+          width: 100%;
+          align-items: stretch;
+        }
+        .sa-saas-card {
+          background: #FFFFFF;
+          border: 1px solid #E4ECEB;
+          border-radius: 16px;
+          padding: 22px 24px;
+          box-shadow: 0 4px 16px rgba(7, 59, 63, 0.025);
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          min-width: 0;
+          position: relative;
+        }
+        .sa-saas-card-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 18px;
+        }
+        .sa-saas-card-title {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 16px;
+          font-weight: 800;
+          color: #073B3F;
+        }
+        .sa-qa-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+          flex: 1;
+          width: 100%;
+        }
+        .sa-qa-tile {
+          background: #FDFDFC;
+          border: 1px solid #E2EAE8;
+          border-radius: 12px;
+          padding: 12px 14px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .sa-qa-tile:hover {
+          background: #F3F7F6;
+          border-color: #BDCFCE;
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(7, 59, 63, 0.06);
+        }
+        .sa-qa-tile-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+        }
+        .sa-qa-icon-wrap {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .sa-qa-label {
+          font-size: 12.5px;
+          font-weight: 750;
+          color: #0C4044;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .sa-footer-banner {
+          background: linear-gradient(135deg, #073B3F 0%, #032326 100%);
+          border-radius: 20px 20px 0 0;
+          padding: 30px 42px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          color: #FFFFFF;
+          margin-top: 16px;
+          box-shadow: 0 -8px 28px rgba(7, 59, 63, 0.08);
+          position: relative;
+          overflow: hidden;
+        }
+        .sa-footer-banner::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: linear-gradient(90deg, #BB8958, #CCA881, #BB8958);
+        }
+        .sa-footer-left {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .sa-footer-motto {
+          font-family: "Cormorant Garamond", Georgia, serif;
+          font-size: 26px;
+          font-style: italic;
+          font-weight: 600;
+          color: #F8FAF9;
+          letter-spacing: 0.02em;
+        }
+        .sa-footer-underline {
+          width: 56px;
+          height: 2px;
+          background: #BB8958;
+        }
+        .sa-footer-right {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+        .sa-footer-brand {
+          text-align: right;
+        }
+        .sa-footer-brand-title {
+          font-size: 16px;
+          font-weight: 900;
+          letter-spacing: 0.12em;
+          color: #FDFDFC;
+        }
+        .sa-footer-brand-sub {
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 0.22em;
+          color: #CCA881;
+          margin-top: 2px;
+        }
+
+        /* ── RESPONSIVE MEDIA QUERIES (SaaS 2x2 Mobile, 95% mobile-first) ── */
+        @media (max-width: 1200px) {
+          .sa-kpi-grid-v2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .sa-middle-grid { grid-template-columns: 1fr; }
+          .sa-bottom-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 900px) {
+          .sa-middle-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 680px) {
+          .sa-dashboard-container { padding: 12px 10px 32px; gap: 14px; }
+          .sa-welcome-card { flex-direction: column; align-items: flex-start; gap: 14px; padding: 16px 14px; }
+          .sa-welcome-left { gap: 12px; }
+          .sa-welcome-icon-box { width: 42px; height: 42px; }
+          .sa-welcome-title { font-size: 18px; }
+          .sa-welcome-sub { font-size: 12px; }
+          .sa-welcome-actions { width: 100%; display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+          .sa-welcome-gold-display, .sa-welcome-right { width: 100%; box-sizing: border-box; justify-content: flex-start; }
+          .sa-kpi-grid-v2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+          .sa-kpi-card-v2 { padding: 12px 10px !important; gap: 10px !important; border-radius: 12px !important; min-width: 0 !important; }
+          .sa-kpi-icon-wrap { width: 38px !important; height: 38px !important; border-radius: 10px !important; }
+          .sa-kpi-icon-wrap svg { width: 18px !important; height: 18px !important; }
+          .sa-kpi-title { font-size: 9.5px !important; letter-spacing: 0.04em !important; }
+          .sa-kpi-num { font-size: 20px !important; }
+          .sa-kpi-trend { font-size: 10.5px !important; }
+          .sa-saas-card { padding: 16px 14px !important; border-radius: 14px !important; }
+          .sa-qa-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+          .sa-footer-banner { flex-direction: column; align-items: flex-start; gap: 16px; padding: 22px 18px; border-radius: 16px 16px 0 0; }
+          .sa-footer-motto { font-size: 20px; }
+          .sa-footer-right { width: 100%; justify-content: space-between; }
+        }
+        @media (max-width: 420px) {
+          .sa-qa-grid { grid-template-columns: 1fr; }
+          .sa-kpi-grid-v2 { gap: 8px !important; }
+          .sa-kpi-card-v2 { padding: 10px 8px !important; gap: 8px !important; }
+          .sa-kpi-num { font-size: 18px !important; }
         }
       `}</style>
 
-      <div className="shd-head">
-        <div>
-          <p>Shop Panel</p>
-          <h1>{shop?.shop_name || 'Shop Dashboard'}</h1>
-          {shop?.shop_id && <small>{shop.shop_id} · {shop.shop_type === 'virtual' ? 'Virtual Shop' : 'Physical Shop'}</small>}
-        </div>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <CopyShopUrlButton
-            label="Copy URL"
-            style={{
-              borderRadius: '12px',
-              padding: '10px 18px',
-              fontSize: '13px',
-              fontWeight: 800,
-              background: '#FDFDFC',
-              border: '1px solid rgba(12,64,68,.28)',
-            }}
-          />
-          <button className="shd-profile-btn" onClick={openProfile}>My Profile</button>
-        </div>
-      </div>
-
-      <ShopQuickStats />
-
-      <div className="shd-body">
-        <div className="ird-shell">
-          <div className="ird-grid">
-            <IrdOrderTrendPanel title="Shop Order Volume" endpoint="/order-timeseries/" />
-            <div className="ird-side">
-              <IrdDonutPanel
-                title="Shop Types"
-                totalLabel={`${typeCounts.physical + typeCounts.virtual} sub-shops`}
-                data={typeData}
-                loading={typeLoading}
-                onSliceClick={() => goShopList()}
-              />
-              <IrdDonutPanel
-                title="Today's Login Status"
-                totalLabel={`${login.active + login.inactive} total shops`}
-                data={loginData}
-                login
-                loading={loginLoading}
-                // Active → Login Active page, Inactive → Login Inactive page (shops mattum kaatum)
-                onSliceClick={entry => navigate(entry?.name === 'Active' ? '/login-active' : '/login-inactive')}
-              />
+      {/* ── MAIN SAAS DASHBOARD CONTAINER ── */}
+      <div className="sa-dashboard-container">
+        {/* 1. Welcome Card Banner */}
+        <div className="sa-welcome-card">
+          <div className="sa-welcome-left">
+            <div className="sa-welcome-icon-box">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="10" width="18" height="11" rx="2" />
+                <path d="M3 10 5 3h14l2 7" />
+                <path d="M9 21v-6h6v6" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="sa-welcome-title">Welcome Back, {shop?.shop_name || 'Shop Partner'}!</h1>
+              <div className="sa-welcome-sub">
+                {shop?.shop_id ? `${shop.shop_id} · ` : ''}
+                {shop?.shop_type === 'virtual' ? 'Virtual Shop Partner' : 'Physical Shop Partner'} · Here's what's happening with your network today.
+              </div>
             </div>
           </div>
 
-          <section className="ird-actions">
-            <h3>Shop Management</h3>
-            <div className="ird-action-grid">
-              <button onClick={() => navigate('/shop-hierarchy-tree')}><IrdIcon type="store" />Hierarchy</button>
-              <button onClick={() => navigate('/shop-report')}><IrdIcon type="report" />Sales Report</button>
+          <div className="sa-welcome-actions">
+            {/* Live Gold Rate Badge */}
+            <div className="sa-welcome-gold-display" title="Live Gold Rate">
+              <div className="sa-welcome-gold-icon">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 2" />
+                </svg>
+              </div>
+              <div className="sa-welcome-gold-text">
+                <span className="sa-welcome-gold-label">Today Gold Rate</span>
+                <span className="sa-welcome-gold-val">
+                  22K: ₹{goldRate ? goldRate.toLocaleString('en-IN') : '7,250'}/g
+                </span>
+              </div>
             </div>
-            <div className="ird-create-split">
-              <button className="ird-create-action" onClick={() => navigate('/add-shop')}>+ Create Shop</button>
-              <button className="ird-create-action secondary" onClick={() => navigate('/superadmin/manage-users/shops')}>Shop List</button>
+
+            {/* Live Clock / Calendar */}
+            <div className="sa-welcome-right">
+              <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: '#E6ECEB', color: '#0C4044', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: '#073B3F' }}>
+                  {liveTime.toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+                </div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#6E7D7B', marginTop: '2px' }}>
+                  {liveTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                </div>
+              </div>
             </div>
-          </section>
+
+            {/* Copy Shop URL Button */}
+            <CopyShopUrlButton
+              label="Copy Shop URL"
+              style={{
+                borderRadius: '12px',
+                padding: '10px 16px',
+                fontSize: '13px',
+                fontWeight: 800,
+                background: '#FFFFFF',
+                border: '1.5px solid rgba(12,64,68,0.3)',
+                color: '#073B3F',
+                cursor: 'pointer',
+              }}
+            />
+
+            {/* Profile Button */}
+            <button className="sa-btn-profile-top" type="button" onClick={openProfile}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+              <span>Shop Profile</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 2. 4 Modern KPI Cards */}
+        <div className="sa-kpi-grid-v2">
+          {/* Card 1: Yesterday Order */}
+          <div className="sa-kpi-card-v2">
+            <div className="sa-kpi-icon-wrap" style={{ background: '#F3E8FF', color: '#9333EA' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+              </svg>
+            </div>
+            <div className="sa-kpi-meta">
+              <div className="sa-kpi-title">YESTERDAY ORDER</div>
+              <div className="sa-kpi-num">{stats.yesterday_orders ?? 0}</div>
+              <div className="sa-kpi-trend" style={{ color: '#059669' }}>
+                <span>Compared to today</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Today Order */}
+          <div className="sa-kpi-card-v2">
+            <div className="sa-kpi-icon-wrap" style={{ background: '#E6F7F0', color: '#009957' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+              </svg>
+            </div>
+            <div className="sa-kpi-meta">
+              <div className="sa-kpi-title">TODAY ORDER</div>
+              <div className="sa-kpi-num">{stats.today_orders ?? 0}</div>
+              <div className="sa-kpi-trend" style={{ color: '#009957' }}>
+                <span>Orders placed today</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Today New Shop */}
+          <div className="sa-kpi-card-v2">
+            <div className="sa-kpi-icon-wrap" style={{ background: '#EAF8F0', color: '#009957' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="10" width="18" height="11" rx="2" />
+                <path d="M3 10 5 3h14l2 7" />
+                <path d="M9 21v-6h6v6" />
+              </svg>
+            </div>
+            <div className="sa-kpi-meta">
+              <div className="sa-kpi-title">TODAY NEW SUB-SHOP</div>
+              <div className="sa-kpi-num">{stats.today_new_shops ?? 0}</div>
+              <div className="sa-kpi-trend" style={{ color: '#009957' }}>
+                <span>Joined network today</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 4: Active Shop */}
+          <div className="sa-kpi-card-v2">
+            <div className="sa-kpi-icon-wrap" style={{ background: '#EFF6FF', color: '#2563EB' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            </div>
+            <div className="sa-kpi-meta">
+              <div className="sa-kpi-title">ACTIVE SHOP</div>
+              <div className="sa-kpi-num">{stats.active_users || 0}</div>
+              <div className="sa-kpi-trend" style={{ color: '#2563EB' }}>
+                <span>of {stats.total_sub_shops || 0} logged in today</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Middle Grid: Order Trend & Donut Panels */}
+        <div className="sa-middle-grid">
+          {/* Order Trend Spline */}
+          <div>
+            <IrdOrderTrendPanel title="Shop Order Volume Trend" endpoint="/order-timeseries/" />
+          </div>
+
+          {/* Donut Panels Stack */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <IrdDonutPanel
+              title="Shop Types Breakdown"
+              totalLabel={`${typeCounts.physical + typeCounts.virtual} sub-shops`}
+              data={typeData}
+              loading={typeLoading}
+              onSliceClick={() => goShopList()}
+            />
+            <IrdDonutPanel
+              title="Today's Login Status"
+              totalLabel={`${login.active + login.inactive} total shops`}
+              data={loginData}
+              login
+              loading={loginLoading}
+              onSliceClick={entry => navigate(entry?.name === 'Active' ? '/login-active' : '/login-inactive')}
+            />
+          </div>
+        </div>
+
+        {/* 4. Bottom Grid: Quick Actions & Shop Snapshot */}
+        <div className="sa-bottom-grid">
+          {/* Card 1: Shop Management & Quick Actions */}
+          <div className="sa-saas-card">
+            <div className="sa-saas-card-head">
+              <div className="sa-saas-card-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#009957" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+                <span>Quick Access & Management</span>
+              </div>
+              <span style={{ fontSize: '12px', color: '#7A8987', fontWeight: 700 }}>Direct Shortcuts</span>
+            </div>
+
+            <div className="sa-qa-grid">
+              <div className="sa-qa-tile" onClick={() => navigate('/shop-hierarchy-grid')}>
+                <div className="sa-qa-tile-left">
+                  <div className="sa-qa-icon-wrap" style={{ background: '#F3E8FF', color: '#9333EA' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                  </div>
+                  <span className="sa-qa-label">Hierarchy Grid</span>
+                </div>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
+              </div>
+
+              <div className="sa-qa-tile" onClick={() => navigate('/shop-hierarchy-tree')}>
+                <div className="sa-qa-tile-left">
+                  <div className="sa-qa-icon-wrap" style={{ background: '#E6F7F0', color: '#009957' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="5" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M12 8v5M6 15v-2h12v2"/></svg>
+                  </div>
+                  <span className="sa-qa-label">Hierarchy Tree</span>
+                </div>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
+              </div>
+
+              <div className="sa-qa-tile" onClick={() => navigate('/shop-report')}>
+                <div className="sa-qa-tile-left">
+                  <div className="sa-qa-icon-wrap" style={{ background: '#EAF8F0', color: '#009957' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M4 19V5"/><path d="M8 19v-8"/><path d="M12 19V8"/><path d="M16 19v-5"/><path d="M20 19V4"/></svg>
+                  </div>
+                  <span className="sa-qa-label">Sales Report</span>
+                </div>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
+              </div>
+
+              <div className="sa-qa-tile" onClick={() => navigate('/add-shop')}>
+                <div className="sa-qa-tile-left">
+                  <div className="sa-qa-icon-wrap" style={{ background: '#FEF3C7', color: '#D97706' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 5v14M5 12h14"/></svg>
+                  </div>
+                  <span className="sa-qa-label">Create Shop</span>
+                </div>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
+              </div>
+
+              <div className="sa-qa-tile" onClick={() => navigate('/superadmin/manage-users/shops')}>
+                <div className="sa-qa-tile-left">
+                  <div className="sa-qa-icon-wrap" style={{ background: '#EFF6FF', color: '#2563EB' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="10" width="18" height="11" rx="2"/><path d="M3 10 5 3h14l2 7"/><path d="M9 21v-6h6v6"/></svg>
+                  </div>
+                  <span className="sa-qa-label">Shop Directory</span>
+                </div>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
+              </div>
+
+              <div className="sa-qa-tile" onClick={() => navigate('/buy-coin')}>
+                <div className="sa-qa-tile-left">
+                  <div className="sa-qa-icon-wrap" style={{ background: '#FDF2F8', color: '#DB2777' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/></svg>
+                  </div>
+                  <span className="sa-qa-label">Buy Gold Coins</span>
+                </div>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Shop Network Snapshot & Profile Details */}
+          <div className="sa-saas-card">
+            <div className="sa-saas-card-head">
+              <div className="sa-saas-card-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#009957" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                <span>Shop Identity & Details</span>
+              </div>
+              <button
+                type="button"
+                onClick={openEdit}
+                style={{
+                  background: 'rgba(12,64,68,0.08)',
+                  border: '1px solid rgba(12,64,68,0.25)',
+                  color: '#0C4044',
+                  borderRadius: '8px',
+                  padding: '4px 12px',
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                ✎ Edit Info
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', flex: 1 }}>
+              {[
+                ['Shop Name', shop?.shop_name],
+                ['Owner Name', shop?.owner_name],
+                ['Shop ID', shop?.shop_id],
+                ['Shop Type', shop?.shop_type === 'virtual' ? 'Virtual Shop' : 'Physical Shop'],
+                ['Mobile Number', shop?.mobile_number],
+                ['City & District', `${shop?.city || '—'}, ${shop?.district || '—'}`],
+              ].map(([k, v]) => (
+                <div key={k} style={{ background: '#F8FAF9', border: '1px solid #E6ECEB', borderRadius: '12px', padding: '12px 14px' }}>
+                  <div style={{ fontSize: '10.5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#7A8987', marginBottom: '4px' }}>{k}</div>
+                  <div style={{ fontSize: '13.5px', fontWeight: 750, color: '#073B3F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v || '—'}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 5. Luxury Footer Banner */}
+        <div className="sa-footer-banner">
+          <div className="sa-footer-left">
+            <div className="sa-footer-motto">
+              "Athirai — Empowering Local Jewellery Businesses & Partners"
+            </div>
+            <div className="sa-footer-underline" />
+          </div>
+          <div className="sa-footer-right">
+            <div className="sa-footer-brand">
+              <div className="sa-footer-brand-title">ATHIRAI JEWELLERY</div>
+              <div className="sa-footer-brand-sub">CERTIFIED SHOP PARTNER</div>
+            </div>
+          </div>
         </div>
       </div>
 

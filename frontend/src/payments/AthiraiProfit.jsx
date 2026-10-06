@@ -170,7 +170,7 @@ function AnimatedNumber({ value, prefix = '', suffix = '', duration = 650 }) {
 
 function Sparkline({ color = '#2DD4BF', width = 90, height = 36 }) {
   return (
-    <svg width={width} height={height} viewBox="0 0 90 36" fill="none" style={{ flexShrink: 0 }}>
+    <svg className="ref-sparkline" width={width} height={height} viewBox="0 0 90 36" fill="none" style={{ flexShrink: 0 }}>
       <path
         d="M2 28 C 16 32, 22 14, 34 20 C 46 26, 52 8, 64 12 C 76 16, 80 4, 88 6"
         stroke={color}
@@ -263,28 +263,36 @@ export default function AthiraiProfit() {
 
   const fetchProfitData = useCallback(async (p = 1, period = activeFilter, from = customFrom, to = customTo, isPageNav = false) => {
     const cacheKey = `${period}_${from}_${to}`
+    const ssKey = `ath_profit_${cacheKey}`
 
-    // Instant switch from cache if already loaded before
-    if (!isPageNav && sessionProfitCache.has(cacheKey)) {
-      const cached = sessionProfitCache.get(cacheKey)
-      if (cached && cached.athiraiRev && cached.athiraiRev.total_revenue != null) {
-        setAllSalesData(cached.allSales)
-        setAthiraiRevData(cached.athiraiRev)
-        setSuperAdminCommData(cached.superAdminComm)
-        setGenCustData(cached.genCust)
-        setTxns(cached.athiraiRev.transactions || [])
-        setTotalTxnsCount(cached.athiraiRev.total_transactions || 0)
-        setTotalPages(cached.athiraiRev.total_pages || Math.max(1, Math.ceil((cached.athiraiRev.total_transactions || 0) / PAGE_SIZE)))
-        setPage(1)
-        setLoading(false)
-        setLoadError(false)
-        return
-      }
+    // Instant switch from cache (Memory or sessionStorage)
+    let cached = sessionProfitCache.get(cacheKey)
+    if (!cached) {
+      try {
+        const raw = sessionStorage.getItem(ssKey)
+        if (raw) {
+          cached = JSON.parse(raw)
+          if (cached) sessionProfitCache.set(cacheKey, cached)
+        }
+      } catch (e) {}
+    }
+
+    if (!isPageNav && cached && cached.athiraiRev && cached.athiraiRev.total_revenue != null) {
+      setAllSalesData(cached.allSales)
+      setAthiraiRevData(cached.athiraiRev)
+      setSuperAdminCommData(cached.superAdminComm)
+      setGenCustData(cached.genCust)
+      setTxns(cached.athiraiRev.transactions || [])
+      setTotalTxnsCount(cached.athiraiRev.total_transactions || 0)
+      setTotalPages(cached.athiraiRev.total_pages || Math.max(1, Math.ceil((cached.athiraiRev.total_transactions || 0) / PAGE_SIZE)))
+      setPage(1)
+      setLoading(false)
+      setLoadError(false)
     }
 
     if (isPageNav) {
       setTableLoading(true)
-    } else {
+    } else if (!cached) {
       setLoading(true)
     }
 
@@ -330,13 +338,16 @@ export default function AthiraiProfit() {
           setSuperAdminCommData(commRes?.data || {})
           setGenCustData(genRes?.data || {})
 
-          // Cache only valid real data
-          sessionProfitCache.set(cacheKey, {
+          const cachePayload = {
             allSales: salesRes.data,
             athiraiRev: revRes.data,
             superAdminComm: commRes?.data || {},
             genCust: genRes?.data || {},
-          })
+          }
+          sessionProfitCache.set(cacheKey, cachePayload)
+          try {
+            sessionStorage.setItem(ssKey, JSON.stringify(cachePayload))
+          } catch (e) {}
         }
       }
 
@@ -635,6 +646,7 @@ export default function AthiraiProfit() {
           color: ${DARK};
           box-sizing: border-box;
           padding: 28px 36px 80px;
+          overflow-x: hidden;
         }
 
         .ref-container {
@@ -1603,10 +1615,180 @@ export default function AthiraiProfit() {
         /* ── Responsive adjustments ── */
         @media (max-width: 1080px) {
           .ref-kpi-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
           .ref-main-grid {
             grid-template-columns: 1fr;
+          }
+          .ref-sub-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (max-width: 860px) {
+          .ref-dashboard-wrapper {
+            padding: 14px 10px 60px !important;
+          }
+          .ref-kpi-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 10px !important;
+          }
+          .ref-card.hero {
+            grid-column: span 2 !important;
+          }
+          .ref-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 14px;
+          }
+          .ref-download-btn {
+            justify-content: center;
+            width: 100%;
+          }
+          .ref-donut-container {
+            grid-template-columns: 1fr;
+            text-align: center;
+            gap: 20px;
+          }
+        }
+
+        @media (max-width: 680px) {
+          .ref-dashboard-wrapper {
+            padding: 12px 8px 50px !important;
+          }
+          .ref-kpi-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 10px !important;
+          }
+          .ref-card.hero {
+            grid-column: span 2 !important;
+          }
+          .ref-card {
+            padding: 12px 10px !important;
+            min-width: 0 !important;
+            overflow: hidden !important;
+            border-radius: 12px !important;
+          }
+          .ref-card-meta {
+            min-width: 0 !important;
+            overflow: hidden !important;
+          }
+          .ref-card-label {
+            font-size: 9px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            letter-spacing: 0.5px !important;
+          }
+          .ref-card-num {
+            font-size: 17px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+          }
+          .ref-card-top {
+            gap: 8px !important;
+            margin-bottom: 6px !important;
+          }
+          .ref-card-icon-circle {
+            width: 32px !important;
+            height: 32px !important;
+          }
+          .ref-card-icon-circle svg {
+            width: 16px !important;
+            height: 16px !important;
+          }
+          .ref-card-bottom {
+            gap: 6px !important;
+            margin-top: 6px !important;
+          }
+          .ref-card-sub {
+            font-size: 9.5px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            max-width: 100% !important;
+          }
+          .ref-sparkline {
+            width: 44px !important;
+            height: 20px !important;
+            flex-shrink: 0 !important;
+          }
+          .ref-summary-tiles {
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+          }
+          .ref-tabs-group {
+            width: 100%;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 4px;
+            scrollbar-width: none;
+          }
+          .ref-tabs-group::-webkit-scrollbar {
+            display: none;
+          }
+          .ref-tab {
+            flex-shrink: 0;
+            padding: 7px 14px;
+            font-size: 12px;
+          }
+          .ref-filters-row {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+          }
+          .ref-date-range-btn {
+            width: 100%;
+            justify-content: space-between;
+          }
+          .ref-txns-header,
+          .ref-table-top {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+            padding: 14px 16px;
+          }
+          .ref-table-footer {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+            padding: 14px 16px;
+          }
+          .ref-page-buttons {
+            justify-content: center;
+            flex-wrap: wrap;
+          }
+          .ref-rows-pills {
+            justify-content: center;
+          }
+        }
+
+        @media (max-width: 420px) {
+          .ref-kpi-grid {
+            gap: 8px !important;
+          }
+          .ref-card {
+            padding: 10px 8px !important;
+          }
+          .ref-card-num {
+            font-size: 15px !important;
+          }
+          .ref-sparkline {
+            display: none !important;
+          }
+          .ref-summary-tiles {
+            grid-template-columns: 1fr;
+          }
+          .ref-modal {
+            margin: 8px;
+            width: calc(100% - 16px);
+          }
+          .ref-modal-head,
+          .ref-modal-body,
+          .ref-modal-foot {
+            padding: 12px 14px;
           }
         }
       `}</style>

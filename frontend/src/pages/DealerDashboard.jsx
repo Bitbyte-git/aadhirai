@@ -979,19 +979,26 @@ const [dbRateDate, setDbRateDate] = useState(null)
     monthlyTrend: [],
   })
 
+  const salesProfitCacheRef = useRef({})
   const fetchSalesProfit = async (p = salesProfitPeriod) => {
+    if (salesProfitCacheRef.current[p]) {
+      setSalesProfitData(salesProfitCacheRef.current[p])
+      return
+    }
     setSalesProfitLoading(true)
     try {
       const res = await api.get(`/superadmin/sales-profit-summary/?period=${p}`)
       if (res.data) {
-        setSalesProfitData({
+        const payload = {
           allSales: res.data.all_sales ?? 0,
           myCommission: res.data.my_commission ?? res.data.athirai_profit ?? 0,
           athiraiProfit: res.data.athirai_profit ?? 0,
           salesBreakdown: res.data.sales_breakdown || [],
           profitBreakdown: res.data.profit_breakdown || [],
           monthlyTrend: res.data.monthly_trend || [],
-        })
+        }
+        salesProfitCacheRef.current[p] = payload
+        setSalesProfitData(payload)
       }
     } catch {
     } finally {
@@ -1025,17 +1032,27 @@ const [dbRateDate, setDbRateDate] = useState(null)
   const [userGrowthStats, setUserGrowthStats] = useState({ total: 0, newUsers: 0, activeUsers: 0 })
   const [userGrowthChartData, setUserGrowthChartData] = useState([])
 
+  const userGrowthCacheRef = useRef({})
   const fetchUserGrowth = async (p = userGrowthPeriod) => {
+    const key = p.toLowerCase()
+    if (userGrowthCacheRef.current[key]) {
+      setUserGrowthStats(userGrowthCacheRef.current[key].stats)
+      setUserGrowthChartData(userGrowthCacheRef.current[key].chart_data)
+      return
+    }
     setUserGrowthLoading(true)
     try {
-      const res = await api.get(`/superadmin/user-growth/?period=${p.toLowerCase()}`)
+      const res = await api.get(`/superadmin/user-growth/?period=${key}`)
       if (res.data) {
-        setUserGrowthStats({
+        const stats = {
           total: res.data.total_users ?? 0,
           newUsers: res.data.new_users ?? 0,
           activeUsers: res.data.active_users ?? 0,
-        })
-        setUserGrowthChartData(res.data.chart_data || [])
+        }
+        const chart_data = res.data.chart_data || []
+        userGrowthCacheRef.current[key] = { stats, chart_data }
+        setUserGrowthStats(stats)
+        setUserGrowthChartData(chart_data)
       }
     } catch {
     } finally {
@@ -1518,6 +1535,7 @@ const fetchCoinStock = async () => {
           flex-direction: column;
           gap: 20px;
           font-family: 'Inter', system-ui, -apple-system, sans-serif;
+          overflow-x: hidden;
         }
         .sa-welcome-card {
           background: #FFFFFF;
@@ -1724,7 +1742,13 @@ const fetchCoinStock = async () => {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 10px;
           margin-bottom: 18px;
+        }
+        .sa-saas-card select {
+          max-width: 130px;
+          box-sizing: border-box;
         }
         .sa-saas-card-title {
           display: flex;
@@ -1824,11 +1848,22 @@ const fetchCoinStock = async () => {
         .sa-role-dist-wrap {
           display: flex;
           align-items: center;
-          gap: 12px;
+          justify-content: center;
+          gap: 16px;
           flex: 1;
           min-width: 0;
           width: 100%;
           box-sizing: border-box;
+        }
+        .sa-role-pie-box {
+          position: relative;
+          width: 160px;
+          height: 160px;
+          margin: 0 auto;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .sa-role-table {
           flex: 1;
@@ -2041,16 +2076,35 @@ const fetchCoinStock = async () => {
           .sa-revenue-income-grid { grid-template-columns: 1fr; gap: 16px; }
         }
         @media (max-width: 680px) {
-          .sa-dashboard-container { padding: 14px 12px 36px; gap: 14px; }
-          .sa-welcome-card { flex-direction: column; align-items: flex-start; gap: 14px; padding: 16px 18px; }
-          .sa-welcome-title { font-size: 20px; }
-          .sa-welcome-actions { width: 100%; justify-content: space-between; }
-          .sa-kpi-grid-v2 { grid-template-columns: 1fr; gap: 12px; }
-          .sa-kpi-card-v2 { padding: 16px 18px; }
-          .sa-saas-card { padding: 16px 18px; }
+          .sa-dashboard-container { padding: 12px 10px 32px; gap: 14px; }
+          .sa-welcome-card { flex-direction: column; align-items: flex-start; gap: 14px; padding: 16px 14px; }
+          .sa-welcome-left { gap: 12px; }
+          .sa-welcome-icon-box { width: 42px; height: 42px; }
+          .sa-welcome-title { font-size: 18px; }
+          .sa-welcome-sub { font-size: 12px; }
+          .sa-welcome-actions { width: 100%; display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+          .sa-welcome-gold-display, .sa-welcome-right { width: 100%; box-sizing: border-box; justify-content: flex-start; }
+          .sa-kpi-grid-v2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+          .sa-kpi-card-v2 { padding: 12px 10px !important; gap: 10px !important; border-radius: 12px !important; min-width: 0 !important; }
+          .sa-kpi-icon-wrap { width: 38px !important; height: 38px !important; border-radius: 10px !important; }
+          .sa-kpi-icon-wrap svg { width: 18px !important; height: 18px !important; }
+          .sa-kpi-title { font-size: 9.5px !important; letter-spacing: 0.04em !important; }
+          .sa-kpi-num { font-size: 20px !important; }
+          .sa-kpi-trend { font-size: 10.5px !important; }
+          .sa-saas-card { padding: 16px 14px !important; border-radius: 14px !important; }
+          .sa-qa-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+          .sa-role-dist-wrap { flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 14px !important; }
+          .sa-role-pie-box { margin: 0 auto !important; }
+          .sa-role-table { width: 100% !important; }
+          .sa-footer-banner { flex-direction: column; align-items: flex-start; gap: 16px; padding: 22px 18px; border-radius: 16px 16px 0 0; }
+          .sa-footer-motto { font-size: 20px; }
+          .sa-footer-right { width: 100%; justify-content: space-between; }
+        }
+        @media (max-width: 420px) {
           .sa-qa-grid { grid-template-columns: 1fr; }
-          .sa-role-dist-wrap { flex-direction: column; }
-          .sa-footer-banner { flex-direction: column; align-items: flex-start; gap: 18px; padding: 20px; }
+          .sa-kpi-grid-v2 { gap: 8px !important; }
+          .sa-kpi-card-v2 { padding: 10px 8px !important; gap: 8px !important; }
+          .sa-kpi-num { font-size: 18px !important; }
         }
       `}</style>
 
@@ -2317,12 +2371,12 @@ const fetchCoinStock = async () => {
                 <span>All Sales & Distributor Commission</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {salesProfitLoading && (
+                  <span style={{ fontSize: '10px', color: '#009957', fontWeight: 800 }}>● updating</span>
+                )}
                 <select
                   value={salesProfitPeriod}
-                  onChange={e => {
-                    setSalesProfitPeriod(e.target.value)
-                    fetchSalesProfit(e.target.value)
-                  }}
+                  onChange={e => setSalesProfitPeriod(e.target.value)}
                   style={{
                     background: '#F4F7F6', border: '1px solid #E2EAE8', color: '#0C4044',
                     borderRadius: '14px', padding: '4px 10px', fontSize: '11px', fontWeight: 800,
@@ -2405,7 +2459,7 @@ const fetchCoinStock = async () => {
             </div>
 
             {/* 2-Panel Donut & Line Graph */}
-            <div className="sa-revenue-income-grid">
+            <div className="sa-revenue-income-grid" style={{ opacity: salesProfitLoading ? 0.75 : 1, transition: 'opacity 0.25s ease' }}>
               {/* Left Donut Breakdown */}
               <div className="sa-revenue-breakdown-col">
                 <div className="sa-sub-chart-title">
@@ -2422,6 +2476,9 @@ const fetchCoinStock = async () => {
                         outerRadius={78}
                         paddingAngle={2}
                         dataKey="value"
+                        isAnimationActive={true}
+                        animationDuration={450}
+                        animationEasing="ease-in-out"
                       >
                         {(activeSalesProfitTab === 'sales' ? salesProfitData.salesBreakdown : salesProfitData.profitBreakdown).map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
@@ -2491,6 +2548,9 @@ const fetchCoinStock = async () => {
                         strokeWidth={2.4}
                         dot={{ r: 3, fill: '#009957', stroke: '#FFFFFF', strokeWidth: 1.5 }}
                         activeDot={{ r: 6, fill: '#073B3F' }}
+                        isAnimationActive={true}
+                        animationDuration={450}
+                        animationEasing="ease-in-out"
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -2517,7 +2577,7 @@ const fetchCoinStock = async () => {
             </div>
 
             <div className="sa-role-dist-wrap">
-              <div style={{ position: 'relative', width: '160px', height: '160px', flexShrink: 0 }}>
+              <div className="sa-role-pie-box" style={{ position: 'relative', width: '160px', height: '160px', margin: '0 auto', flexShrink: 0 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -2568,12 +2628,12 @@ const fetchCoinStock = async () => {
                 <span>User Growth</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {userGrowthLoading && (
+                  <span style={{ fontSize: '10px', color: '#009957', fontWeight: 800 }}>● updating</span>
+                )}
                 <select
                   value={userGrowthPeriod}
-                  onChange={e => {
-                    setUserGrowthPeriod(e.target.value)
-                    fetchUserGrowth(e.target.value)
-                  }}
+                  onChange={e => setUserGrowthPeriod(e.target.value)}
                   style={{
                     background: '#F4F7F6', border: '1px solid #E2EAE8', color: '#0C4044',
                     borderRadius: '16px', padding: '4px 12px', fontSize: '11.5px', fontWeight: 800,
@@ -2628,7 +2688,7 @@ const fetchCoinStock = async () => {
             </div>
 
             {/* Smooth Spline AreaChart */}
-            <div style={{ width: '100%', height: '175px', position: 'relative' }}>
+            <div style={{ width: '100%', height: '175px', position: 'relative', opacity: userGrowthLoading ? 0.75 : 1, transition: 'opacity 0.25s ease' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={userGrowthChartData} margin={{ top: 12, right: 14, left: -22, bottom: 0 }}>
                   <defs>
@@ -2649,6 +2709,9 @@ const fetchCoinStock = async () => {
                     fill="url(#dealerUserGrowthGrad)"
                     dot={{ r: 3.5, fill: '#009957', stroke: '#FFFFFF', strokeWidth: 1.5 }}
                     activeDot={{ r: 6.5, fill: '#073B3F', stroke: '#FFFFFF', strokeWidth: 2 }}
+                    isAnimationActive={true}
+                    animationDuration={450}
+                    animationEasing="ease-in-out"
                   />
                 </AreaChart>
               </ResponsiveContainer>

@@ -68,13 +68,20 @@ const styles = `
   .pgb-error-title{color:${PRIMARY};font-weight:900;font-size:15px}
   .pgb-retry-btn{padding:10px 22px;border-radius:20px;border:none;background:${PRIMARY};color:#fff;font-weight:800;font-size:12.5px;cursor:pointer}
   .pgb-retry-btn:hover{background:${DEEP}}
-  @media(max-width:900px){.pgb-cards{grid-template-columns:1fr}}
+  @media(max-width:900px){
+    .pgb-cards{grid-template-columns:repeat(2, minmax(0, 1fr))!important;gap:10px!important}
+    .pgb-card.hero{grid-column:span 2!important}
+  }
   @media(max-width:768px){
-    .pgb-main{width:100%!important;padding:20px 14px 60px!important}
+    .pgb-main{width:100%!important;padding:14px 10px 50px!important;overflow-x:hidden!important}
+    .pgb-cards{grid-template-columns:repeat(2, minmax(0, 1fr))!important;gap:10px!important}
+    .pgb-card{padding:12px 10px!important;border-radius:12px!important;min-width:0!important;overflow:hidden!important}
+    .pgb-card-label{font-size:9px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+    .pgb-card-value{font-size:18px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
     .pgb-headrow{flex-direction:column!important;align-items:stretch!important}
     .pgb-download-btn{width:100%!important;justify-content:center!important}
     .pgb-filter-row{overflow-x:auto!important;-webkit-overflow-scrolling:touch!important;flex-wrap:nowrap!important;padding-bottom:8px!important;margin-bottom:18px!important}
-    .pgb-panel{padding:18px 14px!important;border-radius:14px!important}
+    .pgb-panel{padding:16px 12px!important;border-radius:14px!important}
     .pgb-breakdown-label{width:80px!important}
     .pgb-breakdown-value{width:110px!important}
   }

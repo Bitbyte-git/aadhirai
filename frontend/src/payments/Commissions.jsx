@@ -117,7 +117,7 @@ function AnimatedNumber({ value, prefix = '', suffix = '', duration = 800 }) {
 
 function Sparkline({ color = '#2DD4BF', width = 90, height = 36 }) {
   return (
-    <svg width={width} height={height} viewBox="0 0 90 36" fill="none" style={{ flexShrink: 0 }}>
+    <svg className="ref-sparkline" width={width} height={height} viewBox="0 0 90 36" fill="none" style={{ flexShrink: 0 }}>
       <path
         d="M2 28 C 16 32, 22 14, 34 20 C 46 26, 52 8, 64 12 C 76 16, 80 4, 88 6"
         stroke={color}
@@ -161,6 +161,7 @@ const styles = `
     font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
     color: ${DARK};
     padding-bottom: 80px;
+    overflow-x: hidden;
   }
 
   .cms-main {
@@ -386,12 +387,7 @@ const styles = `
   }
   @media (max-width: 1100px) {
     .cms-kpi-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-  @media (max-width: 600px) {
-    .cms-kpi-grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 
@@ -713,10 +709,60 @@ const styles = `
 
   @media (max-width: 768px) {
     .cms-main {
-      padding: 16px 12px 0;
+      padding: 12px 8px 0 !important;
+      overflow-x: hidden !important;
     }
     .cms-kpi-grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 10px !important;
+    }
+    .cms-card {
+      padding: 12px 10px !important;
+      min-height: unset !important;
+      border-radius: 12px !important;
+      min-width: 0 !important;
+      overflow: hidden !important;
+    }
+    .cms-card-meta {
+      min-width: 0 !important;
+      overflow: hidden !important;
+    }
+    .cms-card-icon {
+      width: 32px !important;
+      height: 32px !important;
+      border-radius: 8px !important;
+    }
+    .cms-card-icon svg {
+      width: 16px !important;
+      height: 16px !important;
+    }
+    .cms-card-num {
+      font-size: 17px !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+    .cms-card-label {
+      font-size: 9px !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      letter-spacing: 0.5px !important;
+    }
+    .cms-card-bottom {
+      margin-top: 6px !important;
+      padding-top: 6px !important;
+    }
+    .cms-card-sub {
+      font-size: 9.5px !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+    .ref-sparkline {
+      width: 44px !important;
+      height: 20px !important;
+      flex-shrink: 0 !important;
     }
     .cms-headrow {
       flex-direction: column;
@@ -727,30 +773,34 @@ const styles = `
       width: 100%;
       justify-content: center;
     }
-    .cms-role-tabs {
+    .cms-role-bar {
       overflow-x: auto;
       flex-wrap: nowrap;
       -webkit-overflow-scrolling: touch;
-      padding-bottom: 4px;
+      padding-bottom: 6px;
+      scrollbar-width: none;
     }
+    .cms-role-bar::-webkit-scrollbar { display: none; }
     .cms-role-tab {
       flex-shrink: 0;
     }
-    .cms-filters-row {
+    .cms-controls-bar {
       flex-direction: column;
       align-items: stretch;
       gap: 12px;
     }
-    .cms-filters-pills {
+    .cms-pill-group {
       overflow-x: auto;
       flex-wrap: nowrap;
       -webkit-overflow-scrolling: touch;
       padding-bottom: 4px;
+      scrollbar-width: none;
     }
-    .cms-filter-pill {
+    .cms-pill-group::-webkit-scrollbar { display: none; }
+    .cms-pill-btn {
       flex-shrink: 0;
     }
-    .cms-date-dropdown-btn {
+    .cms-date-btn {
       width: 100%;
       justify-content: space-between;
     }
@@ -769,22 +819,41 @@ const styles = `
 
   @media (max-width: 480px) {
     .cms-title {
-      font-size: 24px;
-    }
-    .cms-card {
-      padding: 16px;
-    }
-    .cms-card-num {
       font-size: 22px;
     }
+    .cms-kpi-grid {
+      gap: 8px !important;
+    }
+    .cms-card {
+      padding: 10px 8px !important;
+    }
+    .cms-card-num {
+      font-size: 15px !important;
+    }
+    .ref-sparkline {
+      display: none !important;
+    }
     .cms-chart-wrap {
-      padding: 16px 8px;
+      padding: 14px 4px;
     }
   }
 `
 
+const ROLE_DOWNLINES = {
+  super_admin: ['admin', 'dealer', 'sub_dealer', 'promotor', 'customer'],
+  admin: ['dealer', 'sub_dealer', 'promotor', 'customer'],
+  dealer: ['sub_dealer', 'promotor', 'customer'],
+  sub_dealer: ['promotor', 'customer'],
+  promotor: ['customer'],
+}
+
 export default function Commissions() {
-  const [role, setRole] = useState('admin')
+  const loggedInRole = (typeof window !== 'undefined' ? localStorage.getItem('role') : null) || 'super_admin'
+  const defaultAllowedTabs = useMemo(() => ROLE_DOWNLINES[loggedInRole] || ['customer'], [loggedInRole])
+  const initialRole = defaultAllowedTabs[0] || 'dealer'
+
+  const [role, setRole] = useState(initialRole)
+  const [allowedTabs, setAllowedTabs] = useState(defaultAllowedTabs)
   const [summary, setSummary] = useState(null)
   const [rows, setRows] = useState([])
   const [page, setPage] = useState(1)
@@ -824,26 +893,70 @@ export default function Commissions() {
 
   const fetchData = async (r = role, p = 1, period = activeFilter, from = customFrom, to = customTo) => {
     const fetchId = ++fetchIdRef.current
+    const cacheKey = `cms_${r}_${p}_${period}_${from || ''}_${to || ''}`
+
+    // Instant local cache load from sessionStorage on initial page / tab visit
+    if (p === 1) {
+      try {
+        const cachedRaw = sessionStorage.getItem(cacheKey)
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw)
+          if (cached && cached.summary) {
+            if (cached.allowed_tabs && Array.isArray(cached.allowed_tabs)) {
+              setAllowedTabs(cached.allowed_tabs)
+            }
+            setSummary(cached.summary)
+            setRows(cached.rows || [])
+            setHasMore(Boolean(cached.has_more))
+            setPage(p)
+            setLoading(false)
+            setLoadError(false)
+          }
+        }
+      } catch (e) {}
+    }
+
     try {
       const { default: api } = await import('../api')
       let url = `/superadmin/tier-commission/?role=${r}&page=${p}&period=${period}`
       if (period === 'custom' && from && to) url += `&start_date=${from}&end_date=${to}`
       const res = await api.get(url)
       if (fetchId !== fetchIdRef.current) return
-      setSummary({
+      if (res.data.allowed_tabs && Array.isArray(res.data.allowed_tabs)) {
+        setAllowedTabs(res.data.allowed_tabs)
+      }
+
+      const newSummary = {
         total_commission: res.data.total_commission,
         total_coins: res.data.total_coins,
         total_transactions: res.data.total_transactions,
         total_earners: res.data.total_earners,
         monthly_trend: res.data.monthly_trend || [],
-      })
-      setRows(prev => p === 1 ? res.data.leaderboard : [...prev, ...res.data.leaderboard])
-      setHasMore(res.data.has_more)
+      }
+      const newRows = res.data.leaderboard || []
+      const newHasMore = Boolean(res.data.has_more)
+
+      setSummary(newSummary)
+      setRows(prev => p === 1 ? newRows : [...prev, ...newRows])
+      setHasMore(newHasMore)
       setPage(p)
       setLoadError(false)
+
+      if (p === 1) {
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify({
+            allowed_tabs: res.data.allowed_tabs,
+            summary: newSummary,
+            rows: newRows,
+            has_more: newHasMore,
+          }))
+        } catch (e) {}
+      }
     } catch {
       if (fetchId !== fetchIdRef.current) return
-      setLoadError(true)
+      if (!sessionStorage.getItem(cacheKey)) {
+        setLoadError(true)
+      }
     } finally {
       if (fetchId === fetchIdRef.current) {
         setLoading(false)
@@ -852,8 +965,8 @@ export default function Commissions() {
   }
 
   useEffect(() => {
-    fetchData('admin', 1, 'month', '', '')
-  }, [])
+    fetchData(initialRole, 1, 'month', '', '')
+  }, [initialRole])
 
   const handleRoleClick = (key) => {
     if (key === role) return
@@ -992,7 +1105,7 @@ export default function Commissions() {
 
         {/* 1. Tier Role Selector Tabs */}
         <div className="cms-role-bar">
-          {ROLE_TABS.map(tab => (
+          {ROLE_TABS.filter(tab => allowedTabs.includes(tab.key)).map(tab => (
             <button
               key={tab.key}
               type="button"

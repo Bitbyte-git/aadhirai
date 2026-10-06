@@ -4903,6 +4903,9 @@ class HierarchyPersonSearchView(APIView):
         return Response({'query': query, 'results': results})
 
 
+_DOWNLINE_IDS_CACHE = {}
+
+
 def _collect_full_downline_user_ids(user):
     """Every user_id BELOW `user` in the hierarchy — including intermediate
     dealer/sub_dealer/promotor tiers, not just leaf customers. Unlike
@@ -4910,6 +4913,14 @@ def _collect_full_downline_user_ids(user):
     for order-count purposes), commission is earned by the intermediate tiers
     themselves, so 'Team Commission' needs them included."""
     try:
+        import time
+        now_ts = time.time()
+        uid = getattr(user, 'id', None)
+        if uid and uid in _DOWNLINE_IDS_CACHE:
+            cached_ts, cached_ids = _DOWNLINE_IDS_CACHE[uid]
+            if now_ts - cached_ts < 60.0:
+                return cached_ids
+
         role = getattr(user, 'role', '')
         ids = []
         if role == 'admin':
@@ -4944,6 +4955,8 @@ def _collect_full_downline_user_ids(user):
             p = PromotorProfile.objects.prefetch_related('assigned_customers').filter(user=user).first()
             if p:
                 ids.extend(c.user_id for c in p.assigned_customers.all())
+        if uid:
+            _DOWNLINE_IDS_CACHE[uid] = (now_ts, ids)
         return ids
     except Exception:
         return []
@@ -10474,6 +10487,12 @@ class PaymentsSummaryView(APIView):
             'created_at': o.created_at,
         }
 
+    @staticmethod
+    def _respond(cache_key, data, export_csv):
+        if not export_csv and cache_key:
+            cache.set(cache_key, data, 120)
+        return Response(data)
+
     def get(self, request):
         if request.user.role not in self.INTERNAL_ROLES:
             return Response({'error': 'Not authorized'}, status=403)
@@ -10497,6 +10516,12 @@ class PaymentsSummaryView(APIView):
             return Response({'error': 'Not authorized'}, status=403)
         if view == 'team_commission' and request.user.role == 'super_admin':
             return Response({'error': 'Not applicable for Super Admin — use Commissions leaderboard instead'}, status=400)
+
+        cache_key = f'pay_sum_{view}_{period}_{start_date or ""}_{end_date or ""}_{request.user.id}_{page}_{page_size}'
+        if not export_csv:
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return Response(cached_data)
 
         if view == 'all_sales':
             # ── Full order value, commission edhுவும் illama ──
@@ -10551,7 +10576,7 @@ class PaymentsSummaryView(APIView):
             start = (page - 1) * page_size
             page_txns = txn_qs[start:start + page_size]
 
-            return Response({
+            return self._respond(cache_key, {
                 'view': view,
                 'period': period,
                 'total_revenue': float(total_revenue),
@@ -10564,7 +10589,7 @@ class PaymentsSummaryView(APIView):
                 'total_pages': max(1, (total_transactions + page_size - 1) // page_size),
                 'has_more': start + page_size < total_transactions,
                 'transactions': [self._serialize_order_txn(o) for o in page_txns],
-            })
+            }, export_csv)
 
         elif view == 'general_customer_revenue':
             # ── "General Customer" = CustomerProfile.created_by IS NULL — direct
@@ -10619,7 +10644,7 @@ class PaymentsSummaryView(APIView):
             start = (page - 1) * page_size
             page_txns = txn_qs[start:start + page_size]
 
-            return Response({
+            return self._respond(cache_key, {
                 'view': view,
                 'period': period,
                 'total_revenue': float(total_revenue),
@@ -10632,7 +10657,7 @@ class PaymentsSummaryView(APIView):
                 'total_pages': max(1, (total_transactions + page_size - 1) // page_size),
                 'has_more': start + page_size < total_transactions,
                 'transactions': [self._serialize_order_txn(o) for o in page_txns],
-            })
+            }, export_csv)
 
         elif view == 'athirai_revenue':
             # ── Athirai's real net revenue — every order's value MINUS the 27%
@@ -10696,7 +10721,7 @@ class PaymentsSummaryView(APIView):
             start = (page - 1) * page_size
             page_txns = txn_qs[start:start + page_size]
 
-            return Response({
+            return self._respond(cache_key, {
                 'view': view,
                 'period': period,
                 'total_revenue': float(total_revenue),
@@ -10715,7 +10740,7 @@ class PaymentsSummaryView(APIView):
                         amount=(Decimal(str(o.total_price)) * company_share_pct / Decimal('100')).quantize(Decimal('0.01'))
                     ) for o in page_txns
                 ],
-            })
+            }, export_csv)
 
         elif view == 'my_commission' and request.user.role == 'super_admin':
             # ── Super Admin's own fixed 1% share across ALL platform orders ──
@@ -10772,7 +10797,7 @@ class PaymentsSummaryView(APIView):
             start = (page - 1) * page_size
             page_txns = txn_qs[start:start + page_size]
 
-            return Response({
+            return self._respond(cache_key, {
                 'view': view,
                 'period': period,
                 'total_revenue': float(total_revenue),
@@ -10790,7 +10815,7 @@ class PaymentsSummaryView(APIView):
                         amount=(Decimal(str(o.total_price)) * my_comm_pct / Decimal('100')).quantize(Decimal('0.01'))
                     ) for o in page_txns
                 ],
-            })
+            }, export_csv)
 
         elif view == 'super_admin_commission' and request.user.role == 'super_admin':
             # ── Super Admin Residual Commission (leftover unallocated pool balance) ──
@@ -10857,7 +10882,7 @@ class PaymentsSummaryView(APIView):
             start = (page - 1) * page_size
             page_txns = txn_qs[start:start + page_size]
 
-            return Response({
+            return self._respond(cache_key, {
                 'view': view,
                 'period': period,
                 'total_revenue': float(total_revenue),
@@ -10875,7 +10900,7 @@ class PaymentsSummaryView(APIView):
                         amount=Decimal(str(o.residual_amount)).quantize(Decimal('0.01'))
                     ) for o in page_txns
                 ],
-            })
+            }, export_csv)
 
         elif view in ('super_admin_commission', 'my_commission', 'team_commission'):
             if view == 'team_commission':
@@ -10946,7 +10971,7 @@ class PaymentsSummaryView(APIView):
             start = (page - 1) * page_size
             page_txns = txn_qs[start:start + page_size]
 
-            return Response({
+            return self._respond(cache_key, {
                 'view': view,
                 'period': period,
                 'total_revenue': float(total_revenue),
@@ -10969,7 +10994,7 @@ class PaymentsSummaryView(APIView):
                         'percent': round(float(r.amount_paid) / float(r.related_order.total_price) * 100, 2) if r.related_order and r.related_order.total_price else None,
                     } for r in page_txns
                 ],
-            })
+            }, export_csv)
 
         # ── Legacy default (real Razorpay revenue) — old behavior fallback ──
         recharges_all = CoinRecharge.objects.filter(status='success', source='recharge')
@@ -10996,7 +11021,7 @@ class PaymentsSummaryView(APIView):
         start = (page - 1) * page_size
         page_txns = txn_qs[start:start + page_size]
 
-        return Response({
+        return self._respond(cache_key, {
             'view': 'razorpay_revenue',
             'period': period,
             'total_revenue': float(total_revenue),
@@ -11015,7 +11040,7 @@ class PaymentsSummaryView(APIView):
                     'created_at': r.created_at,
                 } for r in page_txns
             ],
-        })
+        }, export_csv)
 
 
 class UserGrowthView(APIView):
@@ -11028,6 +11053,11 @@ class UserGrowthView(APIView):
 
         from datetime import datetime, date
         period = request.query_params.get('period', 'month').lower()
+        cache_key = f"user_growth_{request.user.id}_{period}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
         now = timezone.now()
         today = timezone.localdate()
 
@@ -11082,14 +11112,27 @@ class UserGrowthView(APIView):
                 cum = base_users.filter(created_at__lte=e_utc).count()
                 chart_data.append({'month': lbl, 'users': cnt, 'cumulative': cum})
         elif period == 'week':
+            week_start_date = today - timedelta(days=6)
+            week_start_dt = timezone.make_aware(datetime.combine(week_start_date, datetime.min.time()))
+            prior_users = base_users.filter(created_at__lt=week_start_dt).count()
+            day_counts_qs = (
+                base_users.filter(created_at__gte=week_start_dt)
+                .annotate(d=TruncDate('created_at'))
+                .values('d')
+                .annotate(cnt=Count('id'))
+            )
+            day_map = {item['d']: item['cnt'] for item in day_counts_qs if item['d']}
+            running_cum = prior_users
             for i in range(6, -1, -1):
                 day_date = today - timedelta(days=i)
-                lbl = day_date.strftime('%a')
-                day_start = timezone.make_aware(datetime.combine(day_date, datetime.min.time()))
-                day_end = timezone.make_aware(datetime.combine(day_date, datetime.max.time()))
-                cnt = base_users.filter(created_at__gte=day_start, created_at__lte=day_end).count()
-                cum = base_users.filter(created_at__lte=day_end).count()
-                chart_data.append({'month': lbl, 'users': cnt, 'cumulative': cum, 'date': day_date.strftime('%d %b')})
+                cnt = day_map.get(day_date, 0)
+                running_cum += cnt
+                chart_data.append({
+                    'month': day_date.strftime('%a'),
+                    'users': cnt,
+                    'cumulative': running_cum,
+                    'date': day_date.strftime('%d %b')
+                })
         elif period == 'month':
             import calendar
             _, last_day = calendar.monthrange(today.year, today.month)
@@ -11101,53 +11144,63 @@ class UserGrowthView(APIView):
                 (21, 25, '21st-25th'),
                 (26, last_day, '26th-End')
             ]
+            month_start_dt = timezone.make_aware(datetime.combine(date(today.year, today.month, 1), datetime.min.time()))
+            prior_users = base_users.filter(created_at__lt=month_start_dt).count()
+            user_dates = list(base_users.filter(created_at__gte=month_start_dt, created_at__year=today.year, created_at__month=today.month).values_list('created_at', flat=True))
+            day_numbers = [d.day for d in user_dates if d]
+            running_cum = prior_users
             for d_start, d_end, lbl in intervals:
-                try:
-                    s_dt = timezone.make_aware(datetime.combine(date(today.year, today.month, d_start), datetime.min.time()))
-                    e_dt = timezone.make_aware(datetime.combine(date(today.year, today.month, min(d_end, last_day)), datetime.max.time()))
-                    cnt = base_users.filter(created_at__gte=s_dt, created_at__lte=e_dt).count()
-                    cum = base_users.filter(created_at__lte=e_dt).count()
-                    chart_data.append({'month': lbl, 'users': cnt, 'cumulative': cum})
-                except Exception:
-                    chart_data.append({'month': lbl, 'users': 0, 'cumulative': total_users})
+                cnt = sum(1 for day in day_numbers if d_start <= day <= d_end)
+                running_cum += cnt
+                chart_data.append({'month': lbl, 'users': cnt, 'cumulative': running_cum})
         elif period in ('3month', '6month'):
             months_count = 3 if period == '3month' else 6
+            start_date_range = today - timedelta(days=30 * months_count)
+            start_dt_range = timezone.make_aware(datetime.combine(start_date_range, datetime.min.time()))
+            prior_users = base_users.filter(created_at__lt=start_dt_range).count()
+            m_qs = (
+                base_users.filter(created_at__gte=start_dt_range)
+                .annotate(m=TruncMonth('created_at'))
+                .values('m')
+                .annotate(cnt=Count('id'))
+            )
+            m_map = {(item['m'].year, item['m'].month): item['cnt'] for item in m_qs if item['m']}
+            running_cum = prior_users
             for i in range(months_count - 1, -1, -1):
                 m_date = today - timedelta(days=30 * i)
-                m_name = m_date.strftime('%b')
-                import calendar
-                _, l_day = calendar.monthrange(m_date.year, m_date.month)
-                s_dt = timezone.make_aware(datetime.combine(date(m_date.year, m_date.month, 1), datetime.min.time()))
-                e_dt = timezone.make_aware(datetime.combine(date(m_date.year, m_date.month, l_day), datetime.max.time()))
-                cnt = base_users.filter(created_at__gte=s_dt, created_at__lte=e_dt).count()
-                cum = base_users.filter(created_at__lte=e_dt).count()
-                chart_data.append({'month': m_name, 'users': cnt, 'cumulative': cum})
+                cnt = m_map.get((m_date.year, m_date.month), 0)
+                running_cum += cnt
+                chart_data.append({'month': m_date.strftime('%b'), 'users': cnt, 'cumulative': running_cum})
         else: # year
             months_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
             curr_m_idx = today.month
+            year_start = timezone.make_aware(datetime.combine(date(today.year, 1, 1), datetime.min.time()))
+            prior_users = base_users.filter(created_at__lt=year_start).count()
+            month_counts_qs = (
+                base_users.filter(created_at__gte=year_start, created_at__year=today.year)
+                .annotate(m=TruncMonth('created_at'))
+                .values('m')
+                .annotate(cnt=Count('id'))
+            )
+            cnt_map = {item['m'].month: item['cnt'] for item in month_counts_qs if item['m']}
+            running_cum = prior_users
             for idx, m_name in enumerate(months_names, start=1):
                 if idx <= curr_m_idx:
-                    try:
-                        import calendar
-                        _, l_day = calendar.monthrange(today.year, idx)
-                        s_dt = timezone.make_aware(datetime.combine(date(today.year, idx, 1), datetime.min.time()))
-                        e_dt = timezone.make_aware(datetime.combine(date(today.year, idx, l_day), datetime.max.time()))
-                        cnt = base_users.filter(created_at__gte=s_dt, created_at__lte=e_dt).count()
-                        cum = base_users.filter(created_at__lte=e_dt).count()
-                    except Exception:
-                        cnt = 0
-                        cum = total_users
-                    chart_data.append({'month': m_name, 'users': cnt, 'cumulative': cum})
+                    cnt = cnt_map.get(idx, 0)
+                    running_cum += cnt
+                    chart_data.append({'month': m_name, 'users': cnt, 'cumulative': running_cum})
                 else:
                     chart_data.append({'month': m_name, 'users': 0, 'cumulative': total_users})
 
-        return Response({
+        resp_data = {
             'period': period,
             'total_users': total_users,
             'new_users': new_users,
             'active_users': active_users,
             'chart_data': chart_data
-        })
+        }
+        cache.set(cache_key, resp_data, 120)
+        return Response(resp_data)
 
 
 class SalesProfitSummaryView(APIView):
@@ -11160,6 +11213,11 @@ class SalesProfitSummaryView(APIView):
 
         from datetime import datetime, date
         period = request.query_params.get('period', 'month').lower()
+        cache_key = f"sales_profit_{request.user.id}_{period}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
         today = timezone.localdate()
         is_super = (request.user.role == 'super_admin')
 
@@ -11263,12 +11321,40 @@ class SalesProfitSummaryView(APIView):
                 profit_factor = 0.73 if is_super else 0.04
                 trend.append({'name': lbl, 'month': lbl, 'sales': round(h_sales), 'profit': round(h_sales * profit_factor)})
         elif period == 'week':
+            week_start_date = today - timedelta(days=6)
+            db_trend = (
+                base_qs.filter(created_at__date__gte=week_start_date)
+                .annotate(d=TruncDate('created_at'))
+                .values('d')
+                .annotate(s=Sum('total_price'))
+                .order_by('d')
+            )
+            day_map = {t['d']: float(t['s'] or 0) for t in db_trend if t.get('d')}
+            profit_factor = 0.73 if is_super else 0.04
             for i in range(6, -1, -1):
                 day_d = today - timedelta(days=i)
-                d_sales = float(base_qs.filter(created_at__date=day_d).aggregate(t=Sum('total_price'))['t'] or 0)
-                profit_factor = 0.73 if is_super else 0.04
+                d_sales = day_map.get(day_d, 0)
                 lbl = day_d.strftime('%a')
                 trend.append({'name': lbl, 'month': lbl, 'sales': round(d_sales), 'profit': round(d_sales * profit_factor)})
+        elif period == 'year':
+            year_start = today.replace(month=1, day=1)
+            months_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            curr_m = today.month
+            db_trend = (
+                base_qs.filter(created_at__date__gte=year_start)
+                .annotate(m=TruncMonth('created_at'))
+                .values('m')
+                .annotate(s=Sum('total_price'))
+                .order_by('m')
+            )
+            month_map = {t['m'].month: float(t['s'] or 0) for t in db_trend if t.get('m')}
+            profit_factor = 0.73 if is_super else 0.04
+            for m_num, m_lbl in enumerate(months_names, start=1):
+                if m_num <= curr_m:
+                    s_val = month_map.get(m_num, 0)
+                    trend.append({'name': m_lbl, 'month': m_lbl, 'sales': round(s_val), 'profit': round(s_val * profit_factor)})
+                else:
+                    trend.append({'name': m_lbl, 'month': m_lbl, 'sales': 0, 'profit': 0})
         else:
             six_m_ago = today - timedelta(days=180)
             db_trend = (
@@ -11292,7 +11378,7 @@ class SalesProfitSummaryView(APIView):
                     {'name': m_names[2], 'month': m_names[2], 'sales': round(total_sales * 0.76), 'profit': round(athirai_profit * 0.76)},
                 ]
 
-        return Response({
+        resp_data = {
             'period': period,
             'all_sales': total_sales,
             'athirai_profit': athirai_profit,
@@ -11304,7 +11390,9 @@ class SalesProfitSummaryView(APIView):
             'sales_breakdown': sales_breakdown,
             'profit_breakdown': profit_breakdown,
             'monthly_trend': trend,
-        })
+        }
+        cache.set(cache_key, resp_data, 120)
+        return Response(resp_data)
 
 
 class TierCommissionView(APIView):
@@ -11324,11 +11412,26 @@ class TierCommissionView(APIView):
         'customer': (CustomerProfile, 'customer_id', 'Customer'),
     }
 
+    ROLE_DOWNLINES = {
+        'super_admin': ['admin', 'dealer', 'sub_dealer', 'promotor', 'customer'],
+        'admin': ['dealer', 'sub_dealer', 'promotor', 'customer'],
+        'dealer': ['sub_dealer', 'promotor', 'customer'],
+        'sub_dealer': ['promotor', 'customer'],
+        'promotor': ['customer'],
+    }
+
     def get(self, request):
-        if request.user.role != 'super_admin':
+        ALLOWED_ROLES = {'super_admin', 'admin', 'dealer', 'sub_dealer', 'promotor'}
+        if request.user.role not in ALLOWED_ROLES:
             return Response({'error': 'Not authorized'}, status=403)
 
-        role = request.query_params.get('role', 'admin')
+        allowed_tabs = self.ROLE_DOWNLINES.get(request.user.role, ['customer'])
+        default_role = allowed_tabs[0] if allowed_tabs else 'customer'
+
+        role = request.query_params.get('role', default_role)
+        if request.user.role != 'super_admin' and role not in allowed_tabs:
+            role = default_role
+
         cfg = self.PROFILE_MAP.get(role)
         if not cfg:
             return Response({'error': 'invalid role'}, status=400)
@@ -11342,12 +11445,26 @@ class TierCommissionView(APIView):
         export_csv = request.query_params.get('export') == 'csv'
         user_id = request.query_params.get('user_id')
 
+        cache_key = None
+        if not export_csv and not user_id:
+            cache_key = f"tier_comm_{request.user.id}_{role}_{period}_{start_date}_{end_date}_p{page}"
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return Response(cached)
+
         base_qs = CoinRecharge.objects.filter(
             status='success', source='commission', commission_level__gte=1, user__role=role
         )
 
+        downline_ids = None
+        if request.user.role in ('admin', 'dealer', 'sub_dealer', 'promotor'):
+            downline_ids = _collect_full_downline_user_ids(request.user)
+            base_qs = base_qs.filter(user_id__in=downline_ids)
+
         # ── Drill-down: oru specific earner-oda individual commission history mattum ──
         if user_id:
+            if downline_ids is not None and int(user_id) not in downline_ids:
+                return Response({'error': 'User not in your downline team'}, status=403)
             person_qs = _apply_period_filter(base_qs.filter(user_id=user_id), period, start_date, end_date)
             person_qs = person_qs.select_related('related_order__user').order_by('-created_at')
             total_person_txns = person_qs.count()
@@ -11385,11 +11502,15 @@ class TierCommissionView(APIView):
             base_qs.filter(created_at__date__gte=six_months_ago)
             .annotate(month=TruncMonth('created_at'))
             .values('month')
-            .annotate(revenue=Sum('amount_paid'))
+            .annotate(revenue=Sum('amount_paid'), transactions=Count('id'))
             .order_by('month')
         )
         monthly_trend = [
-            {'month': t['month'].strftime('%b %Y'), 'revenue': float(t['revenue'])}
+            {
+                'month': t['month'].strftime('%b %Y'),
+                'revenue': float(t['revenue'] or 0),
+                'transactions': t.get('transactions', 0),
+            }
             for t in trend_qs
         ]
 
@@ -11435,9 +11556,10 @@ class TierCommissionView(APIView):
         start = (page - 1) * page_size
         page_leaderboard = leaderboard[start:start + page_size]
 
-        return Response({
+        resp_data = {
             'role': role,
             'role_label': role_label,
+            'allowed_tabs': allowed_tabs,
             'period': period,
             'total_commission': float(total_commission),
             'total_coins': total_coins,
@@ -11447,7 +11569,10 @@ class TierCommissionView(APIView):
             'leaderboard': page_leaderboard,
             'page': page,
             'has_more': start + page_size < total_leaders,
-        })
+        }
+        if cache_key:
+            cache.set(cache_key, resp_data, 120)
+        return Response(resp_data)
 
 
 def _find_user_by_public_id(public_id):

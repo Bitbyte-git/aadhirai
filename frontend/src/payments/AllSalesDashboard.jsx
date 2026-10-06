@@ -173,7 +173,7 @@ function AnimatedNumber({ value, prefix = '', suffix = '', duration = 650 }) {
 
 function Sparkline({ color = '#2DD4BF', width = 90, height = 36 }) {
   return (
-    <svg width={width} height={height} viewBox="0 0 90 36" fill="none" style={{ flexShrink: 0 }}>
+    <svg className="ref-sparkline" width={width} height={height} viewBox="0 0 90 36" fill="none" style={{ flexShrink: 0 }}>
       <path
         d="M2 28 C 16 32, 22 14, 34 20 C 46 26, 52 8, 64 12 C 76 16, 80 4, 88 6"
         stroke={color}
@@ -280,11 +280,32 @@ export default function AllSalesDashboard({
 
   const fetchData = async (p = 1, period = activeFilter, from = customFrom, to = customTo, isPageNav = false) => {
     const fetchId = ++fetchIdRef.current
+    const cacheKey = `asd_${view}_${period}_${from || ''}_${to || ''}_p${p}`
+
+    // Instant local cache load from sessionStorage
+    if (!isPageNav) {
+      try {
+        const cachedRaw = sessionStorage.getItem(cacheKey)
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw)
+          if (cached && cached.summary) {
+            setSummary(cached.summary)
+            setTxns(cached.transactions || [])
+            setHasMore(Boolean(cached.has_more))
+            setPage(p)
+            setLoading(false)
+            setLoadError(false)
+          }
+        }
+      } catch (err) {}
+    }
+
     if (isPageNav) {
       setTableLoading(true)
-    } else {
+    } else if (!sessionStorage.getItem(cacheKey)) {
       setLoading(true)
     }
+
     try {
       const { default: api } = await import('../api')
       let url = `/superadmin/payments/?page=${p}&page_size=${PAGE_SIZE}&period=${period}&view=${view}`
@@ -294,20 +315,34 @@ export default function AllSalesDashboard({
       const res = await api.get(url)
       if (fetchId !== fetchIdRef.current) return
 
-      setSummary({
+      const newSummary = {
         total_revenue: res.data.total_revenue || 0,
         total_coins_sold: res.data.total_coins_sold || 0,
         total_transactions: res.data.total_transactions || 0,
         monthly_trend: res.data.monthly_trend || [],
         payment_breakdown: res.data.payment_breakdown || [],
-      })
-      setTxns(res.data.transactions || [])
-      setHasMore(Boolean(res.data.has_more))
+      }
+      const newTxns = res.data.transactions || []
+      const newHasMore = Boolean(res.data.has_more)
+
+      setSummary(newSummary)
+      setTxns(newTxns)
+      setHasMore(newHasMore)
       setPage(p)
       setLoadError(false)
+
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify({
+          summary: newSummary,
+          transactions: newTxns,
+          has_more: newHasMore,
+        }))
+      } catch (err) {}
     } catch {
       if (fetchId !== fetchIdRef.current) return
-      setLoadError(true)
+      if (!sessionStorage.getItem(cacheKey)) {
+        setLoadError(true)
+      }
     } finally {
       if (fetchId === fetchIdRef.current) {
         setLoading(false)
@@ -595,6 +630,7 @@ export default function AllSalesDashboard({
           color: ${DARK};
           box-sizing: border-box;
           padding: 28px 36px 80px;
+          overflow-x: hidden;
         }
 
         .ref-container {
@@ -1586,16 +1622,20 @@ export default function AllSalesDashboard({
         }
 
         @media (max-width: 860px) {
+          .ref-dashboard-wrapper {
+            padding: 14px 10px 60px !important;
+          }
           .ref-kpi-grid {
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 10px !important;
+          }
+          .ref-card.hero {
+            grid-column: span 2 !important;
           }
           .ref-donut-container {
             grid-template-columns: 1fr;
             text-align: center;
             gap: 20px;
-          }
-          .ref-dashboard-wrapper {
-            padding: 16px 14px 60px;
           }
           .ref-header {
             flex-direction: column;
@@ -1608,12 +1648,71 @@ export default function AllSalesDashboard({
           }
         }
 
-        @media (max-width: 580px) {
+        @media (max-width: 680px) {
+          .ref-dashboard-wrapper {
+            padding: 12px 8px 50px !important;
+          }
           .ref-kpi-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 10px !important;
+          }
+          .ref-card.hero {
+            grid-column: span 2 !important;
+          }
+          .ref-card {
+            padding: 12px 10px !important;
+            min-width: 0 !important;
+            overflow: hidden !important;
+            border-radius: 12px !important;
+          }
+          .ref-card-meta {
+            min-width: 0 !important;
+            overflow: hidden !important;
+          }
+          .ref-card-label {
+            font-size: 9px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            letter-spacing: 0.5px !important;
+          }
+          .ref-card-num {
+            font-size: 17px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+          }
+          .ref-card-top {
+            gap: 8px !important;
+            margin-bottom: 6px !important;
+          }
+          .ref-card-icon-circle {
+            width: 32px !important;
+            height: 32px !important;
+          }
+          .ref-card-icon-circle svg {
+            width: 16px !important;
+            height: 16px !important;
+          }
+          .ref-card-bottom {
+            gap: 6px !important;
+            margin-top: 6px !important;
+          }
+          .ref-card-sub {
+            font-size: 9.5px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            max-width: 100% !important;
+          }
+          .ref-sparkline {
+            width: 44px !important;
+            height: 20px !important;
+            flex-shrink: 0 !important;
           }
           .ref-summary-tiles {
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
           }
           .ref-tabs-group {
             width: 100%;
@@ -1621,6 +1720,10 @@ export default function AllSalesDashboard({
             flex-wrap: nowrap;
             -webkit-overflow-scrolling: touch;
             padding-bottom: 4px;
+            scrollbar-width: none;
+          }
+          .ref-tabs-group::-webkit-scrollbar {
+            display: none;
           }
           .ref-tab {
             flex-shrink: 0;
@@ -1641,6 +1744,42 @@ export default function AllSalesDashboard({
             align-items: stretch;
             gap: 12px;
             padding: 14px 16px;
+          }
+          .ref-table-footer {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+            padding: 14px 16px;
+          }
+          .ref-page-buttons {
+            justify-content: center;
+            flex-wrap: wrap;
+          }
+          .ref-rows-pills {
+            justify-content: center;
+          }
+        }
+
+        @media (max-width: 420px) {
+          .ref-kpi-grid {
+            gap: 8px !important;
+          }
+          .ref-card {
+            padding: 10px 8px !important;
+          }
+          .ref-card-num {
+            font-size: 15px !important;
+          }
+          .ref-sparkline {
+            display: none !important;
+          }
+          .ref-summary-tiles {
+            grid-template-columns: 1fr;
+          }
+          .ref-modal-card {
+            margin: 8px;
+            width: calc(100% - 16px);
+            padding: 14px;
           }
         }
       `}</style>

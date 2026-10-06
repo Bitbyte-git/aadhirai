@@ -60,6 +60,16 @@ export default function InternalRoleNavbar({
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [activeGroup, setActiveGroup] = useState(null)
   const [openDrawerSection, setOpenDrawerSection] = useState(null)
+  const closeTimerRef = useRef(null)
+
+  const openGroupNow = (label) => {
+    clearTimeout(closeTimerRef.current)
+    setActiveGroup(label)
+  }
+  const scheduleCloseGroup = () => {
+    clearTimeout(closeTimerRef.current)
+    closeTimerRef.current = setTimeout(() => setActiveGroup(null), 180)
+  }
 
   // ── Announcements (self-contained — same feature every internal role sees) ──
   const annMeta = ANN_ROLE_META[roleTitle] || ANN_ROLE_META.ADMIN
@@ -341,7 +351,11 @@ export default function InternalRoleNavbar({
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
   }, [])
 
   // Keyboard shortcut Ctrl+K / Cmd+K / Slash to focus search
@@ -827,27 +841,91 @@ export default function InternalRoleNavbar({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0 clamp(10px, 1.4vw, 24px);
-          gap: clamp(6px, 0.8vw, 14px);
+          padding: 0 clamp(12px, 1.5vw, 26px);
+          gap: clamp(8px, 1vw, 18px);
           width: 100%;
           box-sizing: border-box;
           max-width: 100%;
         }
 
         /* ── BRAND LOGO & TITLE (Matching SuperAdminNavbar) ── */
-        .irn-nav-left { display: flex; align-items: center; flex-shrink: 0; min-width: 0; }
-        .san-navbar-brand { border: 0; background: transparent; display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; text-decoration: none; transition: opacity 0.15s ease; flex-shrink: 0; }
+        .irn-nav-left {
+          display: flex;
+          align-items: center;
+          min-width: 0;
+          gap: clamp(8px, 1vw, 14px);
+          flex: 0 0 auto;
+        }
+        .san-navbar-brand {
+          border: 0;
+          background: transparent;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 4px 0;
+          cursor: pointer;
+          text-decoration: none;
+          transition: opacity 0.15s ease;
+          flex-shrink: 0;
+          min-width: max-content;
+        }
         .san-navbar-brand:hover { opacity: 0.88; }
-        .san-brand-logo-wrap { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 9px; background: rgba(7, 59, 63, 0.04); padding: 3px; flex-shrink: 0; border: 1px solid rgba(187, 137, 88, 0.2); }
+        .san-brand-logo-wrap {
+          width: 36px;
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 9px;
+          background: rgba(7, 59, 63, 0.04);
+          padding: 3px;
+          flex-shrink: 0;
+          border: 1px solid rgba(187, 137, 88, 0.2);
+        }
         .san-brand-logo-wrap img { width: 100%; height: 100%; object-fit: contain; }
-        .san-brand-text { display: flex; flex-direction: column; line-height: 1; text-align: left; }
-        .san-brand-title { font-family: Georgia, 'Times New Roman', serif; font-size: clamp(16px, 1.15vw, 19px); font-weight: 850; letter-spacing: 0.03em; color: #073B3F; }
-        .san-brand-badge { font-size: 8px; font-weight: 850; letter-spacing: 0.16em; color: #BB8958; margin-top: 3px; text-transform: uppercase; }
-        .san-brand-divider { width: 1px; height: 24px; background: rgba(7, 59, 63, 0.1); margin: 0 clamp(6px, 0.8vw, 14px); flex-shrink: 0; }
+        .san-brand-text {
+          display: flex;
+          flex-direction: column;
+          line-height: 1;
+          text-align: left;
+          white-space: nowrap;
+        }
+        .san-brand-title {
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: clamp(15px, 1.15vw, 19px);
+          font-weight: 850;
+          letter-spacing: 0.03em;
+          color: #073B3F;
+          white-space: nowrap;
+        }
+        .san-brand-badge {
+          font-size: 8px;
+          font-weight: 850;
+          letter-spacing: 0.16em;
+          color: #BB8958;
+          margin-top: 3px;
+          text-transform: uppercase;
+          white-space: nowrap;
+        }
+        .san-brand-divider {
+          width: 1px;
+          height: 24px;
+          background: rgba(7, 59, 63, 0.1);
+          margin: 0 clamp(4px, 0.6vw, 10px);
+          flex-shrink: 0;
+        }
 
         /* ── SEARCH BLOCK ── */
-        .san-search-block { position: relative; width: clamp(130px, 10vw, 200px); transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1); flex-shrink: 1; }
-        .san-search-block.is-focused, .san-search-block:focus-within { width: clamp(170px, 14vw, 260px); }
+        .san-search-block {
+          position: relative;
+          width: clamp(140px, 11vw, 210px);
+          transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+          flex-shrink: 0;
+          min-width: 0;
+        }
+        .san-search-block.is-focused, .san-search-block:focus-within {
+          width: clamp(170px, 13.5vw, 250px);
+        }
         .san-search { height: 38px; width: 100%; border: 1px solid #DFE7E5; border-radius: 10px; background: #F7FAF9; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 11px; font-size: 13px; font-weight: 500; transition: all 0.18s ease; }
         .san-search-block.is-focused .san-search, .san-search:focus-within { border-color: #073B3F; background: #FFFFFF; box-shadow: 0 0 0 3px rgba(7, 59, 63, 0.08); }
         .san-search-icon-wrap { display: flex; align-items: center; color: #718280; flex-shrink: 0; cursor: pointer; }
@@ -860,9 +938,42 @@ export default function InternalRoleNavbar({
         .san-mic-btn.is-listening { background: #DC2626; color: #FFFFFF; animation: san-mic-pulse 1.1s ease-in-out infinite; }
         @keyframes san-mic-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(201,32,53,.5); } 50% { box-shadow: 0 0 0 8px rgba(201,32,53,0); } }
 
-        /* ── SUGGESTIONS DROPDOWN ── */
-        .san-suggestions-dropdown { position: absolute; top: calc(100% + 8px); left: 0; width: max(100%, 360px); max-width: 440px; max-height: 460px; overflow-y: auto; background: #FFFFFF; border: 1.5px solid rgba(189,207,206,.9); border-radius: 18px; box-shadow: 0 20px 48px rgba(7,59,63,.18), 0 4px 12px rgba(0,0,0,.06); z-index: 1200; padding: 10px; display: flex; flex-direction: column; gap: 8px; animation: sanDropdownIn 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
-        @media (max-width: 640px) { .san-suggestions-dropdown { width: 100%; max-width: 100%; } }
+        /* ── SUGGESTIONS DROPDOWN (Luxury responsive mobile + desktop) ── */
+        .san-suggestions-dropdown {
+          position: absolute;
+          top: calc(100% + 8px);
+          left: 0;
+          width: max(100%, 380px);
+          max-width: 480px;
+          max-height: 480px;
+          overflow-y: auto;
+          background: #FFFFFF;
+          border: 1.5px solid rgba(189,207,206,.9);
+          border-radius: 18px;
+          box-shadow: 0 20px 48px rgba(7,59,63,.18), 0 4px 12px rgba(0,0,0,.06);
+          z-index: 1200;
+          padding: 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          animation: sanDropdownIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @media (max-width: 768px) {
+          .san-suggestions-dropdown {
+            position: fixed !important;
+            top: 66px !important;
+            left: 10px !important;
+            right: 10px !important;
+            width: auto !important;
+            max-width: 500px !important;
+            margin: 0 auto !important;
+            max-height: calc(100dvh - 80px) !important;
+            border-radius: 16px !important;
+            box-shadow: 0 16px 48px rgba(7, 59, 63, 0.22), 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+            z-index: 2200 !important;
+            padding: 10px !important;
+          }
+        }
         @keyframes sanDropdownIn { from { opacity: 0; transform: translateY(-6px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
         .san-sug-section { display: flex; flex-direction: column; gap: 3px; }
         .san-sug-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; color: #7A8987; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
@@ -875,14 +986,14 @@ export default function InternalRoleNavbar({
         .san-recent-item-left { display: flex; align-items: center; gap: 9px; }
         .san-recent-del { background: transparent; border: 0; color: #7A8987; cursor: pointer; padding: 3px; border-radius: 50%; opacity: 0.6; }
         .san-recent-del:hover { opacity: 1; color: #C92035; background: rgba(201,32,53,0.1); }
-        .san-sug-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 12px; border: 0; background: transparent; cursor: pointer; text-align: left; width: 100%; transition: all .14s ease; }
+        .san-sug-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 12px; border: 0; background: transparent; cursor: pointer; text-align: left; width: 100%; transition: all .14s ease; box-sizing: border-box; }
         .san-sug-row:hover, .san-sug-row.is-selected { background: #F0F4F4; transform: translateX(2px); }
         .san-sug-row-icon { width: 32px; height: 32px; border-radius: 9px; background: rgba(12,64,68,0.08); color: #0C4044; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .san-sug-row.is-user-row .user-icon { background: rgba(187,137,88,0.14); color: #A2764C; }
         .san-sug-row-body { flex: 1; min-width: 0; }
-        .san-sug-row-top { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
-        .san-sug-title { font-size: 13.5px; font-weight: 750; color: #073B3F; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .san-sug-badge { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; padding: 2px 6px; border-radius: 6px; background: rgba(12,64,68,0.08); color: #0C4044; flex-shrink: 0; }
+        .san-sug-row-top { display: flex; align-items: center; gap: 8px; justify-content: space-between; min-width: 0; }
+        .san-sug-title { font-size: 13.5px; font-weight: 750; color: #073B3F; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+        .san-sug-badge { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 2px 7px; border-radius: 6px; background: rgba(12,64,68,0.08); color: #0C4044; flex-shrink: 0; white-space: nowrap; }
         .san-sug-badge.user-badge { background: rgba(187,137,88,0.15); color: #8C5D2C; }
         .san-sug-desc { display: block; font-size: 11.5px; color: #7A8987; font-weight: 500; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .san-sug-arrow { color: #A4B2B0; display: flex; align-items: center; flex-shrink: 0; }
@@ -915,10 +1026,17 @@ export default function InternalRoleNavbar({
         .san-voice-mic-main:not(.is-active) { background: #073B3F; box-shadow: 0 10px 28px rgba(7, 59, 63, 0.28); }
         .san-voice-status-sub { font-size: 13px; color: #7A8987; font-weight: 700; margin-top: -6px; }
 
-        /* ── DESKTOP CENTER NAVIGATION (SuperAdmin Style) ── */
-        .san-menu-center { display: flex; align-items: center; justify-content: center; gap: clamp(3px, 0.45vw, 8px); flex: 1 1 auto; min-width: 0; }
+        /* ── DESKTOP CENTER NAVIGATION (Balanced, Symmetrical SaaS layout) ── */
+        .san-menu-center {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: clamp(2px, 0.4vw, 8px);
+          flex: 1 1 auto;
+          min-width: 0;
+        }
         .san-menu-group { position: relative; display: flex; align-items: center; flex-shrink: 0; }
-        .san-menu-trigger { border: 1px solid transparent; background: transparent; padding: 6px clamp(5px, 0.45vw, 10px); border-radius: 9px; color: #263836; font-family: inherit; font-size: clamp(12px, 0.78vw, 13.5px); font-weight: 600; display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1); user-select: none; }
+        .san-menu-trigger { border: 1px solid transparent; background: transparent; padding: 6px clamp(4px, 0.45vw, 9px); border-radius: 9px; color: #263836; font-family: inherit; font-size: clamp(11.5px, 0.78vw, 13.5px); font-weight: 600; display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1); user-select: none; }
         .san-menu-trigger:hover { background: rgba(7, 59, 63, 0.05); color: #073B3F; border-color: rgba(7, 59, 63, 0.08); }
         .san-menu-trigger.is-active, .san-menu-group.is-open .san-menu-trigger { background: #073B3F; color: #FFFFFF; border-color: #073B3F; box-shadow: 0 4px 14px rgba(7, 59, 63, 0.15); }
         .san-menu-trigger.is-aug { background: rgba(204, 168, 129, 0.15); color: #8C5E28; font-weight: 750; border-color: rgba(204, 168, 129, 0.35); }
@@ -927,8 +1045,56 @@ export default function InternalRoleNavbar({
         .san-menu-group.is-open .san-menu-trigger-chevron { color: #E5BF91; transform: rotate(180deg); }
 
         /* ── SAAS POPUP DROPDOWN (Matching SuperAdminNavbar) ── */
-        .san-menu-dropdown { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%) translateY(4px); min-width: 220px; max-width: 280px; background: #FFFFFF; border: 1.5px solid rgba(7, 59, 63, 0.1); border-radius: 12px; box-shadow: 0 16px 38px rgba(7, 59, 63, 0.12), 0 4px 12px rgba(0, 0, 0, 0.04); padding: 6px; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.16s ease; z-index: 1000; }
-        .san-menu-group:hover .san-menu-dropdown, .san-menu-group.is-open .san-menu-dropdown { opacity: 1; visibility: visible; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+        .san-menu-dropdown {
+          position: absolute;
+          top: calc(100% + 6px);
+          left: 50%;
+          transform: translateX(-50%) translateY(4px);
+          min-width: 220px;
+          max-width: 290px;
+          background: #FFFFFF;
+          border: 1.5px solid rgba(7, 59, 63, 0.12);
+          border-radius: 14px;
+          box-shadow: 0 18px 44px rgba(7, 59, 63, 0.15), 0 4px 14px rgba(0, 0, 0, 0.04);
+          padding: 8px 6px;
+          opacity: 0;
+          visibility: hidden;
+          pointer-events: none;
+          transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.16s ease;
+          z-index: 1500;
+        }
+        .san-menu-dropdown::before {
+          content: '';
+          position: absolute;
+          top: -12px;
+          left: 0;
+          right: 0;
+          height: 12px;
+        }
+        .san-menu-group:hover .san-menu-dropdown,
+        .san-menu-group.is-open .san-menu-dropdown {
+          opacity: 1;
+          visibility: visible;
+          pointer-events: auto;
+          transform: translateX(-50%) translateY(0);
+        }
+        .san-menu-group:first-child .san-menu-dropdown {
+          left: 0;
+          transform: translateY(4px);
+        }
+        .san-menu-group:first-child:hover .san-menu-dropdown,
+        .san-menu-group:first-child.is-open .san-menu-dropdown {
+          transform: translateY(0);
+        }
+        .san-menu-group:last-of-type .san-menu-dropdown {
+          left: auto;
+          right: 0;
+          transform: translateY(4px);
+        }
+        .san-menu-group:last-of-type:hover .san-menu-dropdown,
+        .san-menu-group:last-of-type.is-open .san-menu-dropdown {
+          transform: translateY(0);
+        }
         .san-menu-dropdown-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px 8px; border-bottom: 1px solid rgba(7, 59, 63, 0.06); margin-bottom: 4px; }
         .san-menu-dropdown-tag { font-size: 11px; font-weight: 750; color: #073B3F; letter-spacing: 0.03em; text-transform: uppercase; }
         .san-menu-dropdown-count { font-size: 10px; font-weight: 600; color: #8C9E9B; }
@@ -950,40 +1116,46 @@ export default function InternalRoleNavbar({
         .san-logout-link:hover { background: #FEE2E2; color: #DC2626; border-color: #FCA5A5; }
         .san-hamburger { display: none; width: 38px; height: 38px; border-radius: 10px; border: 1px solid #DFE7E5; background: #F7FAF9; color: #0C4044; align-items: center; justify-content: center; cursor: pointer; }
 
-        @media (max-width: 1100px) {
+        @media (max-width: 1180px) {
           .san-menu-center { display: none !important; }
           .san-hamburger { display: flex !important; }
           .san-logout-link { display: none !important; }
+          .irn-nav-left { flex: 1; min-width: 0; max-width: calc(100% - 90px); }
+          .san-search-block { width: clamp(140px, 28vw, 240px); }
+          .san-search-block.is-focused, .san-search-block:focus-within { width: clamp(180px, 36vw, 300px); }
         }
 
-        @media (max-width: 580px) {
-          .irn-inner {
-            padding: 8px 12px;
-            gap: 8px;
-          }
-          .irn-top-spacer {
-            height: 64px;
-          }
-          .irn-brand img {
-            width: 35px;
-            height: 35px;
-          }
-          .irn-brand strong {
-            font-size: 18px;
-          }
-          .irn-brand small {
-            font-size: 7.5px;
-            letter-spacing: 0.18em;
-          }
-          .irn-mobile-menu-btn {
-            height: 34px;
-            padding: 0 10px;
-            font-size: 11px;
-            gap: 5px;
-          }
-          .irn-mobile-menu-btn span {
-            display: inline;
-          }
+        @media (max-width: 768px) {
+          .irn-top { height: 64px; }
+          .irn-top-spacer { height: 64px; }
+          .irn-inner { height: 64px; padding: 0 12px; gap: 8px; }
+          .san-brand-badge { display: none; }
+          .san-brand-divider { display: none; }
+          .irn-nav-left { gap: 8px; }
+          .san-search-block { flex: 1; min-width: 0; width: auto; max-width: 220px; }
+          .san-search-block.is-focused, .san-search-block:focus-within { width: auto; max-width: 260px; }
+          .san-search { height: 35px; padding: 0 4px 0 8px; gap: 5px; }
+          .san-search-input { font-size: 12px; }
+          .san-mic-btn { width: 26px; height: 26px; }
+          .san-bell-btn, .san-hamburger { width: 35px; height: 35px; border-radius: 9px; }
+          .san-actions-right { gap: 6px; }
+        }
+
+        @media (max-width: 520px) {
+          .irn-inner { padding: 0 10px; gap: 6px; }
+          .san-brand-logo-wrap { width: 32px; height: 32px; padding: 2px; }
+          .san-brand-title { font-size: 15px; }
+          .irn-nav-left { gap: 6px; }
+          .san-search-block { flex: 1; min-width: 0; width: auto; max-width: 180px; }
+          .san-search-block.is-focused, .san-search-block:focus-within { width: auto; }
+          .san-search { height: 34px; padding: 0 4px 0 8px; font-size: 12px; }
+          .san-search-input { font-size: 12px; }
+          .san-bell-btn, .san-hamburger { width: 34px; height: 34px; }
+        }
+
+        @media (max-width: 400px) {
+          .san-brand-title { font-size: 13.5px; }
+          .san-search-block { max-width: 140px; }
         }
 
         /* ── MOBILE DRAWER OVERLAY & PANEL ── */
@@ -1725,19 +1897,26 @@ export default function InternalRoleNavbar({
                 <div
                   className={`san-menu-group ${activeGroup === group.label ? 'is-open' : ''}`}
                   key={group.label}
-                  onMouseEnter={() => setActiveGroup(group.label)}
-                  onMouseLeave={() => setActiveGroup(null)}
+                  onMouseEnter={() => openGroupNow(group.label)}
+                  onMouseLeave={scheduleCloseGroup}
                 >
                   <button
                     className={`san-menu-trigger ${activeGroup === group.label ? 'is-active' : ''}`}
                     type="button"
-                    onClick={() => setActiveGroup(curr => curr === group.label ? null : group.label)}
+                    onClick={() => {
+                      clearTimeout(closeTimerRef.current)
+                      setActiveGroup(curr => curr === group.label ? null : group.label)
+                    }}
                     aria-expanded={activeGroup === group.label}
                   >
                     <span className="san-menu-trigger-text">{group.label}</span>
                     <svg className={`san-menu-trigger-chevron ${activeGroup === group.label ? 'is-rotated' : ''}`} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="m6 9 6 6 6-6" /></svg>
                   </button>
-                  <div className="san-menu-dropdown">
+                  <div
+                    className="san-menu-dropdown"
+                    onMouseEnter={() => openGroupNow(group.label)}
+                    onMouseLeave={scheduleCloseGroup}
+                  >
                     <div className="san-menu-dropdown-header">
                       <span className="san-menu-dropdown-tag">{group.label}</span>
                       <span className="san-menu-dropdown-count">{group.items.length} items</span>

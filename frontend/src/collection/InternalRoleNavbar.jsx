@@ -841,11 +841,12 @@ export default function InternalRoleNavbar({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0 clamp(12px, 1.5vw, 26px);
-          gap: clamp(8px, 1vw, 18px);
+          padding: 0 clamp(14px, 1.6vw, 28px);
+          gap: clamp(10px, 1.2vw, 22px);
           width: 100%;
           box-sizing: border-box;
-          max-width: 100%;
+          max-width: 1540px;
+          margin: 0 auto;
         }
 
         /* ── BRAND LOGO & TITLE (Matching SuperAdminNavbar) ── */
@@ -1031,12 +1032,12 @@ export default function InternalRoleNavbar({
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: clamp(2px, 0.4vw, 8px);
+          gap: clamp(4px, 0.6vw, 12px);
           flex: 1 1 auto;
           min-width: 0;
         }
         .san-menu-group { position: relative; display: flex; align-items: center; flex-shrink: 0; }
-        .san-menu-trigger { border: 1px solid transparent; background: transparent; padding: 6px clamp(4px, 0.45vw, 9px); border-radius: 9px; color: #263836; font-family: inherit; font-size: clamp(11.5px, 0.78vw, 13.5px); font-weight: 600; display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1); user-select: none; }
+        .san-menu-trigger { border: 1px solid transparent; background: transparent; padding: 7px clamp(6px, 0.6vw, 12px); border-radius: 9px; color: #263836; font-family: inherit; font-size: clamp(12.5px, 0.85vw, 13.5px); font-weight: 650; display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1); user-select: none; }
         .san-menu-trigger:hover { background: rgba(7, 59, 63, 0.05); color: #073B3F; border-color: rgba(7, 59, 63, 0.08); }
         .san-menu-trigger.is-active, .san-menu-group.is-open .san-menu-trigger { background: #073B3F; color: #FFFFFF; border-color: #073B3F; box-shadow: 0 4px 14px rgba(7, 59, 63, 0.15); }
         .san-menu-trigger.is-aug { background: rgba(204, 168, 129, 0.15); color: #8C5E28; font-weight: 750; border-color: rgba(204, 168, 129, 0.35); }

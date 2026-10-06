@@ -1,10 +1,207 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts'
 import api from '../api'
 import ShopNavbar from '../collection/ShopNavbar'
 import CopyShopUrlButton from '../collection/CopyShopUrlButton'
-import { IrdOrderTrendPanel, IrdDonutPanel, irdPalette } from './AdminDashboard'
+import { IrdDonutPanel, irdPalette } from './AdminDashboard'
+import { SkeletonChart } from '../components/Skeleton'
 import '../components/skeleton.css'
+
+// ── SESSION STORAGE CACHE HELPERS (Instant 0ms Page Load) ──
+const loadCache = (key, fallback) => {
+  try {
+    const val = sessionStorage.getItem(key)
+    return val !== null ? JSON.parse(val) : fallback
+  } catch {
+    return fallback
+  }
+}
+const saveCache = (key, val) => {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(val))
+  } catch {}
+}
+
+const CHART_PERIODS = [
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: '7D' },
+  { key: 'month', label: '1M' },
+  { key: '3month', label: '3M' },
+  { key: 'year', label: '1Y' },
+  { key: 'all', label: 'All' },
+]
+
+function normalizeTimeseries(rows, period) {
+  const formatAxis = (iso) => {
+    const d = new Date(iso)
+    if (period === 'today') return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })
+    if (period === 'week' || period === 'month' || period === '3month') return `${d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`
+    return d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+  }
+  const grouped = new Map()
+  ;(rows || []).forEach(row => {
+    const label = formatAxis(row.time)
+    const prev = grouped.get(label)
+    if (prev) prev.count += Number(row.count || 0)
+    else grouped.set(label, {
+      ...row, count: Number(row.count || 0), label,
+      fullDate: new Date(row.time).toLocaleDateString('en-IN', { year: 'numeric', month: '2-digit', day: '2-digit' }).split('/').reverse().join('-'),
+      fullTime: new Date(row.time).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }),
+    })
+  })
+  return Array.from(grouped.values()).sort((a, b) => new Date(a.time) - new Date(b.time))
+}
+
+// ── CUSTOM ANIMATED & SCROLLABLE SHOP ORDER TREND PANEL ──
+function ShopOrderTrendPanel({ title = 'Shop Order Volume Trend', endpoint = '/order-timeseries/' }) {
+  const [period, setPeriod] = useState(() => loadCache('shd_chart_period', 'today'))
+  const [data, setData] = useState(() => loadCache(`shd_chart_data_${loadCache('shd_chart_period', 'today')}`, []))
+  const [loading, setLoading] = useState(() => !loadCache(`shd_chart_data_${loadCache('shd_chart_period', 'today')}`, null))
+  const [lastUpdated, setLastUpdated] = useState(() => new Date())
+
+  const fetchData = async (targetPeriod) => {
+    // If cached in sessionStorage, show immediately without loader flicker
+    const cached = loadCache(`shd_chart_data_${targetPeriod}`, null)
+    if (cached && cached.length > 0) {
+      setData(cached)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
+
+    try {
+      const res = await api.get(endpoint, { params: { period: targetPeriod } })
+      const normalized = normalizeTimeseries(res.data?.data || [], targetPeriod)
+      setData(normalized)
+      saveCache(`shd_chart_data_${targetPeriod}`, normalized)
+      setLastUpdated(new Date())
+    } catch {
+      if (!cached) setData([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchData(period)
+  }, [period])
+
+  const handlePeriodChange = (next) => {
+    setPeriod(next)
+    saveCache('shd_chart_period', next)
+  }
+
+  const totalOrders = useMemo(() => data.reduce((sum, r) => sum + Number(r.count || 0), 0), [data])
+
+  return (
+    <div className="sa-saas-card" style={{ marginBottom: 0 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(0,153,87,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#009957', flexShrink: 0 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 20V10M12 20V4M6 20v-6" />
+            </svg>
+          </div>
+          <div>
+            <div style={{ color: '#0C4044', fontSize: '16px', fontWeight: 800 }}>{title}</div>
+            <div style={{ color: '#7A8987', fontSize: '12px', marginTop: '2px' }}>
+              Total orders overview • <b style={{ color: '#009957' }}>{totalOrders.toLocaleString()} orders</b> {lastUpdated ? `(Synced ${lastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })})` : ''}
+            </div>
+          </div>
+        </div>
+
+        {/* Filter Pills with animated transition */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {loading && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 9px', borderRadius: '12px', background: '#E6F4EA', color: '#137333', fontSize: '11px', fontWeight: 700 }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#137333', animation: 'shdPulse 1.4s infinite' }} /> Live
+            </span>
+          )}
+          <div style={{ display: 'flex', background: '#F4F7F6', borderRadius: '20px', padding: '3px', gap: '2px', border: '1px solid #E2EAE8' }}>
+            {CHART_PERIODS.map(p => (
+              <button
+                key={p.key}
+                type="button"
+                onClick={() => handlePeriodChange(p.key)}
+                style={{
+                  background: period === p.key ? '#073B3F' : 'transparent',
+                  color: period === p.key ? '#FFFFFF' : '#5A6A68',
+                  border: 'none',
+                  borderRadius: '16px',
+                  padding: '5px 11px',
+                  fontSize: '11px',
+                  fontWeight: period === p.key ? 750 : 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.18s ease',
+                  boxShadow: period === p.key ? '0 2px 8px rgba(7,59,63,0.18)' : 'none',
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Chart Canvas: Animated Emerald Spline with Horizontal Touch Scroll */}
+      <div className="shd-chart-scroll-box" style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '4px' }}>
+        <div style={{ width: '100%', minWidth: data.length > 8 ? '540px' : '100%', height: '240px', position: 'relative' }}>
+          {loading && data.length === 0 ? (
+            <SkeletonChart height="100%" />
+          ) : data.length === 0 ? (
+            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#7A8987', fontSize: '13px', gap: '6px' }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#BDCFCE" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              <span>No order transactions recorded for this period</span>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data} margin={{ top: 12, right: 12, left: -22, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="shopOrderGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#009957" stopOpacity={0.28} />
+                    <stop offset="60%" stopColor="#009957" stopOpacity={0.08} />
+                    <stop offset="100%" stopColor="#009957" stopOpacity={0.00} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#EEF2F1" vertical={false} />
+                <XAxis dataKey="label" stroke="#8E9E9C" fontSize={10} tickLine={false} axisLine={{ stroke: '#E2EAE8' }} />
+                <YAxis stroke="#8E9E9C" fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null
+                    const row = payload[0].payload
+                    return (
+                      <div style={{ background: '#073B3F', color: '#FFFFFF', borderRadius: 10, padding: '9px 13px', fontSize: 11.5, boxShadow: '0 10px 28px rgba(7,59,63,0.3)', border: '1px solid rgba(204,168,129,0.3)' }}>
+                        <div style={{ color: '#CCA881', fontWeight: 800, marginBottom: 3 }}>{row.label || row.fullDate}</div>
+                        <div style={{ fontWeight: 800, fontSize: 13.5 }}>{Number(row.count || 0).toLocaleString()} orders</div>
+                      </div>
+                    )
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  stroke="#009957"
+                  strokeWidth={2.6}
+                  fill="url(#shopOrderGrad)"
+                  isAnimationActive={true}
+                  animationDuration={1100}
+                  animationEasing="ease-in-out"
+                  dot={{ r: 3.5, fill: '#009957', stroke: '#FFFFFF', strokeWidth: 1.5 }}
+                  activeDot={{ r: 6.5, fill: '#073B3F', stroke: '#009957', strokeWidth: 2.5 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function SectionHeader({ icon, label }) {
   const paths = {
@@ -35,23 +232,26 @@ const PROFILE_FIELDS = [
 
 export default function ShopDashboard() {
   const navigate = useNavigate()
-  const [shop, setShop] = useState(null)
+
+  // ── INSTANT CACHED STATE (0ms Initial Render) ──
+  const [shop, setShop] = useState(() => loadCache('shd_profile', null))
   const [showProfile, setShowProfile] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [editForm, setEditForm] = useState({})
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
 
-  const [stats, setStats] = useState({ yesterday_orders: 0, today_orders: 0, today_new_shops: 0, active_users: 0, total_sub_shops: 0 })
-  const [statsLoading, setStatsLoading] = useState(true)
+  const [stats, setStats] = useState(() => loadCache('shd_stats', { yesterday_orders: 0, today_orders: 0, today_new_shops: 0, active_users: 0, total_sub_shops: 0 }))
+  const [statsLoading, setStatsLoading] = useState(() => !loadCache('shd_stats', null))
 
-  const [typeCounts, setTypeCounts] = useState({ physical: 0, virtual: 0 })
-  const [typeLoading, setTypeLoading] = useState(true)
-  const [login, setLogin] = useState({ active: 0, inactive: 0 })
-  const [loginLoading, setLoginLoading] = useState(true)
+  const [typeCounts, setTypeCounts] = useState(() => loadCache('shd_types', { physical: 0, virtual: 0 }))
+  const [typeLoading, setTypeLoading] = useState(() => !loadCache('shd_types', null))
+
+  const [login, setLogin] = useState(() => loadCache('shd_login', { active: 0, inactive: 0 }))
+  const [loginLoading, setLoginLoading] = useState(() => !loadCache('shd_login', null))
 
   // Live Gold Rate & Live Clock
-  const [goldRate, setGoldRate] = useState(null)
+  const [goldRate, setGoldRate] = useState(() => loadCache('shd_gold_rate', null))
   const [liveTime, setLiveTime] = useState(new Date())
 
   useEffect(() => {
@@ -63,7 +263,11 @@ export default function ShopDashboard() {
     api.get('/metal-rates/')
       .then(res => {
         const d = Array.isArray(res.data) ? res.data[0] : res.data
-        if (d?.gold_22k) setGoldRate(parseFloat(d.gold_22k))
+        if (d?.gold_22k) {
+          const rateVal = parseFloat(d.gold_22k)
+          setGoldRate(rateVal)
+          saveCache('shd_gold_rate', rateVal)
+        }
       })
       .catch(() => {})
   }, [])
@@ -72,6 +276,7 @@ export default function ShopDashboard() {
     try {
       const res = await api.get('/my-shop-profile/')
       setShop(res.data)
+      saveCache('shd_profile', res.data)
     } catch (err) {
       console.error('Shop profile fetch error:', err)
     }
@@ -80,20 +285,42 @@ export default function ShopDashboard() {
   useEffect(() => {
     let current = true
     fetchShopInfo()
+
     api.get('/dashboard-quick-stats/')
-      .then(res => { if (current) setStats(prev => ({ ...prev, ...res.data })) })
+      .then(res => {
+        if (current) {
+          setStats(prev => {
+            const next = { ...prev, ...res.data }
+            saveCache('shd_stats', next)
+            return next
+          })
+        }
+      })
       .catch(() => {})
       .finally(() => { if (current) setStatsLoading(false) })
 
     api.get('/shop-dashboard-stats/')
-      .then(res => { if (current) setTypeCounts({ physical: res.data.physical_count || 0, virtual: res.data.virtual_count || 0 }) })
+      .then(res => {
+        if (current) {
+          const types = { physical: res.data.physical_count || 0, virtual: res.data.virtual_count || 0 }
+          setTypeCounts(types)
+          saveCache('shd_types', types)
+        }
+      })
       .catch(() => {})
       .finally(() => { if (current) setTypeLoading(false) })
 
     api.get('/shop-list/', { params: { limit: 1 } })
-      .then(res => { if (current) setLogin({ active: res.data.today_active_count || 0, inactive: res.data.today_inactive_count || 0 }) })
+      .then(res => {
+        if (current) {
+          const lg = { active: res.data.today_active_count || 0, inactive: res.data.today_inactive_count || 0 }
+          setLogin(lg)
+          saveCache('shd_login', lg)
+        }
+      })
       .catch(() => {})
       .finally(() => { if (current) setLoginLoading(false) })
+
     return () => { current = false }
   }, [])
 
@@ -116,6 +343,7 @@ export default function ShopDashboard() {
     try {
       const res = await api.patch('/my-shop-profile/', editForm)
       setShop(res.data)
+      saveCache('shd_profile', res.data)
       setSaveMsg('Profile updated successfully!')
       setTimeout(() => setShowEdit(false), 1200)
     } catch (err) {
@@ -147,7 +375,9 @@ export default function ShopDashboard() {
       <ShopNavbar onProfile={openProfile} />
 
       <style>{`
-        /* ── Full SaaS Dashboard Styles (Matching SuperAdmin & Admin Dashboards) ── */
+        @keyframes shdPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.3); } }
+
+        /* ── Full SaaS Dashboard Container ── */
         .sa-dashboard-container {
           width: 100%;
           max-width: 1540px;
@@ -160,166 +390,129 @@ export default function ShopDashboard() {
           font-family: 'Inter', system-ui, -apple-system, sans-serif;
           overflow-x: hidden;
         }
+
+        /* ── Welcome Banner ── */
         .sa-welcome-card {
           background: #FFFFFF;
+          border: 1px solid #E2EAE8;
           border-radius: 18px;
-          border: 1px solid #E6ECEB;
-          padding: 24px 30px;
-          box-shadow: 0 4px 20px rgba(7, 59, 63, 0.03);
+          padding: 20px 24px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          position: relative;
-          overflow: hidden;
-        }
-        .sa-welcome-card::after {
-          content: '';
-          position: absolute;
-          right: -20px;
-          top: -20px;
-          bottom: -20px;
-          width: 260px;
-          background: radial-gradient(circle at 80% 50%, rgba(204,168,129,0.14), transparent 70%);
-          pointer-events: none;
+          gap: 16px;
+          box-shadow: 0 4px 16px rgba(7, 59, 63, 0.03);
+          flex-wrap: wrap;
         }
         .sa-welcome-left {
           display: flex;
           align-items: center;
-          gap: 18px;
-          position: relative;
-          z-index: 2;
+          gap: 16px;
+          min-width: 0;
         }
         .sa-welcome-icon-box {
-          width: 52px;
-          height: 52px;
-          border-radius: 50%;
-          background: #FAF1E6;
-          border: 1.5px solid #F3DEC4;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #BB8958;
-          flex-shrink: 0;
-        }
-        .sa-welcome-title {
-          font-size: 24px;
-          font-weight: 800;
-          color: #073B3F;
-          letter-spacing: -0.02em;
-          margin: 0;
-        }
-        .sa-welcome-sub {
-          font-size: 13.5px;
-          color: #6E7D7B;
-          margin-top: 4px;
-          font-weight: 500;
-        }
-        .sa-welcome-actions {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          flex-wrap: wrap;
-          position: relative;
-          z-index: 2;
-        }
-        .sa-welcome-gold-display {
-          display: inline-flex;
-          align-items: center;
-          gap: 11px;
-          background: #FFFFFF;
-          border: 1.5px solid rgba(187, 137, 88, 0.45);
+          width: 48px;
+          height: 48px;
           border-radius: 14px;
-          padding: 8px 16px;
-          color: #073B3F;
-          box-shadow: 0 2px 10px rgba(7, 59, 63, 0.05), 0 1px 3px rgba(187, 137, 88, 0.1);
-        }
-        .sa-welcome-gold-icon {
-          width: 34px;
-          height: 34px;
-          border-radius: 10px;
           background: linear-gradient(135deg, #0C4044 0%, #073B3F 100%);
-          color: #E5BF91;
-          border: 1px solid rgba(187, 137, 88, 0.35);
           display: flex;
           align-items: center;
           justify-content: center;
+          color: #CCA881;
+          box-shadow: 0 6px 16px rgba(7, 59, 63, 0.15);
           flex-shrink: 0;
         }
-        .sa-welcome-gold-text {
+        .sa-welcome-text-wrap {
           display: flex;
           flex-direction: column;
-          text-align: left;
-          line-height: 1.15;
+          gap: 3px;
+          min-width: 0;
         }
-        .sa-welcome-gold-label {
-          font-size: 12px;
-          font-weight: 800;
-          color: #073B3F;
+        .sa-welcome-title {
+          font-size: 20px;
+          font-weight: 850;
+          color: #0C4044;
+          letter-spacing: -0.01em;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
         }
-        .sa-welcome-gold-val {
-          font-size: 11.5px;
-          font-weight: 750;
-          color: #BB8958;
-          margin-top: 2px;
+        .sa-welcome-sub {
+          font-size: 13px;
+          color: #7A8987;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
         }
         .sa-welcome-right {
           display: flex;
           align-items: center;
-          gap: 14px;
-          background: #F8FAF9;
-          border: 1px solid #E2EAE8;
-          border-radius: 14px;
-          padding: 10px 18px;
-          position: relative;
-          z-index: 2;
+          gap: 12px;
+          flex-wrap: wrap;
         }
-        .sa-btn-profile-top {
+        .sa-welcome-gold-display {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          background: #073B3F;
-          color: #FDFDFC;
+          background: linear-gradient(135deg, rgba(204,168,129,0.18), rgba(187,137,88,0.1));
+          border: 1px solid rgba(204,168,129,0.4);
+          padding: 8px 14px;
+          border-radius: 12px;
+          color: #8C5E28;
+          font-size: 12.5px;
+          font-weight: 750;
+        }
+        .sa-btn-profile-top {
+          background: #0C4044;
+          color: #FFFFFF;
           border: none;
           border-radius: 12px;
           padding: 10px 18px;
           font-size: 13px;
-          font-weight: 800;
+          font-weight: 750;
           cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
           transition: all 0.2s ease;
-          box-shadow: 0 4px 12px rgba(7, 59, 63, 0.2);
+          box-shadow: 0 4px 12px rgba(12, 64, 68, 0.2);
         }
         .sa-btn-profile-top:hover {
-          background: #0C4E53;
-          transform: translateY(-2px);
-          box-shadow: 0 6px 16px rgba(7, 59, 63, 0.28);
+          background: #073B3F;
+          transform: translateY(-1px);
         }
+
+        /* ── 4 KPI Cards (Compact 2x2 on Mobile) ── */
         .sa-kpi-grid-v2 {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 18px;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 16px;
           width: 100%;
         }
         .sa-kpi-card-v2 {
           background: #FFFFFF;
-          border: 1px solid #E4ECEB;
+          border: 1px solid #E2EAE8;
           border-radius: 16px;
-          padding: 22px 24px;
-          box-shadow: 0 4px 16px rgba(7, 59, 63, 0.025);
+          padding: 18px 20px;
           display: flex;
-          align-items: center;
-          gap: 18px;
-          transition: transform 0.22s ease, box-shadow 0.22s ease;
+          align-items: flex-start;
+          gap: 14px;
+          box-shadow: 0 3px 12px rgba(7, 59, 63, 0.025);
           position: relative;
           overflow: hidden;
+          transition: all 0.2s ease;
         }
         .sa-kpi-card-v2:hover {
           transform: translateY(-2px);
-          box-shadow: 0 10px 24px rgba(7, 59, 63, 0.06);
+          box-shadow: 0 8px 24px rgba(7, 59, 63, 0.06);
+          border-color: #BDCFCE;
         }
         .sa-kpi-icon-wrap {
-          width: 52px;
-          height: 52px;
-          border-radius: 14px;
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -328,47 +521,60 @@ export default function ShopDashboard() {
         .sa-kpi-meta {
           display: flex;
           flex-direction: column;
-          gap: 3px;
+          gap: 4px;
+          min-width: 0;
+          flex: 1;
         }
         .sa-kpi-title {
           font-size: 11px;
           font-weight: 800;
+          color: #7A8987;
           letter-spacing: 0.06em;
           text-transform: uppercase;
-          color: #556664;
         }
         .sa-kpi-num {
-          font-size: 30px;
-          font-weight: 800;
+          font-size: 28px;
+          font-weight: 850;
           color: #071A2D;
           line-height: 1.1;
         }
         .sa-kpi-trend {
-          font-size: 12px;
+          font-size: 11.5px;
           font-weight: 700;
           display: flex;
           align-items: center;
           gap: 4px;
         }
+
+        /* ── BALANCED 2-COLUMN MIDDLE GRID (ZERO BLANK SPACE) ── */
         .sa-middle-grid {
           display: grid;
-          grid-template-columns: 1.45fr 1fr;
+          grid-template-columns: 1.42fr 1fr;
           gap: 18px;
           width: 100%;
-          align-items: stretch;
+          align-items: start;
         }
-        .sa-bottom-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+        .sa-middle-left-col {
+          display: flex;
+          flex-direction: column;
           gap: 18px;
           width: 100%;
-          align-items: stretch;
+          min-width: 0;
         }
+        .sa-middle-right-col {
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+          width: 100%;
+          min-width: 0;
+        }
+
+        /* ── Luxury Card Shell ── */
         .sa-saas-card {
           background: #FFFFFF;
-          border: 1px solid #E4ECEB;
+          border: 1px solid #E2EAE8;
           border-radius: 16px;
-          padding: 22px 24px;
+          padding: 20px 22px;
           box-shadow: 0 4px 16px rgba(7, 59, 63, 0.025);
           box-sizing: border-box;
           display: flex;
@@ -381,21 +587,22 @@ export default function ShopDashboard() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 18px;
+          margin-bottom: 16px;
+          flex-wrap: wrap;
+          gap: 8px;
         }
         .sa-saas-card-title {
           display: flex;
           align-items: center;
           gap: 10px;
-          font-size: 16px;
+          font-size: 15.5px;
           font-weight: 800;
           color: #073B3F;
         }
         .sa-qa-grid {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 10px;
-          flex: 1;
           width: 100%;
         }
         .sa-qa-tile {
@@ -407,7 +614,7 @@ export default function ShopDashboard() {
           align-items: center;
           justify-content: space-between;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.18s ease;
         }
         .sa-qa-tile:hover {
           background: #F3F7F6;
@@ -438,16 +645,29 @@ export default function ShopDashboard() {
           overflow: hidden;
           text-overflow: ellipsis;
         }
+
+        /* ── Full-Width Shop Details Card ── */
+        .sa-shop-details-card {
+          width: 100%;
+        }
+        .sa-details-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 12px;
+          width: 100%;
+        }
+
+        /* ── Footer Banner ── */
         .sa-footer-banner {
           background: linear-gradient(135deg, #073B3F 0%, #032326 100%);
-          border-radius: 20px 20px 0 0;
-          padding: 30px 42px;
+          border-radius: 18px;
+          padding: 26px 36px;
           display: flex;
           align-items: center;
           justify-content: space-between;
           color: #FFFFFF;
-          margin-top: 16px;
-          box-shadow: 0 -8px 28px rgba(7, 59, 63, 0.08);
+          margin-top: 8px;
+          box-shadow: 0 10px 30px rgba(7, 59, 63, 0.1);
           position: relative;
           overflow: hidden;
         }
@@ -467,14 +687,14 @@ export default function ShopDashboard() {
         }
         .sa-footer-motto {
           font-family: "Cormorant Garamond", Georgia, serif;
-          font-size: 26px;
+          font-size: 24px;
           font-style: italic;
           font-weight: 600;
           color: #F8FAF9;
           letter-spacing: 0.02em;
         }
         .sa-footer-underline {
-          width: 56px;
+          width: 50px;
           height: 2px;
           background: #BB8958;
         }
@@ -487,7 +707,7 @@ export default function ShopDashboard() {
           text-align: right;
         }
         .sa-footer-brand-title {
-          font-size: 16px;
+          font-size: 15px;
           font-weight: 900;
           letter-spacing: 0.12em;
           color: #FDFDFC;
@@ -495,106 +715,84 @@ export default function ShopDashboard() {
         .sa-footer-brand-sub {
           font-size: 10px;
           font-weight: 800;
-          letter-spacing: 0.22em;
+          letter-spacing: 0.2em;
           color: #CCA881;
           margin-top: 2px;
         }
 
-        /* ── RESPONSIVE MEDIA QUERIES (SaaS 2x2 Mobile, 95% mobile-first) ── */
+        /* ── RESPONSIVE BREAKPOINTS (Mobile 95%, 2x2 Grid, Clean Stack) ── */
         @media (max-width: 1200px) {
-          .sa-kpi-grid-v2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-          .sa-middle-grid { grid-template-columns: 1fr; }
-          .sa-bottom-grid { grid-template-columns: 1fr; }
+          .sa-details-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
-        @media (max-width: 900px) {
+        @media (max-width: 960px) {
           .sa-middle-grid { grid-template-columns: 1fr; }
+          .sa-qa-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (max-width: 680px) {
           .sa-dashboard-container { padding: 12px 10px 32px; gap: 14px; }
           .sa-welcome-card { flex-direction: column; align-items: flex-start; gap: 14px; padding: 16px 14px; }
           .sa-welcome-left { gap: 12px; }
           .sa-welcome-icon-box { width: 42px; height: 42px; }
-          .sa-welcome-title { font-size: 18px; }
+          .sa-welcome-title { font-size: 17px; }
           .sa-welcome-sub { font-size: 12px; }
-          .sa-welcome-actions { width: 100%; display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
-          .sa-welcome-gold-display, .sa-welcome-right { width: 100%; box-sizing: border-box; justify-content: flex-start; }
+          .sa-welcome-right { width: 100%; display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+          .sa-welcome-gold-display { width: 100%; justify-content: space-between; box-sizing: border-box; }
+          .sa-btn-profile-top { width: 100%; justify-content: center; }
+
+          /* Mobile 2x2 Compact KPI Grid */
           .sa-kpi-grid-v2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
-          .sa-kpi-card-v2 { padding: 12px 10px !important; gap: 10px !important; border-radius: 12px !important; min-width: 0 !important; }
-          .sa-kpi-icon-wrap { width: 38px !important; height: 38px !important; border-radius: 10px !important; }
+          .sa-kpi-card-v2 { padding: 12px 10px !important; gap: 10px !important; border-radius: 12px !important; }
+          .sa-kpi-icon-wrap { width: 36px !important; height: 36px !important; border-radius: 9px !important; }
           .sa-kpi-icon-wrap svg { width: 18px !important; height: 18px !important; }
-          .sa-kpi-title { font-size: 9.5px !important; letter-spacing: 0.04em !important; }
+          .sa-kpi-title { font-size: 9.5px !important; }
           .sa-kpi-num { font-size: 20px !important; }
-          .sa-kpi-trend { font-size: 10.5px !important; }
-          .sa-saas-card { padding: 16px 14px !important; border-radius: 14px !important; }
-          .sa-qa-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-          .sa-footer-banner { flex-direction: column; align-items: flex-start; gap: 16px; padding: 22px 18px; border-radius: 16px 16px 0 0; }
-          .sa-footer-motto { font-size: 20px; }
-          .sa-footer-right { width: 100%; justify-content: space-between; }
-        }
-        @media (max-width: 420px) {
+          .sa-kpi-trend { font-size: 10px !important; }
+
           .sa-qa-grid { grid-template-columns: 1fr; }
+          .sa-details-grid { grid-template-columns: 1fr; }
+          .sa-footer-banner { flex-direction: column; align-items: flex-start; gap: 14px; padding: 20px 18px; }
+          .sa-footer-brand { text-align: left; }
+        }
+
+        @media (max-width: 420px) {
           .sa-kpi-grid-v2 { gap: 8px !important; }
-          .sa-kpi-card-v2 { padding: 10px 8px !important; gap: 8px !important; }
-          .sa-kpi-num { font-size: 18px !important; }
+          .sa-kpi-card-v2 { padding: 10px 8px !important; }
+          .sa-kpi-num { font-size: 17px !important; }
         }
       `}</style>
 
-      {/* ── MAIN SAAS DASHBOARD CONTAINER ── */}
       <div className="sa-dashboard-container">
         {/* 1. Welcome Card Banner */}
         <div className="sa-welcome-card">
           <div className="sa-welcome-left">
             <div className="sa-welcome-icon-box">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="10" width="18" height="11" rx="2" />
                 <path d="M3 10 5 3h14l2 7" />
                 <path d="M9 21v-6h6v6" />
               </svg>
             </div>
-            <div>
-              <h1 className="sa-welcome-title">Welcome Back, {shop?.shop_name || 'Shop Partner'}!</h1>
+            <div className="sa-welcome-text-wrap">
+              <div className="sa-welcome-title">
+                <span>{shop?.shop_name || 'My Athirai Shop'}</span>
+                <span style={{ fontSize: '11px', fontWeight: 800, padding: '3px 9px', borderRadius: '8px', background: shop?.shop_type === 'virtual' ? 'rgba(204,168,129,0.18)' : 'rgba(0,153,87,0.12)', color: shop?.shop_type === 'virtual' ? '#A2764C' : '#009957', border: `1px solid ${shop?.shop_type === 'virtual' ? 'rgba(204,168,129,0.4)' : 'rgba(0,153,87,0.3)'}` }}>
+                  {shop?.shop_type === 'virtual' ? '✦ VIRTUAL' : '● PHYSICAL'}
+                </span>
+              </div>
               <div className="sa-welcome-sub">
-                {shop?.shop_id ? `${shop.shop_id} · ` : ''}
-                {shop?.shop_type === 'virtual' ? 'Virtual Shop Partner' : 'Physical Shop Partner'} · Here's what's happening with your network today.
+                <span>Shop ID: <strong style={{ color: '#0C4044', fontFamily: 'monospace' }}>{shop?.shop_id || '—'}</strong></span>
+                <span>•</span>
+                <span>Owner: <strong style={{ color: '#0C4044' }}>{shop?.owner_name || 'Store Manager'}</strong></span>
               </div>
             </div>
           </div>
 
-          <div className="sa-welcome-actions">
-            {/* Live Gold Rate Badge */}
-            <div className="sa-welcome-gold-display" title="Live Gold Rate">
-              <div className="sa-welcome-gold-icon">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M12 7v5l3 2" />
-                </svg>
-              </div>
-              <div className="sa-welcome-gold-text">
-                <span className="sa-welcome-gold-label">Today Gold Rate</span>
-                <span className="sa-welcome-gold-val">
-                  22K: ₹{goldRate ? goldRate.toLocaleString('en-IN') : '7,250'}/g
-                </span>
-              </div>
-            </div>
-
-            {/* Live Clock / Calendar */}
-            <div className="sa-welcome-right">
-              <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: '#E6ECEB', color: '#0C4044', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                  <line x1="16" y1="2" x2="16" y2="6" />
-                  <line x1="8" y1="2" x2="8" y2="6" />
-                  <line x1="3" y1="10" x2="21" y2="10" />
-                </svg>
-              </div>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 800, color: '#073B3F' }}>
-                  {liveTime.toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
-                </div>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#6E7D7B', marginTop: '2px' }}>
-                  {liveTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                </div>
-              </div>
+          <div className="sa-welcome-right">
+            {/* Live Gold Rate Display */}
+            <div className="sa-welcome-gold-display">
+              <span style={{ fontSize: '15px' }}>🪙</span>
+              <span>22K Gold: <strong>{goldRate ? `₹${goldRate.toLocaleString('en-IN')}/g` : 'Fetching...'}</strong></span>
+              <span style={{ color: '#BDCFCE', fontSize: '11px' }}>({liveTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })})</span>
             </div>
 
             {/* Copy Shop URL Button */}
@@ -623,12 +821,12 @@ export default function ShopDashboard() {
           </div>
         </div>
 
-        {/* 2. 4 Modern KPI Cards */}
+        {/* 2. 4 Modern KPI Cards (2x2 on Mobile) */}
         <div className="sa-kpi-grid-v2">
           {/* Card 1: Yesterday Order */}
           <div className="sa-kpi-card-v2">
             <div className="sa-kpi-icon-wrap" style={{ background: '#F3E8FF', color: '#9333EA' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
                 <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
               </svg>
@@ -645,7 +843,7 @@ export default function ShopDashboard() {
           {/* Card 2: Today Order */}
           <div className="sa-kpi-card-v2">
             <div className="sa-kpi-icon-wrap" style={{ background: '#E6F7F0', color: '#009957' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="2" y="3" width="20" height="14" rx="2" />
                 <line x1="8" y1="21" x2="16" y2="21" />
                 <line x1="12" y1="17" x2="12" y2="21" />
@@ -663,7 +861,7 @@ export default function ShopDashboard() {
           {/* Card 3: Today New Shop */}
           <div className="sa-kpi-card-v2">
             <div className="sa-kpi-icon-wrap" style={{ background: '#EAF8F0', color: '#009957' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="10" width="18" height="11" rx="2" />
                 <path d="M3 10 5 3h14l2 7" />
                 <path d="M9 21v-6h6v6" />
@@ -681,7 +879,7 @@ export default function ShopDashboard() {
           {/* Card 4: Active Shop */}
           <div className="sa-kpi-card-v2">
             <div className="sa-kpi-icon-wrap" style={{ background: '#EFF6FF', color: '#2563EB' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
                 <circle cx="9" cy="7" r="4" />
                 <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
@@ -698,15 +896,91 @@ export default function ShopDashboard() {
           </div>
         </div>
 
-        {/* 3. Middle Grid: Order Trend & Donut Panels */}
+        {/* 3. BALANCED MIDDLE GRID: Trend Spline + Quick Actions on Left, Donut Panels on Right (ZERO BLANK SPACE) */}
         <div className="sa-middle-grid">
-          {/* Order Trend Spline */}
-          <div>
-            <IrdOrderTrendPanel title="Shop Order Volume Trend" endpoint="/order-timeseries/" />
+          {/* Left Column: Animated Chart + Quick Shortcuts Stack */}
+          <div className="sa-middle-left-col">
+            {/* Animated & Horizontally Scrollable Order Trend Spline */}
+            <ShopOrderTrendPanel title="Shop Order Volume Trend" endpoint="/order-timeseries/" />
+
+            {/* Quick Access & Management Shortcuts (Fills the previous blank space seamlessly!) */}
+            <div className="sa-saas-card">
+              <div className="sa-saas-card-head">
+                <div className="sa-saas-card-title">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#009957" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                  <span>Quick Access & Management</span>
+                </div>
+                <span style={{ fontSize: '12px', color: '#7A8987', fontWeight: 700 }}>Direct Shortcuts</span>
+              </div>
+
+              <div className="sa-qa-grid">
+                <div className="sa-qa-tile" onClick={() => navigate('/shop-hierarchy-grid')}>
+                  <div className="sa-qa-tile-left">
+                    <div className="sa-qa-icon-wrap" style={{ background: '#F3E8FF', color: '#9333EA' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    </div>
+                    <span className="sa-qa-label">Hierarchy Grid</span>
+                  </div>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
+                </div>
+
+                <div className="sa-qa-tile" onClick={() => navigate('/shop-hierarchy-tree')}>
+                  <div className="sa-qa-tile-left">
+                    <div className="sa-qa-icon-wrap" style={{ background: '#E6F7F0', color: '#009957' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="5" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M12 8v5M6 15v-2h12v2"/></svg>
+                    </div>
+                    <span className="sa-qa-label">Hierarchy Tree</span>
+                  </div>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
+                </div>
+
+                <div className="sa-qa-tile" onClick={() => navigate('/shop-report')}>
+                  <div className="sa-qa-tile-left">
+                    <div className="sa-qa-icon-wrap" style={{ background: '#EAF8F0', color: '#009957' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M4 19V5"/><path d="M8 19v-8"/><path d="M12 19V8"/><path d="M16 19v-5"/><path d="M20 19V4"/></svg>
+                    </div>
+                    <span className="sa-qa-label">Sales Report</span>
+                  </div>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
+                </div>
+
+                <div className="sa-qa-tile" onClick={() => navigate('/add-shop')}>
+                  <div className="sa-qa-tile-left">
+                    <div className="sa-qa-icon-wrap" style={{ background: '#FEF3C7', color: '#D97706' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 5v14M5 12h14"/></svg>
+                    </div>
+                    <span className="sa-qa-label">Create Shop</span>
+                  </div>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
+                </div>
+
+                <div className="sa-qa-tile" onClick={() => navigate('/superadmin/manage-users/shops')}>
+                  <div className="sa-qa-tile-left">
+                    <div className="sa-qa-icon-wrap" style={{ background: '#EFF6FF', color: '#2563EB' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="10" width="18" height="11" rx="2"/><path d="M3 10 5 3h14l2 7"/><path d="M9 21v-6h6v6"/></svg>
+                    </div>
+                    <span className="sa-qa-label">Shop Directory</span>
+                  </div>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
+                </div>
+
+                <div className="sa-qa-tile" onClick={() => navigate('/buy-coin')}>
+                  <div className="sa-qa-tile-left">
+                    <div className="sa-qa-icon-wrap" style={{ background: '#FDF2F8', color: '#DB2777' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/></svg>
+                    </div>
+                    <span className="sa-qa-label">Buy Gold Coins</span>
+                  </div>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Donut Panels Stack */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Right Column: Donut Panels Stack */}
+          <div className="sa-middle-right-col">
             <IrdDonutPanel
               title="Shop Types Breakdown"
               totalLabel={`${typeCounts.physical + typeCounts.virtual} sub-shops`}
@@ -725,93 +999,33 @@ export default function ShopDashboard() {
           </div>
         </div>
 
-        {/* 4. Bottom Grid: Quick Actions & Shop Snapshot */}
-        <div className="sa-bottom-grid">
-          {/* Card 1: Shop Management & Quick Actions */}
-          <div className="sa-saas-card">
-            <div className="sa-saas-card-head">
-              <div className="sa-saas-card-title">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#009957" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                </svg>
-                <span>Quick Access & Management</span>
-              </div>
-              <span style={{ fontSize: '12px', color: '#7A8987', fontWeight: 700 }}>Direct Shortcuts</span>
+        {/* 4. Full-Width Shop Identity & Overview Card */}
+        <div className="sa-saas-card sa-shop-details-card">
+          <div className="sa-saas-card-head">
+            <div className="sa-saas-card-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#009957" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+              <span>Shop Identity & Profile Overview</span>
             </div>
-
-            <div className="sa-qa-grid">
-              <div className="sa-qa-tile" onClick={() => navigate('/shop-hierarchy-grid')}>
-                <div className="sa-qa-tile-left">
-                  <div className="sa-qa-icon-wrap" style={{ background: '#F3E8FF', color: '#9333EA' }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                  </div>
-                  <span className="sa-qa-label">Hierarchy Grid</span>
-                </div>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
-              </div>
-
-              <div className="sa-qa-tile" onClick={() => navigate('/shop-hierarchy-tree')}>
-                <div className="sa-qa-tile-left">
-                  <div className="sa-qa-icon-wrap" style={{ background: '#E6F7F0', color: '#009957' }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="5" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M12 8v5M6 15v-2h12v2"/></svg>
-                  </div>
-                  <span className="sa-qa-label">Hierarchy Tree</span>
-                </div>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
-              </div>
-
-              <div className="sa-qa-tile" onClick={() => navigate('/shop-report')}>
-                <div className="sa-qa-tile-left">
-                  <div className="sa-qa-icon-wrap" style={{ background: '#EAF8F0', color: '#009957' }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M4 19V5"/><path d="M8 19v-8"/><path d="M12 19V8"/><path d="M16 19v-5"/><path d="M20 19V4"/></svg>
-                  </div>
-                  <span className="sa-qa-label">Sales Report</span>
-                </div>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
-              </div>
-
-              <div className="sa-qa-tile" onClick={() => navigate('/add-shop')}>
-                <div className="sa-qa-tile-left">
-                  <div className="sa-qa-icon-wrap" style={{ background: '#FEF3C7', color: '#D97706' }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 5v14M5 12h14"/></svg>
-                  </div>
-                  <span className="sa-qa-label">Create Shop</span>
-                </div>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
-              </div>
-
-              <div className="sa-qa-tile" onClick={() => navigate('/superadmin/manage-users/shops')}>
-                <div className="sa-qa-tile-left">
-                  <div className="sa-qa-icon-wrap" style={{ background: '#EFF6FF', color: '#2563EB' }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="10" width="18" height="11" rx="2"/><path d="M3 10 5 3h14l2 7"/><path d="M9 21v-6h6v6"/></svg>
-                  </div>
-                  <span className="sa-qa-label">Shop Directory</span>
-                </div>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
-              </div>
-
-              <div className="sa-qa-tile" onClick={() => navigate('/buy-coin')}>
-                <div className="sa-qa-tile-left">
-                  <div className="sa-qa-icon-wrap" style={{ background: '#FDF2F8', color: '#DB2777' }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/></svg>
-                  </div>
-                  <span className="sa-qa-label">Buy Gold Coins</span>
-                </div>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8987" strokeWidth="2.4"><path d="m9 18 6-6-6-6"/></svg>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: Shop Network Snapshot & Profile Details */}
-          <div className="sa-saas-card">
-            <div className="sa-saas-card-head">
-              <div className="sa-saas-card-title">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#009957" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-                <span>Shop Identity & Details</span>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={openProfile}
+                style={{
+                  background: '#F3F7F6',
+                  border: '1px solid #BDCFCE',
+                  color: '#073B3F',
+                  borderRadius: '8px',
+                  padding: '5px 14px',
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                View Full
+              </button>
               <button
                 type="button"
                 onClick={openEdit}
@@ -820,7 +1034,7 @@ export default function ShopDashboard() {
                   border: '1px solid rgba(12,64,68,0.25)',
                   color: '#0C4044',
                   borderRadius: '8px',
-                  padding: '4px 12px',
+                  padding: '5px 14px',
                   fontSize: '12px',
                   fontWeight: 800,
                   cursor: 'pointer',
@@ -829,22 +1043,28 @@ export default function ShopDashboard() {
                 ✎ Edit Info
               </button>
             </div>
+          </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', flex: 1 }}>
-              {[
-                ['Shop Name', shop?.shop_name],
-                ['Owner Name', shop?.owner_name],
-                ['Shop ID', shop?.shop_id],
-                ['Shop Type', shop?.shop_type === 'virtual' ? 'Virtual Shop' : 'Physical Shop'],
-                ['Mobile Number', shop?.mobile_number],
-                ['City & District', `${shop?.city || '—'}, ${shop?.district || '—'}`],
-              ].map(([k, v]) => (
-                <div key={k} style={{ background: '#F8FAF9', border: '1px solid #E6ECEB', borderRadius: '12px', padding: '12px 14px' }}>
-                  <div style={{ fontSize: '10.5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#7A8987', marginBottom: '4px' }}>{k}</div>
-                  <div style={{ fontSize: '13.5px', fontWeight: 750, color: '#073B3F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v || '—'}</div>
-                </div>
-              ))}
-            </div>
+          <div className="sa-details-grid">
+            {[
+              ['Shop Name', shop?.shop_name],
+              ['Owner Name', shop?.owner_name],
+              ['Shop ID', shop?.shop_id],
+              ['Shop Type', shop?.shop_type === 'virtual' ? 'Virtual Shop' : 'Physical Shop'],
+              ['Mobile Number', shop?.mobile_number],
+              ['WhatsApp Number', shop?.whatsapp_number],
+              ['City & District', `${shop?.city || '—'}, ${shop?.district || '—'}`],
+              ['Pincode', shop?.pincode],
+              ['State', shop?.state],
+              ['GST Number', shop?.gst_no],
+              ['PAN Number', shop?.pan_no],
+              ['MSME Number', shop?.msme_no],
+            ].map(([k, v]) => (
+              <div key={k} style={{ background: '#F8FAF9', border: '1px solid #E6ECEB', borderRadius: '12px', padding: '12px 14px' }}>
+                <div style={{ fontSize: '10.5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#7A8987', marginBottom: '4px' }}>{k}</div>
+                <div style={{ fontSize: '13px', fontWeight: 750, color: '#073B3F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v || '—'}</div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -858,8 +1078,8 @@ export default function ShopDashboard() {
           </div>
           <div className="sa-footer-right">
             <div className="sa-footer-brand">
-              <div className="sa-footer-brand-title">ATHIRAI JEWELLERY</div>
-              <div className="sa-footer-brand-sub">CERTIFIED SHOP PARTNER</div>
+              <div className="sa-footer-brand-title">ATHIRAI SHOP</div>
+              <div className="sa-footer-brand-sub">ENTERPRISE SAAS SYSTEM</div>
             </div>
           </div>
         </div>

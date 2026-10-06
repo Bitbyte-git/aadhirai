@@ -483,6 +483,12 @@ class ShopDashboardStatsView(APIView):
     def get(self, request):
         if request.user.role != 'shop':
             return Response({'error': 'Permission denied'}, status=403)
+
+        cache_key = f"shop_dashboard_stats_{request.user.id}"
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return Response(cached_data)
+
         try:
             root = request.user.shop_profile
         except ShopProfile.DoesNotExist:
@@ -519,13 +525,15 @@ class ShopDashboardStatsView(APIView):
             for m in monthly_counts
         ]
 
-        return Response({
+        resp_data = {
             'direct_children_count': len(children_by_creator.get(root.user_id, [])),
             'total_descendants_count': len(descendants),
             'physical_count': physical_count,
             'virtual_count': virtual_count,
             'monthly_growth': monthly_growth,
-        })
+        }
+        cache.set(cache_key, resp_data, 120)
+        return Response(resp_data)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -5613,19 +5621,26 @@ class DashboardQuickStatsView(APIView):
 
     def get(self, request):
         if request.user.role == 'shop':
+            cache_key = f"dash_quick_stats_shop_{request.user.id}"
+            cached_data = cache.get(cache_key)
+            if cached_data:
+                return Response(cached_data)
+
             # Shop dashboard: orders across own shop + every sub-shop; "new" = sub-shops created today
             network_ids = _shop_network_user_ids(request.user)
             sub_ids = [i for i in network_ids if i != request.user.id]
             today_start = timezone.localtime(timezone.now()).replace(hour=0, minute=0, second=0, microsecond=0)
             today_end = today_start + timedelta(days=1)
             yesterday_start = today_start - timedelta(days=1)
-            return Response({
+            resp_data = {
                 'yesterday_orders': JewelryOrder.objects.filter(user_id__in=network_ids, created_at__gte=yesterday_start, created_at__lt=today_start).count(),
                 'today_orders': JewelryOrder.objects.filter(user_id__in=network_ids, created_at__gte=today_start, created_at__lt=today_end).count(),
                 'today_new_shops': ShopProfile.objects.filter(user_id__in=sub_ids, created_at__gte=today_start, created_at__lt=today_end).count(),
                 'active_users': len(_shop_active_user_ids(sub_ids)),
                 'total_sub_shops': len(sub_ids),
-            })
+            }
+            cache.set(cache_key, resp_data, 60)
+            return Response(resp_data)
 
         if request.user.role in self.INTERNAL_ROLES:
             downline_ids = _collect_full_downline_user_ids(request.user)

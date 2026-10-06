@@ -774,35 +774,59 @@ const styles = `
       justify-content: center;
     }
     .cms-role-bar {
-      overflow-x: auto;
-      flex-wrap: nowrap;
-      -webkit-overflow-scrolling: touch;
-      padding-bottom: 6px;
-      scrollbar-width: none;
+      overflow-x: auto !important;
+      flex-wrap: nowrap !important;
+      -webkit-overflow-scrolling: touch !important;
+      padding-bottom: 6px !important;
+      gap: 8px !important;
+      scrollbar-width: none !important;
     }
-    .cms-role-bar::-webkit-scrollbar { display: none; }
+    .cms-role-bar::-webkit-scrollbar { display: none !important; }
     .cms-role-tab {
-      flex-shrink: 0;
+      flex-shrink: 0 !important;
+      padding: 8px 14px !important;
+      font-size: 12px !important;
+      border-radius: 10px !important;
+      gap: 6px !important;
+    }
+    .cms-role-badge {
+      font-size: 10px !important;
+      padding: 2px 6px !important;
     }
     .cms-controls-bar {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 12px;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      gap: 10px !important;
+      width: 100% !important;
     }
     .cms-pill-group {
-      overflow-x: auto;
-      flex-wrap: nowrap;
-      -webkit-overflow-scrolling: touch;
-      padding-bottom: 4px;
-      scrollbar-width: none;
+      display: grid !important;
+      grid-template-columns: repeat(6, 1fr) !important;
+      width: 100% !important;
+      padding: 4px !important;
+      gap: 3px !important;
+      box-sizing: border-box !important;
+      border-radius: 12px !important;
+      overflow-x: visible !important;
     }
-    .cms-pill-group::-webkit-scrollbar { display: none; }
     .cms-pill-btn {
-      flex-shrink: 0;
+      padding: 8px 2px !important;
+      font-size: 11.5px !important;
+      font-weight: 700 !important;
+      text-align: center !important;
+      white-space: nowrap !important;
+      border-radius: 8px !important;
+      min-width: 0 !important;
+      width: 100% !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      box-sizing: border-box !important;
     }
     .cms-date-btn {
-      width: 100%;
-      justify-content: space-between;
+      width: 100% !important;
+      justify-content: space-between !important;
+      box-sizing: border-box !important;
     }
     .cms-panel-head {
       flex-direction: column;
@@ -818,6 +842,14 @@ const styles = `
   }
 
   @media (max-width: 480px) {
+    .cms-pill-group {
+      padding: 3px !important;
+      gap: 2px !important;
+    }
+    .cms-pill-btn {
+      font-size: 10.5px !important;
+      padding: 7px 1px !important;
+    }
     .cms-title {
       font-size: 22px;
     }

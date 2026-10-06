@@ -1719,20 +1719,28 @@ export default function AthiraiProfit() {
             gap: 10px;
           }
           .ref-tabs-group {
-            width: 100%;
-            overflow-x: auto;
-            flex-wrap: nowrap;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: 4px;
-            scrollbar-width: none;
-          }
-          .ref-tabs-group::-webkit-scrollbar {
-            display: none;
+            display: grid !important;
+            grid-template-columns: repeat(6, 1fr) !important;
+            width: 100% !important;
+            padding: 4px !important;
+            gap: 3px !important;
+            box-sizing: border-box !important;
+            border-radius: 12px !important;
+            overflow-x: visible !important;
           }
           .ref-tab {
-            flex-shrink: 0;
-            padding: 7px 14px;
-            font-size: 12px;
+            padding: 8px 2px !important;
+            font-size: 11.5px !important;
+            font-weight: 700 !important;
+            text-align: center !important;
+            white-space: nowrap !important;
+            border-radius: 8px !important;
+            min-width: 0 !important;
+            width: 100% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-sizing: border-box !important;
           }
           .ref-filters-row {
             flex-direction: column;
@@ -1766,6 +1774,14 @@ export default function AthiraiProfit() {
         }
 
         @media (max-width: 420px) {
+          .ref-tabs-group {
+            padding: 3px !important;
+            gap: 2px !important;
+          }
+          .ref-tab {
+            font-size: 10.5px !important;
+            padding: 7px 1px !important;
+          }
           .ref-kpi-grid {
             gap: 8px !important;
           }

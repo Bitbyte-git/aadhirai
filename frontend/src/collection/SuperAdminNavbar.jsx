@@ -1176,7 +1176,6 @@ export default function SuperAdminNavbar({
     ['Wholesale Dealer', () => navigate('/promotions/wholesale-dealer')],
     ['Distributor', () => navigate('/promotions/distributor')],
     ['Super Stockist', () => navigate('/promotions/super-stockist')],
-    ['Sales Order List', () => navigate('/promotions/sales-order-list')],
   ]
   const payment = [
     ['All Sales', () => navigate('/superadmin-payments')],
@@ -1286,7 +1285,6 @@ export default function SuperAdminNavbar({
     { label: 'Wholesale Dealer', path: '/promotions/wholesale-dealer', action: () => navigate('/promotions/wholesale-dealer') },
     { label: 'Distributor', path: '/promotions/distributor', action: () => navigate('/promotions/distributor') },
     { label: 'Super Stockist', path: '/promotions/super-stockist', action: () => navigate('/promotions/super-stockist') },
-    { label: 'Sales Order List', path: '/promotions/sales-order-list', action: () => navigate('/promotions/sales-order-list') },
   ]
 
   const drawerPaymentItems = [
@@ -1843,21 +1841,6 @@ export default function SuperAdminNavbar({
             icon: (
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" /><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4" /><path d="M2 7h20" />
-              </svg>
-            ),
-          },
-        ],
-      },
-      {
-        category: 'Orders',
-        items: [
-          {
-            label: 'Sales Order List',
-            path: '/promotions/sales-order-list',
-            action: () => navigate('/promotions/sales-order-list'),
-            icon: (
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /><path d="M9 14h6" /><path d="M9 18h6" /><path d="M9 10h6" />
               </svg>
             ),
           },
@@ -4179,7 +4162,6 @@ export default function SuperAdminNavbar({
                 { title: 'Wholesale Dealer Promotion', path: '/promotions/wholesale-dealer', desc: 'Bulk trade incentive tiers & wholesale volume promotions', bg: '#EFF6FF', color: '#2563EB', icon: 'tag' },
                 { title: 'Distributor Promotion', path: '/promotions/distributor', desc: 'Regional supply campaigns, targets & distributor bonuses', bg: '#FEF3E7', color: '#D97706', icon: 'tag' },
                 { title: 'Super Stockist Promotion', path: '/promotions/super-stockist', desc: 'Enterprise volume tiers & super stockist benefits', bg: '#FDF4FF', color: '#9333EA', icon: 'tag' },
-                { title: 'Promotion Sales Order List', path: '/promotions/sales-order-list', desc: 'Track and manage all orders linked to promotions', bg: '#F0FDF4', color: '#16A34A', icon: 'orders' },
               ].map((promo, pIdx) => (
                 <button
                   key={pIdx}

@@ -4909,37 +4909,44 @@ def _collect_full_downline_user_ids(user):
     _collect_user_ids_admin/_dealer/_sub_dealer (which only gather customers,
     for order-count purposes), commission is earned by the intermediate tiers
     themselves, so 'Team Commission' needs them included."""
-    role = user.role
-    ids = []
-    if role == 'admin':
-        admin = AdminProfile.objects.prefetch_related(
-            'assigned_dealers__assigned_sub_dealers__assigned_promotors__assigned_customers'
-        ).get(user=user)
-        for d in admin.assigned_dealers.all():
-            ids.append(d.user_id)
-            for sd in d.assigned_sub_dealers.all():
-                ids.append(sd.user_id)
+    try:
+        role = getattr(user, 'role', '')
+        ids = []
+        if role == 'admin':
+            admin = AdminProfile.objects.prefetch_related(
+                'assigned_dealers__assigned_sub_dealers__assigned_promotors__assigned_customers'
+            ).filter(user=user).first()
+            if admin:
+                for d in admin.assigned_dealers.all():
+                    ids.append(d.user_id)
+                    for sd in d.assigned_sub_dealers.all():
+                        ids.append(sd.user_id)
+                        for p in sd.assigned_promotors.all():
+                            ids.append(p.user_id)
+                            ids.extend(c.user_id for c in p.assigned_customers.all())
+        elif role == 'dealer':
+            dealer = DealerProfile.objects.prefetch_related(
+                'assigned_sub_dealers__assigned_promotors__assigned_customers'
+            ).filter(user=user).first()
+            if dealer:
+                for sd in dealer.assigned_sub_dealers.all():
+                    ids.append(sd.user_id)
+                    for p in sd.assigned_promotors.all():
+                        ids.append(p.user_id)
+                        ids.extend(c.user_id for c in p.assigned_customers.all())
+        elif role == 'sub_dealer':
+            sd = SubDealerProfile.objects.prefetch_related('assigned_promotors__assigned_customers').filter(user=user).first()
+            if sd:
                 for p in sd.assigned_promotors.all():
                     ids.append(p.user_id)
                     ids.extend(c.user_id for c in p.assigned_customers.all())
-    elif role == 'dealer':
-        dealer = DealerProfile.objects.prefetch_related(
-            'assigned_sub_dealers__assigned_promotors__assigned_customers'
-        ).get(user=user)
-        for sd in dealer.assigned_sub_dealers.all():
-            ids.append(sd.user_id)
-            for p in sd.assigned_promotors.all():
-                ids.append(p.user_id)
+        elif role == 'promotor':
+            p = PromotorProfile.objects.prefetch_related('assigned_customers').filter(user=user).first()
+            if p:
                 ids.extend(c.user_id for c in p.assigned_customers.all())
-    elif role == 'sub_dealer':
-        sd = SubDealerProfile.objects.prefetch_related('assigned_promotors__assigned_customers').get(user=user)
-        for p in sd.assigned_promotors.all():
-            ids.append(p.user_id)
-            ids.extend(c.user_id for c in p.assigned_customers.all())
-    elif role == 'promotor':
-        p = PromotorProfile.objects.prefetch_related('assigned_customers').get(user=user)
-        ids.extend(c.user_id for c in p.assigned_customers.all())
-    return ids
+        return ids
+    except Exception:
+        return []
 
 
 def _resolve_scope_user_ids(user, role, node_id):
@@ -5621,7 +5628,7 @@ class DashboardQuickStatsView(APIView):
             total_downline = len(downline_ids)
             inactive_count = max(0, total_downline - active_users)
             sold_out_count = JewelryProduct.objects.filter(stock_quantity__lte=0).count()
-            notify_count = StockNotifyRequest.objects.filter(status='pending').count()
+            notify_count = StockNotifyRequest.objects.filter(notified=False).count()
 
             data = {
                 'yesterday_orders': JewelryOrder.objects.filter(user_id__in=downline_ids, created_at__gte=yesterday_start, created_at__lt=today_start).count(),
@@ -11235,7 +11242,7 @@ class SalesProfitSummaryView(APIView):
 
             profit_breakdown = [
                 {'name': '22K Gold Commission', 'value': max(round(my_commission * 0.60), 1) if my_commission > 0 else 0, 'color': '#009957', 'pct': '60%'},
-                {'name': 'Coins Commission', 'value': max(round(my_commission * 0.25), 1) if my_commission > 0 else 0, 'color': '#BB8958', 'pct': '25%'},
+                {'name': 'Team Commission', 'value': max(round(my_commission * 0.25), 1) if my_commission > 0 else 0, 'color': '#BB8958', 'pct': '25%'},
                 {'name': 'Silver Commission', 'value': max(round(my_commission * 0.10), 1) if my_commission > 0 else 0, 'color': '#3E7C82', 'pct': '10%'},
                 {'name': 'Direct / Referral Rewards', 'value': max(round(my_commission * 0.05), 1) if my_commission > 0 else 0, 'color': '#073B3F', 'pct': '5%'},
             ]
@@ -11254,13 +11261,14 @@ class SalesProfitSummaryView(APIView):
                 slot_end_utc = slot_end_ist.astimezone(dt_timezone.utc)
                 h_sales = float(base_qs.filter(created_at__gte=day_start_utc, created_at__lte=slot_end_utc).aggregate(t=Sum('total_price'))['t'] or 0)
                 profit_factor = 0.73 if is_super else 0.04
-                trend.append({'name': lbl, 'sales': round(h_sales), 'profit': round(h_sales * profit_factor)})
+                trend.append({'name': lbl, 'month': lbl, 'sales': round(h_sales), 'profit': round(h_sales * profit_factor)})
         elif period == 'week':
             for i in range(6, -1, -1):
                 day_d = today - timedelta(days=i)
                 d_sales = float(base_qs.filter(created_at__date=day_d).aggregate(t=Sum('total_price'))['t'] or 0)
                 profit_factor = 0.73 if is_super else 0.04
-                trend.append({'name': day_d.strftime('%a'), 'sales': round(d_sales), 'profit': round(d_sales * profit_factor)})
+                lbl = day_d.strftime('%a')
+                trend.append({'name': lbl, 'month': lbl, 'sales': round(d_sales), 'profit': round(d_sales * profit_factor)})
         else:
             six_m_ago = today - timedelta(days=180)
             db_trend = (
@@ -11274,13 +11282,14 @@ class SalesProfitSummaryView(APIView):
             if db_trend.exists():
                 for t in db_trend:
                     s_val = float(t['s'] or 0)
-                    trend.append({'name': t['m'].strftime('%b'), 'sales': round(s_val), 'profit': round(s_val * profit_factor)})
+                    m_lbl = t['m'].strftime('%b')
+                    trend.append({'name': m_lbl, 'month': m_lbl, 'sales': round(s_val), 'profit': round(s_val * profit_factor)})
             else:
                 m_names = [(today - timedelta(days=60)).strftime('%b'), (today - timedelta(days=30)).strftime('%b'), today.strftime('%b')]
                 trend = [
-                    {'name': m_names[0], 'sales': round(total_sales * 0.88), 'profit': round(athirai_profit * 0.88)},
-                    {'name': m_names[1], 'sales': round(total_sales * 0.64), 'profit': round(athirai_profit * 0.64)},
-                    {'name': m_names[2], 'sales': round(total_sales * 0.76), 'profit': round(athirai_profit * 0.76)},
+                    {'name': m_names[0], 'month': m_names[0], 'sales': round(total_sales * 0.88), 'profit': round(athirai_profit * 0.88)},
+                    {'name': m_names[1], 'month': m_names[1], 'sales': round(total_sales * 0.64), 'profit': round(athirai_profit * 0.64)},
+                    {'name': m_names[2], 'month': m_names[2], 'sales': round(total_sales * 0.76), 'profit': round(athirai_profit * 0.76)},
                 ]
 
         return Response({

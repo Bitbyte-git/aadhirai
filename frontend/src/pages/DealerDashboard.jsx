@@ -972,7 +972,7 @@ const [dbRateDate, setDbRateDate] = useState(null)
     ],
     profitBreakdown: [
       { name: '22K Gold Commission', value: 0, color: '#009957', pct: '0%' },
-      { name: 'Coins Commission', value: 0, color: '#BB8958', pct: '0%' },
+      { name: 'Team Commission', value: 0, color: '#BB8958', pct: '0%' },
       { name: 'Silver Commission', value: 0, color: '#3E7C82', pct: '0%' },
       { name: 'Direct / Referral Rewards', value: 0, color: '#073B3F', pct: '0%' },
     ],
@@ -2033,18 +2033,24 @@ const fetchCoinStock = async () => {
           margin-top: 2px;
         }
         @media (max-width: 1200px) {
-          .sa-kpi-grid-v2 { grid-template-columns: repeat(2, 1fr); }
+          .sa-kpi-grid-v2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .sa-middle-grid { grid-template-columns: 1fr; }
           .sa-bottom-grid { grid-template-columns: 1fr; }
         }
+        @media (max-width: 900px) {
+          .sa-revenue-income-grid { grid-template-columns: 1fr; gap: 16px; }
+        }
         @media (max-width: 680px) {
-          .sa-dashboard-container { padding: 14px 14px 36px; }
-          .sa-welcome-card { flex-direction: column; align-items: flex-start; gap: 14px; }
-          .sa-kpi-grid-v2 { grid-template-columns: 1fr; }
+          .sa-dashboard-container { padding: 14px 12px 36px; gap: 14px; }
+          .sa-welcome-card { flex-direction: column; align-items: flex-start; gap: 14px; padding: 16px 18px; }
+          .sa-welcome-title { font-size: 20px; }
+          .sa-welcome-actions { width: 100%; justify-content: space-between; }
+          .sa-kpi-grid-v2 { grid-template-columns: 1fr; gap: 12px; }
+          .sa-kpi-card-v2 { padding: 16px 18px; }
+          .sa-saas-card { padding: 16px 18px; }
           .sa-qa-grid { grid-template-columns: 1fr; }
           .sa-role-dist-wrap { flex-direction: column; }
-          .sa-revenue-income-grid { grid-template-columns: 1fr; }
-          .sa-footer-banner { flex-direction: column; align-items: flex-start; gap: 18px; }
+          .sa-footer-banner { flex-direction: column; align-items: flex-start; gap: 18px; padding: 20px; }
         }
       `}</style>
 
@@ -2456,14 +2462,22 @@ const fetchCoinStock = async () => {
                     <LineChart data={salesProfitData.monthlyTrend} margin={{ top: 12, right: 10, left: -22, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#EEF2F1" vertical={false} />
                       <XAxis dataKey="month" stroke="#8E9E9C" fontSize={10} tickLine={false} axisLine={{ stroke: '#E2EAE8' }} />
-                      <YAxis stroke="#8E9E9C" fontSize={10} tickLine={false} axisLine={false} tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} />
+                      <YAxis
+                        stroke="#8E9E9C"
+                        fontSize={10}
+                        tickLine={false}
+                        axisLine={false}
+                        domain={[0, dataMax => Math.max(10, Math.ceil(dataMax * 1.25))]}
+                        tickFormatter={v => (v >= 100000 ? `₹${(v / 100000).toFixed(1)}L` : v >= 1000 ? `₹${(v / 1000).toFixed(0)}k` : `₹${v}`)}
+                      />
                       <Tooltip content={({ active, payload }) => {
                         if (!active || !payload?.length) return null
                         const row = payload[0].payload
                         const val = activeSalesProfitTab === 'sales' ? row.sales : row.profit
+                        const label = row.month || row.name || ''
                         return (
                           <div style={{ background: '#073B3F', color: '#FFFFFF', borderRadius: 8, padding: '7px 12px', fontSize: 11 }}>
-                            <div style={{ fontWeight: 800 }}>{row.month}</div>
+                            <div style={{ fontWeight: 800 }}>{label}</div>
                             <div style={{ color: '#E5BF91', marginTop: 2 }}>
                               ₹ {Number(val || 0).toLocaleString()}
                             </div>
@@ -2735,9 +2749,9 @@ const fetchCoinStock = async () => {
                   path: '/available-coins', bg: '#ECFDF5', color: '#059669',
                 },
                 {
-                  label: 'Team Login Rewards',
-                  icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></svg>,
-                  path: '/internal-team-login-rewards', bg: '#FEF3C7', color: '#D97706',
+                  label: 'Team Commission',
+                  icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>,
+                  path: '/internal-team-commission', bg: '#FEF3C7', color: '#D97706',
                 },
                 {
                   label: 'Add Shop',

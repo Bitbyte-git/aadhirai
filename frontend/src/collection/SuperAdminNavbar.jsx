@@ -1385,6 +1385,16 @@ export default function SuperAdminNavbar({
             ),
           },
           {
+            label: 'Digi Gold',
+            path: '/superadmin-digi-gold',
+            action: () => navigate('/superadmin-digi-gold'),
+            icon: (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9" /><path d="M12 7v10" /><path d="M15 9.5a2.5 2.5 0 0 0-5 0c0 3 5 2 5 5a2.5 2.5 0 0 1-5 0" />
+              </svg>
+            ),
+          },
+          {
             label: 'Add Product',
             path: '/add-product',
             action: () => navigate('/add-product'),

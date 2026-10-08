@@ -1252,3 +1252,69 @@ class EmailOTP(models.Model):
 
     def __str__(self):
         return f"OTP for {self.email} ({self.otp}) - verified={self.is_verified}"
+
+
+# ══════════════════════════════════════════════════════════════
+# DIGI GOLD (DIGITAL GOLD INVESTMENT & RECHARGE SYSTEM)
+# ══════════════════════════════════════════════════════════════
+
+class DigiGoldInvestment(models.Model):
+    """
+    Dedicated table for Digi Gold investments, conversions, and sales.
+    Mathematical formula:
+      - 1 gram = 1000 mg
+      - mg_price = gold_price_per_gram / 1000
+      - hold_gold_mg = recharge_amount / mg_price
+      - hold_gold_gm = hold_gold_mg / 1000
+    Valuation & profit/loss are computed dynamically against live MetalRate.
+    """
+    TRANSACTION_TYPES = [
+        ('buy', 'Buy Gold'),
+        ('sell', 'Sell Gold'),
+        ('convert', 'Convert from Recharge / Wallet'),
+    ]
+    STATUS_CHOICES = [
+        ('completed', 'Completed'),
+        ('pending', 'Pending'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='digi_gold_investments')
+    transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES, default='buy')
+    
+    # Financial values recorded at time of transaction
+    recharge_amount = models.DecimalField(max_digits=12, decimal_places=2, help_text="INR invested or recharged")
+    gold_price_per_gram = models.DecimalField(max_digits=12, decimal_places=2, help_text="Gold rate per gram at transaction time")
+    mg_price = models.DecimalField(max_digits=12, decimal_places=4, help_text="Rate per mg = gold_price_per_gram / 1000")
+    
+    # Gold quantity credited / held
+    hold_gold_mg = models.DecimalField(max_digits=14, decimal_places=4, help_text="Milligrams of gold (recharge_amount / mg_price)")
+    hold_gold_gm = models.DecimalField(max_digits=14, decimal_places=6, help_text="Grams of gold (hold_gold_mg / 1000)")
+    
+    # Source / Payment method
+    payment_method = models.CharField(max_length=40, default='recharge_conversion')
+    transaction_ref = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='completed', db_index=True)
+    notes = models.TextField(blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.email} - ₹{self.recharge_amount} -> {self.hold_gold_gm}g ({self.status})"
+
+
+class DigiGoldWallet(models.Model):
+    """Cumulative Digi Gold balance cache per user."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='digi_gold_wallet')
+    total_gold_mg = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    total_gold_gm = models.DecimalField(max_digits=14, decimal_places=6, default=0)
+    total_invested_inr = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.email} - {self.total_gold_gm}g ({self.total_gold_mg}mg) Digi Gold"
+

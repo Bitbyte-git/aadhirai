@@ -98,6 +98,8 @@ const WholesaleDealerPromotions = lazy(() => import('./Promotions/WholesaleDeale
 const DistributorPromotions = lazy(() => import('./Promotions/Distributor'))
 const SuperStokistPromotions = lazy(() => import('./Promotions/SuperStokist'))
 const PromotionSalesOrderList = lazy(() => import('./Promotions/Promotion_sales_order_list'))
+const DigiGoldDashboard = lazy(() => import('./pages/DigiGold/DigiGoldDashboard'))
+const SuperAdminDigiGold = lazy(() => import('./Superadmin/SuperAdminDigiGold'))
 const AffordableProducts = lazy(() => import('./collection/AffordableProducts'))
 
 const collectionPath = (category, metal) => {
@@ -380,6 +382,8 @@ export default function App() {
           <Route path="/nearby-shop" element={<WithCustomerNavbar><NearbyShop /></WithCustomerNavbar>} />
           <Route path="/order-summary" element={<ProtectedRoute role={["customer", "promotor", "sub_dealer", "dealer", "admin"]}><WithCustomerNavbar><OrderSummary /></WithCustomerNavbar></ProtectedRoute>} />
           <Route path="/recharge" element={<ProtectedRoute role={["customer", "promotor", "sub_dealer", "dealer", "admin"]}><WithCustomerNavbar><Recharge /></WithCustomerNavbar></ProtectedRoute>} />
+          <Route path="/digi-gold" element={<ProtectedRoute role={["customer", "promotor", "sub_dealer", "dealer", "admin", "super_admin"]}><DigiGoldDashboard /></ProtectedRoute>} />
+          <Route path="/superadmin-digi-gold" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><SuperAdminDigiGold /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/order-payment" element={<WithCustomerNavbar><OrderPayment /></WithCustomerNavbar>} />
           <Route path="/superadmin-payments" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><SuperAdminPayments /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/athirai-revenue" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><AthiraiRevenue /></WithSuperAdminNavbar></ProtectedRoute>} />

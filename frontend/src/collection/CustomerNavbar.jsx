@@ -1009,6 +1009,15 @@ export default function CustomerNavbar() {
   const [showSearchDrop, setShowSearchDrop] = useState(false);
   const [voiceListening, setVoiceListening] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(true);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [voiceInterim, setVoiceInterim] = useState("");
+  const [voiceStatus, setVoiceStatus] = useState("ready"); // 'ready' | 'listening' | 'processing' | 'error'
+  const [voiceErrorMsg, setVoiceErrorMsg] = useState("");
+  const [voiceVolume, setVoiceVolume] = useState(0);
+  const audioContextRef = useRef(null);
+  const audioStreamRef = useRef(null);
+  const audioAnimFrameRef = useRef(null);
+  const silenceTimerRef = useRef(null);
   const [ratesOpen, setRatesOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [roleDrawerOpen, setRoleDrawerOpen] = useState(false);
@@ -1115,42 +1124,267 @@ export default function CustomerNavbar() {
       .catch(() => setRates(null));
   }, []);
 
-  useEffect(() => {
+  // ── GOOGLE / YOUTUBE SMART TAMIL & ENGLISH VOICE INTELLIGENCE MAP ──
+  const SMART_VOICE_KEYWORD_MAP = [
+    { keywords: ['தங்க வளையல்', 'வளையல்', 'valayal', 'valaiyal', 'bangle', 'bangles', 'gold bangle', 'gold bangles', 'bracelets', 'காப்பு', 'kaapu'], query: 'bangles' },
+    { keywords: ['தங்க நெக்லஸ்', 'நெக்லஸ்', 'necklace', 'necklaces', 'gold necklace', 'choker', 'சோக்கர்'], query: 'necklaces' },
+    { keywords: ['தங்க ஆரம்', 'ஹாரம்', 'ஆரம்', 'haram', 'long haram', 'bridal haram', 'kasu malai', 'காசு மாலை', 'மாலை'], query: 'haram' },
+    { keywords: ['தங்க செயின்', 'செயின்', 'chain', 'chains', 'gold chain', 'thali chain', 'தாலி செயின்'], query: 'chains' },
+    { keywords: ['மங்களசூத்திரம்', 'தாலி', 'mangalsutra', 'thali', 'thaali', 'mangalyam'], query: 'mangalsutra' },
+    { keywords: ['தங்க நாணயம்', 'நாணயம்', 'gold coin', 'gold coins', 'coin', 'coins', 'kaasu', 'காசு'], query: 'gold coin' },
+    { keywords: ['வெள்ளி நாணயம்', 'silver coin', 'silver coins'], query: 'silver coin' },
+    { keywords: ['தங்க மோதிரம்', 'மோதிரம்', 'mothiram', 'ring', 'rings', 'gold ring', 'diamond ring', 'couple ring'], query: 'rings' },
+    { keywords: ['கம்மல்', 'ஜிமிக்கி', 'jhumka', 'jimiki', 'kammal', 'earring', 'earrings', 'studs', 'தோடுகள்'], query: 'earrings' },
+    { keywords: ['வெள்ளி கொலுசு', 'கொலுசு', 'kolusu', 'anklet', 'anklets', 'silver anklets', 'paayal'], query: 'silver anklets' },
+    { keywords: ['வெள்ளி விளக்கு', 'விளக்கு', 'vilakku', 'silver lamp', 'pooja', 'silver pooja', 'silver articles', 'வெள்ளி பாத்திரம்'], query: 'silver' },
+    { keywords: ['பெண்டன்ட்', 'டாலர்', 'dollar', 'pendant', 'pendants', 'locket'], query: 'pendants' },
+    { keywords: ['பிரேஸ்லெட்', 'bracelet', 'bracelets', 'hand chain'], query: 'bracelets' },
+    { keywords: ['தங்கம்', 'gold', '22k', '24k', 'pure gold'], query: 'gold' },
+    { keywords: ['வெள்ளி', 'silver', '925 silver'], query: 'silver' },
+    { keywords: ['வைரம்', 'diamond', 'diamonds'], query: 'diamond' },
+    { keywords: ['பிளாட்டினம்', 'platinum'], query: 'platinum' }
+  ];
+
+  // ── GOOGLE / YOUTUBE SYNTH AUDIO CHIME ──
+  const playVoiceChime = (type = 'start') => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      if (type === 'start') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.25);
+      } else if (type === 'success') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.09, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.3);
+      }
+    } catch {
+      // safely ignored if blocked by autoplay policy
+    }
+  };
+
+  const stopAudioAnalyser = () => {
+    if (audioAnimFrameRef.current) {
+      cancelAnimationFrame(audioAnimFrameRef.current);
+      audioAnimFrameRef.current = null;
+    }
+    if (audioStreamRef.current) {
+      try {
+        audioStreamRef.current.getTracks().forEach((track) => track.stop());
+      } catch {}
+      audioStreamRef.current = null;
+    }
+    if (audioContextRef.current) {
+      try {
+        audioContextRef.current.close();
+      } catch {}
+      audioContextRef.current = null;
+    }
+    setVoiceVolume(0);
+  };
+
+  const stopVoiceRecognition = () => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    stopAudioAnalyser();
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch {}
+    }
+    setVoiceListening(false);
+  };
+
+  const handleCloseVoiceModal = () => {
+    stopVoiceRecognition();
+    setShowVoiceModal(false);
+    setVoiceInterim("");
+    setVoiceStatus("ready");
+    setVoiceErrorMsg("");
+  };
+
+  const executeVoiceSearch = (rawText) => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    const text = (rawText || "").trim();
+    if (!text) return;
+
+    setVoiceStatus('processing');
+    playVoiceChime('success');
+    stopAudioAnalyser();
+
+    let mappedQuery = text;
+    const lowerFinal = text.toLowerCase();
+    for (const item of SMART_VOICE_KEYWORD_MAP) {
+      if (item.keywords.some((kw) => lowerFinal.includes(kw.toLowerCase()))) {
+        mappedQuery = item.query;
+        break;
+      }
+    }
+
+    setTimeout(() => {
+      setShowVoiceModal(false);
+      setVoiceListening(false);
+      setSearchQuery(mappedQuery);
+      submitSearch(mappedQuery);
+    }, 450);
+  };
+
+  const startVoiceModal = () => {
+    setShowVoiceModal(true);
+    setVoiceInterim("");
+    setVoiceErrorMsg("");
+    setVoiceStatus("listening");
+    startSpeechRecognition();
+  };
+
+  const startSpeechRecognition = () => {
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       setVoiceSupported(false);
-      return undefined;
+      setVoiceStatus('error');
+      setVoiceErrorMsg('Voice search is not supported in this browser. Please use Chrome, Edge or Safari.');
+      return;
+    }
+
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch {}
+    }
+
+    playVoiceChime('start');
+
+    // Real-time audio volume visualizer (Google / YouTube grade)
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+        audioStreamRef.current = stream;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          const audioCtx = new AudioCtx();
+          audioContextRef.current = audioCtx;
+          const source = audioCtx.createMediaStreamSource(stream);
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 64;
+          source.connect(analyser);
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          const updateVolume = () => {
+            if (!analyser) return;
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+              sum += dataArray[i];
+            }
+            const avg = sum / dataArray.length;
+            setVoiceVolume(Math.min(100, Math.round((avg / 128) * 100)));
+            audioAnimFrameRef.current = requestAnimationFrame(updateVolume);
+          };
+          updateVolume();
+        }
+      }).catch(() => {
+        // Fallback: graceful silent fallback
+      });
     }
 
     const recognition = new SpeechRecognition();
-    recognition.lang = "en-IN";
+    recognition.lang = 'en-IN';
     recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
     recognition.continuous = false;
 
-    recognition.onresult = (event) => {
-      const transcript = Array.from(event.results)
-        .map((result) => result[0]?.transcript || "")
-        .join(" ")
-        .trim();
+    recognition.onstart = () => {
+      setVoiceListening(true);
+      setVoiceStatus('listening');
+      setVoiceErrorMsg('');
+    };
 
-      if (transcript) {
-        setSearchQuery(transcript);
-        setShowSearchDrop(true);
+    recognition.onresult = (event) => {
+      let interim = '';
+      let finalTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        } else {
+          interim += event.results[i][0].transcript;
+        }
+      }
+      const currentText = (finalTranscript || interim).trim();
+      setVoiceInterim(currentText);
+
+      if (finalTranscript) {
+        executeVoiceSearch(finalTranscript);
+      } else if (interim && interim.trim().length > 1) {
+        // Google / YouTube intelligent auto-submit after speech pause
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = setTimeout(() => {
+          executeVoiceSearch(interim);
+        }, 1250);
       }
     };
 
-    recognition.onerror = () => setVoiceListening(false);
-    recognition.onend = () => setVoiceListening(false);
-    recognitionRef.current = recognition;
+    recognition.onerror = (event) => {
+      stopAudioAnalyser();
+      setVoiceListening(false);
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        setVoiceStatus('error');
+        setVoiceErrorMsg('Microphone access blocked. Click the lock/site settings icon in your address bar and allow microphone access.');
+      } else if (event.error === 'no-speech') {
+        setVoiceStatus('error');
+        setVoiceErrorMsg('No speech detected. Tap microphone and speak again.');
+      } else {
+        setVoiceStatus('error');
+        setVoiceErrorMsg(`Voice error (${event.error}). Please try again.`);
+      }
+    };
 
+    recognition.onend = () => {
+      stopAudioAnalyser();
+      setVoiceListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+    } catch {
+      setVoiceStatus('error');
+      setVoiceErrorMsg('Failed to initialize microphone. Please check permissions.');
+    }
+  };
+
+  useEffect(() => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setVoiceSupported(false);
+    }
     return () => {
-      recognition.onresult = null;
-      recognition.onerror = null;
-      recognition.onend = null;
-      recognition.stop();
-      recognitionRef.current = null;
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      if (audioAnimFrameRef.current) cancelAnimationFrame(audioAnimFrameRef.current);
+      if (audioStreamRef.current) {
+        try { audioStreamRef.current.getTracks().forEach((track) => track.stop()); } catch {}
+      }
+      if (audioContextRef.current) {
+        try { audioContextRef.current.close(); } catch {}
+      }
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch {}
+      }
     };
   }, []);
 
@@ -1191,28 +1425,6 @@ export default function CustomerNavbar() {
     setMobileSearchOpen(false);
     saveRecentSearch(query);
     navigate(`/collection/all?search=${encodeURIComponent(query)}`);
-  };
-
-  const startVoiceSearch = () => {
-    const recognition = recognitionRef.current;
-    if (!recognition) {
-      setVoiceSupported(false);
-      return;
-    }
-
-    if (voiceListening) {
-      recognition.stop();
-      setVoiceListening(false);
-      return;
-    }
-
-    try {
-      setShowSearchDrop(false);
-      setVoiceListening(true);
-      recognition.start();
-    } catch {
-      setVoiceListening(false);
-    }
   };
 
   const logout = () => {
@@ -1302,8 +1514,8 @@ export default function CustomerNavbar() {
         .exact-main .exact-inner {
           height: 100%;
           display: grid;
-          grid-template-columns: auto 1fr auto auto;
-          gap: clamp(18px, 2.5vw, 36px);
+          grid-template-columns: auto 1fr auto auto auto;
+          gap: clamp(12px, 1.8vw, 24px);
           align-items: center;
         }
 
@@ -1347,6 +1559,46 @@ export default function CustomerNavbar() {
         .exact-search-wrap {
           position: relative;
           z-index: 10020;
+          width: 100%;
+          min-width: 0;
+        }
+
+        .exact-digi-gold-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          height: 42px;
+          padding: 0 15px;
+          border-radius: 999px;
+          background: #0A3E42;
+          border: 1.5px solid #C6924B;
+          color: #FFFFFF;
+          font-size: 12.5px;
+          font-weight: 750;
+          letter-spacing: 0.03em;
+          text-transform: uppercase;
+          cursor: pointer;
+          white-space: nowrap;
+          box-shadow: 0 2px 10px rgba(10, 62, 66, 0.16);
+          transition: transform 180ms ease, box-shadow 180ms ease;
+        }
+
+        .exact-digi-gold-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 14px rgba(10, 62, 66, 0.25);
+        }
+
+        .exact-digi-gold-icon {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: #C6924B;
+          color: #0A3E42;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          font-weight: 900;
         }
 
         .exact-search {
@@ -1390,28 +1642,33 @@ export default function CustomerNavbar() {
         }
 
         .exact-voice-btn {
-          width: 34px;
-          height: 34px;
+          width: 36px;
+          height: 36px;
           margin-right: 5px;
-          border: 0;
+          border: 1.5px solid #D1DFDE;
           border-radius: 999px;
-          background: var(--bb-mist-aqua);
-          color: var(--bb-teal-dark);
+          background: #FFFFFF;
+          color: #073B3F;
           display: grid;
           place-items: center;
           cursor: pointer;
-          transition: background 160ms ease, color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+          box-shadow: 0 2px 6px rgba(7, 59, 63, 0.06);
+          transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .exact-voice-btn:hover {
-          background: var(--bb-soft-aqua);
-          transform: translateY(-1px);
+          background: #F4F8F7;
+          border-color: #073B3F;
+          color: #073B3F;
+          transform: scale(1.06);
+          box-shadow: 0 4px 14px rgba(7, 59, 63, 0.16);
         }
 
         .exact-voice-btn.is-listening {
-          background: var(--bb-teal-dark);
-          color: var(--bb-bg);
-          box-shadow: 0 0 0 6px rgba(12,64,68,0.13);
+          background: linear-gradient(135deg, #E11D48, #BE123C);
+          color: #FFFFFF;
+          border-color: #E11D48;
+          box-shadow: 0 0 0 6px rgba(225, 29, 72, 0.18);
           animation: voice-pulse 900ms ease-in-out infinite alternate;
         }
 
@@ -1426,6 +1683,225 @@ export default function CustomerNavbar() {
           from { transform: scale(1); }
           to { transform: scale(1.08); }
         }
+
+        /* ── YOUTUBE / GOOGLE ULTRA-POWERFUL VOICE SEARCH MODAL ── */
+        .cn-voice-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(10, 25, 30, 0.68);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          z-index: 100050;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          animation: cnVoiceFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes cnVoiceFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .cn-voice-card {
+          background: #FFFFFF;
+          border-radius: 28px;
+          box-shadow: 0 28px 80px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(7, 59, 63, 0.08);
+          width: 100%;
+          max-width: 400px;
+          padding: 24px 24px 30px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 16px;
+          position: relative;
+          animation: cnVoiceSlideUp 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes cnVoiceSlideUp {
+          from { transform: translateY(22px) scale(0.96); opacity: 0; }
+          to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+
+        .cn-voice-header {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .cn-voice-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: rgba(234, 67, 53, 0.08);
+          color: #EA4335;
+          border: 1px solid rgba(234, 67, 53, 0.22);
+          border-radius: 999px;
+          padding: 6px 16px;
+          font-size: 13.5px;
+          font-weight: 800;
+          letter-spacing: 0.02em;
+        }
+
+        .cn-voice-badge.is-processing {
+          background: rgba(5, 150, 105, 0.08);
+          color: #059669;
+          border-color: rgba(5, 150, 105, 0.22);
+        }
+
+        .cn-voice-badge-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #EA4335;
+          box-shadow: 0 0 0 3px rgba(234, 67, 53, 0.25);
+          animation: cnBadgePulse 1.4s infinite;
+        }
+        .cn-voice-badge.is-processing .cn-voice-badge-dot {
+          background: #059669;
+          box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.25);
+        }
+        @keyframes cnBadgePulse {
+          0% { box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.6); }
+          70% { box-shadow: 0 0 0 6px rgba(234, 67, 53, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(234, 67, 53, 0); }
+        }
+
+        .cn-voice-close-btn {
+          width: 36px;
+          height: 36px;
+          background: transparent;
+          border: 0;
+          color: #5F6368;
+          cursor: pointer;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.16s ease;
+        }
+        .cn-voice-close-btn:hover {
+          background: #F1F3F4;
+          color: #202124;
+          transform: rotate(90deg);
+        }
+
+        .cn-voice-transcript-box {
+          min-height: 36px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          width: 100%;
+          padding: 0 12px;
+        }
+
+        .cn-voice-transcript-active {
+          font-size: 26px;
+          font-weight: 800;
+          color: #073B3F;
+          line-height: 1.35;
+          word-break: break-word;
+          letter-spacing: -0.01em;
+          animation: cnTextPop 0.18s ease-out;
+        }
+        @keyframes cnTextPop {
+          from { transform: scale(0.97); opacity: 0.8; }
+          to { transform: scale(1); opacity: 1; }
+        }
+
+        .cn-voice-error-text {
+          font-size: 14px;
+          font-weight: 600;
+          color: #DC2626;
+          line-height: 1.45;
+          max-width: 360px;
+        }
+
+        .cn-voice-mic-wrap {
+          position: relative;
+          width: 130px;
+          height: 130px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 6px 0;
+        }
+
+        .cn-voice-ripple {
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          border: 2.5px solid rgba(234, 67, 53, 0.4);
+          animation: cnVoicePulse 2s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+          pointer-events: none;
+        }
+        .cn-voice-ripple.ripple-2 {
+          animation-delay: 0.65s;
+          border-color: rgba(234, 67, 53, 0.24);
+        }
+        .cn-voice-ripple.ripple-3 {
+          animation-delay: 1.3s;
+          border-color: rgba(66, 133, 244, 0.28);
+        }
+        @keyframes cnVoicePulse {
+          0% { transform: scale(0.9); opacity: 0.95; }
+          100% { transform: scale(2.05); opacity: 0; }
+        }
+
+        .cn-voice-mic-main {
+          width: 84px;
+          height: 84px;
+          border-radius: 50%;
+          border: 0;
+          background: linear-gradient(135deg, #EA4335, #D93025);
+          color: #FFFFFF;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          box-shadow: 0 14px 34px rgba(234, 67, 53, 0.42);
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          position: relative;
+          z-index: 2;
+        }
+        .cn-voice-mic-main:hover {
+          transform: scale(1.06);
+          box-shadow: 0 18px 40px rgba(234, 67, 53, 0.52);
+        }
+        .cn-voice-mic-main:not(.is-active) {
+          background: linear-gradient(135deg, #073B3F, #0E585E);
+          box-shadow: 0 10px 28px rgba(7, 59, 63, 0.28);
+        }
+        .cn-voice-mic-main.is-processing {
+          background: linear-gradient(135deg, #059669, #047857);
+          box-shadow: 0 12px 32px rgba(5, 150, 105, 0.42);
+        }
+
+        /* Google signature 4-color dancing soundwave equalizer */
+        .cn-voice-waves {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6.5px;
+          height: 32px;
+          margin-top: -2px;
+        }
+        .cn-wave-bar {
+          width: 4.5px;
+          border-radius: 999px;
+          transition: height 0.1s ease;
+          animation: cnWaveDance 0.85s ease-in-out infinite alternate;
+        }
+        .cn-wave-bar.bar-1 { height: 16px; background: #4285F4; animation-delay: 0s; }
+        .cn-wave-bar.bar-2 { height: 28px; background: #EA4335; animation-delay: 0.18s; }
+        .cn-wave-bar.bar-3 { height: 20px; background: #FBBC05; animation-delay: 0.36s; }
+        .cn-wave-bar.bar-4 { height: 26px; background: #34A853; animation-delay: 0.14s; }
+        .cn-wave-bar.bar-5 { height: 14px; background: #073B3F; animation-delay: 0.32s; }
+        @keyframes cnWaveDance {
+          0% { transform: scaleY(0.4); opacity: 0.7; }
+          100% { transform: scaleY(1.4); opacity: 1; }
+        }
+
+
 
         .exact-results {
           position: absolute;
@@ -2077,6 +2553,7 @@ export default function CustomerNavbar() {
           .team-brand { grid-area: brand; }
           .exact-search-wrap { grid-area: search; min-width: 0; }
           .exact-actions { grid-area: actions; }
+          .exact-digi-gold-btn { display: none; }
           .rate-dropdown { display: none; }
           .exact-menu { display: none; }
           .exact-desktop-menu-toggle { display: none !important; }
@@ -3190,18 +3667,29 @@ export default function CustomerNavbar() {
 
           .cn-search-overlay-voice {
             flex: 0 0 auto;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            border: 0;
-            background: transparent;
-            color: #8b551e;
+            border: 1.5px solid #D1DFDE;
+            background: #FFFFFF;
+            color: #073B3F;
             cursor: pointer;
             padding: 0;
+            transition: all 0.16s ease;
+          }
+
+          .cn-search-overlay-voice:hover {
+            border-color: #073B3F;
+            transform: scale(1.05);
           }
 
           .cn-search-overlay-voice.is-listening {
-            color: #C92035;
+            background: #E11D48;
+            color: #FFFFFF;
+            border-color: #E11D48;
           }
 
           .cn-search-overlay-body {
@@ -3376,11 +3864,12 @@ export default function CustomerNavbar() {
                 />
                 <button
                   type="button"
-                  className={`cn-search-overlay-voice ${voiceListening ? "is-listening" : ""}`}
+                  className={`cn-search-overlay-voice ${voiceListening || showVoiceModal ? "is-listening" : ""}`}
                   onMouseDown={(event) => event.preventDefault()}
-                  onClick={startVoiceSearch}
+                  onClick={startVoiceModal}
                   disabled={!voiceSupported}
-                  aria-label={voiceListening ? "Stop voice search" : "Search by voice"}
+                  title="Search by voice"
+                  aria-label="Search by voice"
                 >
                   <Icon name="mic" size={17} />
                 </button>
@@ -3538,21 +4027,17 @@ export default function CustomerNavbar() {
                   placeholder="Search gold & silver jewellery..."
                 />
                 <button
-                  className={`exact-voice-btn ${voiceListening ? "is-listening" : ""}`}
+                  className={`exact-voice-btn ${voiceListening || showVoiceModal ? "is-listening" : ""}`}
                   type="button"
                   onMouseDown={(event) => event.preventDefault()}
-                  onClick={startVoiceSearch}
+                  onClick={startVoiceModal}
                   disabled={!voiceSupported}
                   title={
                     voiceSupported
-                      ? voiceListening
-                        ? "Stop voice search"
-                        : "Search by voice"
+                      ? "Search by voice (Google / YouTube style)"
                       : "Voice search is not supported in this browser"
                   }
-                  aria-label={
-                    voiceListening ? "Stop voice search" : "Search by voice"
-                  }
+                  aria-label="Search by voice"
                 >
                   <Icon name="mic" size={17} />
                 </button>
@@ -3613,6 +4098,18 @@ export default function CustomerNavbar() {
                 </div>
               )}
             </div>
+
+            {isLoggedIn && (
+              <button
+                type="button"
+                className="exact-digi-gold-btn"
+                onClick={() => navigate("/digi-gold")}
+                title="Aadhirai 22K Digi Gold"
+              >
+                <span className="exact-digi-gold-icon">Au</span>
+                <span>Digi Gold</span>
+              </button>
+            )}
 
             <div
               className="rate-dropdown"
@@ -3988,6 +4485,25 @@ export default function CustomerNavbar() {
                   <span className="mobile-service-label">AUG Coins</span>
                 </div>
                 <span className="mobile-service-tag">Rewards</span>
+              </button>
+            )}
+
+            {isLoggedIn && (
+              <button
+                type="button"
+                className="mobile-service-item"
+                onClick={() => {
+                  setMobileOpen(false);
+                  navigate("/digi-gold");
+                }}
+              >
+                <div className="mobile-service-left">
+                  <span className="mobile-service-icon" style={{ background: '#FFF8F0', color: '#C6924B' }}>
+                    <Icon name="coin" size={17} />
+                  </span>
+                  <span className="mobile-service-label">Digi Gold</span>
+                </div>
+                <span className="mobile-service-tag" style={{ background: '#E8F7F0', color: '#009957' }}>22K Gold</span>
               </button>
             )}
 
@@ -4400,6 +4916,97 @@ export default function CustomerNavbar() {
                 ✦ BIS 100% Hallmarked • Secure Shopping ✦
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── YOUTUBE / GOOGLE ULTRA-POWERFUL VOICE SEARCH MODAL ── */}
+      {showVoiceModal && (
+        <div className="cn-voice-overlay" onClick={handleCloseVoiceModal}>
+          <div className="cn-voice-card" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="cn-voice-header">
+              <span className={`cn-voice-badge ${voiceStatus === 'processing' ? 'is-processing' : ''}`}>
+                <span className="cn-voice-badge-dot" />
+                {voiceStatus === 'listening' ? 'Listening...' :
+                 voiceStatus === 'processing' ? 'Searching...' :
+                 voiceStatus === 'error' ? 'Notice' : 'Voice Search'}
+              </span>
+
+              <button
+                type="button"
+                className="cn-voice-close-btn"
+                onClick={handleCloseVoiceModal}
+                aria-label="Close voice search"
+              >
+                <Icon name="close" size={20} />
+              </button>
+            </div>
+
+            {/* Live Transcript / Spoken Text Area (Only shown when speaking or error) */}
+            {voiceInterim ? (
+              <div className="cn-voice-transcript-box">
+                <div className="cn-voice-transcript-active">
+                  "{voiceInterim}"
+                </div>
+              </div>
+            ) : voiceStatus === 'error' ? (
+              <div className="cn-voice-transcript-box">
+                <div className="cn-voice-error-text">
+                  {voiceErrorMsg || 'Could not access microphone.'}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Central Animated Mic */}
+            <div className="cn-voice-mic-wrap">
+              {voiceStatus === 'listening' && (
+                <>
+                  <div
+                    className="cn-voice-ripple ripple-1"
+                    style={{ transform: voiceVolume > 5 ? `scale(${1 + voiceVolume * 0.007})` : undefined }}
+                  />
+                  <div
+                    className="cn-voice-ripple ripple-2"
+                    style={{ transform: voiceVolume > 10 ? `scale(${1.2 + voiceVolume * 0.009})` : undefined }}
+                  />
+                  <div
+                    className="cn-voice-ripple ripple-3"
+                    style={{ transform: voiceVolume > 20 ? `scale(${1.4 + voiceVolume * 0.01})` : undefined }}
+                  />
+                </>
+              )}
+              <button
+                type="button"
+                className={`cn-voice-mic-main ${voiceStatus === 'listening' ? 'is-active' : ''} ${voiceStatus === 'processing' ? 'is-processing' : ''}`}
+                onClick={() => {
+                  if (voiceStatus === 'listening') {
+                    if (voiceInterim.trim()) {
+                      executeVoiceSearch(voiceInterim);
+                    } else {
+                      stopVoiceRecognition();
+                      setVoiceStatus('ready');
+                    }
+                  } else {
+                    startSpeechRecognition();
+                  }
+                }}
+                title={voiceStatus === 'listening' ? 'Click to search or pause' : 'Click to speak'}
+              >
+                <Icon name="mic" size={40} />
+              </button>
+            </div>
+
+            {/* Google / YouTube Style Soundwave Equalizer */}
+            {voiceStatus === 'listening' && (
+              <div className="cn-voice-waves">
+                <span className="cn-wave-bar bar-1" style={{ height: voiceVolume > 5 ? `${Math.min(34, 12 + voiceVolume * 0.25)}px` : undefined }} />
+                <span className="cn-wave-bar bar-2" style={{ height: voiceVolume > 5 ? `${Math.min(38, 22 + voiceVolume * 0.32)}px` : undefined }} />
+                <span className="cn-wave-bar bar-3" style={{ height: voiceVolume > 5 ? `${Math.min(34, 16 + voiceVolume * 0.28)}px` : undefined }} />
+                <span className="cn-wave-bar bar-4" style={{ height: voiceVolume > 5 ? `${Math.min(36, 20 + voiceVolume * 0.3)}px` : undefined }} />
+                <span className="cn-wave-bar bar-5" style={{ height: voiceVolume > 5 ? `${Math.min(30, 10 + voiceVolume * 0.22)}px` : undefined }} />
+              </div>
+            )}
           </div>
         </div>
       )}

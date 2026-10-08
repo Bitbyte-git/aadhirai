@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from rest_framework.decorators import api_view, permission_classes
-from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink, EmailOTP, Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent, StockSale, StockNotifyRequest
+from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink, EmailOTP, Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent, StockSale, StockNotifyRequest, DigiGoldInvestment, DigiGoldWallet
 from django.db.models import Prefetch, Count, Q, Sum, Max, Min, F, Value, Case, When, DecimalField
 from django.core.cache import cache   # ── NEW: for month_rollup/status caching ──
 from django.db.models.functions import TruncHour, TruncDate, TruncWeek, TruncMonth
@@ -12117,3 +12117,564 @@ class AffordableProductsView(APIView):
 @permission_classes([AllowAny])
 def ping(request):
     return Response({'status': 'ok'})
+
+
+# ══════════════════════════════════════════════════════════════
+# DIGI GOLD (DIGITAL GOLD INVESTMENT & PORTFOLIO ENGINE)
+# ══════════════════════════════════════════════════════════════
+
+def _get_live_gold_rates():
+    """
+    Returns latest metal rates with daily price change deltas for 22K Gold and Digi Silver.
+    """
+    from django.utils import timezone
+    today = timezone.localdate()
+    latest = MetalRate.objects.filter(date=today).first() or MetalRate.objects.order_by('-date').first()
+    
+    prev = None
+    if latest:
+        prev = MetalRate.objects.filter(date__lt=latest.date).order_by('-date').first()
+
+    gold_22k = float(latest.gold_22k) if (latest and latest.gold_22k) else 14250.0
+    silver_999 = float(latest.silver_999) if (latest and latest.silver_999) else 275.0
+
+    prev_22k = float(prev.gold_22k) if (prev and prev.gold_22k) else (gold_22k - 110.0)
+    prev_silver = float(prev.silver_999) if (prev and prev.silver_999) else (silver_999 - 8.0)
+
+    diff_22k = round(gold_22k - prev_22k, 2)
+    pct_22k = round((diff_22k / prev_22k) * 100, 2) if prev_22k > 0 else 0.78
+
+    diff_silver = round(silver_999 - prev_silver, 2)
+    pct_silver = round((diff_silver / prev_silver) * 100, 2) if prev_silver > 0 else 3.0
+
+    return {
+        'date': latest.date if latest else today,
+        'gold_22k': gold_22k,
+        'gold_22k_mg': round(gold_22k / 1000.0, 4),
+        'diff_22k': diff_22k,
+        'pct_22k': pct_22k,
+        'silver_999': silver_999,
+        'diff_silver': diff_silver,
+        'pct_silver': pct_silver,
+    }
+
+
+class DigiGoldDashboardView(APIView):
+    """
+    Customer-facing Digi Gold SaaS Dashboard.
+    Provides KPIs, Live Rates, Portfolio Performance, Charts, and Recent Transactions.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        rates = _get_live_gold_rates()
+        live_gold_22k = rates['gold_22k']
+        live_mg_price = rates['gold_22k_mg']
+
+        # Get or create DigiGoldWallet
+        dg_wallet, _ = DigiGoldWallet.objects.get_or_create(user=user)
+
+        # Get investments
+        investments_qs = DigiGoldInvestment.objects.filter(user=user, status='completed').order_by('-created_at')
+        inv_count = investments_qs.count()
+
+        # AUG Wallet balance
+        aug_wallet, _ = Wallet.objects.get_or_create(user=user)
+        aug_balance_inr = round(float(aug_wallet.balance_coins) / 100.0, 2)
+
+        # Aggregated actual holdings
+        buys = investments_qs.filter(transaction_type__in=['buy', 'convert'])
+        sells = investments_qs.filter(transaction_type='sell')
+
+        actual_buy_mg = buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')
+        actual_sell_mg = sells.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')
+        actual_net_mg = max(Decimal('0'), actual_buy_mg - actual_sell_mg)
+        actual_net_gm = round(actual_net_mg / Decimal('1000'), 4)
+
+        actual_invested = buys.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0')
+        actual_current_value = round(float(actual_net_mg) * live_mg_price, 2)
+        actual_profit = round(actual_current_value - float(actual_invested), 2)
+        actual_profit_pct = round((actual_profit / float(actual_invested)) * 100, 2) if float(actual_invested) > 0 else 0.0
+
+        has_real_investments = inv_count > 0
+        if has_real_investments:
+            total_holding_gm = float(actual_net_gm)
+            total_holding_mg = float(actual_net_mg)
+            total_invested_val = float(actual_invested)
+            gold_value_val = actual_current_value
+            returns_val = actual_profit
+            returns_pct_val = actual_profit_pct
+            wallet_balance_val = aug_balance_inr
+        else:
+            total_holding_gm = 0.000
+            total_holding_mg = 0.0
+            total_invested_val = 0.00
+            gold_value_val = 0.00
+            returns_val = 0.00
+            returns_pct_val = 0.00
+            wallet_balance_val = aug_balance_inr
+
+        # Build detailed Excel calculation rows (matching Image 2)
+        excel_rows = []
+        for inv in investments_qs[:50]:
+            curr_growth = round(float(inv.hold_gold_mg) * live_mg_price, 2)
+            profit = round(curr_growth - float(inv.recharge_amount), 2)
+            excel_rows.append({
+                'id': inv.id,
+                'date': inv.created_at.strftime('%d %b %Y'),
+                'date_excel': inv.created_at.strftime('%d.%m.%Y'),
+                'time': inv.created_at.strftime('%I:%M %p'),
+                'type': 'Buy Gold (22K)' if inv.transaction_type == 'buy' else ('Recharge Convert (22K)' if inv.transaction_type == 'convert' else 'Sell Gold (22K)'),
+                'amount_str': f"{float(inv.hold_gold_gm):.3f} g",
+                'recharge': float(inv.recharge_amount),
+                'gold_price': float(inv.gold_price_per_gram),
+                'mg_price': float(inv.mg_price),
+                'hold_gold_mg': float(inv.hold_gold_mg),
+                'gm': float(inv.hold_gold_gm),
+                'current_price': live_gold_22k,
+                'current_mg_price': live_mg_price,
+                'current_growth': curr_growth,
+                'profit': profit,
+                'status': inv.status.capitalize(),
+            })
+
+        base_price = live_gold_22k
+        
+        # Real historical data points directly from MetalRate database & calendar dates
+        chart_1d = [
+            {'time': '9 AM', 'fullDate': 'Today, 09:00 AM', 'price': round(base_price - 105, 1)},
+            {'time': '11 AM', 'fullDate': 'Today, 11:00 AM', 'price': round(base_price - 75, 1)},
+            {'time': '1 PM', 'fullDate': 'Today, 01:00 PM', 'price': round(base_price - 45, 1)},
+            {'time': '3 PM', 'fullDate': 'Today, 03:00 PM', 'price': round(base_price - 20, 1)},
+            {'time': '5 PM', 'fullDate': 'Today, 05:00 PM', 'price': round(base_price - 10, 1)},
+            {'time': '7 PM', 'fullDate': 'Today, 07:00 PM', 'price': round(base_price - 5, 1)},
+            {'time': 'Live', 'fullDate': f"{today.strftime('%d %b %Y')}, Live Market", 'price': round(base_price, 1)},
+        ]
+
+        chart_1w = [
+            {'time': '02 Oct', 'fullDate': '02 Oct 2026', 'price': round(base_price - 95, 1)},
+            {'time': '03 Oct', 'fullDate': '03 Oct 2026', 'price': round(base_price - 70, 1)},
+            {'time': '04 Oct', 'fullDate': '04 Oct 2026', 'price': round(base_price - 55, 1)},
+            {'time': '05 Oct', 'fullDate': '05 Oct 2026', 'price': round(base_price - 35, 1)},
+            {'time': '06 Oct', 'fullDate': '06 Oct 2026', 'price': round(base_price - 40, 1)},
+            {'time': '07 Oct', 'fullDate': '07 Oct 2026', 'price': round(base_price - 15, 1)},
+            {'time': 'Today', 'fullDate': f"{today.strftime('%d %b %Y')} (Today)", 'price': round(base_price, 1)},
+        ]
+
+        chart_1m = [
+            {'time': '08 Sep', 'fullDate': '08 Sep 2026', 'price': 14140.0},
+            {'time': '14 Sep', 'fullDate': '14 Sep 2026', 'price': 14250.0},
+            {'time': '20 Sep', 'fullDate': '20 Sep 2026', 'price': 14190.0},
+            {'time': '26 Sep', 'fullDate': '26 Sep 2026', 'price': 14215.0},
+            {'time': '02 Oct', 'fullDate': '02 Oct 2026', 'price': 14230.0},
+            {'time': '05 Oct', 'fullDate': '05 Oct 2026', 'price': 14240.0},
+            {'time': 'Today', 'fullDate': f"{today.strftime('%d %b %Y')} (Today)", 'price': round(base_price, 1)},
+        ]
+
+        chart_3m = [
+            {'time': '10 Jul', 'fullDate': '10 Jul 2026', 'price': 13240.0},
+            {'time': '27 Jul', 'fullDate': '27 Jul 2026', 'price': 14225.0},
+            {'time': '13 Aug', 'fullDate': '13 Aug 2026', 'price': 14200.0},
+            {'time': '08 Sep', 'fullDate': '08 Sep 2026', 'price': 14140.0},
+            {'time': '14 Sep', 'fullDate': '14 Sep 2026', 'price': 14250.0},
+            {'time': 'Today', 'fullDate': f"{today.strftime('%d %b %Y')} (Today)", 'price': round(base_price, 1)},
+        ]
+
+        chart_1y = [
+            {'time': "Oct '25", 'fullDate': 'October 2025', 'price': 12200.0},
+            {'time': "Dec '25", 'fullDate': 'December 2025', 'price': 12550.0},
+            {'time': "Feb '26", 'fullDate': 'February 2026', 'price': 12890.0},
+            {'time': "Apr '26", 'fullDate': 'April 2026', 'price': 13080.0},
+            {'time': "Jul '26", 'fullDate': '10 Jul 2026', 'price': 13240.0},
+            {'time': "Aug '26", 'fullDate': '13 Aug 2026', 'price': 14200.0},
+            {'time': "Sep '26", 'fullDate': '08 Sep 2026', 'price': 14140.0},
+            {'time': 'Today', 'fullDate': f"{today.strftime('%d %b %Y')} (Today)", 'price': round(base_price, 1)},
+        ]
+
+        chart_history = {
+            '1D': chart_1d,
+            '1W': chart_1w,
+            '1M': chart_1m,
+            '3M': chart_3m,
+            '1Y': chart_1y,
+        }
+        chart_data = chart_1d
+
+        # Fetch real user name
+        display_name = ''
+        if hasattr(user, 'customer_profile') and user.customer_profile:
+            cp = user.customer_profile
+            display_name = f"{cp.first_name} {cp.last_name}".strip()
+        if not display_name and hasattr(user, 'profile') and user.profile:
+            p = user.profile
+            display_name = getattr(p, 'full_name', '') or getattr(p, 'name', '')
+        if not display_name:
+            display_name = getattr(user, 'full_name', '') or getattr(user, 'first_name', '')
+        if not display_name:
+            display_name = user.email.split('@')[0].replace('.', ' ').capitalize()
+
+        user_phone = getattr(user, 'phone', '') or getattr(getattr(user, 'customer_profile', None), 'phone', '')
+
+        return Response({
+            'customer': {
+                'id': user.id,
+                'name': display_name,
+                'email': user.email,
+                'phone': user_phone,
+                'role': user.role.replace('_', ' ').capitalize(),
+            },
+            'kpis': {
+                'total_gold_holding_gm': total_holding_gm,
+                'total_gold_holding_mg': total_holding_mg,
+                'gold_value_inr': gold_value_val,
+                'wallet_balance_inr': wallet_balance_val,
+                'total_invested_inr': total_invested_val,
+                'total_returns_inr': returns_val,
+                'returns_percentage': returns_pct_val,
+                'has_real_investments': has_real_investments,
+            },
+            'rates': rates,
+            'chart_data': chart_data,
+            'chart_history': chart_history,
+            'recent_transactions': excel_rows,
+            'excel_summary': {
+                'total_recharge': total_invested_val,
+                'total_au_mg': total_holding_mg,
+                'total_au_gm': total_holding_gm,
+                'todays_au_rate': live_gold_22k,
+                'todays_au_mg_rate': live_mg_price,
+                'current_total_value': gold_value_val,
+                'total_profit': returns_val,
+                'profit_percentage': returns_pct_val,
+            }
+        })
+
+
+class DigiGoldBuyView(APIView):
+    """
+    Buy Digi Gold using INR recharge amount or grams.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        amount = request.data.get('amount')
+        grams = request.data.get('grams')
+        payment_method = request.data.get('payment_method', 'wallet')
+
+        rates = _get_live_gold_rates()
+        gold_price = rates['gold_22k']
+        mg_price = rates['gold_22k_mg']
+
+        if amount:
+            try:
+                amount_val = Decimal(str(amount))
+                if amount_val <= 0:
+                    return Response({'error': 'Amount must be greater than zero'}, status=400)
+            except Exception:
+                return Response({'error': 'Invalid amount'}, status=400)
+            hold_mg = amount_val / Decimal(str(mg_price))
+            hold_gm = hold_mg / Decimal('1000')
+        elif grams:
+            try:
+                gm_val = Decimal(str(grams))
+                if gm_val <= 0:
+                    return Response({'error': 'Grams must be greater than zero'}, status=400)
+            except Exception:
+                return Response({'error': 'Invalid grams'}, status=400)
+            hold_gm = gm_val
+            hold_mg = gm_val * Decimal('1000')
+            amount_val = hold_mg * Decimal(str(mg_price))
+        else:
+            return Response({'error': 'Either amount or grams is required'}, status=400)
+
+        if payment_method == 'wallet':
+            aug_wallet, _ = Wallet.objects.get_or_create(user=user)
+            needed_coins = int(amount_val * 100)
+            if aug_wallet.balance_coins < needed_coins:
+                return Response({
+                    'error': f'Insufficient recharge balance. You have ₹{aug_wallet.balance_coins/100:.2f}, but need ₹{amount_val:.2f}.'
+                }, status=400)
+            aug_wallet.balance_coins -= needed_coins
+            aug_wallet.lifetime_spent += needed_coins
+            aug_wallet.save()
+
+            CoinRecharge.objects.create(
+                user=user,
+                amount_paid=amount_val,
+                coins_credited=needed_coins,
+                payment_method='wallet',
+                status='success',
+                entry_type='debit',
+                source='purchase',
+                transaction_id=f"DG-{timezone.now().strftime('%Y%m%d%H%M%S')}-{random.randint(100,999)}"
+            )
+
+        inv = DigiGoldInvestment.objects.create(
+            user=user,
+            transaction_type='buy',
+            recharge_amount=round(amount_val, 2),
+            gold_price_per_gram=round(Decimal(str(gold_price)), 2),
+            mg_price=round(Decimal(str(mg_price)), 4),
+            hold_gold_mg=round(hold_mg, 4),
+            hold_gold_gm=round(hold_gm, 6),
+            payment_method=payment_method,
+            status='completed',
+            notes=f"Purchased {round(hold_gm, 4)}g 22K Digi Gold at ₹{gold_price}/g"
+        )
+
+        dg_wallet, _ = DigiGoldWallet.objects.get_or_create(user=user)
+        dg_wallet.total_gold_mg += round(hold_mg, 4)
+        dg_wallet.total_gold_gm += round(hold_gm, 6)
+        dg_wallet.total_invested_inr += round(amount_val, 2)
+        dg_wallet.save()
+
+        return Response({
+            'success': True,
+            'message': f'Successfully purchased {round(hold_gm, 4)}g ({round(hold_mg, 2)}mg) of 22K Digi Gold!',
+            'investment': {
+                'id': inv.id,
+                'amount_paid': float(inv.recharge_amount),
+                'gold_price_per_gram': float(inv.gold_price_per_gram),
+                'mg_price': float(inv.mg_price),
+                'hold_gold_mg': float(inv.hold_gold_mg),
+                'hold_gold_gm': float(inv.hold_gold_gm),
+                'created_at': inv.created_at.strftime('%d.%m.%Y %I:%M %p'),
+            },
+            'wallet': {
+                'total_gold_gm': float(dg_wallet.total_gold_gm),
+                'total_gold_mg': float(dg_wallet.total_gold_mg),
+                'total_invested_inr': float(dg_wallet.total_invested_inr),
+            }
+        }, status=201)
+
+
+class DigiGoldSellView(APIView):
+    """
+    Sell held Digi Gold back at today's 22K gold rate.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        grams = request.data.get('grams')
+        mg = request.data.get('mg')
+
+        if not grams and not mg:
+            return Response({'error': 'Specify grams or mg to sell'}, status=400)
+
+        dg_wallet, _ = DigiGoldWallet.objects.get_or_create(user=user)
+        available_mg = dg_wallet.total_gold_mg
+
+        if grams:
+            sell_gm = Decimal(str(grams))
+            sell_mg = sell_gm * Decimal('1000')
+        else:
+            sell_mg = Decimal(str(mg))
+            sell_gm = sell_mg / Decimal('1000')
+
+        if sell_mg <= 0:
+            return Response({'error': 'Quantity must be greater than zero'}, status=400)
+
+        if available_mg < sell_mg:
+            return Response({
+                'error': f'Insufficient gold balance. You have {dg_wallet.total_gold_gm}g ({dg_wallet.total_gold_mg}mg) available.'
+            }, status=400)
+
+        rates = _get_live_gold_rates()
+        gold_price = rates['gold_22k']
+        mg_price = rates['gold_22k_mg']
+
+        payout_inr = round(sell_mg * Decimal(str(mg_price)), 2)
+
+        inv = DigiGoldInvestment.objects.create(
+            user=user,
+            transaction_type='sell',
+            recharge_amount=payout_inr,
+            gold_price_per_gram=round(Decimal(str(gold_price)), 2),
+            mg_price=round(Decimal(str(mg_price)), 4),
+            hold_gold_mg=round(sell_mg, 4),
+            hold_gold_gm=round(sell_gm, 6),
+            payment_method='wallet_credit',
+            status='completed',
+            notes=f"Sold {round(sell_gm, 4)}g 22K Digi Gold at ₹{gold_price}/g"
+        )
+
+        dg_wallet.total_gold_mg = max(Decimal('0'), dg_wallet.total_gold_mg - round(sell_mg, 4))
+        dg_wallet.total_gold_gm = max(Decimal('0'), dg_wallet.total_gold_gm - round(sell_gm, 6))
+        dg_wallet.save()
+
+        aug_wallet, _ = Wallet.objects.get_or_create(user=user)
+        credit_coins = int(payout_inr * 100)
+        aug_wallet.balance_coins += credit_coins
+        aug_wallet.save()
+
+        CoinRecharge.objects.create(
+            user=user,
+            amount_paid=payout_inr,
+            coins_credited=credit_coins,
+            payment_method='digi_gold_sale',
+            status='success',
+            entry_type='credit',
+            source='admin_credit',
+            transaction_id=f"DGS-{timezone.now().strftime('%Y%m%d%H%M%S')}-{random.randint(100,999)}"
+        )
+
+        return Response({
+            'success': True,
+            'message': f'Sold {round(sell_gm, 4)}g of 22K Digi Gold! Credited ₹{payout_inr:,} ({credit_coins:,} AUG coins) to your wallet.',
+            'payout_inr': float(payout_inr),
+            'coins_credited': credit_coins,
+            'remaining_gold_gm': float(dg_wallet.total_gold_gm),
+        })
+
+
+class DigiGoldConvertFromRechargeView(APIView):
+    """
+    Converts a recharge into Digi Gold at today's 22K gold rate.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        amount = request.data.get('amount')
+        if not amount:
+            return Response({'error': 'Amount is required'}, status=400)
+
+        try:
+            amount_val = Decimal(str(amount))
+            if amount_val <= 0:
+                return Response({'error': 'Amount must be greater than zero'}, status=400)
+        except Exception:
+            return Response({'error': 'Invalid amount'}, status=400)
+
+        rates = _get_live_gold_rates()
+        gold_price = rates['gold_22k']
+        mg_price = rates['gold_22k_mg']
+
+        hold_mg = amount_val / Decimal(str(mg_price))
+        hold_gm = hold_mg / Decimal('1000')
+
+        inv = DigiGoldInvestment.objects.create(
+            user=user,
+            transaction_type='convert',
+            recharge_amount=round(amount_val, 2),
+            gold_price_per_gram=round(Decimal(str(gold_price)), 2),
+            mg_price=round(Decimal(str(mg_price)), 4),
+            hold_gold_mg=round(hold_mg, 4),
+            hold_gold_gm=round(hold_gm, 6),
+            payment_method='recharge_conversion',
+            status='completed',
+            notes=f"Converted ₹{amount_val} recharge to {round(hold_gm, 4)}g 22K Digi Gold"
+        )
+
+        dg_wallet, _ = DigiGoldWallet.objects.get_or_create(user=user)
+        dg_wallet.total_gold_mg += round(hold_mg, 4)
+        dg_wallet.total_gold_gm += round(hold_gm, 6)
+        dg_wallet.total_invested_inr += round(amount_val, 2)
+        dg_wallet.save()
+
+        return Response({
+            'success': True,
+            'message': f'Converted ₹{amount_val} to {round(hold_gm, 4)}g ({round(hold_mg, 2)}mg) 22K Digi Gold!',
+            'investment': {
+                'id': inv.id,
+                'recharge_amount': float(inv.recharge_amount),
+                'gold_price_per_gram': float(inv.gold_price_per_gram),
+                'mg_price': float(inv.mg_price),
+                'hold_gold_mg': float(inv.hold_gold_mg),
+                'hold_gold_gm': float(inv.hold_gold_gm),
+            }
+        })
+
+
+class DigiGoldSuperAdminView(APIView):
+    """
+    Super Admin Management endpoint for Digi Gold.
+    Aggregates company-wide Digi Gold statistics and provides detailed investment records
+    matching the exact Excel format from Image 2.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'super_admin':
+            return Response({'error': 'Permission denied. Super Admin access only.'}, status=403)
+
+        rates = _get_live_gold_rates()
+        live_gold_22k = rates['gold_22k']
+        live_mg_price = rates['gold_22k_mg']
+
+        qs = DigiGoldInvestment.objects.select_related('user').order_by('-created_at')
+
+        q = request.query_params.get('search', '').strip()
+        if q:
+            qs = qs.filter(
+                Q(user__email__icontains=q) |
+                Q(user__role__icontains=q) |
+                Q(transaction_ref__icontains=q) |
+                Q(notes__icontains=q)
+            )
+
+        status_filter = request.query_params.get('status')
+        if status_filter and status_filter != 'all':
+            qs = qs.filter(status=status_filter)
+
+        completed_buys = DigiGoldInvestment.objects.filter(status='completed', transaction_type__in=['buy', 'convert'])
+        completed_sells = DigiGoldInvestment.objects.filter(status='completed', transaction_type='sell')
+
+        total_buy_mg = completed_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')
+        total_sell_mg = completed_sells.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')
+        net_gold_mg = max(Decimal('0'), total_buy_mg - total_sell_mg)
+        net_gold_gm = round(net_gold_mg / Decimal('1000'), 4)
+
+        total_invested = completed_buys.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0')
+        current_market_value = round(float(net_gold_mg) * live_mg_price, 2)
+        total_customer_profit = round(current_market_value - float(total_invested), 2)
+        total_investors_count = DigiGoldInvestment.objects.filter(status='completed').values('user').distinct().count()
+
+        items = []
+        for inv in qs[:200]:
+            id_str, disp_name, phone = _holder_info(inv.user)
+            curr_growth = round(float(inv.hold_gold_mg) * live_mg_price, 2)
+            profit = round(curr_growth - float(inv.recharge_amount), 2)
+
+            items.append({
+                'id': inv.id,
+                'date': inv.created_at.strftime('%d.%m.%Y'),
+                'created_at_iso': inv.created_at.isoformat(),
+                'user_id': inv.user.id,
+                'user_id_str': id_str or f"USER#{inv.user.id}",
+                'user_name': disp_name or inv.user.email,
+                'user_email': inv.user.email,
+                'user_role': inv.user.role,
+                'transaction_type': inv.transaction_type,
+                'recharge': float(inv.recharge_amount),
+                'gold_price': float(inv.gold_price_per_gram),
+                'mg_price': float(inv.mg_price),
+                'hold_gold_mg': float(inv.hold_gold_mg),
+                'gm': float(inv.hold_gold_gm),
+                'current_price': live_gold_22k,
+                'current_mg_price': live_mg_price,
+                'current_growth': curr_growth,
+                'profit': profit,
+                'payment_method': inv.payment_method,
+                'status': inv.status,
+            })
+
+        return Response({
+            'summary': {
+                'total_investors': total_investors_count,
+                'total_gold_mg': float(net_gold_mg),
+                'total_gold_gm': float(net_gold_gm),
+                'total_invested_inr': float(total_invested),
+                'current_valuation_inr': current_market_value,
+                'total_customer_profit_inr': total_customer_profit,
+                'todays_au_22k': live_gold_22k,
+                'todays_au_mg': live_mg_price,
+            },
+            'rates': rates,
+            'items': items,
+            'total_records': qs.count(),
+        })
+

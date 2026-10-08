@@ -151,6 +151,10 @@ export default function Recharge() {
   const [customAmount, setCustomAmount] = useState('')
   const [paying, setPaying] = useState(false)
   const [banner, setBanner] = useState(null) // { type: 'success' | 'error', text }
+  const [goldRate22k, setGoldRate22k] = useState(7045)
+  const [showConvertModal, setShowConvertModal] = useState(false)
+  const [convertAmount, setConvertAmount] = useState('100')
+  const [converting, setConverting] = useState(false)
 
   const amount = customAmount ? Number(customAmount) : selectedAmount
   const coinsPreview = amount > 0 ? Math.floor(amount * COIN_RATE) : 0
@@ -326,7 +330,75 @@ const handleToggleAutopay = async () => {
     }
   }
 
-  useEffect(() => { fetchWallet(); fetchHistory(1, 'today', '', ''); fetchAutopayStatus() }, [])
+  useEffect(() => {
+    fetchWallet()
+    fetchHistory(1, 'today', '', '')
+    fetchAutopayStatus()
+    import('../api').then(({ default: api }) => {
+      api.get('/metal-rates/').then(res => {
+        if (res.data?.gold_22k) setGoldRate22k(Number(res.data.gold_22k))
+      }).catch(() => {})
+    })
+  }, [])
+
+  const handleConfirmConvert = async () => {
+    const amt = Number(convertAmount)
+    if (!amt || amt <= 0) {
+      setBanner({ type: 'error', text: 'Please enter a valid amount to convert' })
+      return
+    }
+    const neededCoins = Math.round(amt * 100)
+    if ((wallet.balance_coins || 0) < neededCoins) {
+      setBanner({
+        type: 'error',
+        text: `Insufficient recharge balance. You need ₹${amt.toLocaleString('en-IN')} but have ₹${(((wallet.balance_coins || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}.`
+      })
+      return
+    }
+    setConverting(true)
+    try {
+      const { default: api } = await import('../api')
+      const res = await api.post('/digi-gold/buy/', {
+        amount: amt,
+        payment_method: 'wallet'
+      })
+      setBanner({
+        type: 'success',
+        text: `✅ Converted ₹${amt.toLocaleString('en-IN')} to 22K Digi Gold! ${res.data.investment?.hold_gold_gm}g credited to your gold vault.`
+      })
+      setShowConvertModal(false)
+      fetchWallet()
+      setTimeout(() => navigate('/digi-gold'), 1200)
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Digi Gold conversion failed. Please try again.'
+      setBanner({ type: 'error', text: msg })
+    } finally {
+      setConverting(false)
+    }
+  }
+
+  const handleConvertToDigiGold = async () => {
+    if (amount <= 0) return
+    setPaying(true)
+    try {
+      const { default: api } = await import('../api')
+      const res = await api.post('/digi-gold/buy/', {
+        amount: amount,
+        payment_method: 'wallet'
+      })
+      setBanner({
+        type: 'success',
+        text: `✅ Converted ₹${amount.toLocaleString('en-IN')} to Digi Gold! ${res.data.investment?.hold_gold_gm}g credited to your 24K vault.`
+      })
+      fetchWallet()
+      setTimeout(() => navigate('/digi-gold'), 1200)
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Digi Gold conversion failed. Please try again.'
+      setBanner({ type: 'error', text: msg })
+    } finally {
+      setPaying(false)
+    }
+  }
 
   const loadRazorpay = () => new Promise(resolve => {
     if (window.Razorpay) { resolve(true); return }
@@ -419,19 +491,33 @@ const handleToggleAutopay = async () => {
     <p className="rc-kicker">Wallet</p>
     <h1 className="rc-title" style={{ marginBottom: 0 }}>Recharge &amp; Coins</h1>
   </div>
-  <button
-    type="button"
-    className="rc-autopay-btn"
-    onClick={() => setShowAutopayModal(true)}
-    style={{
-      display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 20,
-      border: `1.5px solid ${autopay.is_active ? '#16a34a' : '#D1DFDE'}`,
-      background: autopay.is_active ? 'rgba(22,163,74,.08)' : '#FDFDFC',
-      color: autopay.is_active ? '#16a34a' : DARK, fontWeight: 800, fontSize: 12, cursor: 'pointer'
-    }}
-  >
-    Autopay: {autopay.is_active ? 'ON' : 'OFF'}
-  </button>
+  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+    <button
+      type="button"
+      onClick={() => navigate('/digi-gold')}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 20,
+        border: '1.5px solid #C6924B', background: '#0A3E42',
+        color: '#FFFFFF', fontWeight: 800, fontSize: 12, cursor: 'pointer',
+        boxShadow: '0 2px 8px rgba(10, 62, 66, 0.15)'
+      }}
+    >
+      <span style={{ color: '#C6924B' }}>✦</span> Digi Gold Dashboard
+    </button>
+    <button
+      type="button"
+      className="rc-autopay-btn"
+      onClick={() => setShowAutopayModal(true)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 20,
+        border: `1.5px solid ${autopay.is_active ? '#16a34a' : '#D1DFDE'}`,
+        background: autopay.is_active ? 'rgba(22,163,74,.08)' : '#FDFDFC',
+        color: autopay.is_active ? '#16a34a' : DARK, fontWeight: 800, fontSize: 12, cursor: 'pointer'
+      }}
+    >
+      Autopay: {autopay.is_active ? 'ON' : 'OFF'}
+    </button>
+  </div>
 </div>
 
         <div className="rc-grid">
@@ -465,7 +551,7 @@ const handleToggleAutopay = async () => {
 
             <div className="rc-coin-preview">
               <span>You'll get</span>
-              <span>{coinsPreview.toLocaleString('en-IN')} coins</span>
+              <span>{coinsPreview.toLocaleString('en-IN')} AUG coins (₹{amount || 0})</span>
             </div>
 
             <button className="rc-pay-btn" disabled={paying || amount <= 0} onClick={handleBuyRecharge}>
@@ -476,14 +562,43 @@ const handleToggleAutopay = async () => {
           {/* RIGHT: Available Coin + Recent Recharges */}
           <div style={{ display: 'grid', gap: 20, alignContent: 'start' }}>
             <section className="rc-card rc-balance-card">
-              <span className="rc-balance-label">Available Coin</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span className="rc-balance-label" style={{ margin: 0 }}>Available Coin</span>
+                <button
+                  type="button"
+                  onClick={() => setShowConvertModal(true)}
+                  title="Convert AUG Coins to 22K Digi Gold"
+                  style={{
+                    padding: '4px 11px',
+                    borderRadius: 999,
+                    background: 'rgba(198, 146, 75, 0.18)',
+                    border: '1px solid #C6924B',
+                    color: '#F8FAF9',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    letterSpacing: '0.3px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span style={{ color: '#C6924B', fontWeight: 900 }}>Au</span>
+                  <span>Convert Digi Gold</span>
+                </button>
+              </div>
               <div className="rc-balance-value">
                 {loadingWallet ? '...' : (wallet.balance_coins || 0).toLocaleString('en-IN')}
                 <span>coins</span>
               </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255, 255, 255, 0.82)', marginTop: -2, letterSpacing: '0.2px' }}>
+                ≈ ₹ {((wallet.balance_coins || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
               <div className="rc-today-row">
                 <span>Today Recharged</span>
-                <span>₹{wallet.today_amount || 0} · {wallet.today_coins || 0} coins</span>
+                <span>₹{(wallet.today_amount || 0).toLocaleString('en-IN')} · {(wallet.today_coins || 0).toLocaleString('en-IN')} coins</span>
               </div>
             </section>
 
@@ -721,6 +836,89 @@ const handleToggleAutopay = async () => {
         >
           {autopayLoading ? 'Processing...' : autopay.exists ? 'Update mandate' : 'Authorize UPI mandate'}
         </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* ── COMPACT CONVERT TO 22K DIGI GOLD MODAL ── */}
+{showConvertModal && (
+  <div style={{
+    position: 'fixed', inset: 0, background: 'rgba(7,31,34,.58)', backdropFilter: 'blur(4px)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16
+  }} onClick={() => setShowConvertModal(false)}>
+    <div style={{
+      background: '#fff', borderRadius: 20, maxWidth: 440, width: '100%', padding: '28px 24px',
+      boxShadow: '0 20px 60px rgba(0,0,0,0.22)', border: '1px solid #D1DFDE'
+    }} onClick={e => e.stopPropagation()}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{
+            width: 32, height: 32, borderRadius: '50%', background: '#C6924B', color: '#0A3E42',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 13
+          }}>Au</span>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: DARK }}>Convert to Digi Gold (22K)</h3>
+            <span style={{ fontSize: 11.5, color: MUTED }}>Aadhirai Digital Gold Vault</span>
+          </div>
+        </div>
+        <button
+          type="button" onClick={() => setShowConvertModal(false)}
+          style={{ border: 'none', background: 'transparent', fontSize: 20, cursor: 'pointer', color: MUTED }}
+        >×</button>
+      </div>
+
+      <div style={{
+        background: '#F8FAF9', borderRadius: 12, padding: 14, marginBottom: 16,
+        border: '1px solid #E6ECEA', display: 'grid', gap: 8, fontSize: 13
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ color: MUTED, fontWeight: 600 }}>Available AUG Coins:</span>
+          <strong style={{ color: DARK }}>{(wallet.balance_coins || 0).toLocaleString('en-IN')} coins <span style={{ color: MUTED, fontWeight: 600, fontSize: 12 }}>(≈ ₹{(((wallet.balance_coins || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span></strong>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ color: MUTED, fontWeight: 600 }}>Today's 22K Gold Rate:</span>
+          <strong style={{ color: '#009957' }}>₹{goldRate22k.toLocaleString('en-IN')}/g (₹{(goldRate22k / 1000).toFixed(2)}/mg)</strong>
+        </div>
+      </div>
+
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: DARK, marginBottom: 6, textTransform: 'uppercase' }}>
+        Conversion Amount (₹)
+      </label>
+      <input
+        type="number" min="1"
+        value={convertAmount}
+        onChange={e => setConvertAmount(e.target.value)}
+        placeholder="Enter amount in ₹"
+        style={{
+          width: '100%', boxSizing: 'border-box', padding: '12px 14px', border: '1.5px solid #D1DFDE',
+          borderRadius: 10, fontSize: 15, fontWeight: 800, color: DARK, marginBottom: 12
+        }}
+      />
+
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 10,
+        background: 'rgba(0,153,87,0.08)', border: '1px dashed #009957', marginBottom: 20, fontSize: 13, fontWeight: 800
+      }}>
+        <span style={{ color: '#0A3E42' }}>You will receive:</span>
+        <span style={{ color: '#009957' }}>
+          ≈ {Number(convertAmount) > 0 && goldRate22k > 0 ? (Number(convertAmount) / (goldRate22k / 1000)).toFixed(2) : '0.00'} mg gold
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button
+          type="button" onClick={() => setShowConvertModal(false)}
+          style={{ flex: 1, minHeight: 44, borderRadius: 999, border: '1.5px solid #D1DFDE', background: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}
+        >Cancel</button>
+        <button
+          type="button" onClick={handleConfirmConvert} disabled={converting || !Number(convertAmount) || Number(convertAmount) <= 0}
+          style={{
+            flex: 2, minHeight: 44, borderRadius: 999, border: 'none',
+            background: 'linear-gradient(135deg, #0A3E42 0%, #009957 100%)', color: '#fff',
+            fontWeight: 900, fontSize: 13, textTransform: 'uppercase', cursor: converting ? 'not-allowed' : 'pointer'
+          }}
+        >{converting ? 'Converting...' : 'Confirm Conversion'}</button>
       </div>
     </div>
   </div>

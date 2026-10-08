@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder,JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, Wallet, CoinRecharge, AutoPayMandate , StockNotifyRequest, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent
+from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder,JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, Wallet, CoinRecharge, AutoPayMandate , StockNotifyRequest, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent, DigiGoldInvestment, DigiGoldWallet
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -1071,4 +1071,66 @@ class JewelryRequestSerializer(serializers.ModelSerializer):
             if getattr(obj.approved_by, 'role', None) == 'super_admin':
                 return 'Super Admin'
             return getattr(obj.approved_by, 'email', '')
-        return _profile_display_name(p) or getattr(obj.approved_by, 'email', '')
+        return _profile_display_name(p) or getattr(obj.approved_by, 'email', '')
+
+
+class DigiGoldInvestmentSerializer(serializers.ModelSerializer):
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    user_role = serializers.CharField(source='user.role', read_only=True)
+    user_id_str = serializers.SerializerMethodField()
+    user_name = serializers.SerializerMethodField()
+    current_growth = serializers.SerializerMethodField()
+    profit = serializers.SerializerMethodField()
+    current_gold_price = serializers.SerializerMethodField()
+    current_mg_price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DigiGoldInvestment
+        fields = [
+            'id', 'user', 'user_email', 'user_role', 'user_id_str', 'user_name',
+            'transaction_type', 'recharge_amount', 'gold_price_per_gram', 'mg_price',
+            'hold_gold_mg', 'hold_gold_gm', 'payment_method', 'transaction_ref',
+            'status', 'notes', 'created_at', 'updated_at',
+            'current_gold_price', 'current_mg_price', 'current_growth', 'profit'
+        ]
+
+    def _get_live_rate(self):
+        ctx = self.context or {}
+        if 'live_rate' in ctx:
+            return ctx['live_rate']
+        rate = MetalRate.objects.order_by('-date').first()
+        val = float(rate.gold_24k) if (rate and rate.gold_24k) else (float(rate.gold_22k) if (rate and rate.gold_22k) else 14250.0)
+        ctx['live_rate'] = val
+        return val
+
+    def get_current_gold_price(self, obj):
+        return round(self._get_live_rate(), 2)
+
+    def get_current_mg_price(self, obj):
+        return round(self._get_live_rate() / 1000.0, 4)
+
+    def get_current_growth(self, obj):
+        rate_mg = self._get_live_rate() / 1000.0
+        return round(float(obj.hold_gold_mg) * rate_mg, 2)
+
+    def get_profit(self, obj):
+        rate_mg = self._get_live_rate() / 1000.0
+        growth = float(obj.hold_gold_mg) * rate_mg
+        return round(growth - float(obj.recharge_amount), 2)
+
+    def get_user_id_str(self, obj):
+        try:
+            from .views import _holder_info
+            id_str, _, _ = _holder_info(obj.user)
+            return id_str
+        except Exception:
+            return ''
+
+    def get_user_name(self, obj):
+        try:
+            from .views import _holder_info
+            _, name, _ = _holder_info(obj.user)
+            return name or obj.user.email
+        except Exception:
+            return obj.user.email
+

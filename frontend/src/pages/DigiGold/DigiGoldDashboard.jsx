@@ -26,7 +26,10 @@ import {
   Coins,
   ArrowLeft,
   Calendar,
-  Filter
+  Filter,
+  AlertCircle,
+  CreditCard,
+  ArrowRight
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -38,6 +41,78 @@ import {
 } from 'recharts'
 import api from '../../api'
 import './DigiGoldDashboard.css'
+
+// ── LUXURY ENTERPRISE FEEDBACK / NOTICE COMPONENT ──
+function ModalFeedbackNotice({ feedback, onDismiss, onRecharge, onSwitchUPI, onBuyGold }) {
+  if (!feedback) return null
+
+  const isError = feedback.type === 'error'
+
+  return (
+    <div className={`dg-feedback-card ${isError ? 'error' : 'success'}`}>
+      <div className="dg-feedback-header">
+        <div className={`dg-feedback-icon-box ${isError ? 'error' : 'success'}`}>
+          {isError ? <AlertCircle size={22} strokeWidth={2.4} /> : <CheckCircle2 size={22} strokeWidth={2.4} />}
+        </div>
+        <div className="dg-feedback-content">
+          <div className="dg-feedback-title">{feedback.title}</div>
+          <div className="dg-feedback-detail">{feedback.detail}</div>
+        </div>
+        {onDismiss && (
+          <button
+            type="button"
+            className="dg-feedback-close"
+            onClick={onDismiss}
+            title="Dismiss notice"
+          >
+            <X size={15} />
+          </button>
+        )}
+      </div>
+
+      {/* Contextual Action Buttons */}
+      {isError && feedback.code === 'insufficient_balance' && (
+        <div className="dg-feedback-actions">
+          {onRecharge && (
+            <button
+              type="button"
+              className="dg-feedback-btn primary"
+              onClick={onRecharge}
+            >
+              <Coins size={14} />
+              <span>Recharge AUG Coins / Wallet</span>
+              <ArrowRight size={13} />
+            </button>
+          )}
+          {onSwitchUPI && (
+            <button
+              type="button"
+              className="dg-feedback-btn secondary"
+              onClick={onSwitchUPI}
+            >
+              <CreditCard size={14} />
+              <span>Pay via UPI / Netbanking Instead</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {isError && feedback.code === 'insufficient_holdings' && onBuyGold && (
+        <div className="dg-feedback-actions">
+          <button
+            type="button"
+            className="dg-feedback-btn primary"
+            onClick={onBuyGold}
+          >
+            <ShoppingCart size={14} />
+            <span>Buy 22K Digi Gold</span>
+            <ArrowRight size={13} />
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function DigiGoldDashboard() {
   const navigate = useNavigate()
@@ -131,12 +206,12 @@ export default function DigiGoldDashboard() {
   const [buyAmount, setBuyAmount] = useState('1000')
   const [buyPaymentMethod, setBuyPaymentMethod] = useState('wallet')
   const [submittingBuy, setSubmittingBuy] = useState(false)
-  const [buyMessage, setBuyMessage] = useState('')
+  const [buyFeedback, setBuyFeedback] = useState(null)
 
   // Sell form
   const [sellGrams, setSellGrams] = useState('0.5')
   const [submittingSell, setSubmittingSell] = useState(false)
-  const [sellMessage, setSellMessage] = useState('')
+  const [sellFeedback, setSellFeedback] = useState(null)
 
   // ── LIGHTNING FAST PARALLEL FETCH ──
   const fetchDashboardData = async () => {
@@ -229,21 +304,48 @@ export default function DigiGoldDashboard() {
     e.preventDefault()
     if (!buyAmount || parseFloat(buyAmount) <= 0) return
     setSubmittingBuy(true)
-    setBuyMessage('')
+    setBuyFeedback(null)
     try {
       const res = await api.post('/digi-gold/buy/', {
         amount: parseFloat(buyAmount),
         payment_method: buyPaymentMethod,
         metal: buyMetal
       })
-      const metalLabel = buyMetal === 'gold_22k' ? '22K Digi Gold' : 'Digi Silver'
-      setBuyMessage(res.data.message || `${metalLabel} purchased successfully!`)
+      const metalLabel = buyMetal === 'gold_22k' ? '22K Digital Gold' : 'Digi Silver (Pure 999)'
+      setBuyFeedback({
+        type: 'success',
+        title: 'Investment Confirmed!',
+        detail: res.data?.message || `${metalLabel} was successfully purchased and credited to your vault.`,
+        code: 'success'
+      })
       setTimeout(() => {
-        setShowBuyModal(false)
         fetchDashboardData()
-      }, 1400)
+      }, 1000)
     } catch (err) {
-      setBuyMessage('❌ ' + (err.response?.data?.error || 'Purchase failed.'))
+      const respData = err.response?.data
+      let errTitle = 'Transaction Could Not Be Processed'
+      let errDetail = 'Please verify your transaction parameters and try again.'
+      let errCode = 'general_error'
+
+      if (respData?.code === 'insufficient_balance') {
+        errTitle = 'Insufficient Recharge Balance'
+        errDetail = respData.detail || 'Your wallet balance is lower than the required amount for this transaction.'
+        errCode = 'insufficient_balance'
+      } else if (respData?.error) {
+        errTitle = respData.error
+        errDetail = respData.detail || 'Please check your inputs and try again.'
+        errCode = respData.code || 'general_error'
+      } else if (respData?.detail) {
+        errTitle = 'Transaction Notice'
+        errDetail = respData.detail
+      }
+
+      setBuyFeedback({
+        type: 'error',
+        title: errTitle,
+        detail: errDetail,
+        code: errCode
+      })
     } finally {
       setSubmittingBuy(false)
     }
@@ -254,20 +356,47 @@ export default function DigiGoldDashboard() {
     e.preventDefault()
     if (!sellGrams || parseFloat(sellGrams) <= 0) return
     setSubmittingSell(true)
-    setSellMessage('')
+    setSellFeedback(null)
     try {
       const res = await api.post('/digi-gold/sell/', {
         grams: parseFloat(sellGrams),
         metal: sellMetal
       })
-      const metalLabel = sellMetal === 'gold_22k' ? '22K Digi Gold' : 'Digi Silver'
-      setSellMessage(res.data.message || `${metalLabel} sold successfully!`)
+      const metalLabel = sellMetal === 'gold_22k' ? '22K Digital Gold' : 'Digi Silver (Pure 999)'
+      setSellFeedback({
+        type: 'success',
+        title: 'Sale Executed Successfully!',
+        detail: res.data?.message || `${metalLabel} sold and payout credited directly to your wallet balance.`,
+        code: 'success'
+      })
       setTimeout(() => {
-        setShowSellModal(false)
         fetchDashboardData()
-      }, 1400)
+      }, 1000)
     } catch (err) {
-      setSellMessage('❌ ' + (err.response?.data?.error || 'Sale failed.'))
+      const respData = err.response?.data
+      let errTitle = 'Sale Order Incomplete'
+      let errDetail = 'Unable to complete your sale at this time. Please check your vault balance.'
+      let errCode = 'general_error'
+
+      if (respData?.code === 'insufficient_holdings') {
+        errTitle = 'Insufficient Vault Holdings'
+        errDetail = respData.detail || 'You do not have enough quantity in your vault for this sale.'
+        errCode = 'insufficient_holdings'
+      } else if (respData?.error) {
+        errTitle = respData.error
+        errDetail = respData.detail || 'Please verify the quantity and try again.'
+        errCode = respData.code || 'general_error'
+      } else if (respData?.detail) {
+        errTitle = 'Transaction Notice'
+        errDetail = respData.detail
+      }
+
+      setSellFeedback({
+        type: 'error',
+        title: errTitle,
+        detail: errDetail,
+        code: errCode
+      })
     } finally {
       setSubmittingSell(false)
     }
@@ -1269,19 +1398,12 @@ export default function DigiGoldDashboard() {
               </span>
             </div>
 
-            {buyMessage && (
-              <div style={{
-                padding: '10px 14px',
-                borderRadius: '10px',
-                marginBottom: '16px',
-                fontSize: '13px',
-                fontWeight: '700',
-                background: buyMessage.startsWith('❌') ? '#FDE8E8' : '#E8F7F0',
-                color: buyMessage.startsWith('❌') ? '#E45B5B' : '#009957'
-              }}>
-                {buyMessage}
-              </div>
-            )}
+            <ModalFeedbackNotice
+              feedback={buyFeedback}
+              onDismiss={() => setBuyFeedback(null)}
+              onRecharge={() => { setShowBuyModal(false); navigate('/recharge'); }}
+              onSwitchUPI={() => { setBuyPaymentMethod('razorpay'); setBuyFeedback(null); }}
+            />
 
             <form onSubmit={handleBuyGold}>
               <label className="dg-input-label">Select Amount (₹):</label>
@@ -1408,19 +1530,11 @@ export default function DigiGoldDashboard() {
               </span>
             </div>
 
-            {sellMessage && (
-              <div style={{
-                padding: '10px 14px',
-                borderRadius: '10px',
-                marginBottom: '16px',
-                fontSize: '13px',
-                fontWeight: '700',
-                background: sellMessage.startsWith('❌') ? '#FDE8E8' : '#E8F7F0',
-                color: sellMessage.startsWith('❌') ? '#E45B5B' : '#009957'
-              }}>
-                {sellMessage}
-              </div>
-            )}
+            <ModalFeedbackNotice
+              feedback={sellFeedback}
+              onDismiss={() => setSellFeedback(null)}
+              onBuyGold={() => { setShowSellModal(false); setShowBuyModal(true); }}
+            />
 
             <form onSubmit={handleSellGold}>
               <label className="dg-input-label">Quantity to Sell (Grams):</label>

@@ -12168,6 +12168,7 @@ class DigiGoldDashboardView(APIView):
 
     def get(self, request):
         user = request.user
+        today = timezone.localdate()
         rates = _get_live_gold_rates()
         live_gold_22k = rates['gold_22k']
         live_mg_price = rates['gold_22k_mg']
@@ -12362,39 +12363,71 @@ class DigiGoldBuyView(APIView):
         amount = request.data.get('amount')
         grams = request.data.get('grams')
         payment_method = request.data.get('payment_method', 'wallet')
+        metal = request.data.get('metal', 'gold_22k')
 
         rates = _get_live_gold_rates()
-        gold_price = rates['gold_22k']
-        mg_price = rates['gold_22k_mg']
+        if metal == 'silver_999':
+            metal_price = float(rates.get('silver_999', 275.0))
+            mg_price = round(metal_price / 1000.0, 4)
+            metal_label = 'Digi Silver (Pure 999)'
+        else:
+            metal_price = float(rates.get('gold_22k', 14250.0))
+            mg_price = float(rates.get('gold_22k_mg', round(metal_price / 1000.0, 4)))
+            metal_label = '22K Digital Gold'
 
         if amount:
             try:
                 amount_val = Decimal(str(amount))
                 if amount_val <= 0:
-                    return Response({'error': 'Amount must be greater than zero'}, status=400)
+                    return Response({
+                        'error': 'Amount must be greater than zero.',
+                        'detail': 'Please enter a valid investment amount greater than ₹0.',
+                        'code': 'invalid_amount'
+                    }, status=400)
             except Exception:
-                return Response({'error': 'Invalid amount'}, status=400)
+                return Response({
+                    'error': 'Invalid investment amount.',
+                    'detail': 'Please enter a valid numerical amount.',
+                    'code': 'invalid_amount'
+                }, status=400)
             hold_mg = amount_val / Decimal(str(mg_price))
             hold_gm = hold_mg / Decimal('1000')
         elif grams:
             try:
                 gm_val = Decimal(str(grams))
                 if gm_val <= 0:
-                    return Response({'error': 'Grams must be greater than zero'}, status=400)
+                    return Response({
+                        'error': 'Quantity must be greater than zero.',
+                        'detail': 'Please enter a valid quantity greater than 0 grams.',
+                        'code': 'invalid_quantity'
+                    }, status=400)
             except Exception:
-                return Response({'error': 'Invalid grams'}, status=400)
+                return Response({
+                    'error': 'Invalid quantity in grams.',
+                    'detail': 'Please enter a valid numerical quantity.',
+                    'code': 'invalid_quantity'
+                }, status=400)
             hold_gm = gm_val
             hold_mg = gm_val * Decimal('1000')
             amount_val = hold_mg * Decimal(str(mg_price))
         else:
-            return Response({'error': 'Either amount or grams is required'}, status=400)
+            return Response({
+                'error': 'Amount or grams is required.',
+                'detail': 'Please specify the investment amount in ₹ or grams.',
+                'code': 'missing_params'
+            }, status=400)
 
         if payment_method == 'wallet':
             aug_wallet, _ = Wallet.objects.get_or_create(user=user)
             needed_coins = int(amount_val * 100)
+            current_bal_inr = round(float(aug_wallet.balance_coins) / 100.0, 2)
             if aug_wallet.balance_coins < needed_coins:
                 return Response({
-                    'error': f'Insufficient recharge balance. You have ₹{aug_wallet.balance_coins/100:.2f}, but need ₹{amount_val:.2f}.'
+                    'error': 'Insufficient recharge wallet balance.',
+                    'detail': f'Your current wallet balance is ₹{current_bal_inr:,.2f}, but ₹{float(amount_val):,.2f} is required for this investment.',
+                    'code': 'insufficient_balance',
+                    'available_inr': current_bal_inr,
+                    'required_inr': float(amount_val)
                 }, status=400)
             aug_wallet.balance_coins -= needed_coins
             aug_wallet.lifetime_spent += needed_coins
@@ -12415,13 +12448,13 @@ class DigiGoldBuyView(APIView):
             user=user,
             transaction_type='buy',
             recharge_amount=round(amount_val, 2),
-            gold_price_per_gram=round(Decimal(str(gold_price)), 2),
+            gold_price_per_gram=round(Decimal(str(metal_price)), 2),
             mg_price=round(Decimal(str(mg_price)), 4),
             hold_gold_mg=round(hold_mg, 4),
             hold_gold_gm=round(hold_gm, 6),
             payment_method=payment_method,
             status='completed',
-            notes=f"Purchased {round(hold_gm, 4)}g 22K Digi Gold at ₹{gold_price}/g"
+            notes=f"Purchased {round(hold_gm, 4)}g {metal_label} at ₹{metal_price}/g"
         )
 
         dg_wallet, _ = DigiGoldWallet.objects.get_or_create(user=user)
@@ -12432,9 +12465,10 @@ class DigiGoldBuyView(APIView):
 
         return Response({
             'success': True,
-            'message': f'Successfully purchased {round(hold_gm, 4)}g ({round(hold_mg, 2)}mg) of 22K Digi Gold!',
+            'message': f'Successfully purchased {round(hold_gm, 4)}g ({round(hold_mg, 2)}mg) of {metal_label}!',
             'investment': {
                 'id': inv.id,
+                'metal': metal,
                 'amount_paid': float(inv.recharge_amount),
                 'gold_price_per_gram': float(inv.gold_price_per_gram),
                 'mg_price': float(inv.mg_price),
@@ -12460,9 +12494,14 @@ class DigiGoldSellView(APIView):
         user = request.user
         grams = request.data.get('grams')
         mg = request.data.get('mg')
+        metal = request.data.get('metal', 'gold_22k')
 
         if not grams and not mg:
-            return Response({'error': 'Specify grams or mg to sell'}, status=400)
+            return Response({
+                'error': 'Quantity to sell is required.',
+                'detail': 'Please specify either grams or milligrams to sell.',
+                'code': 'missing_params'
+            }, status=400)
 
         dg_wallet, _ = DigiGoldWallet.objects.get_or_create(user=user)
         available_mg = dg_wallet.total_gold_mg
@@ -12475,16 +12514,30 @@ class DigiGoldSellView(APIView):
             sell_gm = sell_mg / Decimal('1000')
 
         if sell_mg <= 0:
-            return Response({'error': 'Quantity must be greater than zero'}, status=400)
+            return Response({
+                'error': 'Quantity must be greater than zero.',
+                'detail': 'Please enter a valid quantity greater than 0.',
+                'code': 'invalid_quantity'
+            }, status=400)
 
         if available_mg < sell_mg:
             return Response({
-                'error': f'Insufficient gold balance. You have {dg_wallet.total_gold_gm}g ({dg_wallet.total_gold_mg}mg) available.'
+                'error': 'Insufficient digital vault holding.',
+                'detail': f'You attempted to sell {float(sell_gm):.3f}g, but your current available vault balance is {float(dg_wallet.total_gold_gm):.3f}g ({float(dg_wallet.total_gold_mg):.1f}mg).',
+                'code': 'insufficient_holdings',
+                'available_gm': float(dg_wallet.total_gold_gm),
+                'requested_gm': float(sell_gm)
             }, status=400)
 
         rates = _get_live_gold_rates()
-        gold_price = rates['gold_22k']
-        mg_price = rates['gold_22k_mg']
+        if metal == 'silver_999':
+            metal_price = float(rates.get('silver_999', 275.0))
+            mg_price = round(metal_price / 1000.0, 4)
+            metal_label = 'Digi Silver (Pure 999)'
+        else:
+            metal_price = float(rates.get('gold_22k', 14250.0))
+            mg_price = float(rates.get('gold_22k_mg', round(metal_price / 1000.0, 4)))
+            metal_label = '22K Digi Gold'
 
         payout_inr = round(sell_mg * Decimal(str(mg_price)), 2)
 

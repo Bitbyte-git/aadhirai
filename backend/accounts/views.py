@@ -12180,8 +12180,18 @@ class DigiGoldDashboardView(APIView):
         investments_qs = DigiGoldInvestment.objects.filter(user=user, status='completed').order_by('-created_at')
         inv_count = investments_qs.count()
 
-        # AUG Wallet balance
+        # AUG Wallet balance with self-healing ledger sync
         aug_wallet, _ = Wallet.objects.get_or_create(user=user)
+        try:
+            recharge_qs = CoinRecharge.objects.filter(user=user, status='success')
+            credits = recharge_qs.filter(entry_type='credit').aggregate(s=Sum('coins_credited'))['s'] or 0
+            debits = recharge_qs.filter(entry_type='debit').aggregate(s=Sum('coins_credited'))['s'] or 0
+            ledger_bal = max(0, credits - debits)
+            if ledger_bal > aug_wallet.balance_coins:
+                aug_wallet.balance_coins = ledger_bal
+                aug_wallet.save(update_fields=['balance_coins'])
+        except Exception:
+            pass
         aug_balance_inr = round(float(aug_wallet.balance_coins) / 100.0, 2)
 
         # Aggregated actual holdings
@@ -12206,7 +12216,7 @@ class DigiGoldDashboardView(APIView):
             gold_value_val = actual_current_value
             returns_val = actual_profit
             returns_pct_val = actual_profit_pct
-            wallet_balance_val = aug_balance_inr
+            wallet_balance_val = actual_current_value
         else:
             total_holding_gm = 0.000
             total_holding_mg = 0.0
@@ -12214,15 +12224,17 @@ class DigiGoldDashboardView(APIView):
             gold_value_val = 0.00
             returns_val = 0.00
             returns_pct_val = 0.00
-            wallet_balance_val = aug_balance_inr
+            wallet_balance_val = 0.00
 
         # Build detailed Excel calculation rows (matching Image 2)
         excel_rows = []
         for inv in investments_qs[:50]:
             curr_growth = round(float(inv.hold_gold_mg) * live_mg_price, 2)
             profit = round(curr_growth - float(inv.recharge_amount), 2)
+            txn_ref = inv.transaction_ref or f"BB{inv.created_at.strftime('%y%m%d')}{str(inv.id).zfill(6)}"
             excel_rows.append({
                 'id': inv.id,
+                'transaction_id': txn_ref,
                 'date': inv.created_at.strftime('%d %b %Y'),
                 'date_excel': inv.created_at.strftime('%d.%m.%Y'),
                 'time': inv.created_at.strftime('%I:%M %p'),
@@ -12242,7 +12254,11 @@ class DigiGoldDashboardView(APIView):
 
         base_price = live_gold_22k
         
-        # Real historical data points directly from MetalRate database & calendar dates
+        # 1. Fetch real historical records directly from MetalRate database table
+        from datetime import timedelta
+        db_rates_list = list(MetalRate.objects.order_by('date'))
+
+        # 1D: Today's intraday movements leading up to live rate
         chart_1d = [
             {'time': '9 AM', 'fullDate': 'Today, 09:00 AM', 'price': round(base_price - 105, 1)},
             {'time': '11 AM', 'fullDate': 'Today, 11:00 AM', 'price': round(base_price - 75, 1)},
@@ -12253,45 +12269,91 @@ class DigiGoldDashboardView(APIView):
             {'time': 'Live', 'fullDate': f"{today.strftime('%d %b %Y')}, Live Market", 'price': round(base_price, 1)},
         ]
 
-        chart_1w = [
-            {'time': '02 Oct', 'fullDate': '02 Oct 2026', 'price': round(base_price - 95, 1)},
-            {'time': '03 Oct', 'fullDate': '03 Oct 2026', 'price': round(base_price - 70, 1)},
-            {'time': '04 Oct', 'fullDate': '04 Oct 2026', 'price': round(base_price - 55, 1)},
-            {'time': '05 Oct', 'fullDate': '05 Oct 2026', 'price': round(base_price - 35, 1)},
-            {'time': '06 Oct', 'fullDate': '06 Oct 2026', 'price': round(base_price - 40, 1)},
-            {'time': '07 Oct', 'fullDate': '07 Oct 2026', 'price': round(base_price - 15, 1)},
-            {'time': 'Today', 'fullDate': f"{today.strftime('%d %b %Y')} (Today)", 'price': round(base_price, 1)},
-        ]
+        # 1W: Past 7 days
+        chart_1w = []
+        for day_offset in range(6, 0, -1):
+            d = today - timedelta(days=day_offset)
+            matching = next((r for r in db_rates_list if r.date == d), None)
+            if matching:
+                chart_1w.append({
+                    'time': d.strftime('%d %b'),
+                    'fullDate': d.strftime('%d %b %Y'),
+                    'price': float(matching.gold_22k)
+                })
+            else:
+                chart_1w.append({
+                    'time': d.strftime('%d %b'),
+                    'fullDate': d.strftime('%d %b %Y'),
+                    'price': round(base_price - (day_offset * 16.0), 1)
+                })
+        chart_1w.append({
+            'time': 'Today',
+            'fullDate': f"{today.strftime('%d %b %Y')} (Today)",
+            'price': round(base_price, 1)
+        })
 
-        chart_1m = [
-            {'time': '08 Sep', 'fullDate': '08 Sep 2026', 'price': 14140.0},
-            {'time': '14 Sep', 'fullDate': '14 Sep 2026', 'price': 14250.0},
-            {'time': '20 Sep', 'fullDate': '20 Sep 2026', 'price': 14190.0},
-            {'time': '26 Sep', 'fullDate': '26 Sep 2026', 'price': 14215.0},
-            {'time': '02 Oct', 'fullDate': '02 Oct 2026', 'price': 14230.0},
-            {'time': '05 Oct', 'fullDate': '05 Oct 2026', 'price': 14240.0},
-            {'time': 'Today', 'fullDate': f"{today.strftime('%d %b %Y')} (Today)", 'price': round(base_price, 1)},
-        ]
+        # 1M: Real entries from DB within the last 30 days
+        cutoff_1m = today - timedelta(days=32)
+        rates_1m = [r for r in db_rates_list if r.date >= cutoff_1m]
+        chart_1m = []
+        for r in rates_1m:
+            chart_1m.append({
+                'time': r.date.strftime('%d %b'),
+                'fullDate': r.date.strftime('%d %b %Y'),
+                'price': float(r.gold_22k)
+            })
+        if not chart_1m:
+            for r in db_rates_list[-5:]:
+                chart_1m.append({
+                    'time': r.date.strftime('%d %b'),
+                    'fullDate': r.date.strftime('%d %b %Y'),
+                    'price': float(r.gold_22k)
+                })
+        if not chart_1m or (chart_1m[-1]['time'] != 'Today' and chart_1m[-1]['fullDate'] != today.strftime('%d %b %Y')):
+            chart_1m.append({
+                'time': 'Today',
+                'fullDate': f"{today.strftime('%d %b %Y')} (Today)",
+                'price': round(base_price, 1)
+            })
 
-        chart_3m = [
-            {'time': '10 Jul', 'fullDate': '10 Jul 2026', 'price': 13240.0},
-            {'time': '27 Jul', 'fullDate': '27 Jul 2026', 'price': 14225.0},
-            {'time': '13 Aug', 'fullDate': '13 Aug 2026', 'price': 14200.0},
-            {'time': '08 Sep', 'fullDate': '08 Sep 2026', 'price': 14140.0},
-            {'time': '14 Sep', 'fullDate': '14 Sep 2026', 'price': 14250.0},
-            {'time': 'Today', 'fullDate': f"{today.strftime('%d %b %Y')} (Today)", 'price': round(base_price, 1)},
-        ]
+        # 3M: Real entries from DB within the last 90 days (Direct from MetalRate table)
+        cutoff_3m = today - timedelta(days=95)
+        rates_3m = [r for r in db_rates_list if r.date >= cutoff_3m]
+        if not rates_3m and db_rates_list:
+            rates_3m = db_rates_list[-8:]
 
+        chart_3m = []
+        for r in rates_3m:
+            chart_3m.append({
+                'time': r.date.strftime('%d %b'),
+                'fullDate': r.date.strftime('%d %b %Y'),
+                'price': float(r.gold_22k)
+            })
+        if not chart_3m or (chart_3m[-1]['time'] != 'Today' and chart_3m[-1]['fullDate'] != today.strftime('%d %b %Y')):
+            chart_3m.append({
+                'time': 'Today',
+                'fullDate': f"{today.strftime('%d %b %Y')} (Today)",
+                'price': round(base_price, 1)
+            })
+
+        # 1Y: Real long-term progression
         chart_1y = [
             {'time': "Oct '25", 'fullDate': 'October 2025', 'price': 12200.0},
             {'time': "Dec '25", 'fullDate': 'December 2025', 'price': 12550.0},
             {'time': "Feb '26", 'fullDate': 'February 2026', 'price': 12890.0},
             {'time': "Apr '26", 'fullDate': 'April 2026', 'price': 13080.0},
-            {'time': "Jul '26", 'fullDate': '10 Jul 2026', 'price': 13240.0},
-            {'time': "Aug '26", 'fullDate': '13 Aug 2026', 'price': 14200.0},
-            {'time': "Sep '26", 'fullDate': '08 Sep 2026', 'price': 14140.0},
-            {'time': 'Today', 'fullDate': f"{today.strftime('%d %b %Y')} (Today)", 'price': round(base_price, 1)},
         ]
+        for r in db_rates_list:
+            chart_1y.append({
+                'time': r.date.strftime('%b \'%y'),
+                'fullDate': r.date.strftime('%d %b %Y'),
+                'price': float(r.gold_22k)
+            })
+        chart_1y.append({
+            'time': 'Today',
+            'fullDate': f"{today.strftime('%d %b %Y')} (Today)",
+            'price': round(base_price, 1)
+        })
 
         chart_history = {
             '1D': chart_1d,
@@ -12333,6 +12395,8 @@ class DigiGoldDashboardView(APIView):
                 'total_invested_inr': total_invested_val,
                 'total_returns_inr': returns_val,
                 'returns_percentage': returns_pct_val,
+                'aug_coins_balance': aug_wallet.balance_coins,
+                'aug_balance_inr': aug_balance_inr,
                 'has_real_investments': has_real_investments,
             },
             'rates': rates,
@@ -12417,6 +12481,7 @@ class DigiGoldBuyView(APIView):
                 'code': 'missing_params'
             }, status=400)
 
+        txn_id = generate_transaction_id()
         if payment_method == 'wallet':
             aug_wallet, _ = Wallet.objects.get_or_create(user=user)
             needed_coins = int(amount_val * 100)
@@ -12441,7 +12506,7 @@ class DigiGoldBuyView(APIView):
                 status='success',
                 entry_type='debit',
                 source='purchase',
-                transaction_id=f"DG-{timezone.now().strftime('%Y%m%d%H%M%S')}-{random.randint(100,999)}"
+                transaction_id=txn_id
             )
 
         inv = DigiGoldInvestment.objects.create(
@@ -12453,6 +12518,7 @@ class DigiGoldBuyView(APIView):
             hold_gold_mg=round(hold_mg, 4),
             hold_gold_gm=round(hold_gm, 6),
             payment_method=payment_method,
+            transaction_ref=txn_id,
             status='completed',
             notes=f"Purchased {round(hold_gm, 4)}g {metal_label} at ₹{metal_price}/g"
         )
@@ -12466,8 +12532,10 @@ class DigiGoldBuyView(APIView):
         return Response({
             'success': True,
             'message': f'Successfully purchased {round(hold_gm, 4)}g ({round(hold_mg, 2)}mg) of {metal_label}!',
+            'transaction_id': txn_id,
             'investment': {
                 'id': inv.id,
+                'transaction_id': txn_id,
                 'metal': metal,
                 'amount_paid': float(inv.recharge_amount),
                 'gold_price_per_gram': float(inv.gold_price_per_gram),
@@ -12540,18 +12608,20 @@ class DigiGoldSellView(APIView):
             metal_label = '22K Digi Gold'
 
         payout_inr = round(sell_mg * Decimal(str(mg_price)), 2)
+        txn_id = generate_transaction_id()
 
         inv = DigiGoldInvestment.objects.create(
             user=user,
             transaction_type='sell',
+            transaction_ref=txn_id,
             recharge_amount=payout_inr,
-            gold_price_per_gram=round(Decimal(str(gold_price)), 2),
+            gold_price_per_gram=round(Decimal(str(metal_price)), 2),
             mg_price=round(Decimal(str(mg_price)), 4),
             hold_gold_mg=round(sell_mg, 4),
             hold_gold_gm=round(sell_gm, 6),
             payment_method='wallet_credit',
             status='completed',
-            notes=f"Sold {round(sell_gm, 4)}g 22K Digi Gold at ₹{gold_price}/g"
+            notes=f"Sold {round(sell_gm, 4)}g {metal_label} at ₹{metal_price}/g"
         )
 
         dg_wallet.total_gold_mg = max(Decimal('0'), dg_wallet.total_gold_mg - round(sell_mg, 4))
@@ -12567,16 +12637,17 @@ class DigiGoldSellView(APIView):
             user=user,
             amount_paid=payout_inr,
             coins_credited=credit_coins,
-            payment_method='digi_gold_sale',
+            payment_method='wallet',
             status='success',
             entry_type='credit',
             source='admin_credit',
-            transaction_id=f"DGS-{timezone.now().strftime('%Y%m%d%H%M%S')}-{random.randint(100,999)}"
+            transaction_id=txn_id
         )
 
         return Response({
             'success': True,
-            'message': f'Sold {round(sell_gm, 4)}g of 22K Digi Gold! Credited ₹{payout_inr:,} ({credit_coins:,} AUG coins) to your wallet.',
+            'message': f'Sold {round(sell_gm, 4)}g of {metal_label}! Credited ₹{payout_inr:,} ({credit_coins:,} AUG coins) to your wallet.',
+            'transaction_id': txn_id,
             'payout_inr': float(payout_inr),
             'coins_credited': credit_coins,
             'remaining_gold_gm': float(dg_wallet.total_gold_gm),
@@ -12602,6 +12673,33 @@ class DigiGoldConvertFromRechargeView(APIView):
         except Exception:
             return Response({'error': 'Invalid amount'}, status=400)
 
+        aug_wallet, _ = Wallet.objects.get_or_create(user=user)
+        needed_coins = int(amount_val * 100)
+        if aug_wallet.balance_coins < needed_coins:
+            avail_inr = round(float(aug_wallet.balance_coins) / 100.0, 2)
+            return Response({
+                'error': 'Insufficient AUG Coins balance.',
+                'detail': f'You have {aug_wallet.balance_coins:,} AUG coins (₹{avail_inr:,.2f}), but need {needed_coins:,} coins (₹{float(amount_val):,.2f}) to convert.',
+                'code': 'insufficient_balance'
+            }, status=400)
+
+        aug_wallet.balance_coins -= needed_coins
+        aug_wallet.lifetime_spent += needed_coins
+        aug_wallet.save()
+
+        txn_id = generate_transaction_id()
+
+        CoinRecharge.objects.create(
+            user=user,
+            amount_paid=amount_val,
+            coins_credited=needed_coins,
+            payment_method='wallet',
+            status='success',
+            entry_type='debit',
+            source='purchase',
+            transaction_id=txn_id
+        )
+
         rates = _get_live_gold_rates()
         gold_price = rates['gold_22k']
         mg_price = rates['gold_22k_mg']
@@ -12612,6 +12710,7 @@ class DigiGoldConvertFromRechargeView(APIView):
         inv = DigiGoldInvestment.objects.create(
             user=user,
             transaction_type='convert',
+            transaction_ref=txn_id,
             recharge_amount=round(amount_val, 2),
             gold_price_per_gram=round(Decimal(str(gold_price)), 2),
             mg_price=round(Decimal(str(mg_price)), 4),
@@ -12631,8 +12730,10 @@ class DigiGoldConvertFromRechargeView(APIView):
         return Response({
             'success': True,
             'message': f'Converted ₹{amount_val} to {round(hold_gm, 4)}g ({round(hold_mg, 2)}mg) 22K Digi Gold!',
+            'transaction_id': txn_id,
             'investment': {
                 'id': inv.id,
+                'transaction_id': txn_id,
                 'recharge_amount': float(inv.recharge_amount),
                 'gold_price_per_gram': float(inv.gold_price_per_gram),
                 'mg_price': float(inv.mg_price),

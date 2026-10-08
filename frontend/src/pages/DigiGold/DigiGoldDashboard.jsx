@@ -57,6 +57,12 @@ function ModalFeedbackNotice({ feedback, onDismiss, onRecharge, onSwitchUPI, onB
         <div className="dg-feedback-content">
           <div className="dg-feedback-title">{feedback.title}</div>
           <div className="dg-feedback-detail">{feedback.detail}</div>
+          {feedback.transaction_id && (
+            <div className="dg-feedback-txnid">
+              <span className="dg-feedback-txnid-label">Txn ID:</span>
+              <code className="dg-feedback-txnid-val">{feedback.transaction_id}</code>
+            </div>
+          )}
         </div>
         {onDismiss && (
           <button
@@ -125,16 +131,18 @@ export default function DigiGoldDashboard() {
         const u = JSON.parse(stored)
         const fullName = u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : ''
         return {
-          name: fullName || u.username || u.name || (u.email ? u.email.split('@')[0] : 'Rajesh Kumar'),
+          name: fullName || u.username || u.name || (u.email ? u.email.split('@')[0] : 'Senthil'),
           role: (u.role || localStorage.getItem('role') || 'Customer').replace('_', ' '),
-          email: u.email || '',
+          email: u.email || localStorage.getItem('email') || '',
           phone: u.phone || ''
         }
       }
     } catch {}
-    const name = localStorage.getItem('name') || localStorage.getItem('username') || 'Rajesh Kumar'
+    const storedEmail = localStorage.getItem('email') || ''
+    const fallbackName = storedEmail ? storedEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Senthil'
+    const name = localStorage.getItem('name') || localStorage.getItem('username') || fallbackName
     const role = (localStorage.getItem('role') || 'Customer').replace('_', ' ')
-    return { name, role }
+    return { name, role, email: storedEmail }
   }
 
   const currentUser = getLoggedInUser()
@@ -197,6 +205,7 @@ export default function DigiGoldDashboard() {
   const [showBuyModal, setShowBuyModal] = useState(false)
   const [showSellModal, setShowSellModal] = useState(false)
   const [showExcelModal, setShowExcelModal] = useState(false)
+  const [showConvertModal, setShowConvertModal] = useState(false)
 
   // Metal selection for Buy & Sell
   const [buyMetal, setBuyMetal] = useState('gold_22k') // 'gold_22k' | 'silver_999'
@@ -207,11 +216,39 @@ export default function DigiGoldDashboard() {
   const [buyPaymentMethod, setBuyPaymentMethod] = useState('wallet')
   const [submittingBuy, setSubmittingBuy] = useState(false)
   const [buyFeedback, setBuyFeedback] = useState(null)
+  const [buyMessage, setBuyMessage] = useState('')
 
   // Sell form
   const [sellGrams, setSellGrams] = useState('0.5')
   const [submittingSell, setSubmittingSell] = useState(false)
   const [sellFeedback, setSellFeedback] = useState(null)
+  const [sellMessage, setSellMessage] = useState('')
+
+  // Convert AUG Coins to 22K Digi Gold form
+  const [convertAmount, setConvertAmount] = useState('1000')
+  const [submittingConvert, setSubmittingConvert] = useState(false)
+  const [convertFeedback, setConvertFeedback] = useState(null)
+
+  const handleOpenBuyModal = () => {
+    setBuyFeedback(null)
+    setBuyMessage('')
+    setShowBuyModal(true)
+  }
+
+  const handleOpenSellModal = () => {
+    setSellFeedback(null)
+    setSellMessage('')
+    setShowSellModal(true)
+  }
+
+  // Auto-rotating Sidebar Vault Mode (3s 22K Gold <-> 3s Digi Silver)
+  const [sidebarRotatingMetal, setSidebarRotatingMetal] = useState('gold')
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSidebarRotatingMetal(prev => prev === 'gold' ? 'silver' : 'gold')
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [])
 
   // ── LIGHTNING FAST PARALLEL FETCH ──
   const fetchDashboardData = async () => {
@@ -250,12 +287,19 @@ export default function DigiGoldDashboard() {
         }
       }
 
+      let walletCoins = 0
       let userWalletBalance = 0.0
       if (walletRes.status === 'fulfilled' && walletRes.value?.data) {
-        userWalletBalance = Math.round(((walletRes.value.data.balance_coins || 0) / 100) * 100) / 100
+        walletCoins = Number(walletRes.value.data.balance_coins ?? walletRes.value.data.balance ?? 0)
+        userWalletBalance = Math.round((walletCoins / 100) * 100) / 100
       }
 
       const dashData = dashRes.status === 'fulfilled' ? dashRes.value?.data : null
+      const dashCoins = Number(dashData?.kpis?.aug_coins_balance ?? 0)
+
+      // Always pick the accurate balance (either from /wallet/ or /digi-gold/dashboard/)
+      const finalAugCoins = Math.max(dashCoins, walletCoins)
+      const finalAugInr = finalAugCoins > 0 ? +(finalAugCoins / 100).toFixed(2) : (Number(dashData?.kpis?.aug_balance_inr ?? userWalletBalance))
 
       const basePrice = liveMetalRates.gold_22k
       const dynamicChartData = [
@@ -278,12 +322,13 @@ export default function DigiGoldDashboard() {
           total_gold_holding_gm: dashData?.kpis?.total_gold_holding_gm || 0.0,
           total_gold_holding_mg: dashData?.kpis?.total_gold_holding_mg || 0.0,
           gold_value_inr: dashData?.kpis?.gold_value_inr || 0.0,
-          wallet_balance_inr: (dashData?.kpis?.wallet_balance_inr && dashData.kpis.wallet_balance_inr > 0)
-            ? dashData.kpis.wallet_balance_inr
-            : userWalletBalance,
+          wallet_balance_inr: dashData?.kpis?.gold_value_inr || 0.0, // strictly Digi Gold Vault Value (0.00 until bought/converted)
+          digi_gold_wallet_inr: dashData?.kpis?.gold_value_inr || 0.0,
           total_invested_inr: dashData?.kpis?.total_invested_inr || 0.0,
           total_returns_inr: dashData?.kpis?.total_returns_inr || 0.0,
           returns_percentage: dashData?.kpis?.returns_percentage || 0.0,
+          aug_coins_balance: finalAugCoins,
+          aug_balance_inr: finalAugInr,
         },
         rates: liveMetalRates,
         chart_data: dashData?.chart_data?.length ? dashData.chart_data : dynamicChartData,
@@ -312,11 +357,13 @@ export default function DigiGoldDashboard() {
         metal: buyMetal
       })
       const metalLabel = buyMetal === 'gold_22k' ? '22K Digital Gold' : 'Digi Silver (Pure 999)'
+      const txnId = res.data?.transaction_id
       setBuyFeedback({
         type: 'success',
         title: 'Investment Confirmed!',
         detail: res.data?.message || `${metalLabel} was successfully purchased and credited to your vault.`,
-        code: 'success'
+        code: 'success',
+        transaction_id: txnId
       })
       setTimeout(() => {
         fetchDashboardData()
@@ -363,11 +410,13 @@ export default function DigiGoldDashboard() {
         metal: sellMetal
       })
       const metalLabel = sellMetal === 'gold_22k' ? '22K Digital Gold' : 'Digi Silver (Pure 999)'
+      const txnId = res.data?.transaction_id
       setSellFeedback({
         type: 'success',
         title: 'Sale Executed Successfully!',
         detail: res.data?.message || `${metalLabel} sold and payout credited directly to your wallet balance.`,
-        code: 'success'
+        code: 'success',
+        transaction_id: txnId
       })
       setTimeout(() => {
         fetchDashboardData()
@@ -399,6 +448,57 @@ export default function DigiGoldDashboard() {
       })
     } finally {
       setSubmittingSell(false)
+    }
+  }
+
+  // ── CONVERT AUG COINS HANDLER ──
+  const handleConvertCoins = async (e) => {
+    e.preventDefault()
+    if (!convertAmount || parseFloat(convertAmount) <= 0) return
+    setSubmittingConvert(true)
+    setConvertFeedback(null)
+    try {
+      const res = await api.post('/digi-gold/convert-from-recharge/', {
+        amount: parseFloat(convertAmount)
+      })
+      const txnId = res.data?.transaction_id
+      setConvertFeedback({
+        type: 'success',
+        title: 'Conversion Confirmed!',
+        detail: res.data?.message || `Successfully converted ₹${convertAmount} from your AUG Coins into 22K Digi Gold!`,
+        code: 'success',
+        transaction_id: txnId
+      })
+      setTimeout(() => {
+        fetchDashboardData()
+      }, 900)
+    } catch (err) {
+      const respData = err.response?.data
+      let errTitle = 'Conversion Could Not Be Completed'
+      let errDetail = 'Please check your parameters and try again.'
+      let errCode = 'general_error'
+
+      if (respData?.code === 'insufficient_balance') {
+        errTitle = 'Insufficient AUG Coins'
+        errDetail = respData.detail || 'Your AUG coins balance is not enough to convert this amount.'
+        errCode = 'insufficient_balance'
+      } else if (respData?.error) {
+        errTitle = respData.error
+        errDetail = respData.detail || 'Please check your inputs and try again.'
+        errCode = respData.code || 'general_error'
+      } else if (respData?.detail) {
+        errTitle = 'Conversion Notice'
+        errDetail = respData.detail
+      }
+
+      setConvertFeedback({
+        type: 'error',
+        title: errTitle,
+        detail: errDetail,
+        code: errCode
+      })
+    } finally {
+      setSubmittingConvert(false)
     }
   }
 
@@ -496,6 +596,15 @@ export default function DigiGoldDashboard() {
   const activeSellRate = sellMetal === 'gold_22k' ? currentLiveRate : currentSilverRate
   const previewSellPayout = parsedSellGm * activeSellRate
 
+  // Live calculations for Convert AUG Coins modal
+  const parsedConvertAmount = parseFloat(convertAmount) || 0
+  const previewConvertCoins = Math.round(parsedConvertAmount * 100)
+  const previewConvertMg = currentLiveMgRate > 0 ? (parsedConvertAmount / currentLiveMgRate) : 0
+  const previewConvertGm = currentLiveRate > 0 ? (parsedConvertAmount / currentLiveRate) : 0
+  const userAugCoins = Number(kpis.aug_coins_balance ?? 0)
+  const userAugInr = Number(kpis.aug_balance_inr ?? 0)
+  const hasEnoughCoins = userAugCoins >= previewConvertCoins
+
   // Filtered transactions for Transactions View
   const filteredTransactions = transactions.filter(tx => {
     if (txFilter === 'all') return true
@@ -527,17 +636,28 @@ export default function DigiGoldDashboard() {
             </div>
           </div>
 
-          {/* Live Holdings Mini Badge in Sidebar */}
-          <div className="dg-sidebar-wallet-badge">
+          {/* Live Holdings Mini Badge in Sidebar (Auto-rotating 3s Gold <-> 3s Silver) */}
+          <div className={`dg-sidebar-wallet-badge rotating ${sidebarRotatingMetal}`}>
             <div className="dg-sidebar-wallet-top">
-              <span className="dg-sidebar-wallet-label">22K Gold Vault</span>
-              <span className="dg-sidebar-wallet-tag">Active</span>
+              <span className="dg-sidebar-wallet-label">
+                <span className={`dg-badge-pulse-dot ${sidebarRotatingMetal}`} />
+                {sidebarRotatingMetal === 'gold' ? '22K Gold Vault' : 'Digi Silver Vault'}
+              </span>
+              <span className={`dg-sidebar-wallet-tag ${sidebarRotatingMetal}`}>
+                {sidebarRotatingMetal === 'gold'
+                  ? `₹${Number(currentLiveRate).toLocaleString('en-IN')}/g`
+                  : `₹${Number(currentSilverRate).toFixed(2)}/g`}
+              </span>
             </div>
             <div className="dg-sidebar-wallet-val">
-              {Number(kpis.total_gold_holding_gm ?? 0).toFixed(3)} g
+              {sidebarRotatingMetal === 'gold'
+                ? `${Number(kpis.total_gold_holding_gm ?? 0).toFixed(3)} g`
+                : '0.000 g'}
             </div>
             <div className="dg-sidebar-wallet-sub">
-              ≈ ₹ {Number(kpis.gold_value_inr ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              {sidebarRotatingMetal === 'gold'
+                ? `≈ ₹ ${Number(kpis.gold_value_inr ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })} • Athirai 916`
+                : '≈ ₹ 0.00 • Pure 999 Hallmark'}
             </div>
           </div>
 
@@ -554,7 +674,7 @@ export default function DigiGoldDashboard() {
             <button
               className="dg-nav-btn"
               type="button"
-              onClick={() => { setBuyMessage(''); setShowBuyModal(true) }}
+              onClick={handleOpenBuyModal}
             >
               <ShoppingCart size={18} />
               <span>Buy Gold</span>
@@ -562,7 +682,7 @@ export default function DigiGoldDashboard() {
             <button
               className="dg-nav-btn"
               type="button"
-              onClick={() => { setSellMessage(''); setShowSellModal(true) }}
+              onClick={handleOpenSellModal}
             >
               <ArrowUpFromLine size={18} />
               <span>Sell Gold</span>
@@ -570,10 +690,18 @@ export default function DigiGoldDashboard() {
             <button
               className="dg-nav-btn"
               type="button"
-              onClick={() => navigate('/recharge')}
+              onClick={() => { setConvertFeedback(null); setShowConvertModal(true) }}
+            >
+              <ArrowLeftRight size={18} />
+              <span>Convert Coins</span>
+            </button>
+            <button
+              className="dg-nav-btn"
+              type="button"
+              onClick={() => setShowExcelModal(true)}
             >
               <WalletCards size={18} />
-              <span>Gold Wallet</span>
+              <span>Gold Vault Sheet</span>
             </button>
             <button
               className={`dg-nav-btn ${currentView === 'transactions' ? 'active' : ''}`}
@@ -629,7 +757,7 @@ export default function DigiGoldDashboard() {
             <button
               className="dg-promo-cta"
               type="button"
-              onClick={() => { setBuyMessage(''); setShowBuyModal(true) }}
+              onClick={() => navigate('/collection/coins')}
             >
               <span>Explore Gold</span>
               <span>→</span>
@@ -637,8 +765,8 @@ export default function DigiGoldDashboard() {
           </div>
 
           <div className="dg-sidebar-footer">
-            <span>Digi Gold v1.0</span>
-            <span>© 2026 Athirai. All rights reserved.</span>
+            <span className="dg-footer-version">Digi Gold v1.0</span>
+            <span className="dg-footer-cr">© 2026 Athirai. All rights reserved.</span>
           </div>
         </div>
       </aside>
@@ -725,7 +853,7 @@ export default function DigiGoldDashboard() {
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button
                     type="button"
-                    onClick={() => { setBuyMessage(''); setShowBuyModal(true) }}
+                    onClick={handleOpenBuyModal}
                     style={{
                       padding: '10px 18px', borderRadius: 12, background: '#009957', color: '#fff',
                       fontWeight: 800, fontSize: 13, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6
@@ -735,7 +863,7 @@ export default function DigiGoldDashboard() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setSellMessage(''); setShowSellModal(true) }}
+                    onClick={handleOpenSellModal}
                     style={{
                       padding: '10px 18px', borderRadius: 12, background: '#FFFFFF', color: '#E45B5B',
                       border: '1.5px solid #E45B5B', fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6
@@ -820,6 +948,7 @@ export default function DigiGoldDashboard() {
                   <table className="dg-table">
                     <thead>
                       <tr>
+                        <th>Txn ID</th>
                         <th>Date &amp; Time</th>
                         <th>Transaction Type</th>
                         <th>Amount (₹)</th>
@@ -833,7 +962,7 @@ export default function DigiGoldDashboard() {
                     <tbody>
                       {filteredTransactions.length === 0 ? (
                         <tr>
-                          <td colSpan={8} style={{ textAlign: 'center', padding: '40px 16px', color: '#647474' }}>
+                          <td colSpan={9} style={{ textAlign: 'center', padding: '40px 16px', color: '#647474' }}>
                             <div style={{ fontSize: 16, fontWeight: 800, color: '#0A3E42', marginBottom: 6 }}>
                               No Transactions Found
                             </div>
@@ -842,7 +971,7 @@ export default function DigiGoldDashboard() {
                             </div>
                             <button
                               type="button"
-                              onClick={() => { setBuyMessage(''); setShowBuyModal(true) }}
+                              onClick={handleOpenBuyModal}
                               style={{
                                 padding: '9px 18px', borderRadius: 10, background: '#009957', color: '#fff',
                                 fontWeight: 800, fontSize: 13, border: 'none', cursor: 'pointer'
@@ -855,6 +984,11 @@ export default function DigiGoldDashboard() {
                       ) : (
                         filteredTransactions.map((tx, idx) => (
                           <tr key={tx.id || idx}>
+                            <td className="dg-table-txnid">
+                              <span className="dg-txnid-badge" title={tx.transaction_id || `BB#${tx.id}`}>
+                                {tx.transaction_id || `BB#${tx.id}`}
+                              </span>
+                            </td>
                             <td className="dg-table-date">
                               <strong>{tx.date}</strong>
                               <span style={{ display: 'block', fontSize: 11, color: '#8E9E9C' }}>{tx.time}</span>
@@ -911,7 +1045,7 @@ export default function DigiGoldDashboard() {
                   <button
                     className="dg-hero-cta"
                     type="button"
-                    onClick={() => { setBuyMessage(''); setShowBuyModal(true) }}
+                    onClick={() => navigate('/collection/coins')}
                   >
                     <span>Explore Gold</span>
                     <span>→</span>
@@ -955,6 +1089,33 @@ export default function DigiGoldDashboard() {
                 </div>
               </section>
 
+              {/* AUG STORE COINS TO DIGI GOLD CONVERT STRIP */}
+              <div className="dg-coin-convert-banner">
+                <div className="dg-ccb-left">
+                  <div className="dg-ccb-badge">
+                    <Coins size={18} />
+                    <span>AUG STORE COINS</span>
+                  </div>
+                  <div className="dg-ccb-text">
+                    <div className="dg-ccb-balance-line">
+                      <span className="dg-ccb-coins">{Number(kpis.aug_coins_balance ?? 0).toLocaleString()} Coins</span>
+                      <span className="dg-ccb-inr">(≈ ₹{Number(kpis.aug_balance_inr ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })})</span>
+                    </div>
+                    <p className="dg-ccb-hint">
+                      AUG Coins are used for jewelry shopping. Convert into 22K Digi Gold anytime to build real gold wealth with live market gains!
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="dg-ccb-action-btn"
+                  onClick={() => { setConvertFeedback(null); setShowConvertModal(true); }}
+                >
+                  <ArrowLeftRight size={16} />
+                  <span>Convert to 22K Digi Gold</span>
+                </button>
+              </div>
+
               {/* 4 KPI CARDS (Real Values from DB) */}
               <section className="dg-kpi-grid">
                 {/* 1. Total Gold Holding */}
@@ -969,14 +1130,15 @@ export default function DigiGoldDashboard() {
                   </div>
                 </div>
 
-                {/* 2. Wallet Balance */}
-                <div className="dg-kpi-card" onClick={() => navigate('/recharge')}>
+                {/* 2. Digi Gold Vault Valuation */}
+                <div className="dg-kpi-card" onClick={() => setShowExcelModal(true)}>
                   <div className="dg-kpi-icon-wrap wallet">
                     <Wallet size={24} />
                   </div>
                   <div className="dg-kpi-body">
-                    <span className="dg-kpi-label">Wallet Balance</span>
-                    <span className="dg-kpi-val">₹ {Number(kpis.wallet_balance_inr ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    <span className="dg-kpi-label">Gold Vault Value</span>
+                    <span className="dg-kpi-val">₹ {Number(kpis.gold_value_inr ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    <span className="dg-kpi-sub">@ ₹{Number(currentLiveRate).toLocaleString('en-IN')}/g (Live 22K)</span>
                   </div>
                   <ChevronRight size={18} className="dg-kpi-chevron" />
                 </div>
@@ -1116,7 +1278,7 @@ export default function DigiGoldDashboard() {
                     <button
                       className="dg-qa-btn"
                       type="button"
-                      onClick={() => { setBuyMessage(''); setShowBuyModal(true) }}
+                      onClick={handleOpenBuyModal}
                     >
                       <div className="dg-qa-icon buy">
                         <ShoppingCart size={20} />
@@ -1127,7 +1289,7 @@ export default function DigiGoldDashboard() {
                     <button
                       className="dg-qa-btn"
                       type="button"
-                      onClick={() => { setSellMessage(''); setShowSellModal(true) }}
+                      onClick={handleOpenSellModal}
                     >
                       <div className="dg-qa-icon sell">
                         <ArrowUpFromLine size={20} />
@@ -1138,12 +1300,12 @@ export default function DigiGoldDashboard() {
                     <button
                       className="dg-qa-btn"
                       type="button"
-                      onClick={() => navigate('/recharge')}
+                      onClick={() => { setConvertFeedback(null); setShowConvertModal(true); }}
                     >
-                      <div className="dg-qa-icon wallet">
-                        <WalletCards size={20} />
+                      <div className="dg-qa-icon wallet" style={{ background: 'rgba(0,153,87,0.12)', color: '#009957' }}>
+                        <Coins size={20} />
                       </div>
-                      <span>Gold Wallet</span>
+                      <span>Convert Coins</span>
                     </button>
 
                     <button
@@ -1170,34 +1332,40 @@ export default function DigiGoldDashboard() {
 
                   <div className="dg-rates-list">
                     {/* 22K Gold (Athirai Primary Digi Gold) */}
-                    <div className="dg-rate-row" style={{ background: 'rgba(0, 153, 87, 0.06)', border: '1px solid rgba(0, 153, 87, 0.2)' }}>
-                      <div className="dg-rate-left">
-                        <div className="dg-metal-coin-icon gold">22</div>
-                        <span className="dg-metal-title" style={{ fontWeight: 800 }}>
-                          Gold (22K) <small style={{ color: '#009957', fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }}>• Athirai 916 Hallmark</small>
-                        </span>
+                    <div className="dg-rate-card-item gold">
+                      <div className="dg-rate-item-left">
+                        <div className="dg-rate-coin gold">22K</div>
+                        <div className="dg-rate-item-info">
+                          <div className="dg-rate-item-name">Gold (22K)</div>
+                          <div className="dg-rate-hallmark-tag gold">ATHIRAI 916 HALLMARK</div>
+                        </div>
                       </div>
-                      <div className="dg-rate-right">
-                        <span className="dg-metal-price">
-                          ₹ {Number(currentLiveRate).toLocaleString('en-IN')} <span>/g</span>
-                        </span>
-                        <span className="dg-metal-change">▲ +{rates.pct_22k || 0.78}%</span>
+                      <div className="dg-rate-item-right">
+                        <div className="dg-rate-item-price">
+                          <span className="dg-rate-currency">₹</span>
+                          <span className="dg-rate-num">{Number(currentLiveRate).toLocaleString('en-IN')}</span>
+                          <span className="dg-rate-unit">/g</span>
+                        </div>
+                        <div className="dg-rate-item-pct positive">▲ +{rates.pct_22k || 0.78}%</div>
                       </div>
                     </div>
 
                     {/* Digi Silver */}
-                    <div className="dg-rate-row" style={{ background: 'rgba(10, 62, 66, 0.04)', border: '1px solid rgba(10, 62, 66, 0.15)' }}>
-                      <div className="dg-rate-left">
-                        <div className="dg-metal-coin-icon silver">Ag</div>
-                        <span className="dg-metal-title" style={{ fontWeight: 800 }}>
-                          Digi Silver <small style={{ color: '#0A3E42', fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }}>• Pure 999 Hallmark</small>
-                        </span>
+                    <div className="dg-rate-card-item silver">
+                      <div className="dg-rate-item-left">
+                        <div className="dg-rate-coin silver">Ag</div>
+                        <div className="dg-rate-item-info">
+                          <div className="dg-rate-item-name">Digi Silver</div>
+                          <div className="dg-rate-hallmark-tag silver">PURE 999 HALLMARK</div>
+                        </div>
                       </div>
-                      <div className="dg-rate-right">
-                        <span className="dg-metal-price">
-                          ₹ {Number(currentSilverRate).toFixed(2)} <span>/g</span>
-                        </span>
-                        <span className="dg-metal-change">▲ +{rates.pct_silver || 3.00}%</span>
+                      <div className="dg-rate-item-right">
+                        <div className="dg-rate-item-price">
+                          <span className="dg-rate-currency">₹</span>
+                          <span className="dg-rate-num">{Number(currentSilverRate).toFixed(2)}</span>
+                          <span className="dg-rate-unit">/g</span>
+                        </div>
+                        <div className="dg-rate-item-pct positive">▲ +{rates.pct_silver || 3.00}%</div>
                       </div>
                     </div>
                   </div>
@@ -1219,6 +1387,7 @@ export default function DigiGoldDashboard() {
                     <table className="dg-table">
                       <thead>
                         <tr>
+                          <th>Txn ID</th>
                           <th>Date &amp; Time</th>
                           <th>Type</th>
                           <th>Amount</th>
@@ -1228,18 +1397,44 @@ export default function DigiGoldDashboard() {
                       <tbody>
                         {transactions.length === 0 ? (
                           <tr>
-                            <td colSpan={4} style={{ textAlign: 'center', padding: '32px 16px', color: '#647474' }}>
-                              <div style={{ fontWeight: 800, marginBottom: 4, color: '#0A3E42' }}>
-                                No Transactions Yet
-                              </div>
-                              <div style={{ fontSize: 12 }}>
-                                Start investing in 22K digital gold from ₹10!
+                            <td colSpan={5} style={{ padding: '24px 16px' }}>
+                              <div className="dg-empty-tx-container">
+                                <div className="dg-empty-tx-icon-wrap">
+                                  <Coins size={28} strokeWidth={2.2} />
+                                </div>
+                                <div className="dg-empty-tx-title">No Transactions Yet</div>
+                                <p className="dg-empty-tx-desc">
+                                  Convert your store coins or invest in 22K Digital Gold from just ₹10!
+                                </p>
+                                <div className="dg-empty-tx-actions">
+                                  <button
+                                    type="button"
+                                    className="dg-empty-btn convert"
+                                    onClick={() => { setConvertFeedback(null); setShowConvertModal(true); }}
+                                  >
+                                    <ArrowLeftRight size={13} />
+                                    <span>Convert Coins</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="dg-empty-btn buy"
+                                    onClick={handleOpenBuyModal}
+                                  >
+                                    <ShoppingCart size={13} />
+                                    <span>Buy 22K Gold</span>
+                                  </button>
+                                </div>
                               </div>
                             </td>
                           </tr>
                         ) : (
                           transactions.slice(0, 5).map((tx, idx) => (
                             <tr key={tx.id || idx}>
+                              <td className="dg-table-txnid">
+                                <span className="dg-txnid-badge" title={tx.transaction_id || `BB#${tx.id}`}>
+                                  {tx.transaction_id || `BB#${tx.id}`}
+                                </span>
+                              </td>
                               <td className="dg-table-date">
                                 {tx.date}, {tx.time}
                               </td>
@@ -1256,29 +1451,63 @@ export default function DigiGoldDashboard() {
                   </div>
                 </div>
 
-                {/* Digi Gold Rewards Card (Dark Teal #0A3E42, No Empty Space) */}
+                {/* Digi Gold Rewards Card (Athirai Privilege Club - Full Height & Ultra-Luxury) */}
                 <div className="dg-rewards-card">
-                  <div className="dg-rewards-inner">
-                    <div>
-                      <h3 className="dg-rewards-h">Earn More with<br />Digi Gold Rewards</h3>
-                      <p className="dg-rewards-p">Get exclusive rewards &amp; benefits on every 22K gold purchase.</p>
+                  <div className="dg-rewards-glow-orb" />
 
-                      <div className="dg-rewards-perks">
-                        <div>✦ 100% BIS Hallmarked 22K Purity</div>
-                        <div>✦ Zero Making &amp; Storage Charges</div>
+                  <div>
+                    <div className="dg-rewards-card-header">
+                      <div className="dg-rewards-badge">
+                        <Sparkles size={13} className="dg-rewards-badge-icon" />
+                        <span>Athirai Privilege Club</span>
                       </div>
+                      <span className="dg-rewards-tier-tag">VIP BENEFITS</span>
+                    </div>
 
-                      <button
-                        className="dg-rewards-cta"
-                        type="button"
-                        onClick={() => { setBuyMessage(''); setShowBuyModal(true) }}
-                      >
-                        Explore Rewards →
-                      </button>
+                    <div className="dg-rewards-hero-row">
+                      <div className="dg-rewards-title-area">
+                        <h3 className="dg-rewards-h">
+                          Earn More with <br />
+                          <span className="dg-rewards-h-highlight">Digi Gold Rewards</span>
+                        </h3>
+                        <p className="dg-rewards-p">
+                          Exclusive benefits &amp; insured vault storage on every 22K gold purchase.
+                        </p>
+                      </div>
+                      <div className="dg-rewards-visual">
+                        <img src="/digi-gold/rewards.jpg" alt="Digi Gold Rewards" />
+                        <div className="dg-rewards-visual-badge">916 BIS</div>
+                      </div>
                     </div>
-                    <div className="dg-rewards-visual">
-                      <img src="/digi-gold/rewards.jpg" alt="Digi Gold Rewards" />
+
+                    <div className="dg-rewards-perks-grid">
+                      <div className="dg-rewards-perk-item">
+                        <span className="dg-rewards-perk-dot">✦</span>
+                        <span>100% BIS Hallmarked 22K Purity</span>
+                      </div>
+                      <div className="dg-rewards-perk-item">
+                        <span className="dg-rewards-perk-dot">✦</span>
+                        <span>Zero Making &amp; Free Vault Storage</span>
+                      </div>
                     </div>
+                  </div>
+
+                  <div className="dg-rewards-footer">
+                    <button
+                      className="dg-rewards-cta"
+                      type="button"
+                      onClick={() => navigate('/collection/coins')}
+                    >
+                      <span>Explore Rewards</span>
+                      <ArrowRight size={14} />
+                    </button>
+                    <button
+                      className="dg-rewards-secondary-btn"
+                      type="button"
+                      onClick={handleOpenBuyModal}
+                    >
+                      <span>Buy Gold</span>
+                    </button>
                   </div>
                 </div>
 
@@ -1289,7 +1518,7 @@ export default function DigiGoldDashboard() {
                   </div>
 
                   <div className="dg-info-list">
-                    <div className="dg-info-item" onClick={() => { setBuyMessage(''); setShowBuyModal(true) }}>
+                    <div className="dg-info-item" onClick={handleOpenBuyModal}>
                       <div className="dg-info-left">
                         <div className="dg-info-icon">
                           <ShoppingCart size={15} />
@@ -1569,6 +1798,140 @@ export default function DigiGoldDashboard() {
         </div>
       )}
 
+      {/* ── MODAL: CONVERT AUG COINS TO 22K DIGI GOLD ── */}
+      {showConvertModal && (
+        <div className="dg-modal-overlay" onClick={() => setShowConvertModal(false)}>
+          <div className="dg-modal-box" onClick={e => e.stopPropagation()}>
+            <div className="dg-modal-head">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(0, 153, 87, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#009957' }}>
+                  <ArrowLeftRight size={20} />
+                </div>
+                <div>
+                  <h3 className="dg-modal-title" style={{ margin: 0, fontSize: 17 }}>Convert AUG Coins to Digi Gold</h3>
+                  <p style={{ margin: 0, fontSize: 11.5, color: '#6A8280' }}>Deducts store coins and creates 22K Digital Gold in your vault</p>
+                </div>
+              </div>
+              <button className="dg-modal-close" onClick={() => setShowConvertModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Balances & Live Rate Pills */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+              <div style={{ padding: '10px 12px', background: '#F8FAF9', borderRadius: 12, border: '1px solid #E6ECEA' }}>
+                <span style={{ fontSize: 11, color: '#6A8280', fontWeight: 600, display: 'block' }}>Available AUG Coins</span>
+                <span style={{ fontSize: 14.5, fontWeight: 800, color: '#0A3E42' }}>
+                  {userAugCoins.toLocaleString()} <small style={{ fontSize: 11, color: '#009957', fontWeight: 700 }}>Coins</small>
+                </span>
+                <span style={{ fontSize: 11, color: '#8E9E9C', display: 'block' }}>≈ ₹ {userAugInr.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div style={{ padding: '10px 12px', background: 'rgba(0,153,87,0.06)', borderRadius: 12, border: '1px solid rgba(0,153,87,0.2)' }}>
+                <span style={{ fontSize: 11, color: '#009957', fontWeight: 700, display: 'block' }}>Today's 22K Live Rate</span>
+                <span style={{ fontSize: 14.5, fontWeight: 800, color: '#0A3E42' }}>
+                  ₹ {Number(currentLiveRate).toLocaleString('en-IN')} <small style={{ fontSize: 11, color: '#6A8280' }}>/g</small>
+                </span>
+                <span style={{ fontSize: 11, color: '#009957', fontWeight: 600, display: 'block' }}>₹ {Number(currentLiveMgRate).toFixed(2)} /mg • Athirai 916</span>
+              </div>
+            </div>
+
+            <ModalFeedbackNotice
+              feedback={convertFeedback}
+              onDismiss={() => setConvertFeedback(null)}
+              onRecharge={() => { setShowConvertModal(false); navigate('/recharge'); }}
+            />
+
+            <form onSubmit={handleConvertCoins}>
+              <label className="dg-input-label">Select Amount to Convert (₹):</label>
+              <div className="dg-amount-presets">
+                {['500', '1000', '2500', '5000'].map(p => (
+                  <button
+                    key={p}
+                    type="button"
+                    className={`dg-preset-btn ${convertAmount === p ? 'active' : ''}`}
+                    onClick={() => setConvertAmount(p)}
+                  >
+                    ₹{p}
+                  </button>
+                ))}
+                {userAugInr > 0 && (
+                  <button
+                    type="button"
+                    className={`dg-preset-btn ${convertAmount === String(Math.floor(userAugInr)) ? 'active' : ''}`}
+                    onClick={() => setConvertAmount(String(Math.floor(userAugInr)))}
+                  >
+                    Max (₹{Math.floor(userAugInr).toLocaleString()})
+                  </button>
+                )}
+              </div>
+
+              <input
+                type="number"
+                min="1"
+                step="any"
+                className="dg-form-input"
+                value={convertAmount}
+                onChange={e => setConvertAmount(e.target.value)}
+                placeholder="Enter custom amount in ₹"
+                required
+              />
+
+              {/* Conversion Math Breakdown */}
+              <div style={{
+                background: '#F0F9F5',
+                border: '1.5px solid rgba(0,153,87,0.25)',
+                borderRadius: 12,
+                padding: '12px 14px',
+                marginBottom: 16
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12.5 }}>
+                  <span style={{ color: '#4A5568', fontWeight: 600 }}>AUG Coins to Deduct:</span>
+                  <span style={{ fontWeight: 800, color: '#E53E3E' }}>
+                    - {previewConvertCoins.toLocaleString()} Coins
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12.5 }}>
+                  <span style={{ color: '#4A5568', fontWeight: 600 }}>22K Digital Gold Added:</span>
+                  <span style={{ fontWeight: 800, color: '#009957' }}>
+                    + {previewConvertGm.toFixed(4)} g ({previewConvertMg.toFixed(2)} mg)
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 6, borderTop: '1px dashed rgba(0,153,87,0.3)', fontSize: 12 }}>
+                  <span style={{ color: '#6A8280' }}>Purity &amp; Hallmark:</span>
+                  <span style={{ fontWeight: 700, color: '#0A3E42' }}>Athirai 916 Hallmark (22K)</span>
+                </div>
+              </div>
+
+              {!hasEnoughCoins && parsedConvertAmount > 0 && (
+                <div style={{
+                  padding: '9px 12px',
+                  background: '#FFF5F5',
+                  border: '1px solid #FEB2B2',
+                  borderRadius: 10,
+                  color: '#C53030',
+                  fontSize: 12,
+                  marginBottom: 14,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8
+                }}>
+                  <AlertCircle size={15} />
+                  <span>Insufficient AUG coins. You have {userAugCoins.toLocaleString()} coins (need {previewConvertCoins.toLocaleString()} coins).</span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="dg-modal-submit-btn"
+                disabled={submittingConvert || parsedConvertAmount <= 0 || !hasEnoughCoins}
+              >
+                {submittingConvert ? 'Processing Conversion…' : `Convert ${previewConvertCoins.toLocaleString()} Coins to ${previewConvertGm.toFixed(4)}g 22K Gold`}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ── MODAL: DETAILED INVESTMENT CALCULATION SHEET (MATCHING IMAGE 2 EXACTLY) ── */}
       {showExcelModal && (
         <div className="dg-modal-overlay" onClick={() => setShowExcelModal(false)}>
@@ -1630,6 +1993,7 @@ export default function DigiGoldDashboard() {
               <table className="dg-excel-table">
                 <thead>
                   <tr>
+                    <th>Txn ID</th>
                     <th>Date</th>
                     <th>Recharge (₹)</th>
                     <th>Gold Price (₹)</th>
@@ -1645,7 +2009,7 @@ export default function DigiGoldDashboard() {
                 <tbody>
                   {transactions.length === 0 ? (
                     <tr>
-                      <td colSpan={10} style={{ textAlign: 'center', padding: '30px', color: '#647474' }}>
+                      <td colSpan={11} style={{ textAlign: 'center', padding: '30px', color: '#647474' }}>
                         No investment records yet. Purchases will appear here with live dynamic calculations!
                       </td>
                     </tr>
@@ -1663,6 +2027,11 @@ export default function DigiGoldDashboard() {
 
                       return (
                         <tr key={row.id || idx}>
+                          <td className="dg-table-txnid">
+                            <span className="dg-txnid-badge">
+                              {row.transaction_id || `BB#${row.id}`}
+                            </span>
+                          </td>
                           <td>{row.date_excel || row.date}</td>
                           <td>₹ {rechargeVal.toLocaleString('en-IN')}</td>
                           <td>₹ {goldPriceVal.toLocaleString('en-IN')}</td>

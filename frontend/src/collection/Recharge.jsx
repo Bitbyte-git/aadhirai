@@ -370,7 +370,7 @@ const handleToggleAutopay = async () => {
       fetchWallet()
       setTimeout(() => navigate('/digi-gold'), 1200)
     } catch (err) {
-      const msg = err.response?.data?.error || 'Digi Gold conversion failed. Please try again.'
+      const msg = err.response?.data?.detail || err.response?.data?.error || 'Digi Gold conversion failed. Please try again.'
       setBanner({ type: 'error', text: msg })
     } finally {
       setConverting(false)

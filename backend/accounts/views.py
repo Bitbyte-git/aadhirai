@@ -12194,59 +12194,76 @@ class DigiGoldDashboardView(APIView):
             pass
         aug_balance_inr = round(float(aug_wallet.balance_coins) / 100.0, 2)
 
-        # Aggregated actual holdings
-        buys = investments_qs.filter(transaction_type__in=['buy', 'convert'])
-        sells = investments_qs.filter(transaction_type='sell')
+        # Separate Gold and Silver holdings calculations
+        gold_buys = investments_qs.filter(transaction_type__in=['buy', 'convert']).exclude(notes__icontains='Silver')
+        gold_sells = investments_qs.filter(transaction_type='sell').exclude(notes__icontains='Silver')
+        silver_buys = investments_qs.filter(transaction_type__in=['buy', 'convert'], notes__icontains='Silver')
+        silver_sells = investments_qs.filter(transaction_type='sell', notes__icontains='Silver')
 
-        actual_buy_mg = buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')
-        actual_sell_mg = sells.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')
-        actual_net_mg = max(Decimal('0'), actual_buy_mg - actual_sell_mg)
-        actual_net_gm = round(actual_net_mg / Decimal('1000'), 4)
+        # Gold calculations
+        actual_gold_buy_mg = gold_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')
+        actual_gold_sell_mg = gold_sells.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')
+        actual_gold_net_mg = max(Decimal('0'), actual_gold_buy_mg - actual_gold_sell_mg)
+        actual_gold_net_gm = round(actual_gold_net_mg / Decimal('1000'), 4)
+        actual_gold_invested = gold_buys.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0')
+        actual_gold_value = round(float(actual_gold_net_mg) * live_mg_price, 2)
 
-        actual_invested = buys.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0')
-        actual_current_value = round(float(actual_net_mg) * live_mg_price, 2)
-        actual_profit = round(actual_current_value - float(actual_invested), 2)
-        actual_profit_pct = round((actual_profit / float(actual_invested)) * 100, 2) if float(actual_invested) > 0 else 0.0
+        # Silver calculations
+        live_silver_mg_price = round(float(rates.get('silver_999', 275.0)) / 1000.0, 4)
+        actual_silver_buy_mg = silver_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')
+        actual_silver_sell_mg = silver_sells.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')
+        actual_silver_net_mg = max(Decimal('0'), actual_silver_buy_mg - actual_silver_sell_mg)
+        actual_silver_net_gm = round(actual_silver_net_mg / Decimal('1000'), 4)
+        actual_silver_invested = silver_buys.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0')
+        actual_silver_value = round(float(actual_silver_net_mg) * live_silver_mg_price, 2)
+
+        # Combined portfolio totals
+        total_invested = actual_gold_invested + actual_silver_invested
+        total_vault_value = round(actual_gold_value + actual_silver_value, 2)
+        actual_profit = round(total_vault_value - float(total_invested), 2)
+        actual_profit_pct = round((actual_profit / float(total_invested)) * 100, 2) if float(total_invested) > 0 else 0.0
 
         has_real_investments = inv_count > 0
-        if has_real_investments:
-            total_holding_gm = float(actual_net_gm)
-            total_holding_mg = float(actual_net_mg)
-            total_invested_val = float(actual_invested)
-            gold_value_val = actual_current_value
-            returns_val = actual_profit
-            returns_pct_val = actual_profit_pct
-            wallet_balance_val = actual_current_value
-        else:
-            total_holding_gm = 0.000
-            total_holding_mg = 0.0
-            total_invested_val = 0.00
-            gold_value_val = 0.00
-            returns_val = 0.00
-            returns_pct_val = 0.00
-            wallet_balance_val = 0.00
+        total_holding_gm = float(actual_gold_net_gm)
+        total_holding_mg = float(actual_gold_net_mg)
+        total_invested_val = float(total_invested)
+        gold_value_val = total_vault_value
+        returns_val = actual_profit
+        returns_pct_val = actual_profit_pct
+        wallet_balance_val = total_vault_value
 
         # Build detailed Excel calculation rows (matching Image 2)
         excel_rows = []
-        for inv in investments_qs[:50]:
-            curr_growth = round(float(inv.hold_gold_mg) * live_mg_price, 2)
+        for inv in investments_qs[:100]:
+            is_silver = 'Silver' in (inv.notes or '')
+            item_live_price = float(rates.get('silver_999', 275.0)) if is_silver else live_gold_22k
+            item_live_mg_price = live_silver_mg_price if is_silver else live_mg_price
+            
+            curr_growth = round(float(inv.hold_gold_mg) * item_live_mg_price, 2)
             profit = round(curr_growth - float(inv.recharge_amount), 2)
             txn_ref = inv.transaction_ref or f"BB{inv.created_at.strftime('%y%m%d')}{str(inv.id).zfill(6)}"
+            
+            if is_silver:
+                tx_type_label = 'Buy Silver (Pure 999)' if inv.transaction_type == 'buy' else 'Sell Silver (Pure 999)'
+            else:
+                tx_type_label = 'Buy Gold (22K)' if inv.transaction_type == 'buy' else ('Recharge Convert (22K)' if inv.transaction_type == 'convert' else 'Sell Gold (22K)')
+
             excel_rows.append({
                 'id': inv.id,
                 'transaction_id': txn_ref,
                 'date': inv.created_at.strftime('%d %b %Y'),
                 'date_excel': inv.created_at.strftime('%d.%m.%Y'),
                 'time': inv.created_at.strftime('%I:%M %p'),
-                'type': 'Buy Gold (22K)' if inv.transaction_type == 'buy' else ('Recharge Convert (22K)' if inv.transaction_type == 'convert' else 'Sell Gold (22K)'),
+                'type': tx_type_label,
+                'metal': 'silver_999' if is_silver else 'gold_22k',
                 'amount_str': f"{float(inv.hold_gold_gm):.3f} g",
                 'recharge': float(inv.recharge_amount),
                 'gold_price': float(inv.gold_price_per_gram),
                 'mg_price': float(inv.mg_price),
                 'hold_gold_mg': float(inv.hold_gold_mg),
                 'gm': float(inv.hold_gold_gm),
-                'current_price': live_gold_22k,
-                'current_mg_price': live_mg_price,
+                'current_price': item_live_price,
+                'current_mg_price': item_live_mg_price,
                 'current_growth': curr_growth,
                 'profit': profit,
                 'status': inv.status.capitalize(),
@@ -12390,7 +12407,11 @@ class DigiGoldDashboardView(APIView):
             'kpis': {
                 'total_gold_holding_gm': total_holding_gm,
                 'total_gold_holding_mg': total_holding_mg,
-                'gold_value_inr': gold_value_val,
+                'total_silver_holding_gm': float(actual_silver_net_gm),
+                'total_silver_holding_mg': float(actual_silver_net_mg),
+                'gold_value_inr': actual_gold_value,
+                'silver_value_inr': actual_silver_value,
+                'total_vault_value_inr': total_vault_value,
                 'wallet_balance_inr': wallet_balance_val,
                 'total_invested_inr': total_invested_val,
                 'total_returns_inr': returns_val,
@@ -12571,8 +12592,23 @@ class DigiGoldSellView(APIView):
                 'code': 'missing_params'
             }, status=400)
 
-        dg_wallet, _ = DigiGoldWallet.objects.get_or_create(user=user)
-        available_mg = dg_wallet.total_gold_mg
+        rates = _get_live_gold_rates()
+        if metal == 'silver_999':
+            silver_buys = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type__in=['buy', 'convert'], notes__icontains='Silver')
+            silver_sells = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type='sell', notes__icontains='Silver')
+            available_mg = max(Decimal('0'), (silver_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) - (silver_sells.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')))
+            metal_label = 'Digi Silver (Pure 999)'
+            metal_price = float(rates.get('silver_999', 275.0))
+            mg_price = round(metal_price / 1000.0, 4)
+        else:
+            gold_buys = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type__in=['buy', 'convert']).exclude(notes__icontains='Silver')
+            gold_sells = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type='sell').exclude(notes__icontains='Silver')
+            available_mg = max(Decimal('0'), (gold_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) - (gold_sells.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')))
+            metal_label = '22K Digi Gold'
+            metal_price = float(rates.get('gold_22k', 14250.0))
+            mg_price = float(rates.get('gold_22k_mg', round(metal_price / 1000.0, 4)))
+
+        available_gm = round(available_mg / Decimal('1000'), 4)
 
         if grams:
             sell_gm = Decimal(str(grams))
@@ -12590,22 +12626,12 @@ class DigiGoldSellView(APIView):
 
         if available_mg < sell_mg:
             return Response({
-                'error': 'Insufficient digital vault holding.',
-                'detail': f'You attempted to sell {float(sell_gm):.3f}g, but your current available vault balance is {float(dg_wallet.total_gold_gm):.3f}g ({float(dg_wallet.total_gold_mg):.1f}mg).',
+                'error': f'Insufficient {metal_label} holding.',
+                'detail': f'You attempted to sell {float(sell_gm):.4f}g, but your current available {metal_label} vault balance is {float(available_gm):.4f}g ({float(available_mg):.2f}mg).',
                 'code': 'insufficient_holdings',
-                'available_gm': float(dg_wallet.total_gold_gm),
+                'available_gm': float(available_gm),
                 'requested_gm': float(sell_gm)
             }, status=400)
-
-        rates = _get_live_gold_rates()
-        if metal == 'silver_999':
-            metal_price = float(rates.get('silver_999', 275.0))
-            mg_price = round(metal_price / 1000.0, 4)
-            metal_label = 'Digi Silver (Pure 999)'
-        else:
-            metal_price = float(rates.get('gold_22k', 14250.0))
-            mg_price = float(rates.get('gold_22k_mg', round(metal_price / 1000.0, 4)))
-            metal_label = '22K Digi Gold'
 
         payout_inr = round(sell_mg * Decimal(str(mg_price)), 2)
         txn_id = generate_transaction_id()
@@ -12624,9 +12650,11 @@ class DigiGoldSellView(APIView):
             notes=f"Sold {round(sell_gm, 4)}g {metal_label} at ₹{metal_price}/g"
         )
 
-        dg_wallet.total_gold_mg = max(Decimal('0'), dg_wallet.total_gold_mg - round(sell_mg, 4))
-        dg_wallet.total_gold_gm = max(Decimal('0'), dg_wallet.total_gold_gm - round(sell_gm, 6))
-        dg_wallet.save()
+        dg_wallet, _ = DigiGoldWallet.objects.get_or_create(user=user)
+        if metal == 'gold_22k':
+            dg_wallet.total_gold_mg = max(Decimal('0'), dg_wallet.total_gold_mg - round(sell_mg, 4))
+            dg_wallet.total_gold_gm = max(Decimal('0'), dg_wallet.total_gold_gm - round(sell_gm, 6))
+            dg_wallet.save()
 
         aug_wallet, _ = Wallet.objects.get_or_create(user=user)
         credit_coins = int(payout_inr * 100)

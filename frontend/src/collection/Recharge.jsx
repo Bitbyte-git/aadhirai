@@ -358,9 +358,8 @@ const handleToggleAutopay = async () => {
     setConverting(true)
     try {
       const { default: api } = await import('../api')
-      const res = await api.post('/digi-gold/buy/', {
-        amount: amt,
-        payment_method: 'wallet'
+      const res = await api.post('/digi-gold/convert-from-recharge/', {
+        amount: amt
       })
       setBanner({
         type: 'success',
@@ -632,16 +631,20 @@ const handleToggleAutopay = async () => {
                           <div className="rc-history-source">From {h.source} · Level {h.level} · {h.order_id}</div>
                         )}
                         {h.type === 'debit' && (
-                          <div className="rc-history-source">Used for order {h.order_id}</div>
+                          <div className="rc-history-source" style={{ color: '#073B3F', fontWeight: 700 }}>
+                            {h.order_id ? `Used for order ${h.order_id}` : (h.source || 'Digi Gold Transaction')}
+                          </div>
                         )}
                         {h.type === 'admin_credit' && (
-                          <div className="rc-history-source">Sent by {h.source}</div>
+                          <div className="rc-history-source">{h.source || 'Sent by Admin'}</div>
                         )}
                         {h.type === 'reward' && (
                           <div className="rc-history-source">Login Reward</div>
                         )}
                       </div>
-                      <span className={`rc-method-tag ${h.payment_method}`}>{h.payment_method === 'admin' ? 'BBTEAM' : h.payment_method}</span>
+                      <span className={`rc-method-tag ${h.payment_method}`}>
+                        {h.is_digi_gold ? 'Digi Gold' : (h.payment_method === 'admin' ? 'BBTEAM' : h.payment_method)}
+                      </span>
                     </div>
                   )
                 })
@@ -736,16 +739,20 @@ const handleToggleAutopay = async () => {
                           <div className="rc-history-source">From {h.source} · Level {h.level} · {h.order_id}</div>
                         )}
                         {h.type === 'debit' && (
-                          <div className="rc-history-source">Used for order {h.order_id}</div>
+                          <div className="rc-history-source" style={{ color: '#073B3F', fontWeight: 700 }}>
+                            {h.order_id ? `Used for order ${h.order_id}` : (h.source || 'Digi Gold Transaction')}
+                          </div>
                         )}
                         {h.type === 'admin_credit' && (
-                          <div className="rc-history-source">Sent by {h.source}</div>
+                          <div className="rc-history-source">{h.source || 'Sent by Admin'}</div>
                         )}
                         {h.type === 'reward' && (
                           <div className="rc-history-source">Login Reward</div>
                         )}
                       </div>
-                      <span className={`rc-method-tag ${h.payment_method}`}>{h.payment_method === 'admin' ? 'BBTEAM' : h.payment_method}</span>
+                      <span className={`rc-method-tag ${h.payment_method}`}>
+                        {h.is_digi_gold ? 'Digi Gold' : (h.payment_method === 'admin' ? 'BBTEAM' : h.payment_method)}
+                      </span>
                     </div>
                   </div>
                 )

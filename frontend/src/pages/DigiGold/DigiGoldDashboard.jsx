@@ -29,7 +29,10 @@ import {
   Filter,
   AlertCircle,
   CreditCard,
-  ArrowRight
+  ArrowRight,
+  Download,
+  Copy,
+  Check
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -39,6 +42,7 @@ import {
   YAxis,
   Tooltip
 } from 'recharts'
+import * as XLSX from 'xlsx'
 import api from '../../api'
 import './DigiGoldDashboard.css'
 
@@ -197,15 +201,18 @@ export default function DigiGoldDashboard() {
     }
   })
   const [activeTab, setActiveTab] = useState('1D')
-  const [currentView, setCurrentView] = useState('dashboard') // 'dashboard' | 'transactions'
+  const [currentView, setCurrentView] = useState('dashboard') // 'dashboard' | 'transactions' | 'valuation'
   const [txFilter, setTxFilter] = useState('all') // 'all' | 'buy' | 'sell'
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Modals
   const [showBuyModal, setShowBuyModal] = useState(false)
   const [showSellModal, setShowSellModal] = useState(false)
-  const [showExcelModal, setShowExcelModal] = useState(false)
   const [showConvertModal, setShowConvertModal] = useState(false)
+
+  // Success Popup Modal State (For Buy, Sell, and Convert)
+  const [actionSuccessData, setActionSuccessData] = useState(null)
+  const [copiedTxn, setCopiedTxn] = useState(false)
 
   // Metal selection for Buy & Sell
   const [buyMetal, setBuyMetal] = useState('gold_22k') // 'gold_22k' | 'silver_999'
@@ -219,7 +226,7 @@ export default function DigiGoldDashboard() {
   const [buyMessage, setBuyMessage] = useState('')
 
   // Sell form
-  const [sellGrams, setSellGrams] = useState('0.5')
+  const [sellGrams, setSellGrams] = useState('')
   const [submittingSell, setSubmittingSell] = useState(false)
   const [sellFeedback, setSellFeedback] = useState(null)
   const [sellMessage, setSellMessage] = useState('')
@@ -297,9 +304,11 @@ export default function DigiGoldDashboard() {
       const dashData = dashRes.status === 'fulfilled' ? dashRes.value?.data : null
       const dashCoins = Number(dashData?.kpis?.aug_coins_balance ?? 0)
 
-      // Always pick the accurate balance (either from /wallet/ or /digi-gold/dashboard/)
-      const finalAugCoins = Math.max(dashCoins, walletCoins)
-      const finalAugInr = finalAugCoins > 0 ? +(finalAugCoins / 100).toFixed(2) : (Number(dashData?.kpis?.aug_balance_inr ?? userWalletBalance))
+      // Authoritative AUG Coins balance directly from single source of truth
+      const authoritativeCoins = dashData?.kpis?.aug_coins_balance !== undefined
+        ? Number(dashData.kpis.aug_coins_balance)
+        : walletCoins
+      const authoritativeInr = +(authoritativeCoins / 100).toFixed(2)
 
       const basePrice = liveMetalRates.gold_22k
       const dynamicChartData = [
@@ -321,14 +330,18 @@ export default function DigiGoldDashboard() {
         kpis: {
           total_gold_holding_gm: dashData?.kpis?.total_gold_holding_gm || 0.0,
           total_gold_holding_mg: dashData?.kpis?.total_gold_holding_mg || 0.0,
+          total_silver_holding_gm: dashData?.kpis?.total_silver_holding_gm || 0.0,
+          total_silver_holding_mg: dashData?.kpis?.total_silver_holding_mg || 0.0,
           gold_value_inr: dashData?.kpis?.gold_value_inr || 0.0,
-          wallet_balance_inr: dashData?.kpis?.gold_value_inr || 0.0, // strictly Digi Gold Vault Value (0.00 until bought/converted)
+          silver_value_inr: dashData?.kpis?.silver_value_inr || 0.0,
+          total_vault_value_inr: dashData?.kpis?.total_vault_value_inr || 0.0,
+          wallet_balance_inr: dashData?.kpis?.gold_value_inr || 0.0, // strictly Digi Gold Vault Value
           digi_gold_wallet_inr: dashData?.kpis?.gold_value_inr || 0.0,
           total_invested_inr: dashData?.kpis?.total_invested_inr || 0.0,
           total_returns_inr: dashData?.kpis?.total_returns_inr || 0.0,
           returns_percentage: dashData?.kpis?.returns_percentage || 0.0,
-          aug_coins_balance: finalAugCoins,
-          aug_balance_inr: finalAugInr,
+          aug_coins_balance: authoritativeCoins,
+          aug_balance_inr: authoritativeInr,
         },
         rates: liveMetalRates,
         chart_data: dashData?.chart_data?.length ? dashData.chart_data : dynamicChartData,
@@ -356,18 +369,28 @@ export default function DigiGoldDashboard() {
         payment_method: buyPaymentMethod,
         metal: buyMetal
       })
-      const metalLabel = buyMetal === 'gold_22k' ? '22K Digital Gold' : 'Digi Silver (Pure 999)'
+      const metalLabel = buyMetal === 'gold_22k' ? '22K Digital Gold (Athirai 916)' : 'Digi Silver (Pure 999)'
       const txnId = res.data?.transaction_id
-      setBuyFeedback({
-        type: 'success',
+      const invData = res.data?.investment || {}
+      
+      // Close buy input modal & launch Success Popup Modal
+      setShowBuyModal(false)
+      setActionSuccessData({
+        actionType: 'buy',
+        metal: buyMetal,
+        metalLabel,
         title: 'Investment Confirmed!',
-        detail: res.data?.message || `${metalLabel} was successfully purchased and credited to your vault.`,
-        code: 'success',
-        transaction_id: txnId
+        message: res.data?.message || `Successfully purchased ${metalLabel} and safely credited to your digital vault.`,
+        amountInr: parseFloat(buyAmount),
+        grams: invData.hold_gold_gm || previewGoldGm,
+        milligrams: invData.hold_gold_mg || previewGoldMg,
+        coins: Math.round(parseFloat(buyAmount) * 100),
+        transactionId: txnId,
+        rate: buyMetal === 'gold_22k' ? currentLiveRate : currentSilverRate,
+        dateTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
       })
-      setTimeout(() => {
-        fetchDashboardData()
-      }, 1000)
+
+      fetchDashboardData()
     } catch (err) {
       const respData = err.response?.data
       let errTitle = 'Transaction Could Not Be Processed'
@@ -409,18 +432,29 @@ export default function DigiGoldDashboard() {
         grams: parseFloat(sellGrams),
         metal: sellMetal
       })
-      const metalLabel = sellMetal === 'gold_22k' ? '22K Digital Gold' : 'Digi Silver (Pure 999)'
+      const metalLabel = sellMetal === 'gold_22k' ? '22K Digital Gold (Athirai 916)' : 'Digi Silver (Pure 999)'
       const txnId = res.data?.transaction_id
-      setSellFeedback({
-        type: 'success',
+      const payoutVal = res.data?.payout_inr ?? previewSellPayout
+      const coinsCredited = res.data?.coins_credited ?? Math.round(payoutVal * 100)
+
+      // Close sell input modal & launch Success Popup Modal
+      setShowSellModal(false)
+      setActionSuccessData({
+        actionType: 'sell',
+        metal: sellMetal,
+        metalLabel,
         title: 'Sale Executed Successfully!',
-        detail: res.data?.message || `${metalLabel} sold and payout credited directly to your wallet balance.`,
-        code: 'success',
-        transaction_id: txnId
+        message: res.data?.message || `Successfully sold ${parseFloat(sellGrams)}g of ${metalLabel} and credited ₹${payoutVal.toLocaleString('en-IN')} to your wallet.`,
+        amountInr: payoutVal,
+        grams: parseFloat(sellGrams),
+        milligrams: parseFloat(sellGrams) * 1000,
+        coins: coinsCredited,
+        transactionId: txnId,
+        rate: sellMetal === 'gold_22k' ? currentLiveRate : currentSilverRate,
+        dateTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
       })
-      setTimeout(() => {
-        fetchDashboardData()
-      }, 1000)
+
+      fetchDashboardData()
     } catch (err) {
       const respData = err.response?.data
       let errTitle = 'Sale Order Incomplete'
@@ -462,16 +496,26 @@ export default function DigiGoldDashboard() {
         amount: parseFloat(convertAmount)
       })
       const txnId = res.data?.transaction_id
-      setConvertFeedback({
-        type: 'success',
-        title: 'Conversion Confirmed!',
-        detail: res.data?.message || `Successfully converted ₹${convertAmount} from your AUG Coins into 22K Digi Gold!`,
-        code: 'success',
-        transaction_id: txnId
+      const invData = res.data?.investment || {}
+
+      // Close convert input modal & launch Success Popup Modal
+      setShowConvertModal(false)
+      setActionSuccessData({
+        actionType: 'convert',
+        metal: 'gold_22k',
+        metalLabel: '22K Digital Gold (Athirai 916)',
+        title: 'AUG Coins Converted to Digi Gold!',
+        message: res.data?.message || `Successfully converted ₹${convertAmount} from your store coins into 22K Digital Gold.`,
+        amountInr: parseFloat(convertAmount),
+        grams: invData.hold_gold_gm || previewConvertGm,
+        milligrams: invData.hold_gold_mg || previewConvertMg,
+        coins: Math.round(parseFloat(convertAmount) * 100),
+        transactionId: txnId,
+        rate: currentLiveRate,
+        dateTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
       })
-      setTimeout(() => {
-        fetchDashboardData()
-      }, 900)
+
+      fetchDashboardData()
     } catch (err) {
       const respData = err.response?.data
       let errTitle = 'Conversion Could Not Be Completed'
@@ -591,10 +635,21 @@ export default function DigiGoldDashboard() {
   const previewGoldMg = activeBuyMgRate > 0 ? (parsedBuyAmount / activeBuyMgRate) : 0
   const previewGoldGm = activeBuyRate > 0 ? (parsedBuyAmount / activeBuyRate) : 0
 
+  // Available holdings for selected sell metal
+  const availableSellGm = sellMetal === 'gold_22k'
+    ? Number(kpis.total_gold_holding_gm ?? 0)
+    : Number(kpis.total_silver_holding_gm ?? 0)
+  const availableSellMg = sellMetal === 'gold_22k'
+    ? Number(kpis.total_gold_holding_mg ?? 0)
+    : Number(kpis.total_silver_holding_mg ?? 0)
+
   // Live calculations for Sell modal
   const parsedSellGm = parseFloat(sellGrams) || 0
   const activeSellRate = sellMetal === 'gold_22k' ? currentLiveRate : currentSilverRate
   const previewSellPayout = parsedSellGm * activeSellRate
+  const previewSellCoins = Math.round(previewSellPayout * 100)
+  const isOverSelling = parsedSellGm > availableSellGm + 0.000001
+  const hasNoHoldingsToSell = availableSellGm <= 0
 
   // Live calculations for Convert AUG Coins modal
   const parsedConvertAmount = parseFloat(convertAmount) || 0
@@ -604,6 +659,57 @@ export default function DigiGoldDashboard() {
   const userAugCoins = Number(kpis.aug_coins_balance ?? 0)
   const userAugInr = Number(kpis.aug_balance_inr ?? 0)
   const hasEnoughCoins = userAugCoins >= previewConvertCoins
+
+  // Excel Export for Valuation Sheet
+  const handleExportValuationExcel = () => {
+    try {
+      const wb = XLSX.utils.book_new()
+      
+      const summaryData = [
+        ["Aadhirai Digi Gold - Investment & Valuation Summary", ""],
+        ["Exported Date", new Date().toLocaleString('en-IN')],
+        ["Customer Name", customerName],
+        ["Total Recharge (₹)", Number(kpis.total_invested_inr ?? 0)],
+        ["Au Mg Holding", Number(kpis.total_gold_holding_mg ?? 0)],
+        ["Au Gm Holding", Number(kpis.total_gold_holding_gm ?? 0)],
+        ["Digi Silver Holding (gm)", Number(kpis.total_silver_holding_gm ?? 0)],
+        ["Today's 22K Gold Rate (₹/g)", currentLiveRate],
+        ["Today's Silver Rate (₹/g)", currentSilverRate],
+        ["Current Portfolio Growth (₹)", Number(kpis.gold_value_inr ?? 0)],
+        ["Total Profit / Returns (₹)", Number(kpis.total_returns_inr ?? 0)],
+        ["Returns Percentage (%)", `${Number(kpis.returns_percentage ?? 0)}%`],
+        ["AUG Store Coins Balance", Number(kpis.aug_coins_balance ?? 0)],
+      ]
+      const wsSummary = XLSX.utils.aoa_to_sheet(summaryData)
+      XLSX.utils.book_append_sheet(wb, wsSummary, "Summary")
+
+      const tableRows = [
+        ["Txn ID", "Date", "Recharge (₹)", "Gold Price (₹)", "Mg Price (₹)", "Hold Gold (mg)", "Hold Gold (g)", "Current Price (₹)", "Current Mg Price (₹)", "Current Growth (₹)", "Profit / Loss (₹)", "Status"]
+      ]
+      transactions.forEach(tx => {
+        tableRows.push([
+          tx.transaction_id || `BB#${tx.id}`,
+          tx.date_excel || tx.date,
+          Number(tx.recharge || 0),
+          Number(tx.gold_price || currentLiveRate),
+          Number(tx.mg_price || currentLiveMgRate),
+          Number(tx.hold_gold_mg || 0),
+          Number(tx.gm || 0),
+          Number(tx.current_price || currentLiveRate),
+          Number(tx.current_mg_price || currentLiveMgRate),
+          Number(tx.current_growth || 0),
+          Number(tx.profit || 0),
+          tx.status || "Completed"
+        ])
+      })
+      const wsLedger = XLSX.utils.aoa_to_sheet(tableRows)
+      XLSX.utils.book_append_sheet(wb, wsLedger, "Valuation Sheet")
+
+      XLSX.writeFile(wb, `Aadhirai_DigiGold_Valuation_Sheet_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    } catch (err) {
+      console.error("Export Excel error:", err)
+    }
+  }
 
   // Filtered transactions for Transactions View
   const filteredTransactions = transactions.filter(tx => {
@@ -652,12 +758,12 @@ export default function DigiGoldDashboard() {
             <div className="dg-sidebar-wallet-val">
               {sidebarRotatingMetal === 'gold'
                 ? `${Number(kpis.total_gold_holding_gm ?? 0).toFixed(3)} g`
-                : '0.000 g'}
+                : `${Number(kpis.total_silver_holding_gm ?? 0).toFixed(3)} g`}
             </div>
             <div className="dg-sidebar-wallet-sub">
               {sidebarRotatingMetal === 'gold'
                 ? `≈ ₹ ${Number(kpis.gold_value_inr ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })} • Athirai 916`
-                : '≈ ₹ 0.00 • Pure 999 Hallmark'}
+                : `≈ ₹ ${Number(kpis.silver_value_inr ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })} • Pure 999`}
             </div>
           </div>
 
@@ -696,12 +802,12 @@ export default function DigiGoldDashboard() {
               <span>Convert Coins</span>
             </button>
             <button
-              className="dg-nav-btn"
+              className={`dg-nav-btn ${currentView === 'valuation' ? 'active' : ''}`}
               type="button"
-              onClick={() => setShowExcelModal(true)}
+              onClick={() => setCurrentView('valuation')}
             >
               <WalletCards size={18} />
-              <span>Gold Vault Sheet</span>
+              <span>Valuation Sheet</span>
             </button>
             <button
               className={`dg-nav-btn ${currentView === 'transactions' ? 'active' : ''}`}
@@ -1030,6 +1136,176 @@ export default function DigiGoldDashboard() {
                 </div>
               </div>
             </div>
+          ) : currentView === 'valuation' ? (
+            /* ══════════════════════════════════════════════════════════════
+               VALUATION SHEET FULL PAGE VIEW (MATCHING IMAGE 2 EXACTLY)
+               ══════════════════════════════════════════════════════════════ */
+            <div className="dg-valuation-shell">
+              {/* Header Card */}
+              <div className="dg-valuation-header-card">
+                <div className="dg-valuation-title-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentView('dashboard')}
+                    style={{
+                      background: 'none', border: 'none', color: '#009957', fontWeight: 800,
+                      fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 6
+                    }}
+                  >
+                    <ArrowLeft size={16} /> Back to Dashboard
+                  </button>
+                  <h2 className="dg-valuation-main-title">
+                    Aadhirai Digi Gold Investment &amp; Valuation Sheet
+                  </h2>
+                  <p className="dg-valuation-sub-title">
+                    Live mathematical model matching Image 2 reference — Dynamic recalculation with 22K rate
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={handleExportValuationExcel}
+                    style={{
+                      padding: '10px 18px', borderRadius: 12, background: '#0A3E42', color: '#fff',
+                      fontWeight: 800, fontSize: 13, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7,
+                      boxShadow: '0 3px 10px rgba(10, 62, 66, 0.25)'
+                    }}
+                    title="Download complete ledger spreadsheet in .xlsx format"
+                  >
+                    <Download size={16} /> Export to Excel (.xlsx)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenBuyModal}
+                    style={{
+                      padding: '10px 18px', borderRadius: 12, background: '#009957', color: '#fff',
+                      fontWeight: 800, fontSize: 13, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6
+                    }}
+                  >
+                    <ShoppingCart size={16} /> + Buy Gold
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenSellModal}
+                    style={{
+                      padding: '10px 18px', borderRadius: 12, background: '#FFFFFF', color: '#E45B5B',
+                      border: '1.5px solid #E45B5B', fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6
+                    }}
+                  >
+                    <ArrowUpFromLine size={16} /> Sell
+                  </button>
+                </div>
+              </div>
+
+              {/* Summary Top 6 Cards Banner (Exact Image 2 layout) */}
+              <div className="dg-valuation-kpi-grid">
+                <div className="dg-valuation-kpi-item">
+                  <span className="dg-valuation-kpi-label">Total Recharge</span>
+                  <span className="dg-valuation-kpi-val">₹ {Number(kpis.total_invested_inr ?? 0).toLocaleString('en-IN')}</span>
+                </div>
+                <div className="dg-valuation-kpi-item">
+                  <span className="dg-valuation-kpi-label">Au Mg</span>
+                  <span className="dg-valuation-kpi-val green">{Number(kpis.total_gold_holding_mg ?? 0).toFixed(2)}</span>
+                </div>
+                <div className="dg-valuation-kpi-item">
+                  <span className="dg-valuation-kpi-label">Au Gm</span>
+                  <span className="dg-valuation-kpi-val green">{Number(kpis.total_gold_holding_gm ?? 0).toFixed(3)}</span>
+                </div>
+                <div className="dg-valuation-kpi-item">
+                  <span className="dg-valuation-kpi-label">Today's 22K Rate</span>
+                  <span className="dg-valuation-kpi-val gold">₹ {Number(currentLiveRate).toLocaleString('en-IN')}</span>
+                </div>
+                <div className="dg-valuation-kpi-item">
+                  <span className="dg-valuation-kpi-label">Current Growth</span>
+                  <span className="dg-valuation-kpi-val green">₹ {Number(kpis.gold_value_inr ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="dg-valuation-kpi-item">
+                  <span className="dg-valuation-kpi-label">Total Profit</span>
+                  <span className={`dg-valuation-kpi-val ${Number(kpis.total_returns_inr ?? 0) >= 0 ? 'green' : 'red'}`}>
+                    {Number(kpis.total_returns_inr ?? 0) >= 0 ? '+' : ''}₹ {Number(kpis.total_returns_inr ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Table Card */}
+              <div className="dg-card" style={{ padding: 20 }}>
+                <div className="dg-table-wrap">
+                  <table className="dg-excel-table" style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th>Txn ID</th>
+                        <th>Date</th>
+                        <th>Recharge (₹)</th>
+                        <th>Gold Price (₹)</th>
+                        <th>Mg Price (₹)</th>
+                        <th>Hold Gold (mg)</th>
+                        <th>Hold Gold (g)</th>
+                        <th>Current Price (₹)</th>
+                        <th>Current Mg Price (₹)</th>
+                        <th>Current Growth (₹)</th>
+                        <th>Total Profit (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transactions.length === 0 ? (
+                        <tr>
+                          <td colSpan={11} style={{ textAlign: 'center', padding: '36px 16px', color: '#647474' }}>
+                            <div style={{ fontSize: 16, fontWeight: 800, color: '#0A3E42', marginBottom: 6 }}>
+                              No Holdings in Valuation Sheet Yet
+                            </div>
+                            <p style={{ margin: '0 0 16px', fontSize: 13 }}>
+                              Invest in 22K Digital Gold or Convert your AUG Coins to begin tracking your live mathematical portfolio growth.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={handleOpenBuyModal}
+                              style={{
+                                padding: '9px 18px', borderRadius: 10, background: '#009957', color: '#fff',
+                                fontWeight: 800, fontSize: 13, border: 'none', cursor: 'pointer'
+                              }}
+                            >
+                              + Buy 22K Gold Now
+                            </button>
+                          </td>
+                        </tr>
+                      ) : (
+                        transactions.map((tx, idx) => (
+                          <tr key={tx.id || idx}>
+                            <td>
+                              <span className="dg-txnid-badge" title={tx.transaction_id || `BB#${tx.id}`}>
+                                {tx.transaction_id || `BB#${tx.id}`}
+                              </span>
+                            </td>
+                            <td>{tx.date_excel || tx.date}</td>
+                            <td style={{ fontWeight: 800 }}>₹ {Number(tx.recharge || 0).toLocaleString('en-IN')}</td>
+                            <td>₹ {Number(tx.gold_price || currentLiveRate).toLocaleString('en-IN')}</td>
+                            <td>₹ {Number(tx.mg_price || currentLiveMgRate).toFixed(2)}</td>
+                            <td style={{ fontWeight: 700, color: '#009957' }}>
+                              {Number(tx.hold_gold_mg || (tx.gm ? tx.gm * 1000 : 0)).toFixed(2)}
+                            </td>
+                            <td style={{ fontWeight: 800, color: '#0A3E42' }}>
+                              {Number(tx.gm || (tx.hold_gold_mg ? tx.hold_gold_mg / 1000 : 0)).toFixed(3)}
+                            </td>
+                            <td>₹ {Number(tx.current_price || currentLiveRate).toLocaleString('en-IN')}</td>
+                            <td>₹ {Number(tx.current_mg_price || currentLiveMgRate).toFixed(2)}</td>
+                            <td style={{ fontWeight: 800, color: '#009957' }}>
+                              ₹ {Number(tx.current_growth || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td style={{
+                              fontWeight: 800,
+                              color: Number(tx.profit || 0) >= 0 ? '#009957' : '#E45B5B'
+                            }}>
+                              {Number(tx.profit || 0) >= 0 ? '+' : ''}₹ {Number(tx.profit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           ) : (
             /* ══════════════════════════════════════════════════════════════
                STANDARD DASHBOARD OVERVIEW
@@ -1131,7 +1407,7 @@ export default function DigiGoldDashboard() {
                 </div>
 
                 {/* 2. Digi Gold Vault Valuation */}
-                <div className="dg-kpi-card" onClick={() => setShowExcelModal(true)}>
+                <div className="dg-kpi-card" onClick={() => setCurrentView('valuation')}>
                   <div className="dg-kpi-icon-wrap wallet">
                     <Wallet size={24} />
                   </div>
@@ -1143,7 +1419,23 @@ export default function DigiGoldDashboard() {
                   <ChevronRight size={18} className="dg-kpi-chevron" />
                 </div>
 
-                {/* 3. Total Invested */}
+                {/* 3. Digi Silver Vault Valuation — DEDICATED SILVER CARD */}
+                <div className="dg-kpi-card silver" onClick={() => setCurrentView('valuation')}>
+                  <div className="dg-kpi-icon-wrap silver">
+                    <ShieldCheck size={24} />
+                  </div>
+                  <div className="dg-kpi-body">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span className="dg-kpi-label">Silver Vault Value</span>
+                      <span className="dg-kpi-pill-silver">PURE 999</span>
+                    </div>
+                    <span className="dg-kpi-val">₹ {Number(kpis.silver_value_inr ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    <span className="dg-kpi-sub">{Number(kpis.total_silver_holding_gm ?? 0).toFixed(3)} g @ ₹{Number(currentSilverRate).toFixed(2)}/g</span>
+                  </div>
+                  <ChevronRight size={18} className="dg-kpi-chevron" />
+                </div>
+
+                {/* 4. Total Invested */}
                 <div className="dg-kpi-card" onClick={() => setCurrentView('transactions')}>
                   <div className="dg-kpi-icon-wrap invested">
                     <TrendingUp size={24} />
@@ -1155,7 +1447,7 @@ export default function DigiGoldDashboard() {
                   <ChevronRight size={18} className="dg-kpi-chevron" />
                 </div>
 
-                {/* 4. Total Returns */}
+                {/* 5. Total Returns */}
                 <div className="dg-kpi-card" onClick={() => setCurrentView('transactions')}>
                   <div className="dg-kpi-icon-wrap returns">
                     <BarChart3 size={24} />
@@ -1198,7 +1490,6 @@ export default function DigiGoldDashboard() {
                   <div className="dg-chart-area">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart
-                        key={activeTab}
                         data={activeChartData}
                         margin={{ top: 12, right: 14, left: 0, bottom: 0 }}
                       >
@@ -1258,9 +1549,7 @@ export default function DigiGoldDashboard() {
                           strokeWidth={2.8}
                           fillOpacity={1}
                           fill="url(#goldGradient)"
-                          isAnimationActive={true}
-                          animationDuration={650}
-                          animationEasing="ease-in-out"
+                          isAnimationActive={false}
                           dot={{ r: 3.5, fill: '#009957', stroke: '#FFFFFF', strokeWidth: 1.5 }}
                           activeDot={{ r: 6, fill: '#009957', stroke: '#FFFFFF', strokeWidth: 2.5 }}
                         />
@@ -1311,7 +1600,7 @@ export default function DigiGoldDashboard() {
                     <button
                       className="dg-qa-btn"
                       type="button"
-                      onClick={() => setShowExcelModal(true)}
+                      onClick={() => setCurrentView('valuation')}
                     >
                       <div className="dg-qa-icon transfer">
                         <ArrowLeftRight size={20} />
@@ -1325,7 +1614,7 @@ export default function DigiGoldDashboard() {
                 <div className="dg-card">
                   <div className="dg-card-head">
                     <h3 className="dg-card-title">Market Rates</h3>
-                    <span className="dg-link-more" onClick={() => setShowExcelModal(true)}>
+                    <span className="dg-link-more" onClick={() => setCurrentView('valuation')}>
                       View All →
                     </span>
                   </div>
@@ -1557,7 +1846,7 @@ export default function DigiGoldDashboard() {
                       <ChevronRight size={15} className="dg-info-chevron" />
                     </div>
 
-                    <div className="dg-info-item" onClick={() => setShowExcelModal(true)}>
+                    <div className="dg-info-item" onClick={() => setCurrentView('valuation')}>
                       <div className="dg-info-left">
                         <div className="dg-info-icon">
                           <CircleHelp size={15} />
@@ -1759,6 +2048,50 @@ export default function DigiGoldDashboard() {
               </span>
             </div>
 
+            {/* Available Vault Holding Card with MAX Button */}
+            <div className="dg-vault-available-card">
+              <div className="dg-vault-available-info">
+                <span className="dg-vault-available-label">
+                  Available {sellMetal === 'gold_22k' ? '22K Gold' : 'Digi Silver'} in Vault:
+                </span>
+                <span className="dg-vault-available-num">
+                  {availableSellGm.toFixed(4)} g ({availableSellMg.toFixed(2)} mg)
+                </span>
+              </div>
+              {availableSellGm > 0 && (
+                <button
+                  type="button"
+                  className="dg-vault-max-btn"
+                  onClick={() => setSellGrams(availableSellGm.toString())}
+                  title="Sell maximum available holding"
+                >
+                  SELL ALL (MAX)
+                </button>
+              )}
+            </div>
+
+            {hasNoHoldingsToSell && (
+              <div style={{
+                padding: '9px 12px', background: '#FFF5F5', border: '1px solid #FEB2B2',
+                borderRadius: 10, color: '#C53030', fontSize: 12, marginBottom: 12,
+                display: 'flex', alignItems: 'center', gap: 7
+              }}>
+                <AlertCircle size={15} />
+                <span>You do not have any {sellMetal === 'gold_22k' ? '22K Gold' : 'Digi Silver'} in your digital vault to sell.</span>
+              </div>
+            )}
+
+            {isOverSelling && (
+              <div style={{
+                padding: '9px 12px', background: '#FFF5F5', border: '1px solid #FEB2B2',
+                borderRadius: 10, color: '#C53030', fontSize: 12, marginBottom: 12,
+                display: 'flex', alignItems: 'center', gap: 7
+              }}>
+                <AlertCircle size={15} />
+                <span>Cannot sell more than available holding ({availableSellGm.toFixed(4)} g).</span>
+              </div>
+            )}
+
             <ModalFeedbackNotice
               feedback={sellFeedback}
               onDismiss={() => setSellFeedback(null)}
@@ -1769,29 +2102,43 @@ export default function DigiGoldDashboard() {
               <label className="dg-input-label">Quantity to Sell (Grams):</label>
               <input
                 type="number"
-                min="0.001"
+                min="0.0001"
+                max={availableSellGm > 0 ? availableSellGm : 0}
                 step="any"
                 className="dg-form-input"
                 value={sellGrams}
                 onChange={e => setSellGrams(e.target.value)}
-                placeholder="e.g. 0.500"
+                placeholder={availableSellGm > 0 ? `Enter grams (Max: ${availableSellGm.toFixed(4)}g)` : 'No vault holdings'}
+                disabled={hasNoHoldingsToSell}
                 required
               />
 
               <div className="dg-calc-preview">
-                <span className="dg-calc-label">You Will Receive:</span>
-                <span className="dg-calc-val">
-                  ₹ {Math.round(previewSellPayout).toLocaleString('en-IN')}
-                </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span className="dg-calc-label">You Will Receive:</span>
+                  <span className="dg-calc-val">
+                    ₹ {Math.round(previewSellPayout).toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: '#009957', fontWeight: 700 }}>
+                  <span>AUG Coins Credited:</span>
+                  <span>+ {previewSellCoins.toLocaleString()} Coins (100 coins = ₹1)</span>
+                </div>
               </div>
 
               <button
                 type="submit"
                 className="dg-modal-submit-btn"
-                style={{ background: '#E45B5B' }}
-                disabled={submittingSell || parsedSellGm <= 0}
+                style={{ background: hasNoHoldingsToSell || isOverSelling ? '#CBD5E1' : '#E45B5B' }}
+                disabled={submittingSell || parsedSellGm <= 0 || isOverSelling || hasNoHoldingsToSell}
               >
-                {submittingSell ? 'Processing Sale…' : `Sell ${parsedSellGm}g & Credit ₹${Math.round(previewSellPayout).toLocaleString('en-IN')}`}
+                {submittingSell
+                  ? 'Processing Sale…'
+                  : hasNoHoldingsToSell
+                  ? 'No Holdings to Sell'
+                  : isOverSelling
+                  ? `Exceeds Available (${availableSellGm.toFixed(4)}g Max)`
+                  : `Sell ${parsedSellGm}g & Credit ₹${Math.round(previewSellPayout).toLocaleString('en-IN')}`}
               </button>
             </form>
           </div>
@@ -1932,124 +2279,138 @@ export default function DigiGoldDashboard() {
         </div>
       )}
 
-      {/* ── MODAL: DETAILED INVESTMENT CALCULATION SHEET (MATCHING IMAGE 2 EXACTLY) ── */}
-      {showExcelModal && (
-        <div className="dg-modal-overlay" onClick={() => setShowExcelModal(false)}>
-          <div className="dg-modal-box large" onClick={e => e.stopPropagation()}>
-            <div className="dg-modal-head">
-              <div>
-                <h3 className="dg-modal-title">Aadhirai Digi Gold Investment &amp; Valuation Sheet</h3>
-                <small style={{ color: '#647474', fontSize: '12px' }}>
-                  Live mathematical model matching Image 2 reference — Dynamic recalculation with 22K rate
-                </small>
+      {/* ── ULTRA-PREMIUM SUCCESS POPUP MODAL (FOR BUY, SELL, & CONVERT) ── */}
+      {actionSuccessData && (
+        <div className="dg-modal-overlay" onClick={() => setActionSuccessData(null)}>
+          <div className="dg-modal-box dg-success-modal-box" onClick={e => e.stopPropagation()}>
+            {/* Top Close Button */}
+            <button
+              className="dg-modal-close"
+              onClick={() => setActionSuccessData(null)}
+              style={{ position: 'absolute', top: 18, right: 18 }}
+            >
+              <X size={18} />
+            </button>
+
+            {/* Glowing Emerald Checkmark Icon */}
+            <div className="dg-success-icon-wrap">
+              <Check size={36} strokeWidth={3} />
+            </div>
+
+            {/* Metal Asset Badge */}
+            <div className={`dg-success-badge-pill ${actionSuccessData.metal === 'gold_22k' ? 'gold' : 'silver'}`}>
+              <Sparkles size={14} />
+              <span>{actionSuccessData.metalLabel}</span>
+            </div>
+
+            <h3 className="dg-success-title">{actionSuccessData.title}</h3>
+            <p className="dg-success-sub">{actionSuccessData.message}</p>
+
+            {/* Hero Value Highlight Box */}
+            <div className="dg-success-hero-num">
+              <span className="dg-success-hero-val">
+                {actionSuccessData.actionType === 'sell'
+                  ? `+ ₹ ${Number(actionSuccessData.amountInr).toLocaleString('en-IN')}`
+                  : `+ ${Number(actionSuccessData.grams).toFixed(4)} g`}
+              </span>
+              <span className="dg-success-hero-desc">
+                {actionSuccessData.actionType === 'sell'
+                  ? `Instant Settlement • Credited to Wallet Balance (${Number(actionSuccessData.coins).toLocaleString()} AUG Coins)`
+                  : `≈ ${Number(actionSuccessData.milligrams).toFixed(2)} mg Secured in Your Digital Vault`}
+              </span>
+            </div>
+
+            {/* Transaction Receipt Details */}
+            <div className="dg-success-receipt">
+              <div className="dg-success-receipt-row">
+                <span className="dg-success-receipt-label">Transaction Type:</span>
+                <span className="dg-success-receipt-val highlight">
+                  {actionSuccessData.actionType === 'buy' ? 'Vault Purchase' : actionSuccessData.actionType === 'sell' ? 'Vault Sale' : 'Coins Conversion'}
+                </span>
               </div>
-              <button className="dg-modal-close" onClick={() => setShowExcelModal(false)}>
-                <X size={18} />
+              <div className="dg-success-receipt-row">
+                <span className="dg-success-receipt-label">Amount (₹):</span>
+                <span className="dg-success-receipt-val">
+                  ₹ {Number(actionSuccessData.amountInr).toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div className="dg-success-receipt-row">
+                <span className="dg-success-receipt-label">Asset Quantity:</span>
+                <span className="dg-success-receipt-val">
+                  {Number(actionSuccessData.grams).toFixed(4)} g ({Number(actionSuccessData.milligrams).toFixed(2)} mg)
+                </span>
+              </div>
+              <div className="dg-success-receipt-row">
+                <span className="dg-success-receipt-label">Applied Rate:</span>
+                <span className="dg-success-receipt-val">
+                  ₹ {Number(actionSuccessData.rate).toLocaleString('en-IN')}/g (₹ {(Number(actionSuccessData.rate)/1000).toFixed(4)}/mg)
+                </span>
+              </div>
+              <div className="dg-success-receipt-row">
+                <span className="dg-success-receipt-label">AUG Coins Impact:</span>
+                <span className="dg-success-receipt-val" style={{ color: actionSuccessData.actionType === 'sell' ? '#009957' : '#E53E3E' }}>
+                  {actionSuccessData.actionType === 'sell' ? `+ ${Number(actionSuccessData.coins).toLocaleString()} Coins Credited` : `- ${Number(actionSuccessData.coins).toLocaleString()} Coins Deducted`}
+                </span>
+              </div>
+              {actionSuccessData.transactionId && (
+                <div className="dg-success-receipt-row">
+                  <span className="dg-success-receipt-label">Transaction ID:</span>
+                  <span
+                    className="dg-success-receipt-val txnid"
+                    onClick={() => {
+                      navigator.clipboard.writeText(actionSuccessData.transactionId)
+                      setCopiedTxn(true)
+                      setTimeout(() => setCopiedTxn(false), 2000)
+                    }}
+                    title="Click to copy Transaction ID"
+                  >
+                    <span>{actionSuccessData.transactionId}</span>
+                    {copiedTxn ? <Check size={13} color="#009957" /> : <Copy size={13} />}
+                  </span>
+                </div>
+              )}
+              <div className="dg-success-receipt-row">
+                <span className="dg-success-receipt-label">Time &amp; Security:</span>
+                <span className="dg-success-receipt-val" style={{ fontSize: 11.5, color: '#647474' }}>
+                  {actionSuccessData.dateTime || 'Just now'} • 100% BIS Hallmarked
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="dg-success-actions-row">
+              <button
+                type="button"
+                className="dg-success-btn-primary"
+                onClick={() => {
+                  setActionSuccessData(null)
+                  setCurrentView('transactions')
+                }}
+              >
+                <span>View in Transactions</span>
+                <ArrowRight size={16} />
               </button>
-            </div>
-
-            {/* Summary Top Banner */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(6, 1fr)',
-              gap: '10px',
-              background: '#F8FAF9',
-              border: '1px solid #D5E5DE',
-              borderRadius: '12px',
-              padding: '14px',
-              marginBottom: '20px',
-              textAlign: 'center'
-            }}>
-              <div>
-                <small style={{ color: '#647474', fontSize: '11px', display: 'block' }}>Total Recharge</small>
-                <b style={{ color: '#0A3E42', fontSize: '15px' }}>₹ {Number(kpis.total_invested_inr ?? 0).toLocaleString('en-IN')}</b>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  className="dg-success-btn-secondary"
+                  onClick={() => {
+                    setActionSuccessData(null)
+                    setCurrentView('valuation')
+                  }}
+                  style={{ flex: 1 }}
+                >
+                  Valuation Sheet
+                </button>
+                <button
+                  type="button"
+                  className="dg-success-btn-secondary"
+                  onClick={() => setActionSuccessData(null)}
+                  style={{ flex: 1 }}
+                >
+                  Done
+                </button>
               </div>
-              <div>
-                <small style={{ color: '#647474', fontSize: '11px', display: 'block' }}>Au Mg</small>
-                <b style={{ color: '#009957', fontSize: '15px' }}>{Number(kpis.total_gold_holding_mg ?? 0).toFixed(2)}</b>
-              </div>
-              <div>
-                <small style={{ color: '#647474', fontSize: '11px', display: 'block' }}>Au Gm</small>
-                <b style={{ color: '#009957', fontSize: '15px' }}>{Number(kpis.total_gold_holding_gm ?? 0).toFixed(3)}</b>
-              </div>
-              <div>
-                <small style={{ color: '#647474', fontSize: '11px', display: 'block' }}>Today's 22K Rate</small>
-                <b style={{ color: '#C6924B', fontSize: '15px' }}>₹ {currentLiveRate.toLocaleString('en-IN')}</b>
-              </div>
-              <div>
-                <small style={{ color: '#647474', fontSize: '11px', display: 'block' }}>Current Growth</small>
-                <b style={{ color: '#009957', fontSize: '15px' }}>₹ {Number(kpis.gold_value_inr ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</b>
-              </div>
-              <div>
-                <small style={{ color: '#647474', fontSize: '11px', display: 'block' }}>Total Profit</small>
-                <b style={{ color: Number(kpis.total_returns_inr ?? 0) >= 0 ? '#009957' : '#E45B5B', fontSize: '15px' }}>
-                  {Number(kpis.total_returns_inr ?? 0) >= 0 ? '+' : ''}₹ {Number(kpis.total_returns_inr ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                </b>
-              </div>
-            </div>
-
-            {/* Table */}
-            <div style={{ overflowX: 'auto' }}>
-              <table className="dg-excel-table">
-                <thead>
-                  <tr>
-                    <th>Txn ID</th>
-                    <th>Date</th>
-                    <th>Recharge (₹)</th>
-                    <th>Gold Price (₹)</th>
-                    <th>Mg Price (₹)</th>
-                    <th>Hold Gold (mg)</th>
-                    <th>Hold Gold (g)</th>
-                    <th>Current Price (₹)</th>
-                    <th>Current Mg Price (₹)</th>
-                    <th>Current Growth (₹)</th>
-                    <th>Profit / Loss (₹)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.length === 0 ? (
-                    <tr>
-                      <td colSpan={11} style={{ textAlign: 'center', padding: '30px', color: '#647474' }}>
-                        No investment records yet. Purchases will appear here with live dynamic calculations!
-                      </td>
-                    </tr>
-                  ) : (
-                    transactions.map((row, idx) => {
-                      const rechargeVal = Number(row.recharge || 0)
-                      const goldPriceVal = Number(row.gold_price || currentLiveRate)
-                      const mgPriceVal = Number(row.mg_price || (goldPriceVal / 1000))
-                      const holdMgVal = Number(row.hold_gold_mg || (mgPriceVal > 0 ? rechargeVal / mgPriceVal : 0))
-                      const holdGmVal = Number(row.gm || (holdMgVal / 1000))
-                      const currPriceVal = currentLiveRate
-                      const currMgPriceVal = currentLiveMgRate
-                      const currGrowthVal = roundNum(holdMgVal * currMgPriceVal, 2)
-                      const profitVal = roundNum(currGrowthVal - rechargeVal, 2)
-
-                      return (
-                        <tr key={row.id || idx}>
-                          <td className="dg-table-txnid">
-                            <span className="dg-txnid-badge">
-                              {row.transaction_id || `BB#${row.id}`}
-                            </span>
-                          </td>
-                          <td>{row.date_excel || row.date}</td>
-                          <td>₹ {rechargeVal.toLocaleString('en-IN')}</td>
-                          <td>₹ {goldPriceVal.toLocaleString('en-IN')}</td>
-                          <td>₹ {mgPriceVal.toFixed(2)}</td>
-                          <td>{holdMgVal.toFixed(2)}</td>
-                          <td>{holdGmVal.toFixed(3)}</td>
-                          <td>₹ {currPriceVal.toLocaleString('en-IN')}</td>
-                          <td>₹ {currMgPriceVal.toFixed(2)}</td>
-                          <td>₹ {currGrowthVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                          <td className={profitVal >= 0 ? 'dg-profit-pos' : 'dg-profit-neg'}>
-                            {profitVal >= 0 ? `+₹ ${profitVal.toFixed(2)}` : `-₹ ${Math.abs(profitVal).toFixed(2)}`}
-                          </td>
-                        </tr>
-                      )
-                    })
-                  )}
-                </tbody>
-              </table>
             </div>
           </div>
         </div>

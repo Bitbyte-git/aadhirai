@@ -5209,5 +5209,912 @@ body {
   }
 }
 
+/* ══════════════════════════════════════════════════════════════
+   1. CLEAN AUTOPAY SIP CARDS (MINIMALIST, NO AI CLUTTER)
+   ══════════════════════════════════════════════════════════════ */
+.dg-plan-clean-header {
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid #EBEFEA;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 
+.dg-plan-clean-header.daily {
+  background: linear-gradient(135deg, rgba(0, 153, 87, 0.07) 0%, rgba(255, 255, 255, 0.95) 100%);
+}
 
+.dg-plan-clean-header.weekly {
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.08) 0%, rgba(255, 255, 255, 0.95) 100%);
+}
+
+.dg-plan-clean-header.monthly {
+  background: linear-gradient(135deg, rgba(10, 62, 66, 0.08) 0%, rgba(255, 255, 255, 0.95) 100%);
+}
+
+.dg-plan-freq-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 850;
+  padding: 4px 10px;
+  border-radius: 999px;
+  width: fit-content;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dg-plan-freq-pill.daily {
+  background: #E8F7F0;
+  color: #009957;
+  border: 1px solid rgba(0, 153, 87, 0.25);
+}
+
+.dg-plan-freq-pill.weekly {
+  background: #FEF3C7;
+  color: #B45309;
+  border: 1px solid rgba(217, 119, 6, 0.3);
+}
+
+.dg-plan-freq-pill.monthly {
+  background: #E0F2FE;
+  color: #0369A1;
+  border: 1px solid rgba(3, 105, 161, 0.25);
+}
+
+.dg-plan-popular-badge {
+  font-size: 9.5px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+  color: #FFFFFF;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.25);
+}
+
+.dg-plan-vip-badge {
+  font-size: 9.5px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #0A3E42 0%, #164E63 100%);
+  color: #FCD34D;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.dg-plan-clean-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 19px;
+  font-weight: 850;
+  color: #0A3E42;
+  margin: 2px 0 0;
+  letter-spacing: -0.01em;
+}
+
+.dg-plan-clean-sub {
+  font-size: 12px;
+  color: #647474;
+  font-weight: 500;
+}
+
+.dg-plan-offer-callout {
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+
+.dg-plan-offer-callout.daily {
+  background: #F0FDF4;
+  border: 1px solid rgba(0, 153, 87, 0.2);
+}
+
+.dg-plan-offer-callout.weekly {
+  background: #FFFBEB;
+  border: 1px solid rgba(217, 119, 6, 0.25);
+}
+
+.dg-plan-offer-callout.monthly {
+  background: #F8FAFC;
+  border: 1px solid rgba(10, 62, 66, 0.2);
+}
+
+.dg-plan-offer-headline {
+  font-size: 12px;
+  font-weight: 850;
+  color: #009957;
+  letter-spacing: 0.01em;
+}
+
+.dg-plan-offer-headline.gold {
+  color: #B45309;
+}
+
+.dg-plan-offer-headline.teal {
+  color: #0A3E42;
+}
+
+.dg-plan-offer-sub {
+  font-size: 11px;
+  color: #647474;
+  margin-top: 2px;
+  font-weight: 600;
+}
+
+.dg-plan-essential-perks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  margin-bottom: 18px;
+  padding-top: 12px;
+  border-top: 1px dashed #E2EBE8;
+}
+
+.dg-plan-perk-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: #1F2937;
+  line-height: 1.35;
+}
+
+.dg-plan-perk-row b {
+  color: #0A3E42;
+}
+
+.dg-perk-check-emerald {
+  color: #009957;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.dg-perk-check-gold {
+  color: #D97706;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.dg-perk-check-teal {
+  color: #0A3E42;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   2. ATHIRAI 22K 916 PHYSICAL BULLION SHOWCASE CARD (NO AI TILT)
+   ══════════════════════════════════════════════════════════════ */
+.dg-offer-hero-bullion-card {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dg-bullion-ingot {
+  background: linear-gradient(145deg, #161514 0%, #26211A 50%, #151311 100%);
+  border: 1.5px solid rgba(245, 208, 97, 0.45);
+  border-radius: 20px;
+  padding: 20px 24px;
+  width: 250px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 240, 180, 0.25);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.dg-bullion-ingot:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 42px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 240, 180, 0.4);
+}
+
+.dg-bullion-ingot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(245, 208, 97, 0.2);
+}
+
+.dg-bullion-brand {
+  font-family: 'Outfit', sans-serif;
+  font-size: 11px;
+  font-weight: 900;
+  color: #F5D061;
+  letter-spacing: 0.12em;
+}
+
+.dg-bullion-stamp {
+  font-size: 10px;
+  font-weight: 850;
+  color: #F5D061;
+  background: rgba(245, 208, 97, 0.15);
+  border: 1px solid rgba(245, 208, 97, 0.4);
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.06em;
+}
+
+.dg-bullion-coin-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 0;
+}
+
+.dg-bullion-coin-img {
+  width: 115px;
+  height: 115px;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.6));
+}
+
+.dg-rewards-coin-img {
+  width: 85px;
+  height: 85px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45));
+}
+
+.dg-bullion-ingot-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px solid rgba(245, 208, 97, 0.2);
+  text-align: center;
+}
+
+.dg-bullion-purity {
+  font-size: 10.5px;
+  font-weight: 850;
+  color: #FFF3C4;
+  letter-spacing: 0.05em;
+}
+
+.dg-bullion-trust {
+  font-size: 9px;
+  font-weight: 700;
+  color: #A39682;
+  letter-spacing: 0.08em;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   3. ATHIRAI DIGI GOLD 24/7 SUPPORT & PURITY PORTAL VIEW
+   ══════════════════════════════════════════════════════════════ */
+.dg-support-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.dg-support-header-card {
+  background: linear-gradient(135deg, #0A3E42 0%, #0F565C 50%, #073033 100%);
+  border-radius: 20px;
+  padding: 24px 28px;
+  color: #FFFFFF;
+  box-shadow: 0 8px 28px rgba(10, 62, 66, 0.18);
+  position: relative;
+  overflow: hidden;
+}
+
+.dg-support-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dg-support-back-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
+  font-size: 12.5px;
+  font-weight: 800;
+  padding: 7px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.dg-support-back-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.dg-support-live-badge {
+  font-size: 11px;
+  font-weight: 800;
+  color: #A7F3D0;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  padding: 5px 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dg-support-hero-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.dg-support-title-wrap {
+  max-width: 650px;
+}
+
+.dg-support-main-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 25px;
+  font-weight: 850;
+  color: #FFFFFF;
+  margin: 0 0 8px;
+  letter-spacing: -0.01em;
+}
+
+.dg-support-sub-title {
+  font-size: 13px;
+  color: #CFE3DF;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.dg-support-cta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dg-support-quick-call {
+  background: #009957;
+  color: #FFFFFF;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 850;
+  padding: 10px 18px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 14px rgba(0, 153, 87, 0.35);
+  transition: all 0.2s ease;
+}
+
+.dg-support-quick-call:hover {
+  background: #007A45;
+  transform: translateY(-1px);
+}
+
+.dg-support-quick-wa {
+  background: #25D366;
+  color: #FFFFFF;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 850;
+  padding: 10px 18px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.3);
+  transition: all 0.2s ease;
+}
+
+.dg-support-quick-wa:hover {
+  background: #1EBE5D;
+  transform: translateY(-1px);
+}
+
+/* 4 Direct Contact Channels Grid */
+.dg-support-channels-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1024px) {
+  .dg-support-channels-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .dg-support-channels-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dg-channel-card {
+  background: #FFFFFF;
+  border: 1.5px solid #E5EAE7;
+  border-radius: 16px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 4px 16px rgba(10, 62, 66, 0.04);
+  transition: all 0.25s ease;
+}
+
+.dg-channel-card:hover {
+  transform: translateY(-3px);
+  border-color: #009957;
+  box-shadow: 0 8px 24px rgba(10, 62, 66, 0.1);
+}
+
+.dg-channel-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dg-channel-icon.phone {
+  background: rgba(0, 153, 87, 0.1);
+  color: #009957;
+}
+
+.dg-channel-icon.wa {
+  background: rgba(37, 211, 102, 0.12);
+  color: #128C7E;
+}
+
+.dg-channel-icon.mail {
+  background: rgba(14, 165, 233, 0.1);
+  color: #0284C7;
+}
+
+.dg-channel-icon.store {
+  background: rgba(217, 119, 6, 0.12);
+  color: #D97706;
+}
+
+.dg-channel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dg-channel-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #8E9E9C;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dg-channel-val {
+  font-family: 'Outfit', sans-serif;
+  font-size: 16px;
+  font-weight: 850;
+  color: #0A3E42;
+  margin: 0;
+  word-break: break-all;
+}
+
+.dg-channel-desc {
+  font-size: 11.5px;
+  color: #647474;
+  margin: 2px 0 6px;
+  line-height: 1.35;
+}
+
+.dg-channel-link,
+.dg-channel-btn {
+  font-size: 12px;
+  font-weight: 850;
+  color: #009957;
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: color 0.15s ease;
+}
+
+.dg-channel-link:hover,
+.dg-channel-btn:hover {
+  color: #007A45;
+  text-decoration: underline;
+}
+
+/* 2-Column Main Section */
+.dg-support-main-layout {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 20px;
+}
+
+@media (max-width: 960px) {
+  .dg-support-main-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dg-support-purity-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dg-purity-head-card {
+  background: #FFFFFF;
+  border: 1.5px solid #E5EAE7;
+  border-radius: 16px;
+  padding: 20px 22px;
+  box-shadow: 0 4px 16px rgba(10, 62, 66, 0.04);
+}
+
+.dg-purity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 850;
+  color: #009957;
+  background: #E8F7F0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-bottom: 8px;
+}
+
+.dg-purity-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 20px;
+  font-weight: 850;
+  color: #0A3E42;
+  margin: 0 0 6px;
+}
+
+.dg-purity-subtitle {
+  font-size: 12.5px;
+  color: #647474;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.dg-purity-pillars-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 600px) {
+  .dg-purity-pillars-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dg-purity-pillar-item {
+  background: #FFFFFF;
+  border: 1.5px solid #E5EAE7;
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.dg-purity-pillar-item:hover {
+  border-color: #009957;
+  box-shadow: 0 6px 18px rgba(0, 153, 87, 0.08);
+}
+
+.dg-pillar-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dg-pillar-icon.gold {
+  background: rgba(217, 119, 6, 0.12);
+  color: #D97706;
+}
+
+.dg-pillar-icon.shield {
+  background: rgba(0, 153, 87, 0.12);
+  color: #009957;
+}
+
+.dg-pillar-icon.vault {
+  background: rgba(10, 62, 66, 0.1);
+  color: #0A3E42;
+}
+
+.dg-pillar-icon.redeem {
+  background: rgba(14, 165, 233, 0.12);
+  color: #0284C7;
+}
+
+.dg-pillar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dg-pillar-h {
+  font-size: 13.5px;
+  font-weight: 850;
+  color: #0A3E42;
+  margin: 0;
+}
+
+.dg-pillar-p {
+  font-size: 11.5px;
+  color: #647474;
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* Support Request / Ticket Card */
+.dg-support-ticket-card {
+  background: #FFFFFF;
+  border: 1.5px solid #E5EAE7;
+  border-radius: 18px;
+  padding: 22px 24px;
+  box-shadow: 0 4px 18px rgba(10, 62, 66, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.dg-ticket-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #EBEFEA;
+}
+
+.dg-ticket-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(0, 153, 87, 0.1);
+  color: #009957;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dg-ticket-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 17.5px;
+  font-weight: 850;
+  color: #0A3E42;
+  margin: 0 0 2px;
+}
+
+.dg-ticket-desc {
+  font-size: 12px;
+  color: #647474;
+  margin: 0;
+}
+
+.dg-ticket-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dg-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dg-form-label {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #0A3E42;
+}
+
+.dg-form-select,
+.dg-form-input,
+.dg-form-textarea {
+  font-family: inherit;
+  font-size: 12.5px;
+  color: #0A3E42;
+  background: #F8FAF9;
+  border: 1.5px solid #D5E0DC;
+  border-radius: 10px;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.dg-form-select:focus,
+.dg-form-input:focus,
+.dg-form-textarea:focus {
+  border-color: #009957;
+  background: #FFFFFF;
+}
+
+.dg-form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.dg-ticket-submit-btn {
+  background: #009957;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 850;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 14px rgba(0, 153, 87, 0.25);
+  transition: all 0.2s ease;
+  margin-top: 4px;
+}
+
+.dg-ticket-submit-btn:hover:not(:disabled) {
+  background: #007A45;
+  transform: translateY(-1px);
+}
+
+.dg-ticket-submit-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dg-ticket-success-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 24px 16px;
+  gap: 10px;
+}
+
+.dg-ticket-success-icon {
+  margin-bottom: 4px;
+}
+
+.dg-ticket-success-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
+  font-weight: 850;
+  color: #0A3E42;
+  margin: 0;
+}
+
+.dg-ticket-success-code {
+  font-size: 13px;
+  color: #009957;
+  background: #E8F7F0;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px dashed #009957;
+}
+
+.dg-ticket-success-desc {
+  font-size: 12.5px;
+  color: #647474;
+  line-height: 1.45;
+  max-width: 380px;
+  margin: 4px 0 10px;
+}
+
+.dg-ticket-reset-btn {
+  background: #0A3E42;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 18px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.dg-ticket-reset-btn:hover {
+  background: #007A45;
+}
+
+/* FAQ Card */
+.dg-support-faq-card {
+  background: #FFFFFF;
+  border: 1.5px solid #E5EAE7;
+  border-radius: 18px;
+  padding: 22px 26px;
+  box-shadow: 0 4px 18px rgba(10, 62, 66, 0.04);
+}
+
+.dg-faq-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.dg-faq-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
+  font-weight: 850;
+  color: #0A3E42;
+  margin: 0;
+}
+
+.dg-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dg-faq-item {
+  border: 1px solid #E5EAE7;
+  border-radius: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #FAFCFB;
+}
+
+.dg-faq-item:hover {
+  border-color: #009957;
+  background: #FFFFFF;
+}
+
+.dg-faq-item.open {
+  border-color: #009957;
+  background: #FFFFFF;
+}
+
+.dg-faq-q-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.dg-faq-q {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0A3E42;
+}
+
+.dg-faq-toggle {
+  font-size: 16px;
+  font-weight: 900;
+  color: #009957;
+}
+
+.dg-faq-a {
+  font-size: 12px;
+  color: #4B5563;
+  margin: 8px 0 0;
+  line-height: 1.45;
+}

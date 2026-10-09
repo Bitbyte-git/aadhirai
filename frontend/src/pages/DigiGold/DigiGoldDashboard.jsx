@@ -45,7 +45,11 @@ import {
   Flame,
   Star,
   Trophy,
-  Gem
+  Gem,
+  PhoneCall,
+  Mail,
+  MessageCircle,
+  MapPin
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -58,6 +62,7 @@ import {
 import * as XLSX from 'xlsx'
 import api from '../../api'
 import './DigiGoldDashboard.css'
+import goldCoinImg from '../../assets/gold-coin-transparent.png'
 
 // ── LUXURY ENTERPRISE FEEDBACK / NOTICE COMPONENT ──
 function ModalFeedbackNotice({ feedback, onDismiss, onRecharge, onSwitchUPI, onBuyGold }) {
@@ -277,10 +282,18 @@ export default function DigiGoldDashboard() {
     }
   })
   const [activeTab, setActiveTab] = useState('1D')
-  const [currentView, setCurrentView] = useState('dashboard') // 'dashboard' | 'transactions' | 'valuation'
+  const [currentView, setCurrentView] = useState('dashboard') // 'dashboard' | 'transactions' | 'valuation' | 'offers' | 'support'
   const [txFilter, setTxFilter] = useState('all') // 'all' | 'buy' | 'sell'
   const [valuationMetal, setValuationMetal] = useState('all') // 'all' | 'gold' | 'silver'
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Support & Purity Desk State
+  const [supportCategory, setSupportCategory] = useState('autopay')
+  const [supportTxnId, setSupportTxnId] = useState('')
+  const [supportMessage, setSupportMessage] = useState('')
+  const [supportSubmitted, setSupportSubmitted] = useState(false)
+  const [supportTicketId, setSupportTicketId] = useState('')
+  const [openFaqIndex, setOpenFaqIndex] = useState(null)
 
   // Modals
   const [showBuyModal, setShowBuyModal] = useState(false)
@@ -904,6 +917,15 @@ export default function DigiGoldDashboard() {
     } finally {
       setSubmittingConvert(false)
     }
+  }
+
+  // ── SUPPORT REQUEST SUBMIT HANDLER ──
+  const handleSupportSubmit = (e) => {
+    if (e) e.preventDefault()
+    if (!supportMessage.trim()) return
+    const randomSuffix = Math.floor(100000 + Math.random() * 900000)
+    setSupportTicketId(`ADG-${randomSuffix}`)
+    setSupportSubmitted(true)
   }
 
   const kpis = data?.kpis || {}
@@ -1782,9 +1804,9 @@ export default function DigiGoldDashboard() {
               <span>Profile</span>
             </button>
             <button
-              className="dg-nav-btn"
+              className={`dg-nav-btn ${currentView === 'support' ? 'active' : ''}`}
               type="button"
-              onClick={() => { alert('24/7 Dedicated Digi Gold Support: support@athirai.com'); setSidebarOpen(false); }}
+              onClick={() => { setCurrentView('support'); setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
             >
               <Headphones size={18} />
               <span>Support</span>
@@ -2481,16 +2503,24 @@ export default function DigiGoldDashboard() {
                   </div>
                 </div>
 
-                {/* HERO RIGHT: 22K 916 ATHIRAI GOLD BULLION GRAPHIC */}
-                <div className="dg-offer-hero-right">
-                  <div className="dg-offer-hero-glow" />
-                  <img
-                    src="/digi-gold/autopay_banner_gold.jpg"
-                    alt="22K Pure Gold Bullion & Coins"
-                    className="dg-offer-hero-gold-img"
-                  />
-                  <div className="dg-offer-hero-gold-badge">
-                    <span>22K 916 ATHIRAI GOLD</span>
+                {/* HERO RIGHT: 22K 916 ATHIRAI GOLD BULLION & COIN SHOWCASE (REALISTIC BRAND ASSET) */}
+                <div className="dg-offer-hero-bullion-card">
+                  <div className="dg-bullion-ingot">
+                    <div className="dg-bullion-ingot-header">
+                      <span className="dg-bullion-brand">ATHIRAI JEWELLERY</span>
+                      <span className="dg-bullion-stamp">22K 916</span>
+                    </div>
+                    <div className="dg-bullion-coin-center">
+                      <img
+                        src={goldCoinImg}
+                        alt="Athirai 22K 916 Pure Gold Coin"
+                        className="dg-bullion-coin-img"
+                      />
+                    </div>
+                    <div className="dg-bullion-ingot-footer">
+                      <div className="dg-bullion-purity">22K (916) PURE GOLD • BIS HALLMARK</div>
+                      <div className="dg-bullion-trust">100% IDBI TRUSTEE SECURED VAULT</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2557,56 +2587,29 @@ export default function DigiGoldDashboard() {
                 </p>
               </div>
 
-              {/* 3 HIGH-CONVERSION LUXURY GOLD OFFER CARDS (DAY, WEEK, MONTH) */}
+              {/* 3 CLEAN MINIMALIST HIGH-CONVERSION AUTOPAY CARDS (NO AI ARTWORK, ESSENTIAL HIGHLIGHTS ONLY) */}
               <div className="dg-autopay-cards-grid">
-                {/* CARD 1: DAY (DAILY AUTO-SAVINGS PASS) */}
+                {/* CARD 1: DAILY AUTO-SAVINGS */}
                 <div className="dg-autopay-card deal-pass daily">
-                  <div className="dg-card-deal-ribbon daily">
-                    <span>FLAT ₹50/g OFF</span>
-                  </div>
-
-                  <div className="dg-autopay-card-top">
-                    <span className="dg-autopay-tag-pill daily">
-                      <Clock size={11} /> Daily Discipline
-                    </span>
-                    <img
-                      src="/digi-gold/autopay_daily.jpg"
-                      alt="Daily Gold Auto-Savings"
-                      className="dg-autopay-card-img"
-                    />
-                    <div className="dg-card-image-gradient" />
-                    <div className="dg-card-image-badge">
-                      <span>MICRO-SAVINGS PASS</span>
+                  <div className="dg-plan-clean-header daily">
+                    <div className="dg-plan-freq-pill daily">
+                      <Clock size={12} />
+                      <span>Daily SIP</span>
                     </div>
+                    <h4 className="dg-plan-clean-title">Daily Auto-Savings</h4>
+                    <span className="dg-plan-clean-sub">Micro-savings starting from just ₹10/day</span>
                   </div>
 
                   <div className="dg-autopay-card-body">
-                    <div className="dg-autopay-card-title-row">
-                      <div>
-                        <h4 className="dg-autopay-card-title">Daily Auto-Savings</h4>
-                        <span className="dg-card-desc-micro">Micro-savings starting from just ₹10/day</span>
+                    {/* CONCESSION CALLOUT */}
+                    <div className="dg-plan-offer-callout daily">
+                      <div className="dg-plan-offer-headline">Flat ₹50/g OFF Live 22K Rate</div>
+                      <div className="dg-plan-offer-sub">
+                        Pay ₹{Number(currentLiveRate - 50).toLocaleString('en-IN')}/g instead of ₹{Number(currentLiveRate).toLocaleString('en-IN')}/g
                       </div>
-                      <span className="dg-autopay-freq-badge daily">Daily SIP</span>
                     </div>
 
-                    {/* VOUCHER COUPON BOX */}
-                    <div className="dg-autopay-deal-coupon">
-                      <div className="dg-coupon-cutout-top" />
-                      <div className="dg-coupon-row">
-                        <Tag size={15} className="dg-coupon-icon" />
-                        <div>
-                          <div className="dg-coupon-title">
-                            ₹50/g OFF LIVE RATE + 5% OFF MAKING
-                          </div>
-                          <div className="dg-coupon-subtitle">
-                            Pay ₹{Number(currentLiveRate - 50).toLocaleString('en-IN')}/g instead of ₹{Number(currentLiveRate).toLocaleString('en-IN')}/g
-                          </div>
-                        </div>
-                      </div>
-                      <div className="dg-coupon-cutout-bottom" />
-                    </div>
-
-                    {/* INTERACTIVE AMOUNT PRESETS WITH ACTIVE SELECTION */}
+                    {/* INTERACTIVE AMOUNT PRESETS */}
                     <div className="dg-autopay-presets-section">
                       <div className="dg-presets-label-row">
                         <span className="dg-autopay-presets-label">Choose Daily Amount:</span>
@@ -2629,7 +2632,6 @@ export default function DigiGoldDashboard() {
                         })}
                       </div>
 
-                      {/* DYNAMIC SAVINGS SUMMARY */}
                       <div className="dg-chip-dynamic-summary">
                         <Sparkles size={12} color="#009957" />
                         <span>
@@ -2643,29 +2645,25 @@ export default function DigiGoldDashboard() {
                       </div>
                     </div>
 
-                    {/* PERKS LIST */}
-                    <div className="dg-autopay-perks-list">
-                      <div className="dg-autopay-perk-item">
-                        <CheckCircle2 size={14} className="dg-perk-svg-check" />
+                    {/* ONLY 2 ESSENTIAL SELLING POINTS */}
+                    <div className="dg-plan-essential-perks">
+                      <div className="dg-plan-perk-row">
+                        <CheckCircle2 size={14} className="dg-perk-check-emerald" />
                         <span><b>₹50/g Instant Discount</b> credited on every auto-debit</span>
                       </div>
-                      <div className="dg-autopay-perk-item">
-                        <CheckCircle2 size={14} className="dg-perk-svg-check" />
-                        <span><b>5% Less Making Charges</b> on Athirai jewellery showroom redemption</span>
-                      </div>
-                      <div className="dg-autopay-perk-item">
-                        <CheckCircle2 size={14} className="dg-perk-svg-check" />
-                        <span><b>100% 22K Hallmarked Gold</b> stored in IDBI trustee vaults</span>
+                      <div className="dg-plan-perk-row">
+                        <CheckCircle2 size={14} className="dg-perk-check-emerald" />
+                        <span><b>5% Less Making Charges</b> on showroom jewellery redemption</span>
                       </div>
                     </div>
 
-                    {/* HIGH CONVERSION OFFER CTA */}
+                    {/* CTA */}
                     <button
                       type="button"
                       className="dg-autopay-cta-btn daily"
                       onClick={() => handleOpenAutoPayModal('daily', selectedDailyAmt)}
                     >
-                      <Zap size={16} />
+                      <Zap size={15} />
                       <span>Claim Offer • Set Up Daily ₹{selectedDailyAmt}</span>
                       <ArrowRight size={14} />
                     </button>
@@ -2673,54 +2671,30 @@ export default function DigiGoldDashboard() {
                   </div>
                 </div>
 
-                {/* CARD 2: WEEK (WEEKLY AUTO-SAVINGS PASS) - FEATURED */}
+                {/* CARD 2: WEEKLY AUTO-SAVINGS (FEATURED) */}
                 <div className="dg-autopay-card deal-pass featured weekly">
-                  <div className="dg-card-deal-ribbon weekly">
-                    <span>BEST VALUE DEAL</span>
-                  </div>
-
-                  <div className="dg-autopay-card-top">
-                    <span className="dg-autopay-tag-pill weekly">
-                      <Star size={11} /> Most Popular Choice
-                    </span>
-                    <img
-                      src="/digi-gold/autopay_weekly.jpg"
-                      alt="Weekly Gold Auto-Savings"
-                      className="dg-autopay-card-img"
-                    />
-                    <div className="dg-card-image-gradient" />
-                    <div className="dg-card-image-badge gold">
-                      <span>2X REWARDS PASS</span>
+                  <div className="dg-plan-clean-header weekly">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div className="dg-plan-freq-pill weekly">
+                        <Star size={11} />
+                        <span>Weekly SIP</span>
+                      </div>
+                      <span className="dg-plan-popular-badge">MOST POPULAR</span>
                     </div>
+                    <h4 className="dg-plan-clean-title">Weekly Auto-Savings</h4>
+                    <span className="dg-plan-clean-sub">Consistent savings for salaried budgets</span>
                   </div>
 
                   <div className="dg-autopay-card-body">
-                    <div className="dg-autopay-card-title-row">
-                      <div>
-                        <h4 className="dg-autopay-card-title">Weekly Auto-Savings</h4>
-                        <span className="dg-card-desc-micro">Consistent accumulation for salaried budgets</span>
+                    {/* CONCESSION CALLOUT */}
+                    <div className="dg-plan-offer-callout weekly">
+                      <div className="dg-plan-offer-headline gold">Flat ₹50/g OFF + 2X Rewards</div>
+                      <div className="dg-plan-offer-sub">
+                        Pay ₹{Number(currentLiveRate - 50).toLocaleString('en-IN')}/g instead of ₹{Number(currentLiveRate).toLocaleString('en-IN')}/g
                       </div>
-                      <span className="dg-autopay-freq-badge weekly">Weekly SIP</span>
                     </div>
 
-                    {/* VOUCHER COUPON BOX */}
-                    <div className="dg-autopay-deal-coupon featured">
-                      <div className="dg-coupon-cutout-top" />
-                      <div className="dg-coupon-row">
-                        <Sparkles size={15} className="dg-coupon-icon gold" />
-                        <div>
-                          <div className="dg-coupon-title gold">
-                            ₹50/g OFF + 5% MAKING + 2X COINS
-                          </div>
-                          <div className="dg-coupon-subtitle">
-                            Pay ₹{Number(currentLiveRate - 50).toLocaleString('en-IN')}/g instead of ₹{Number(currentLiveRate).toLocaleString('en-IN')}/g
-                          </div>
-                        </div>
-                      </div>
-                      <div className="dg-coupon-cutout-bottom" />
-                    </div>
-
-                    {/* INTERACTIVE AMOUNT PRESETS WITH ACTIVE SELECTION */}
+                    {/* INTERACTIVE AMOUNT PRESETS */}
                     <div className="dg-autopay-presets-section">
                       <div className="dg-presets-label-row">
                         <span className="dg-autopay-presets-label">Choose Weekly Amount:</span>
@@ -2743,7 +2717,6 @@ export default function DigiGoldDashboard() {
                         })}
                       </div>
 
-                      {/* DYNAMIC SAVINGS SUMMARY */}
                       <div className="dg-chip-dynamic-summary gold">
                         <Sparkles size={12} color="#D97706" />
                         <span>
@@ -2756,29 +2729,25 @@ export default function DigiGoldDashboard() {
                       </div>
                     </div>
 
-                    {/* PERKS LIST */}
-                    <div className="dg-autopay-perks-list">
-                      <div className="dg-autopay-perk-item">
-                        <CheckCircle2 size={14} className="dg-perk-svg-check" />
+                    {/* ONLY 2 ESSENTIAL SELLING POINTS */}
+                    <div className="dg-plan-essential-perks">
+                      <div className="dg-plan-perk-row">
+                        <CheckCircle2 size={14} className="dg-perk-check-gold" />
                         <span><b>₹50/g Instant Discount</b> on live market rate</span>
                       </div>
-                      <div className="dg-autopay-perk-item">
-                        <CheckCircle2 size={14} className="dg-perk-svg-check" />
-                        <span><b>2x Revive Coin Cashback</b> on every weekly debit</span>
-                      </div>
-                      <div className="dg-autopay-perk-item">
-                        <CheckCircle2 size={14} className="dg-perk-svg-check" />
-                        <span><b>5% Less Making Charges</b> on jewellery redemption</span>
+                      <div className="dg-plan-perk-row">
+                        <CheckCircle2 size={14} className="dg-perk-check-gold" />
+                        <span><b>2x Revive Coin Cashback</b> on every weekly auto-debit</span>
                       </div>
                     </div>
 
-                    {/* HIGH CONVERSION OFFER CTA */}
+                    {/* CTA */}
                     <button
                       type="button"
                       className="dg-autopay-cta-btn weekly"
                       onClick={() => handleOpenAutoPayModal('weekly', selectedWeeklyAmt)}
                     >
-                      <Sparkles size={16} />
+                      <Sparkles size={15} />
                       <span>Grab Offer • Set Up Weekly ₹{selectedWeeklyAmt}</span>
                       <ArrowRight size={14} />
                     </button>
@@ -2786,54 +2755,30 @@ export default function DigiGoldDashboard() {
                   </div>
                 </div>
 
-                {/* CARD 3: MONTH (MONTHLY WEALTH PLAN PASS) */}
+                {/* CARD 3: MONTHLY WEALTH PLAN */}
                 <div className="dg-autopay-card deal-pass monthly">
-                  <div className="dg-card-deal-ribbon monthly">
-                    <span>VIP WEALTH PASS</span>
-                  </div>
-
-                  <div className="dg-autopay-card-top">
-                    <span className="dg-autopay-tag-pill monthly">
-                      <Trophy size={11} /> Wealth Builder
-                    </span>
-                    <img
-                      src="/digi-gold/autopay_monthly.jpg"
-                      alt="Monthly Gold Wealth Plan"
-                      className="dg-autopay-card-img"
-                    />
-                    <div className="dg-card-image-gradient" />
-                    <div className="dg-card-image-badge vip">
-                      <span>FREE COIN DELIVERY</span>
+                  <div className="dg-plan-clean-header monthly">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div className="dg-plan-freq-pill monthly">
+                        <Trophy size={11} />
+                        <span>Monthly SIP</span>
+                      </div>
+                      <span className="dg-plan-vip-badge">VIP WEALTH</span>
                     </div>
+                    <h4 className="dg-plan-clean-title">Monthly Wealth Plan</h4>
+                    <span className="dg-plan-clean-sub">High-value accumulation for family milestones</span>
                   </div>
 
                   <div className="dg-autopay-card-body">
-                    <div className="dg-autopay-card-title-row">
-                      <div>
-                        <h4 className="dg-autopay-card-title">Monthly Wealth Plan</h4>
-                        <span className="dg-card-desc-micro">High-value accumulation for family milestones</span>
+                    {/* CONCESSION CALLOUT */}
+                    <div className="dg-plan-offer-callout monthly">
+                      <div className="dg-plan-offer-headline teal">Flat ₹50/g OFF + Free Coin Delivery</div>
+                      <div className="dg-plan-offer-sub">
+                        Pay ₹{Number(currentLiveRate - 50).toLocaleString('en-IN')}/g instead of ₹{Number(currentLiveRate).toLocaleString('en-IN')}/g
                       </div>
-                      <span className="dg-autopay-freq-badge monthly">Monthly SIP</span>
                     </div>
 
-                    {/* VOUCHER COUPON BOX */}
-                    <div className="dg-autopay-deal-coupon monthly">
-                      <div className="dg-coupon-cutout-top" />
-                      <div className="dg-coupon-row">
-                        <Trophy size={15} className="dg-coupon-icon vip" />
-                        <div>
-                          <div className="dg-coupon-title vip">
-                            ₹50/g OFF + FREE HOME DELIVERY
-                          </div>
-                          <div className="dg-coupon-subtitle">
-                            Pay ₹{Number(currentLiveRate - 50).toLocaleString('en-IN')}/g instead of ₹{Number(currentLiveRate).toLocaleString('en-IN')}/g
-                          </div>
-                        </div>
-                      </div>
-                      <div className="dg-coupon-cutout-bottom" />
-                    </div>
-
-                    {/* INTERACTIVE AMOUNT PRESETS WITH ACTIVE SELECTION */}
+                    {/* INTERACTIVE AMOUNT PRESETS */}
                     <div className="dg-autopay-presets-section">
                       <div className="dg-presets-label-row">
                         <span className="dg-autopay-presets-label">Choose Monthly Amount:</span>
@@ -2856,7 +2801,6 @@ export default function DigiGoldDashboard() {
                         })}
                       </div>
 
-                      {/* DYNAMIC SAVINGS SUMMARY */}
                       <div className="dg-chip-dynamic-summary vip">
                         <Sparkles size={12} color="#0A3E42" />
                         <span>
@@ -2868,29 +2812,25 @@ export default function DigiGoldDashboard() {
                       </div>
                     </div>
 
-                    {/* PERKS LIST */}
-                    <div className="dg-autopay-perks-list">
-                      <div className="dg-autopay-perk-item">
-                        <CheckCircle2 size={14} className="dg-perk-svg-check" />
+                    {/* ONLY 2 ESSENTIAL SELLING POINTS */}
+                    <div className="dg-plan-essential-perks">
+                      <div className="dg-plan-perk-row">
+                        <CheckCircle2 size={14} className="dg-perk-check-teal" />
                         <span><b>₹50/g Instant Discount</b> on every monthly debit</span>
                       </div>
-                      <div className="dg-autopay-perk-item">
-                        <CheckCircle2 size={14} className="dg-perk-svg-check" />
-                        <span><b>Free Insured Doorstep Delivery</b> of physical gold coins</span>
-                      </div>
-                      <div className="dg-autopay-perk-item">
-                        <CheckCircle2 size={14} className="dg-perk-svg-check" />
-                        <span><b>5% Less Making Charges</b> on showroom jewellery</span>
+                      <div className="dg-plan-perk-row">
+                        <CheckCircle2 size={14} className="dg-perk-check-teal" />
+                        <span><b>Free Insured Doorstep Delivery</b> of physical 1g 22K gold coins</span>
                       </div>
                     </div>
 
-                    {/* HIGH CONVERSION OFFER CTA */}
+                    {/* CTA */}
                     <button
                       type="button"
                       className="dg-autopay-cta-btn monthly"
                       onClick={() => handleOpenAutoPayModal('monthly', selectedMonthlyAmt)}
                     >
-                      <Trophy size={16} />
+                      <Trophy size={15} />
                       <span>Unlock VIP Offer • Set Up Monthly ₹{selectedMonthlyAmt}</span>
                       <ArrowRight size={14} />
                     </button>
@@ -2927,6 +2867,326 @@ export default function DigiGoldDashboard() {
                     <h5 className="dg-trust-card-title">Direct Razorpay AutoPay</h5>
                     <p className="dg-trust-card-desc">Instant recurring setup via UPI, GPay, PhonePe, and Cards.</p>
                   </div>
+                </div>
+              </div>
+            </div>
+          ) : currentView === 'support' ? (
+            /* ══════════════════════════════════════════════════════════════
+               ATHIRAI DIGI GOLD 24/7 SUPPORT & PURITY VERIFICATION PORTAL
+               ══════════════════════════════════════════════════════════════ */
+            <div className="dg-support-shell">
+              {/* Header Navigation & Banner */}
+              <div className="dg-support-header-card">
+                <div className="dg-support-header-top">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentView('dashboard')}
+                    className="dg-support-back-btn"
+                  >
+                    <ArrowLeft size={16} /> Back to Dashboard
+                  </button>
+                  <span className="dg-support-live-badge">
+                    <ShieldCheck size={14} color="#009957" /> 100% Insured &amp; BIS 916 Hallmarked
+                  </span>
+                </div>
+                <div className="dg-support-hero-content">
+                  <div className="dg-support-title-wrap">
+                    <h2 className="dg-support-main-title">
+                      Athirai Digi Gold Customer Support &amp; Purity Desk
+                    </h2>
+                    <p className="dg-support-sub-title">
+                      Dedicated assistance for your digital gold &amp; silver investments, 100% vault assurance, physical jewellery showroom redemption, and grievance redressal.
+                    </p>
+                  </div>
+                  <div className="dg-support-cta-row">
+                    <a
+                      href="tel:18008902291"
+                      className="dg-support-quick-call"
+                    >
+                      <PhoneCall size={16} />
+                      <span>Call 1800 890 2291</span>
+                    </a>
+                    <a
+                      href="https://wa.me/919840091691?text=Hello%20Athirai%20Digi%20Gold%20Support,%20I%20need%20assistance%20with%20my%20account"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="dg-support-quick-wa"
+                    >
+                      <MessageCircle size={16} />
+                      <span>WhatsApp Support</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4 DIRECT CONTACT CHANNELS */}
+              <div className="dg-support-channels-grid">
+                <div className="dg-channel-card">
+                  <div className="dg-channel-icon phone">
+                    <PhoneCall size={22} />
+                  </div>
+                  <div className="dg-channel-body">
+                    <span className="dg-channel-label">Toll-Free Helpline</span>
+                    <h4 className="dg-channel-val">1800 890 2291</h4>
+                    <p className="dg-channel-desc">Mon – Sun • 9:00 AM – 9:00 PM IST</p>
+                    <a href="tel:18008902291" className="dg-channel-link">Call Now →</a>
+                  </div>
+                </div>
+
+                <div className="dg-channel-card">
+                  <div className="dg-channel-icon wa">
+                    <MessageCircle size={22} />
+                  </div>
+                  <div className="dg-channel-body">
+                    <span className="dg-channel-label">WhatsApp Priority Desk</span>
+                    <h4 className="dg-channel-val">+91 98400 91691</h4>
+                    <p className="dg-channel-desc">Chat with Digi Gold advisor directly</p>
+                    <a
+                      href="https://wa.me/919840091691?text=Hello%20Athirai%20Digi%20Gold%20Support"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="dg-channel-link"
+                    >
+                      Open WhatsApp →
+                    </a>
+                  </div>
+                </div>
+
+                <div className="dg-channel-card">
+                  <div className="dg-channel-icon mail">
+                    <Mail size={22} />
+                  </div>
+                  <div className="dg-channel-body">
+                    <span className="dg-channel-label">Support Email</span>
+                    <h4 className="dg-channel-val" style={{ fontSize: 13 }}>support@athiraijewellery.com</h4>
+                    <p className="dg-channel-desc">Guaranteed reply within 2 business hours</p>
+                    <a href="mailto:support@athiraijewellery.com" className="dg-channel-link">Email Us →</a>
+                  </div>
+                </div>
+
+                <div className="dg-channel-card">
+                  <div className="dg-channel-icon store">
+                    <MapPin size={22} />
+                  </div>
+                  <div className="dg-channel-body">
+                    <span className="dg-channel-label">Athirai Flagship Showroom</span>
+                    <h4 className="dg-channel-val" style={{ fontSize: 14 }}>T. Nagar, Chennai</h4>
+                    <p className="dg-channel-desc">Walk in for showroom jewellery exchange &amp; audit</p>
+                    <button
+                      type="button"
+                      className="dg-channel-btn"
+                      onClick={() => alert('Athirai Jewellery Flagship Store: Usman Road, T. Nagar, Chennai - 600017. Phone: +91 44 2434 9161')}
+                    >
+                      Showroom Details →
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2-COLUMN MAIN SECTION: PURITY GUARANTEE & SUPPORT TICKET FORM */}
+              <div className="dg-support-main-layout">
+                {/* LEFT: 100% PURITY & VAULT ASSURANCE BREAKDOWN */}
+                <div className="dg-support-purity-section">
+                  <div className="dg-purity-head-card">
+                    <div className="dg-purity-badge">
+                      <ShieldCheck size={16} />
+                      <span>100% Purity &amp; Security Assurance</span>
+                    </div>
+                    <h3 className="dg-purity-title">Why Athirai Digi Gold is 100% Safe</h3>
+                    <p className="dg-purity-subtitle">
+                      Every milligram of gold or silver you purchase is backed 1:1 by real 22K 916 physical bullion stored securely in institutional trustee vaults.
+                    </p>
+                  </div>
+
+                  <div className="dg-purity-pillars-grid">
+                    <div className="dg-purity-pillar-item">
+                      <div className="dg-pillar-icon gold">
+                        <Coins size={20} />
+                      </div>
+                      <div className="dg-pillar-content">
+                        <h4 className="dg-pillar-h">100% BIS 916 Hallmarked Gold</h4>
+                        <p className="dg-pillar-p">
+                          Certified 22 Karat (91.6% purity) gold meeting strict Bureau of Indian Standards (BIS) specifications. Zero synthetic or paper gold.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="dg-purity-pillar-item">
+                      <div className="dg-pillar-icon shield">
+                        <ShieldCheck size={20} />
+                      </div>
+                      <div className="dg-pillar-content">
+                        <h4 className="dg-pillar-h">IDBI Trusteeship Custodial Protection</h4>
+                        <p className="dg-pillar-p">
+                          An independent legal trustee (IDBI Trusteeship Services Limited) holds fiduciary custody on behalf of customers, safeguarding your ownership against all liabilities.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="dg-purity-pillar-item">
+                      <div className="dg-pillar-icon vault">
+                        <Gem size={20} />
+                      </div>
+                      <div className="dg-pillar-content">
+                        <h4 className="dg-pillar-h">100% Insured Bullion Vaults</h4>
+                        <p className="dg-pillar-p">
+                          Physical metal is stored in world-class Brink's &amp; Sequel security vaults with comprehensive multi-layer insurance against theft and natural calamities. Zero storage fee.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="dg-purity-pillar-item">
+                      <div className="dg-pillar-icon redeem">
+                        <ArrowLeftRight size={20} />
+                      </div>
+                      <div className="dg-pillar-content">
+                        <h4 className="dg-pillar-h">Physical Jewellery Showroom Redemption</h4>
+                        <p className="dg-pillar-p">
+                          Redeem your digital gold grams directly for exquisite hallmarked ornaments or coins at Athirai showrooms with exclusive 5% making charge discounts.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* RIGHT: INTERACTIVE SUPPORT REQUEST / TICKET FORM */}
+                <div className="dg-support-ticket-card">
+                  <div className="dg-ticket-card-header">
+                    <div className="dg-ticket-icon-wrap">
+                      <Headphones size={20} />
+                    </div>
+                    <div>
+                      <h3 className="dg-ticket-title">Submit a Support Request</h3>
+                      <p className="dg-ticket-desc">Fill in details below and our dedicated team will assist you promptly.</p>
+                    </div>
+                  </div>
+
+                  {supportSubmitted ? (
+                    <div className="dg-ticket-success-box">
+                      <div className="dg-ticket-success-icon">
+                        <CheckCircle2 size={36} color="#009957" />
+                      </div>
+                      <h4 className="dg-ticket-success-title">Support Request Registered!</h4>
+                      <div className="dg-ticket-success-code">
+                        <span>Ticket ID: <b>{supportTicketId}</b></span>
+                      </div>
+                      <p className="dg-ticket-success-desc">
+                        Our Athirai Digi Gold support specialist has been assigned to your ticket. We will get back to you within 2 business hours.
+                      </p>
+                      <button
+                        type="button"
+                        className="dg-ticket-reset-btn"
+                        onClick={() => {
+                          setSupportSubmitted(false)
+                          setSupportMessage('')
+                          setSupportTxnId('')
+                        }}
+                      >
+                        Submit Another Query
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSupportSubmit} className="dg-ticket-form">
+                      <div className="dg-form-group">
+                        <label className="dg-form-label">Issue Category</label>
+                        <select
+                          className="dg-form-select"
+                          value={supportCategory}
+                          onChange={(e) => setSupportCategory(e.target.value)}
+                        >
+                          <option value="autopay">AutoPay &amp; Auto-Savings Assistance</option>
+                          <option value="payment">Payment &amp; Transaction Verification</option>
+                          <option value="purity">Gold Purity &amp; Vault Custody Inquiry</option>
+                          <option value="redemption">Physical Jewellery Showroom Redemption</option>
+                          <option value="delivery">Doorstep Coin Delivery Inquiry</option>
+                          <option value="other">General Account / Other Inquiry</option>
+                        </select>
+                      </div>
+
+                      <div className="dg-form-group">
+                        <label className="dg-form-label">
+                          Related Transaction Reference (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          className="dg-form-input"
+                          placeholder="e.g. BBKFQTXHUF or leave empty"
+                          value={supportTxnId}
+                          onChange={(e) => setSupportTxnId(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="dg-form-group">
+                        <label className="dg-form-label">Describe your query *</label>
+                        <textarea
+                          rows={4}
+                          className="dg-form-textarea"
+                          placeholder="Provide details about your query or grievance..."
+                          value={supportMessage}
+                          onChange={(e) => setSupportMessage(e.target.value)}
+                          required
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="dg-ticket-submit-btn"
+                        disabled={!supportMessage.trim()}
+                      >
+                        <Headphones size={16} />
+                        <span>Submit Support Ticket</span>
+                        <ArrowRight size={14} />
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </div>
+
+              {/* FREQUENTLY ASKED QUESTIONS */}
+              <div className="dg-support-faq-card">
+                <div className="dg-faq-header">
+                  <CircleHelp size={20} color="#009957" />
+                  <h3 className="dg-faq-title">Frequently Asked Questions (FAQ)</h3>
+                </div>
+
+                <div className="dg-faq-list">
+                  {[
+                    {
+                      q: 'How pure is the Digi Gold purchased on Athirai?',
+                      a: 'Athirai Digi Gold is 100% 22 Karat (916) pure gold certified with official BIS hallmarking. Every transaction is physically backed 1:1 in IDBI Trustee-supervised vaults.'
+                    },
+                    {
+                      q: 'Can I convert my Digi Gold into physical jewellery at Athirai showrooms?',
+                      a: 'Yes! You can walk into any Athirai Jewellery showroom and exchange your Digi Gold vault balance for actual hallmarked jewellery or coins. You also enjoy an exclusive 5% concession on making charges.'
+                    },
+                    {
+                      q: 'How does the AutoPay ₹50/g discount work?',
+                      a: 'When you activate Daily, Weekly, or Monthly AutoPay, you automatically receive a flat ₹50/gram discount on the live market benchmark rate on every scheduled debit.'
+                    },
+                    {
+                      q: 'Can I cancel or pause my AutoPay plan at any time?',
+                      a: 'Absolutely. There is zero lock-in. You can pause, modify, or cancel your recurring AutoPay plan with one click from your dashboard without any cancellation fee.'
+                    },
+                    {
+                      q: 'How safe is my physical gold in the vault?',
+                      a: 'Your gold is stored in high-security vaults managed by Brink’s and Sequel, protected under institutional legal custody by IDBI Trusteeship Services Limited, and 100% insured against all risks.'
+                    }
+                  ].map((faq, idx) => {
+                    const isOpen = openFaqIndex === idx
+                    return (
+                      <div
+                        key={idx}
+                        className={`dg-faq-item ${isOpen ? 'open' : ''}`}
+                        onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
+                      >
+                        <div className="dg-faq-q-row">
+                          <span className="dg-faq-q">{faq.q}</span>
+                          <span className="dg-faq-toggle">{isOpen ? '−' : '+'}</span>
+                        </div>
+                        {isOpen && <p className="dg-faq-a">{faq.a}</p>}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             </div>
@@ -3371,7 +3631,7 @@ export default function DigiGoldDashboard() {
                       </thead>
                       <tbody>
                         {loading ? (
-                          [1, 2, 3].map(i => (
+                          [1, 2, 3, 4].map(i => (
                             <tr key={`skel-${i}`}>
                               <td><div className="dg-skel" style={{ width: 95, height: 22, borderRadius: 6 }} /></td>
                               <td><div className="dg-skel" style={{ width: 120, height: 14, borderRadius: 4 }} /></td>
@@ -3413,7 +3673,7 @@ export default function DigiGoldDashboard() {
                             </td>
                           </tr>
                         ) : (
-                          transactions.slice(0, 3).map((tx, idx) => (
+                          transactions.slice(0, 4).map((tx, idx) => (
                             <tr key={tx.id || idx}>
                               <td className="dg-table-txnid" style={{ verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                                 <span className="dg-txnid-badge" title={tx.transaction_id || `BB#${tx.id}`}>
@@ -3426,7 +3686,7 @@ export default function DigiGoldDashboard() {
                               </td>
                               <td className="dg-table-type" style={{ verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                                 <span style={{
-                                  color: (tx.type || '').toLowerCase().includes('sell') ? '#E45B5B' : '#009957',
+                                   color: (tx.type || '').toLowerCase().includes('sell') ? '#E45B5B' : '#009957',
                                   fontWeight: 800,
                                   fontSize: '13px'
                                 }}>
@@ -3458,7 +3718,7 @@ export default function DigiGoldDashboard() {
                   {/* Mobile Native Card List (Visible on mobile <= 768px) */}
                   <div className="dg-mobile-tx-list">
                     {loading ? (
-                      [1, 2, 3].map(i => (
+                      [1, 2, 3, 4].map(i => (
                         <div key={`m-skel-${i}`} className="dg-mobile-tx-card">
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -3502,7 +3762,7 @@ export default function DigiGoldDashboard() {
                         </div>
                       </div>
                     ) : (
-                      transactions.slice(0, 3).map((tx, idx) => {
+                      transactions.slice(0, 4).map((tx, idx) => {
                         const isSilver = tx.metal_type === 'silver' || (tx.type || '').toLowerCase().includes('silver')
                         const isConvert = (tx.type || '').toLowerCase().includes('convert')
                         return (
@@ -3564,7 +3824,7 @@ export default function DigiGoldDashboard() {
                         </p>
                       </div>
                       <div className="dg-rewards-visual">
-                        <img src="/digi-gold/autopay_banner_gold.jpg" alt="Digi Gold Offers" />
+                        <img src={goldCoinImg} alt="Athirai 22K Gold Coin" className="dg-rewards-coin-img" />
                         <div className="dg-rewards-visual-badge">SAVE ₹50/g</div>
                       </div>
                     </div>
@@ -3620,7 +3880,10 @@ export default function DigiGoldDashboard() {
                       <ChevronRight size={15} className="dg-info-chevron" />
                     </div>
 
-                    <div className="dg-info-item" onClick={() => alert('100% Guaranteed 22K BIS Hallmarked physical gold stored safely in insured vaults.')}>
+                    <div
+                      className="dg-info-item"
+                      onClick={() => { setCurrentView('support'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    >
                       <div className="dg-info-left">
                         <div className="dg-info-icon">
                           <ShieldCheck size={15} />
@@ -3633,7 +3896,10 @@ export default function DigiGoldDashboard() {
                       <ChevronRight size={15} className="dg-info-chevron" />
                     </div>
 
-                    <div className="dg-info-item" onClick={() => alert('24/7 Dedicated Support: support@athirai.com')}>
+                    <div
+                      className="dg-info-item"
+                      onClick={() => { setCurrentView('support'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    >
                       <div className="dg-info-left">
                         <div className="dg-info-icon">
                           <Headphones size={15} />

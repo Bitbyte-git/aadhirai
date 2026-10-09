@@ -42,7 +42,77 @@ import {
   CartesianGrid
 } from 'recharts'
 import api from '../api'
+import goldCoinImg from '../assets/gold-coin-transparent.png'
+import silverCoinImg from '../assets/silver-coin-transparent.png'
 import './SuperAdminDigiGold.css'
+
+// ── SMOOTH NUMBER COUNTER ANIMATION COMPONENT ──
+function AnimatedNumber({ value, prefix = '', suffix = '', decimals = 0 }) {
+  const numVal = Number(value) || 0
+  const [displayVal, setDisplayVal] = useState(numVal)
+  const animRef = useRef(null)
+  const currentValRef = useRef(numVal)
+
+  useEffect(() => {
+    const startVal = currentValRef.current
+    const endVal = Number(value) || 0
+    if (startVal === endVal) return
+
+    const duration = 500
+    const startTime = performance.now()
+
+    const step = (now) => {
+      const elapsed = now - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const ease = 1 - Math.pow(1 - progress, 3) // cubic ease-out
+      const current = startVal + (endVal - startVal) * ease
+      currentValRef.current = current
+      setDisplayVal(current)
+      if (progress < 1) {
+        animRef.current = requestAnimationFrame(step)
+      } else {
+        currentValRef.current = endVal
+        setDisplayVal(endVal)
+      }
+    }
+    animRef.current = requestAnimationFrame(step)
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current)
+    }
+  }, [value])
+
+  const formatted = decimals > 0
+    ? displayVal.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+    : Math.round(displayVal).toLocaleString('en-IN')
+
+  return <span>{prefix}{formatted}{suffix}</span>
+}
+
+// ── CUSTOM LUXURY CHART TOOLTIP COMPONENT ──
+function CustomChartTooltip({ active, payload, label, isSilver = false }) {
+  if (!active || !payload || !payload.length) return null
+  const grams = payload.find(p => p.dataKey === 'grams')?.value ?? 0
+  const revenue = payload[0]?.payload?.revenue ?? 0
+  return (
+    <div className="sadg-chart-tooltip">
+      <div className="sadg-chart-tooltip-date">{label}</div>
+      <div className="sadg-chart-tooltip-row">
+        <span style={{ color: isSilver ? '#CBD5E1' : '#FDE68A' }}>
+          {isSilver ? 'Silver' : 'Gold'} Sold:
+        </span>
+        <span className="sadg-chart-tooltip-val">
+          {Number(grams).toFixed(3)} g
+        </span>
+      </div>
+      <div className="sadg-chart-tooltip-row">
+        <span style={{ color: '#A7F3D0' }}>Revenue:</span>
+        <span className="sadg-chart-tooltip-val">
+          ₹ {Number(revenue).toLocaleString('en-IN')}
+        </span>
+      </div>
+    </div>
+  )
+}
 
 export default function SuperAdminDigiGold() {
   // ── NAVIGATION & VIEW STATE ──
@@ -51,7 +121,7 @@ export default function SuperAdminDigiGold() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   // ── FILTER STATE ──
-  const [dateFilter, setDateFilter] = useState('today') // 'today' | 'week' | 'month' | 'year' | 'custom'
+  const [dateFilter, setDateFilter] = useState('week') // 'today' | 'week' | 'month' | 'year' | 'custom'
   const [customStartDate, setCustomStartDate] = useState(() => {
     const d = new Date()
     d.setDate(d.getDate() - 6)
@@ -69,17 +139,24 @@ export default function SuperAdminDigiGold() {
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 12
 
-  // ── DATA STATE ──
-  const [loading, setLoading] = useState(true)
-  const [data, setData] = useState(null)
+  // ── DATA STATE (INSTANT INITIAL LOAD FROM SESSIONSTORAGE) ──
+  const [data, setData] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('athirai_sadg_cache')
+      return cached ? JSON.parse(cached) : null
+    } catch {
+      return null
+    }
+  })
+  const [loading, setLoading] = useState(() => !data)
   const [updatingRate, setUpdatingRate] = useState(false)
-  const [rateForm, setRateForm] = useState({ gold_22k: '', gold_24k: '', silver_999: '' })
+  const [rateForm, setRateForm] = useState({ gold_22k: '', silver_999: '' })
   const [rateFeedback, setRateFeedback] = useState(null)
 
   // ── FETCH DATA ──
   const fetchData = async () => {
     try {
-      setLoading(true)
+      if (!data) setLoading(true)
       const params = {
         date_filter: dateFilter,
         status: statusFilter,
@@ -97,12 +174,14 @@ export default function SuperAdminDigiGold() {
 
       const res = await api.get('/digi-gold/superadmin/', { params })
       setData(res.data)
+      try {
+        sessionStorage.setItem('athirai_sadg_cache', JSON.stringify(res.data))
+      } catch {}
 
       // Initialize rateForm with live rates if empty
       if (res.data?.rates) {
         setRateForm({
           gold_22k: res.data.rates.gold_22k || '',
-          gold_24k: res.data.rates.gold_24k || '',
           silver_999: res.data.rates.silver_999 || '',
         })
       }
@@ -223,7 +302,6 @@ export default function SuperAdminDigiGold() {
       const payload = {
         date: new Date().toISOString().slice(0, 10),
         gold_22k: parseFloat(rateForm.gold_22k),
-        gold_24k: parseFloat(rateForm.gold_24k),
         silver_999: parseFloat(rateForm.silver_999),
       }
       await api.post('/metal-rates/', payload)
@@ -256,7 +334,7 @@ export default function SuperAdminDigiGold() {
 
   return (
     <div className="sadg-layout">
-      {/* ── LEFT SIDEBAR (DEEP TEAL #073E40) ── */}
+      {/* ── LEFT SIDEBAR (DEEP TEAL #073E40 — FIXED) ── */}
       <aside className={`sadg-sidebar ${mobileSidebarOpen ? 'open' : ''}`}>
         <div className="sadg-sidebar-top">
           {/* Mobile Close Button */}
@@ -289,15 +367,19 @@ export default function SuperAdminDigiGold() {
           })}
         </div>
 
-        {/* Sidebar Bottom Decorative Card (Matching Image 1) */}
+        {/* Sidebar Bottom Decorative Card with Transparent Bullion Coins */}
         <div className="sadg-sidebar-bottom">
           <div className="sadg-sidebar-promo-card">
-            <div className="sadg-promo-img-wrap">
+            <div className="sadg-promo-coins-stack">
               <img
-                src="/digi-gold/autopay_banner_gold.jpg"
-                alt="Gold & Silver Bullion"
-                className="sadg-promo-img"
-                onError={(e) => { e.target.style.display = 'none' }}
+                src={goldCoinImg}
+                alt="22K Digi Gold"
+                className="sadg-promo-coin-gold"
+              />
+              <img
+                src={silverCoinImg}
+                alt="999 Digi Silver"
+                className="sadg-promo-coin-silver"
               />
             </div>
             <h5 className="sadg-promo-title">Pure Investment Lasting Value</h5>
@@ -348,10 +430,10 @@ export default function SuperAdminDigiGold() {
               <p className="sadg-subtitle">
                 {activeSection === 'overview' && 'Sales, holdings, transaction history and user-wise investment analytics.'}
                 {activeSection === 'transactions' && 'Complete company-wide investor audit trail, verified buy/sell ledgers, and settlement records.'}
-                {activeSection === 'gold_mgmt' && 'Detailed 22K & 24K Digi Gold sales analytics, vault weight accumulation, and investor ledgers.'}
+                {activeSection === 'gold_mgmt' && 'Detailed 22K Digi Gold sales analytics, vault weight accumulation, and investor ledgers.'}
                 {activeSection === 'silver_mgmt' && 'Detailed Digi Silver sales analytics, purity metrics, and settlement ledgers.'}
                 {activeSection === 'user_buy' && 'Tier-wise investor breakdown, network hierarchy sales volumes, and category purchase ledgers.'}
-                {activeSection === 'gold_rates' && 'Live 22K & 24K benchmark bullion rates, historical movement trends, and pricing logs.'}
+                {activeSection === 'gold_rates' && 'Live 22K benchmark bullion rates, historical movement trends, and pricing logs.'}
                 {activeSection === 'silver_rates' && 'Live Pure 999 silver bullion rates, per-gram and per-kilogram valuations, and pricing history.'}
               </p>
             </div>
@@ -418,470 +500,480 @@ export default function SuperAdminDigiGold() {
         </div>
 
         {/* ══════════════════════════════════════════════════════════════
-           VIEW 1: OVERVIEW DASHBOARD (MATCHING IMAGE 1 EXACTLY)
+           VIEW 1: OVERVIEW DASHBOARD (ENTERPRISE LUXURY FINTECH)
            ══════════════════════════════════════════════════════════════ */}
         {activeSection === 'overview' && (
           <>
-            {/* 6 KPI CARDS ROW */}
-            <div className="sadg-kpi-grid">
-              {/* Card 1: Total Gold Sales */}
-              <div className="sadg-kpi-card">
-                <div className="sadg-kpi-icon-box gold">
-                  <Coins size={18} />
-                </div>
-                <span className="sadg-kpi-label">Total Gold Sales</span>
-                <b className="sadg-kpi-value">
-                  {kpis.total_gold_sales_inr > 0 ? `₹ ${Number(kpis.total_gold_sales_inr).toLocaleString('en-IN')}` : '—'}
-                </b>
-                <span className="sadg-kpi-sub">
-                  {kpis.total_gold_sales_inr > 0 ? 'Gross gold volume' : 'No data available'}
-                </span>
-              </div>
-
-              {/* Card 2: Gold Sold (g) */}
-              <div className="sadg-kpi-card">
-                <div className="sadg-kpi-icon-box gold">
-                  <Sparkles size={18} />
-                </div>
-                <span className="sadg-kpi-label">Gold Sold (g)</span>
-                <b className="sadg-kpi-value">
-                  {kpis.total_gold_sold_gm > 0 ? `${Number(kpis.total_gold_sold_gm).toFixed(3)} g` : '—'}
-                </b>
-                <span className="sadg-kpi-sub">
-                  {kpis.total_gold_sold_gm > 0 ? 'Total weight credited' : 'No data available'}
-                </span>
-              </div>
-
-              {/* Card 3: Total Silver Sales */}
-              <div className="sadg-kpi-card">
-                <div className="sadg-kpi-icon-box silver">
-                  <Layers size={18} />
-                </div>
-                <span className="sadg-kpi-label">Total Silver Sales</span>
-                <b className="sadg-kpi-value">
-                  {kpis.total_silver_sales_inr > 0 ? `₹ ${Number(kpis.total_silver_sales_inr).toLocaleString('en-IN')}` : '—'}
-                </b>
-                <span className="sadg-kpi-sub">
-                  {kpis.total_silver_sales_inr > 0 ? 'Gross silver volume' : 'No data available'}
-                </span>
-              </div>
-
-              {/* Card 4: Silver Sold (g) */}
-              <div className="sadg-kpi-card">
-                <div className="sadg-kpi-icon-box silver">
-                  <ShieldCheck size={18} />
-                </div>
-                <span className="sadg-kpi-label">Silver Sold (g)</span>
-                <b className="sadg-kpi-value">
-                  {kpis.total_silver_sold_gm > 0 ? `${Number(kpis.total_silver_sold_gm).toFixed(3)} g` : '—'}
-                </b>
-                <span className="sadg-kpi-sub">
-                  {kpis.total_silver_sold_gm > 0 ? 'Total weight credited' : 'No data available'}
-                </span>
-              </div>
-
-              {/* Card 5: Total Transactions */}
-              <div className="sadg-kpi-card">
-                <div className="sadg-kpi-icon-box mint">
-                  <ArrowLeftRight size={18} />
-                </div>
-                <span className="sadg-kpi-label">Total Transactions</span>
-                <b className="sadg-kpi-value">
-                  {kpis.total_transactions > 0 ? kpis.total_transactions : '—'}
-                </b>
-                <span className="sadg-kpi-sub">
-                  {kpis.total_transactions > 0 ? 'Completed cycles' : 'No data available'}
-                </span>
-              </div>
-
-              {/* Card 6: Active Investors */}
-              <div className="sadg-kpi-card">
-                <div className="sadg-kpi-icon-box teal">
-                  <Users size={18} />
-                </div>
-                <span className="sadg-kpi-label">Active Investors</span>
-                <b className="sadg-kpi-value">
-                  {kpis.active_investors > 0 ? kpis.active_investors : '—'}
-                </b>
-                <span className="sadg-kpi-sub">
-                  {kpis.active_investors > 0 ? 'Unique accounts' : 'No data available'}
-                </span>
-              </div>
-            </div>
-
-            {/* MIDDLE ROW (3-COLUMNS: GOLD CHART, SILVER CHART, RATES TABLE) */}
-            <div className="sadg-charts-row">
-              {/* Card 1: Gold Sales Overview */}
-              <div className="sadg-chart-card">
-                <div className="sadg-chart-head">
-                  <div className="sadg-chart-title-box">
-                    <div className="sadg-chart-badge gold">
-                      <Coins size={16} />
+            {/* SKELETON LOADING STATE WHEN DATA IS NOT READY */}
+            {loading && !data ? (
+              <>
+                <div className="sadg-kpi-grid">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <div key={i} className="sadg-skeleton-kpi">
+                      <div className="sadg-skeleton-line" style={{ width: 36, height: 36, borderRadius: 10 }} />
+                      <div className="sadg-skeleton-line" style={{ width: '60%', height: 13 }} />
+                      <div className="sadg-skeleton-line" style={{ width: '85%', height: 26 }} />
+                      <div className="sadg-skeleton-line" style={{ width: '45%', height: 11 }} />
                     </div>
-                    <h4 className="sadg-chart-title">Gold Sales Overview</h4>
-                  </div>
-                  <div className="sadg-chart-legend">
-                    <span className="sadg-legend-item">
-                      <span className="sadg-legend-square" style={{ background: '#009957' }} />
-                      Gold Sales (g)
-                    </span>
-                    <span className="sadg-legend-item">
-                      <span className="sadg-legend-line" style={{ background: '#0A3E42' }} />
-                      Revenue (₹)
-                    </span>
-                  </div>
+                  ))}
                 </div>
-
-                <div className="sadg-chart-body">
-                  {goldChart.length > 0 && goldChart.some(d => d.grams > 0 || d.revenue > 0) ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <ComposedChart data={goldChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2ECE7" />
-                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#6A7D7C' }} />
-                        <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#6A7D7C' }} />
-                        <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#6A7D7C' }} hide />
-                        <Tooltip
-                          contentStyle={{ background: '#0A3E42', color: '#FFF', borderRadius: 8, fontSize: 12, border: 'none' }}
-                          formatter={(val, name) => [name === 'revenue' ? `₹ ${Number(val).toLocaleString('en-IN')}` : `${val} g`, name === 'revenue' ? 'Revenue' : 'Gold (g)']}
-                        />
-                        <Bar yAxisId="left" dataKey="grams" fill="#009957" radius={[4, 4, 0, 0]} maxBarSize={22} />
-                        <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#0A3E42" strokeWidth={2.2} dot={{ r: 3, fill: '#0A3E42' }} />
-                      </ComposedChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="sadg-chart-empty">
-                      <BarChart3 size={28} color="#A3BFBD" />
-                      <span>Connect live data to display sales</span>
+                <div className="sadg-charts-row" style={{ marginTop: 22 }}>
+                  <div className="sadg-skeleton-chart" />
+                  <div className="sadg-skeleton-chart" />
+                  <div className="sadg-skeleton-chart" />
+                </div>
+              </>
+            ) : (
+              <>
+                {/* 6 KPI CARDS ROW (SMOOTH ANIMATED NUMBERS, NEVER DASH OR N/A) */}
+                <div className="sadg-kpi-grid">
+                  {/* Card 1: Total Gold Sales */}
+                  <div className="sadg-kpi-card">
+                    <div className="sadg-kpi-icon-box gold">
+                      <Coins size={18} />
                     </div>
-                  )}
-                </div>
-              </div>
+                    <span className="sadg-kpi-label">Total Gold Sales</span>
+                    <b className="sadg-kpi-value">
+                      <AnimatedNumber value={kpis.total_gold_sales_inr || 0} prefix="₹ " />
+                    </b>
+                    <span className="sadg-kpi-sub">Gross gold volume</span>
+                  </div>
 
-              {/* Card 2: Silver Sales Overview */}
-              <div className="sadg-chart-card">
-                <div className="sadg-chart-head">
-                  <div className="sadg-chart-title-box">
-                    <div className="sadg-chart-badge silver">
-                      <Layers size={16} />
+                  {/* Card 2: Gold Sold (g) */}
+                  <div className="sadg-kpi-card">
+                    <div className="sadg-kpi-icon-box gold">
+                      <Sparkles size={18} />
                     </div>
-                    <h4 className="sadg-chart-title">Silver Sales Overview</h4>
+                    <span className="sadg-kpi-label">Gold Sold (g)</span>
+                    <b className="sadg-kpi-value">
+                      <AnimatedNumber value={kpis.total_gold_sold_gm || 0} decimals={3} suffix=" g" />
+                    </b>
+                    <span className="sadg-kpi-sub">Total weight credited</span>
                   </div>
-                  <div className="sadg-chart-legend">
-                    <span className="sadg-legend-item">
-                      <span className="sadg-legend-square" style={{ background: '#64748B' }} />
-                      Silver Sales (g)
-                    </span>
-                    <span className="sadg-legend-item">
-                      <span className="sadg-legend-line" style={{ background: '#0A3E42' }} />
-                      Revenue (₹)
-                    </span>
-                  </div>
-                </div>
 
-                <div className="sadg-chart-body">
-                  {silverChart.length > 0 && silverChart.some(d => d.grams > 0 || d.revenue > 0) ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <ComposedChart data={silverChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2ECE7" />
-                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#6A7D7C' }} />
-                        <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#6A7D7C' }} />
-                        <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#6A7D7C' }} hide />
-                        <Tooltip
-                          contentStyle={{ background: '#0A3E42', color: '#FFF', borderRadius: 8, fontSize: 12, border: 'none' }}
-                          formatter={(val, name) => [name === 'revenue' ? `₹ ${Number(val).toLocaleString('en-IN')}` : `${val} g`, name === 'revenue' ? 'Revenue' : 'Silver (g)']}
-                        />
-                        <Bar yAxisId="left" dataKey="grams" fill="#64748B" radius={[4, 4, 0, 0]} maxBarSize={22} />
-                        <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#0A3E42" strokeWidth={2.2} dot={{ r: 3, fill: '#0A3E42' }} />
-                      </ComposedChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="sadg-chart-empty">
-                      <BarChart3 size={28} color="#A3BFBD" />
-                      <span>Connect live data to display sales</span>
+                  {/* Card 3: Total Silver Sales */}
+                  <div className="sadg-kpi-card">
+                    <div className="sadg-kpi-icon-box silver">
+                      <Layers size={18} />
                     </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Card 3: Gold & Silver Market Rates */}
-              <div className="sadg-rates-card">
-                <div className="sadg-chart-head">
-                  <div className="sadg-chart-title-box">
-                    <TrendingUp size={16} color="#C6924B" />
-                    <h4 className="sadg-chart-title">Gold & Silver Market Rates</h4>
+                    <span className="sadg-kpi-label">Total Silver Sales</span>
+                    <b className="sadg-kpi-value">
+                      <AnimatedNumber value={kpis.total_silver_sales_inr || 0} prefix="₹ " />
+                    </b>
+                    <span className="sadg-kpi-sub">Gross silver volume</span>
                   </div>
-                  <button
-                    type="button"
-                    className="sadg-view-all-link"
-                    onClick={() => setActiveSection('gold_rates')}
-                  >
-                    <span>View All</span>
-                    <ArrowRight size={13} />
-                  </button>
+
+                  {/* Card 4: Silver Sold (g) */}
+                  <div className="sadg-kpi-card">
+                    <div className="sadg-kpi-icon-box silver">
+                      <ShieldCheck size={18} />
+                    </div>
+                    <span className="sadg-kpi-label">Silver Sold (g)</span>
+                    <b className="sadg-kpi-value">
+                      <AnimatedNumber value={kpis.total_silver_sold_gm || 0} decimals={3} suffix=" g" />
+                    </b>
+                    <span className="sadg-kpi-sub">Total weight credited</span>
+                  </div>
+
+                  {/* Card 5: Total Transactions */}
+                  <div className="sadg-kpi-card">
+                    <div className="sadg-kpi-icon-box mint">
+                      <ArrowLeftRight size={18} />
+                    </div>
+                    <span className="sadg-kpi-label">Total Transactions</span>
+                    <b className="sadg-kpi-value">
+                      <AnimatedNumber value={kpis.total_transactions || 0} />
+                    </b>
+                    <span className="sadg-kpi-sub">Completed cycles</span>
+                  </div>
+
+                  {/* Card 6: Active Investors */}
+                  <div className="sadg-kpi-card">
+                    <div className="sadg-kpi-icon-box teal">
+                      <Users size={18} />
+                    </div>
+                    <span className="sadg-kpi-label">Active Investors</span>
+                    <b className="sadg-kpi-value">
+                      <AnimatedNumber value={kpis.active_investors || 0} />
+                    </b>
+                    <span className="sadg-kpi-sub">Unique accounts</span>
+                  </div>
                 </div>
 
-                <table className="sadg-rates-table">
-                  <thead>
-                    <tr>
-                      <th>Metal</th>
-                      <th>Price</th>
-                      <th>Daily Movement</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>
-                        <div className="sadg-rate-metal-row">
-                          <Coins size={14} color="#C6924B" />
-                          <span>Gold 22K</span>
+                {/* MIDDLE ROW (3-COLUMNS: SMOOTH GOLD AREA CHART, SMOOTH SILVER AREA CHART, RATES TABLE) */}
+                <div className="sadg-charts-row">
+                  {/* Card 1: Gold Sales Overview (Smooth Spline AreaChart) */}
+                  <div className="sadg-chart-card">
+                    <div className="sadg-chart-head">
+                      <div className="sadg-chart-title-box">
+                        <div className="sadg-chart-badge gold">
+                          <Coins size={16} />
                         </div>
-                      </td>
-                      <td>
-                        <b>₹ {Number(rates.gold_22k || 14250).toLocaleString('en-IN')}</b> / g
-                      </td>
-                      <td>
-                        <span style={{ color: rates.diff_22k >= 0 ? '#009957' : '#DC5353', fontWeight: 700 }}>
-                          {rates.diff_22k >= 0 ? '+' : ''}{rates.diff_22k || 0} ({rates.pct_22k || 0}%)
+                        <h4 className="sadg-chart-title">Gold Sales Overview</h4>
+                      </div>
+                      <div className="sadg-chart-legend">
+                        <span className="sadg-legend-item">
+                          <span className="sadg-legend-line" style={{ background: '#009957' }} />
+                          Gold (g)
                         </span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td>
-                        <div className="sadg-rate-metal-row">
-                          <Coins size={14} color="#F59E0B" />
-                          <span>Gold 24K</span>
-                        </div>
-                      </td>
-                      <td>
-                        <b>₹ {Number(rates.gold_24k || 15545).toLocaleString('en-IN')}</b> / g
-                      </td>
-                      <td>
-                        <span style={{ color: '#009957', fontWeight: 700 }}>
-                          +{rates.diff_22k ? Math.round(rates.diff_22k * 1.09) : 0} (+0.8%)
+                        <span className="sadg-legend-item">
+                          <span className="sadg-legend-line" style={{ background: '#0A3E42' }} />
+                          Revenue (₹)
                         </span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td>
-                        <div className="sadg-rate-metal-row">
-                          <Layers size={14} color="#64748B" />
-                          <span>Silver 999</span>
-                        </div>
-                      </td>
-                      <td>
-                        <b>₹ {Number(rates.silver_999 || 275).toFixed(2)}</b> / g
-                      </td>
-                      <td>
-                        <span style={{ color: rates.diff_silver >= 0 ? '#009957' : '#DC5353', fontWeight: 700 }}>
-                          {rates.diff_silver >= 0 ? '+' : ''}{rates.diff_silver || 0} ({rates.pct_silver || 0}%)
-                        </span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                      </div>
+                    </div>
 
-                {/* Compact illustration banner */}
-                <div className="sadg-rates-banner-mini">
-                  <div>
-                    <h5>Secure Your Wealth with Digital Gold & Silver</h5>
-                    <p>Trusted • Transparent • Growing</p>
+                    <div className="sadg-chart-body">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={goldChart} margin={{ top: 12, right: 12, left: -20, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="sadgGoldGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#009957" stopOpacity={0.28} />
+                              <stop offset="100%" stopColor="#009957" stopOpacity={0.01} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#EEF2F1" vertical={false} />
+                          <XAxis dataKey="date" stroke="#8E9E9C" fontSize={10.5} tickLine={false} axisLine={{ stroke: '#E2EAE8' }} />
+                          <YAxis stroke="#8E9E9C" fontSize={10.5} tickLine={false} axisLine={false} />
+                          <Tooltip content={<CustomChartTooltip isSilver={false} />} />
+                          <Area
+                            type="monotone"
+                            dataKey="grams"
+                            name="Gold (g)"
+                            stroke="#009957"
+                            strokeWidth={2.4}
+                            fill="url(#sadgGoldGrad)"
+                            dot={{ r: 3.5, fill: '#009957', stroke: '#FFFFFF', strokeWidth: 1.5 }}
+                            activeDot={{ r: 6, fill: '#073B3F', stroke: '#FFFFFF', strokeWidth: 2 }}
+                            isAnimationActive={true}
+                            animationDuration={850}
+                            animationEasing="ease-out"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
-                  <img
-                    src="/digi-gold/autopay_banner_gold.jpg"
-                    alt="Wealth"
-                    className="sadg-rates-banner-thumb"
-                    onError={(e) => { e.target.style.display = 'none' }}
-                  />
-                </div>
-              </div>
-            </div>
 
-            {/* BOTTOM ROW (3-COLUMNS: RECENT TRANSACTIONS, USER BUY GOLD, ROLE SUMMARY) */}
-            <div className="sadg-bottom-row">
-              {/* Card 1: Recent Transactions */}
-              <div className="sadg-bottom-card">
-                <div className="sadg-chart-head">
-                  <div className="sadg-chart-title-box">
-                    <Clock size={16} color="#009957" />
-                    <h4 className="sadg-chart-title">Recent Transactions</h4>
+                  {/* Card 2: Silver Sales Overview (Smooth Spline AreaChart) */}
+                  <div className="sadg-chart-card">
+                    <div className="sadg-chart-head">
+                      <div className="sadg-chart-title-box">
+                        <div className="sadg-chart-badge silver">
+                          <Layers size={16} />
+                        </div>
+                        <h4 className="sadg-chart-title">Silver Sales Overview</h4>
+                      </div>
+                      <div className="sadg-chart-legend">
+                        <span className="sadg-legend-item">
+                          <span className="sadg-legend-line" style={{ background: '#0284C7' }} />
+                          Silver (g)
+                        </span>
+                        <span className="sadg-legend-item">
+                          <span className="sadg-legend-line" style={{ background: '#0A3E42' }} />
+                          Revenue (₹)
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="sadg-chart-body">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={silverChart} margin={{ top: 12, right: 12, left: -20, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="sadgSilverGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#0284C7" stopOpacity={0.28} />
+                              <stop offset="100%" stopColor="#0284C7" stopOpacity={0.01} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#EEF2F1" vertical={false} />
+                          <XAxis dataKey="date" stroke="#8E9E9C" fontSize={10.5} tickLine={false} axisLine={{ stroke: '#E2EAE8' }} />
+                          <YAxis stroke="#8E9E9C" fontSize={10.5} tickLine={false} axisLine={false} />
+                          <Tooltip content={<CustomChartTooltip isSilver={true} />} />
+                          <Area
+                            type="monotone"
+                            dataKey="grams"
+                            name="Silver (g)"
+                            stroke="#0284C7"
+                            strokeWidth={2.4}
+                            fill="url(#sadgSilverGrad)"
+                            dot={{ r: 3.5, fill: '#0284C7', stroke: '#FFFFFF', strokeWidth: 1.5 }}
+                            activeDot={{ r: 6, fill: '#0F172A', stroke: '#FFFFFF', strokeWidth: 2 }}
+                            isAnimationActive={true}
+                            animationDuration={850}
+                            animationEasing="ease-out"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    className="sadg-view-all-link"
-                    onClick={() => setActiveSection('transactions')}
-                  >
-                    <span>View All</span>
-                    <ArrowRight size={13} />
-                  </button>
-                </div>
 
-                <div className="sadg-table-wrap">
-                  {items.length > 0 ? (
-                    <table className="sadg-table">
+                  {/* Card 3: Gold & Silver Market Rates (22K Gold & 999 Silver Only) */}
+                  <div className="sadg-rates-card">
+                    <div className="sadg-chart-head">
+                      <div className="sadg-chart-title-box">
+                        <TrendingUp size={16} color="#C6924B" />
+                        <h4 className="sadg-chart-title">Gold & Silver Market Rates</h4>
+                      </div>
+                      <button
+                        type="button"
+                        className="sadg-view-all-link"
+                        onClick={() => setActiveSection('gold_rates')}
+                      >
+                        <span>View All</span>
+                        <ArrowRight size={13} />
+                      </button>
+                    </div>
+
+                    <table className="sadg-rates-table">
                       <thead>
                         <tr>
-                          <th>Date & Time</th>
-                          <th>Investor</th>
-                          <th>User Category</th>
                           <th>Metal</th>
-                          <th>Type</th>
-                          <th>Quantity</th>
-                          <th>Amount</th>
-                          <th>Status</th>
+                          <th>Price</th>
+                          <th>Daily Movement</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {items.slice(0, 5).map((row) => (
-                          <tr key={row.id}>
-                            <td>{row.date}</td>
-                            <td>
-                              <b>{row.investor_name}</b>
-                            </td>
-                            <td>
-                              <span style={{ fontSize: 11, background: '#E9F7F0', color: '#0A3E42', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>
-                                {row.user_category}
-                              </span>
-                            </td>
-                            <td>{row.metal_label}</td>
-                            <td style={{ textTransform: 'capitalize' }}>{row.transaction_type}</td>
-                            <td><b>{row.quantity_label}</b></td>
-                            <td>₹ {row.amount?.toLocaleString('en-IN')}</td>
-                            <td>
-                              <span className={`sadg-status-badge ${row.status}`}>
-                                {row.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        <tr>
+                          <td>
+                            <div className="sadg-rate-metal-row">
+                              <Coins size={14} color="#C6924B" />
+                              <span>Gold 22K</span>
+                            </div>
+                          </td>
+                          <td>
+                            <b>₹ <AnimatedNumber value={rates.gold_22k || 13200} /></b> / g
+                          </td>
+                          <td>
+                            <span style={{ color: rates.diff_22k >= 0 ? '#009957' : '#DC5353', fontWeight: 700 }}>
+                              {rates.diff_22k >= 0 ? '+' : ''}{rates.diff_22k || 0} ({rates.pct_22k || 0}%)
+                            </span>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td>
+                            <div className="sadg-rate-metal-row">
+                              <Layers size={14} color="#64748B" />
+                              <span>Silver 999</span>
+                            </div>
+                          </td>
+                          <td>
+                            <b>₹ <AnimatedNumber value={rates.silver_999 || 225} decimals={2} /></b> / g
+                          </td>
+                          <td>
+                            <span style={{ color: rates.diff_silver >= 0 ? '#009957' : '#DC5353', fontWeight: 700 }}>
+                              {rates.diff_silver >= 0 ? '+' : ''}{rates.diff_silver || 0} ({rates.pct_silver || 0}%)
+                            </span>
+                          </td>
+                        </tr>
                       </tbody>
                     </table>
-                  ) : (
-                    <div style={{ textAlign: 'center', padding: '40px 10px', color: '#8E9E9C' }}>
-                      <ReceiptText size={32} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.5 }} />
-                      <b>No transactions found</b>
-                      <div style={{ fontSize: 11 }}>for this date range</div>
-                    </div>
-                  )}
-                </div>
-              </div>
 
-              {/* Card 2: User Buy Gold & Silver */}
-              <div className="sadg-bottom-card">
-                <div className="sadg-chart-head">
-                  <div className="sadg-chart-title-box">
-                    <Users size={16} color="#0A3E42" />
-                    <h4 className="sadg-chart-title">User Buy Gold & Silver</h4>
-                  </div>
-                  <button
-                    type="button"
-                    className="sadg-view-all-link"
-                    onClick={() => setActiveSection('user_buy')}
-                  >
-                    <span>View All</span>
-                    <ArrowRight size={13} />
-                  </button>
-                </div>
-
-                <div className="sadg-cat-select-row">
-                  <select
-                    className="sadg-cat-dropdown"
-                    value={selectedUserCategory}
-                    onChange={(e) => setSelectedUserCategory(e.target.value)}
-                  >
-                    <option value="all">All User Categories</option>
-                    <option value="super_stockist">Super Stockist</option>
-                    <option value="distributor">Distributor</option>
-                    <option value="wholesale_dealer">Wholesale Dealer</option>
-                    <option value="retailer">Retailer</option>
-                    <option value="customer">Customer</option>
-                    <option value="general_customer">General Customer</option>
-                  </select>
-                </div>
-
-                {selectedUserCategory !== 'all' && categorySummaries[selectedUserCategory] ? (
-                  <div style={{ background: '#F8FAF9', borderRadius: 12, padding: 14, border: '1px solid #E2ECE7' }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: '#0A3E42', marginBottom: 8 }}>
-                      {categorySummaries[selectedUserCategory].name} Overview
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 11.5 }}>
-                      <div>Total Investors: <b>{categorySummaries[selectedUserCategory].user_count}</b></div>
-                      <div>Completed Buys: <b>{categorySummaries[selectedUserCategory].completed_purchases}</b></div>
-                      <div>Gold Purchased: <b>{categorySummaries[selectedUserCategory].gold_gm} g</b></div>
-                      <div>Silver Purchased: <b>{categorySummaries[selectedUserCategory].silver_gm} g</b></div>
-                    </div>
-                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #E2ECE7', fontSize: 12, fontWeight: 800, color: '#009957' }}>
-                      Total Volume: ₹ {categorySummaries[selectedUserCategory].total_purchase_inr?.toLocaleString('en-IN')}
+                    {/* Luxury illustration banner with transparent coin */}
+                    <div className="sadg-rates-banner-mini">
+                      <div>
+                        <h5 style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 800, color: '#FDE68A' }}>
+                          Secure Your Wealth with Digital Bullion
+                        </h5>
+                        <p style={{ margin: 0, fontSize: 11, color: '#D1E3DF' }}>
+                          22K Gold • Pure 999 Silver • 100% Insured
+                        </p>
+                      </div>
+                      <img
+                        src={goldCoinImg}
+                        alt="Wealth"
+                        className="sadg-rates-banner-coin"
+                      />
                     </div>
                   </div>
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '36px 10px', color: '#8E9E9C' }}>
-                    <Users size={30} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.4 }} />
-                    <span>Select a user category</span>
-                    <div style={{ fontSize: 11 }}>to view gold and silver purchases</div>
-                  </div>
-                )}
-              </div>
-
-              {/* Card 3: Role-wise Summary */}
-              <div className="sadg-bottom-card">
-                <div className="sadg-chart-head">
-                  <div className="sadg-chart-title-box">
-                    <ShieldCheck size={16} color="#C6924B" />
-                    <h4 className="sadg-chart-title">Role-wise Summary</h4>
-                  </div>
-                  <button
-                    type="button"
-                    className="sadg-view-all-link"
-                    onClick={() => setActiveSection('user_buy')}
-                  >
-                    <span>View All</span>
-                    <ArrowRight size={13} />
-                  </button>
                 </div>
 
-                <div className="sadg-role-grid">
-                  <div className="sadg-role-card">
-                    <span className="sadg-role-card-name">Super Stockist</span>
-                    <span className="sadg-role-card-val">
-                      {categorySummaries.super_stockist?.gold_gm > 0 ? `${categorySummaries.super_stockist.gold_gm} g` : '—'}
-                    </span>
-                    <span className="sadg-role-card-sub">
-                      {categorySummaries.super_stockist?.user_count || 0} active users
-                    </span>
+                {/* BOTTOM ROW (3-COLUMNS: RECENT TRANSACTIONS, USER BUY GOLD, ROLE SUMMARY) */}
+                <div className="sadg-bottom-row">
+                  {/* Card 1: Recent Transactions */}
+                  <div className="sadg-bottom-card">
+                    <div className="sadg-chart-head">
+                      <div className="sadg-chart-title-box">
+                        <Clock size={16} color="#009957" />
+                        <h4 className="sadg-chart-title">Recent Transactions</h4>
+                      </div>
+                      <button
+                        type="button"
+                        className="sadg-view-all-link"
+                        onClick={() => setActiveSection('transactions')}
+                      >
+                        <span>View All</span>
+                        <ArrowRight size={13} />
+                      </button>
+                    </div>
+
+                    <div className="sadg-table-wrap">
+                      {items.length > 0 ? (
+                        <table className="sadg-table">
+                          <thead>
+                            <tr>
+                              <th>Date & Time</th>
+                              <th>Investor</th>
+                              <th>User Category</th>
+                              <th>Metal</th>
+                              <th>Type</th>
+                              <th>Quantity</th>
+                              <th>Amount</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {items.slice(0, 5).map((row) => (
+                              <tr key={row.id}>
+                                <td>{row.date}</td>
+                                <td>
+                                  <b>{row.investor_name}</b>
+                                </td>
+                                <td>
+                                  <span style={{ fontSize: 11, background: '#E9F7F0', color: '#0A3E42', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>
+                                    {row.user_category}
+                                  </span>
+                                </td>
+                                <td>{row.metal_label}</td>
+                                <td style={{ textTransform: 'capitalize' }}>{row.transaction_type}</td>
+                                <td><b>{row.quantity_label}</b></td>
+                                <td>₹ {row.amount?.toLocaleString('en-IN')}</td>
+                                <td>
+                                  <span className={`sadg-status-badge ${row.status}`}>
+                                    {row.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '40px 10px', color: '#8E9E9C' }}>
+                          <ReceiptText size={32} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.5 }} />
+                          <b>No transactions found</b>
+                          <div style={{ fontSize: 11 }}>for this date range</div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="sadg-role-card">
-                    <span className="sadg-role-card-name">Distributor</span>
-                    <span className="sadg-role-card-val">
-                      {categorySummaries.distributor?.gold_gm > 0 ? `${categorySummaries.distributor.gold_gm} g` : '—'}
-                    </span>
-                    <span className="sadg-role-card-sub">
-                      {categorySummaries.distributor?.user_count || 0} active users
-                    </span>
+                  {/* Card 2: User Buy Gold & Silver */}
+                  <div className="sadg-bottom-card">
+                    <div className="sadg-chart-head">
+                      <div className="sadg-chart-title-box">
+                        <Users size={16} color="#0A3E42" />
+                        <h4 className="sadg-chart-title">User Buy Gold & Silver</h4>
+                      </div>
+                      <button
+                        type="button"
+                        className="sadg-view-all-link"
+                        onClick={() => setActiveSection('user_buy')}
+                      >
+                        <span>View All</span>
+                        <ArrowRight size={13} />
+                      </button>
+                    </div>
+
+                    <div className="sadg-cat-select-row">
+                      <select
+                        className="sadg-cat-dropdown"
+                        value={selectedUserCategory}
+                        onChange={(e) => setSelectedUserCategory(e.target.value)}
+                      >
+                        <option value="all">All User Categories</option>
+                        <option value="super_stockist">Super Stockist</option>
+                        <option value="distributor">Distributor</option>
+                        <option value="wholesale_dealer">Wholesale Dealer</option>
+                        <option value="retailer">Retailer</option>
+                        <option value="customer">Customer</option>
+                        <option value="general_customer">General Customer</option>
+                      </select>
+                    </div>
+
+                    {selectedUserCategory !== 'all' && categorySummaries[selectedUserCategory] ? (
+                      <div style={{ background: '#F8FAF9', borderRadius: 12, padding: 14, border: '1px solid #E2ECE7' }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: '#0A3E42', marginBottom: 8 }}>
+                          {categorySummaries[selectedUserCategory].name} Overview
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 11.5 }}>
+                          <div>Total Investors: <b><AnimatedNumber value={categorySummaries[selectedUserCategory].user_count || 0} /></b></div>
+                          <div>Completed Buys: <b><AnimatedNumber value={categorySummaries[selectedUserCategory].completed_purchases || 0} /></b></div>
+                          <div>Gold Purchased: <b><AnimatedNumber value={categorySummaries[selectedUserCategory].gold_gm || 0} decimals={3} suffix=" g" /></b></div>
+                          <div>Silver Purchased: <b><AnimatedNumber value={categorySummaries[selectedUserCategory].silver_gm || 0} decimals={3} suffix=" g" /></b></div>
+                        </div>
+                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #E2ECE7', fontSize: 12, fontWeight: 800, color: '#009957' }}>
+                          Total Volume: <AnimatedNumber value={categorySummaries[selectedUserCategory].total_purchase_inr || 0} prefix="₹ " />
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '36px 10px', color: '#8E9E9C' }}>
+                        <Users size={30} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.4 }} />
+                        <span>Select a user category</span>
+                        <div style={{ fontSize: 11 }}>to view gold and silver purchases</div>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="sadg-role-card">
-                    <span className="sadg-role-card-name">Retailer</span>
-                    <span className="sadg-role-card-val">
-                      {categorySummaries.retailer?.gold_gm > 0 ? `${categorySummaries.retailer.gold_gm} g` : '—'}
-                    </span>
-                    <span className="sadg-role-card-sub">
-                      {categorySummaries.retailer?.user_count || 0} active users
-                    </span>
-                  </div>
+                  {/* Card 3: Role-wise Summary (Smooth Numbers, Never Dash) */}
+                  <div className="sadg-bottom-card">
+                    <div className="sadg-chart-head">
+                      <div className="sadg-chart-title-box">
+                        <ShieldCheck size={16} color="#C6924B" />
+                        <h4 className="sadg-chart-title">Role-wise Summary</h4>
+                      </div>
+                      <button
+                        type="button"
+                        className="sadg-view-all-link"
+                        onClick={() => setActiveSection('user_buy')}
+                      >
+                        <span>View All</span>
+                        <ArrowRight size={13} />
+                      </button>
+                    </div>
 
-                  <div className="sadg-role-card">
-                    <span className="sadg-role-card-name">Customer</span>
-                    <span className="sadg-role-card-val">
-                      {categorySummaries.customer?.gold_gm > 0 ? `${categorySummaries.customer.gold_gm} g` : '—'}
-                    </span>
-                    <span className="sadg-role-card-sub">
-                      {categorySummaries.customer?.user_count || 0} active users
-                    </span>
+                    <div className="sadg-role-grid">
+                      <div className="sadg-role-card">
+                        <span className="sadg-role-card-name">Super Stockist</span>
+                        <span className="sadg-role-card-val">
+                          <AnimatedNumber value={categorySummaries.super_stockist?.gold_gm || 0} decimals={3} suffix=" g" />
+                        </span>
+                        <span className="sadg-role-card-sub">
+                          <AnimatedNumber value={categorySummaries.super_stockist?.user_count || 0} /> active users
+                        </span>
+                      </div>
+
+                      <div className="sadg-role-card">
+                        <span className="sadg-role-card-name">Distributor</span>
+                        <span className="sadg-role-card-val">
+                          <AnimatedNumber value={categorySummaries.distributor?.gold_gm || 0} decimals={3} suffix=" g" />
+                        </span>
+                        <span className="sadg-role-card-sub">
+                          <AnimatedNumber value={categorySummaries.distributor?.user_count || 0} /> active users
+                        </span>
+                      </div>
+
+                      <div className="sadg-role-card">
+                        <span className="sadg-role-card-name">Retailer</span>
+                        <span className="sadg-role-card-val">
+                          <AnimatedNumber value={categorySummaries.retailer?.gold_gm || 0} decimals={3} suffix=" g" />
+                        </span>
+                        <span className="sadg-role-card-sub">
+                          <AnimatedNumber value={categorySummaries.retailer?.user_count || 0} /> active users
+                        </span>
+                      </div>
+
+                      <div className="sadg-role-card">
+                        <span className="sadg-role-card-name">Customer</span>
+                        <span className="sadg-role-card-val">
+                          <AnimatedNumber value={categorySummaries.customer?.gold_gm || 0} decimals={3} suffix=" g" />
+                        </span>
+                        <span className="sadg-role-card-sub">
+                          <AnimatedNumber value={categorySummaries.customer?.user_count || 0} /> active users
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </>
+            )}
           </>
         )}
 
@@ -1072,7 +1164,7 @@ export default function SuperAdminDigiGold() {
            ══════════════════════════════════════════════════════════════ */}
         {activeSection === 'gold_mgmt' && (
           <div className="sadg-full-section">
-            {/* 6 Gold Specific KPI Cards */}
+            {/* 6 Gold Specific KPI Cards (AnimatedNumbers, Never Dash) */}
             <div className="sadg-kpi-grid">
               <div className="sadg-kpi-card">
                 <div className="sadg-kpi-icon-box gold">
@@ -1080,7 +1172,7 @@ export default function SuperAdminDigiGold() {
                 </div>
                 <span className="sadg-kpi-label">Total Gold Sales Value</span>
                 <b className="sadg-kpi-value">
-                  {kpis.total_gold_sales_inr > 0 ? `₹ ${Number(kpis.total_gold_sales_inr).toLocaleString('en-IN')}` : '—'}
+                  <AnimatedNumber value={kpis.total_gold_sales_inr || 0} prefix="₹ " />
                 </b>
                 <span className="sadg-kpi-sub">Total INR inflow</span>
               </div>
@@ -1091,7 +1183,7 @@ export default function SuperAdminDigiGold() {
                 </div>
                 <span className="sadg-kpi-label">Total Gold Sold</span>
                 <b className="sadg-kpi-value">
-                  {kpis.total_gold_sold_gm > 0 ? `${Number(kpis.total_gold_sold_gm).toFixed(3)} g` : '—'}
+                  <AnimatedNumber value={kpis.total_gold_sold_gm || 0} decimals={3} suffix=" g" />
                 </b>
                 <span className="sadg-kpi-sub">Net gold weight</span>
               </div>
@@ -1101,7 +1193,7 @@ export default function SuperAdminDigiGold() {
                   <ArrowUpRight size={18} />
                 </div>
                 <span className="sadg-kpi-label">Gold Buy Transactions</span>
-                <b className="sadg-kpi-value">{kpis.gold_buy_txns || 0}</b>
+                <b className="sadg-kpi-value"><AnimatedNumber value={kpis.gold_buy_txns || 0} /></b>
                 <span className="sadg-kpi-sub">Purchase count</span>
               </div>
 
@@ -1110,7 +1202,7 @@ export default function SuperAdminDigiGold() {
                   <ReceiptText size={18} />
                 </div>
                 <span className="sadg-kpi-label">Gold Sell Transactions</span>
-                <b className="sadg-kpi-value">{kpis.gold_sell_txns || 0}</b>
+                <b className="sadg-kpi-value"><AnimatedNumber value={kpis.gold_sell_txns || 0} /></b>
                 <span className="sadg-kpi-sub">Liquidations</span>
               </div>
 
@@ -1120,9 +1212,9 @@ export default function SuperAdminDigiGold() {
                 </div>
                 <span className="sadg-kpi-label">Average Selling Rate</span>
                 <b className="sadg-kpi-value">
-                  {kpis.avg_gold_rate > 0 ? `₹ ${Number(kpis.avg_gold_rate).toLocaleString('en-IN')}` : '—'}
+                  <AnimatedNumber value={kpis.avg_gold_rate || rates.gold_22k || 13200} prefix="₹ " suffix=" / g" />
                 </b>
-                <span className="sadg-kpi-sub">₹ per gram</span>
+                <span className="sadg-kpi-sub">Benchmark pricing</span>
               </div>
 
               <div className="sadg-kpi-card">
@@ -1130,12 +1222,12 @@ export default function SuperAdminDigiGold() {
                   <ArrowLeftRight size={18} />
                 </div>
                 <span className="sadg-kpi-label">Total Gold Transactions</span>
-                <b className="sadg-kpi-value">{kpis.total_gold_txns || 0}</b>
+                <b className="sadg-kpi-value"><AnimatedNumber value={kpis.total_gold_txns || 0} /></b>
                 <span className="sadg-kpi-sub">All gold operations</span>
               </div>
             </div>
 
-            {/* Gold Sales Chart */}
+            {/* Gold Sales Chart (Smooth Spline AreaChart) */}
             <div className="sadg-chart-card" style={{ height: 260 }}>
               <div className="sadg-chart-head">
                 <div className="sadg-chart-title-box">
@@ -1144,7 +1236,7 @@ export default function SuperAdminDigiGold() {
                 </div>
                 <div className="sadg-chart-legend">
                   <span className="sadg-legend-item">
-                    <span className="sadg-legend-square" style={{ background: '#009957' }} />
+                    <span className="sadg-legend-line" style={{ background: '#009957' }} />
                     Quantity Sold (g)
                   </span>
                   <span className="sadg-legend-item">
@@ -1154,24 +1246,32 @@ export default function SuperAdminDigiGold() {
                 </div>
               </div>
               <div className="sadg-chart-body" style={{ height: 200 }}>
-                {goldChart.length > 0 && goldChart.some(d => d.grams > 0 || d.revenue > 0) ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={goldChart} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2ECE7" />
-                      <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#6A7D7C' }} />
-                      <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#6A7D7C' }} />
-                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#6A7D7C' }} hide />
-                      <Tooltip contentStyle={{ background: '#0A3E42', color: '#FFF', borderRadius: 8 }} />
-                      <Bar yAxisId="left" dataKey="grams" fill="#009957" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                      <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#0A3E42" strokeWidth={2.4} dot={{ r: 4 }} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="sadg-chart-empty">
-                    <Coins size={32} color="#C6924B" />
-                    <span>No gold transactions recorded for this period</span>
-                  </div>
-                )}
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={goldChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="goldMgmtAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#009957" stopOpacity={0.28} />
+                        <stop offset="100%" stopColor="#009957" stopOpacity={0.01} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EEF2F1" />
+                    <XAxis dataKey="date" stroke="#8E9E9C" fontSize={11} tickLine={false} axisLine={{ stroke: '#E2EAE8' }} />
+                    <YAxis stroke="#8E9E9C" fontSize={11} tickLine={false} axisLine={false} />
+                    <Tooltip content={<CustomChartTooltip isSilver={false} />} />
+                    <Area
+                      type="monotone"
+                      dataKey="grams"
+                      name="Gold (g)"
+                      stroke="#009957"
+                      strokeWidth={2.4}
+                      fill="url(#goldMgmtAreaGrad)"
+                      dot={{ r: 3.5, fill: '#009957', stroke: '#FFFFFF', strokeWidth: 1.5 }}
+                      activeDot={{ r: 6, fill: '#073B3F', stroke: '#FFFFFF', strokeWidth: 2 }}
+                      isAnimationActive={true}
+                      animationDuration={850}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </div>
 
@@ -1231,7 +1331,7 @@ export default function SuperAdminDigiGold() {
            ══════════════════════════════════════════════════════════════ */}
         {activeSection === 'silver_mgmt' && (
           <div className="sadg-full-section">
-            {/* 6 Silver Specific KPI Cards */}
+            {/* 6 Silver Specific KPI Cards (AnimatedNumbers, Never Dash) */}
             <div className="sadg-kpi-grid">
               <div className="sadg-kpi-card">
                 <div className="sadg-kpi-icon-box silver">
@@ -1239,7 +1339,7 @@ export default function SuperAdminDigiGold() {
                 </div>
                 <span className="sadg-kpi-label">Total Silver Sales Value</span>
                 <b className="sadg-kpi-value">
-                  {kpis.total_silver_sales_inr > 0 ? `₹ ${Number(kpis.total_silver_sales_inr).toLocaleString('en-IN')}` : '—'}
+                  <AnimatedNumber value={kpis.total_silver_sales_inr || 0} prefix="₹ " />
                 </b>
                 <span className="sadg-kpi-sub">Total INR inflow</span>
               </div>
@@ -1250,7 +1350,7 @@ export default function SuperAdminDigiGold() {
                 </div>
                 <span className="sadg-kpi-label">Total Silver Sold</span>
                 <b className="sadg-kpi-value">
-                  {kpis.total_silver_sold_gm > 0 ? `${Number(kpis.total_silver_sold_gm).toFixed(3)} g` : '—'}
+                  <AnimatedNumber value={kpis.total_silver_sold_gm || 0} decimals={3} suffix=" g" />
                 </b>
                 <span className="sadg-kpi-sub">
                   {kpis.total_silver_sold_gm > 0 ? `${(kpis.total_silver_sold_gm / 1000).toFixed(4)} kg` : 'Net silver weight'}
@@ -1262,7 +1362,7 @@ export default function SuperAdminDigiGold() {
                   <ArrowUpRight size={18} />
                 </div>
                 <span className="sadg-kpi-label">Silver Buy Transactions</span>
-                <b className="sadg-kpi-value">{kpis.silver_buy_txns || 0}</b>
+                <b className="sadg-kpi-value"><AnimatedNumber value={kpis.silver_buy_txns || 0} /></b>
                 <span className="sadg-kpi-sub">Purchase count</span>
               </div>
 
@@ -1271,7 +1371,7 @@ export default function SuperAdminDigiGold() {
                   <ReceiptText size={18} />
                 </div>
                 <span className="sadg-kpi-label">Silver Sell Transactions</span>
-                <b className="sadg-kpi-value">{kpis.silver_sell_txns || 0}</b>
+                <b className="sadg-kpi-value"><AnimatedNumber value={kpis.silver_sell_txns || 0} /></b>
                 <span className="sadg-kpi-sub">Liquidations</span>
               </div>
 
@@ -1281,9 +1381,9 @@ export default function SuperAdminDigiGold() {
                 </div>
                 <span className="sadg-kpi-label">Average Selling Rate</span>
                 <b className="sadg-kpi-value">
-                  {kpis.avg_silver_rate > 0 ? `₹ ${Number(kpis.avg_silver_rate).toFixed(2)}` : '—'}
+                  <AnimatedNumber value={kpis.avg_silver_rate || rates.silver_999 || 225} prefix="₹ " decimals={2} suffix=" / g" />
                 </b>
-                <span className="sadg-kpi-sub">₹ per gram</span>
+                <span className="sadg-kpi-sub">Benchmark pricing</span>
               </div>
 
               <div className="sadg-kpi-card">
@@ -1291,12 +1391,12 @@ export default function SuperAdminDigiGold() {
                   <ArrowLeftRight size={18} />
                 </div>
                 <span className="sadg-kpi-label">Total Silver Transactions</span>
-                <b className="sadg-kpi-value">{kpis.total_silver_txns || 0}</b>
+                <b className="sadg-kpi-value"><AnimatedNumber value={kpis.total_silver_txns || 0} /></b>
                 <span className="sadg-kpi-sub">All silver operations</span>
               </div>
             </div>
 
-            {/* Silver Sales Chart */}
+            {/* Silver Sales Chart (Smooth Spline AreaChart) */}
             <div className="sadg-chart-card" style={{ height: 260 }}>
               <div className="sadg-chart-head">
                 <div className="sadg-chart-title-box">
@@ -1305,7 +1405,7 @@ export default function SuperAdminDigiGold() {
                 </div>
                 <div className="sadg-chart-legend">
                   <span className="sadg-legend-item">
-                    <span className="sadg-legend-square" style={{ background: '#64748B' }} />
+                    <span className="sadg-legend-line" style={{ background: '#0284C7' }} />
                     Quantity Sold (g)
                   </span>
                   <span className="sadg-legend-item">
@@ -1315,24 +1415,32 @@ export default function SuperAdminDigiGold() {
                 </div>
               </div>
               <div className="sadg-chart-body" style={{ height: 200 }}>
-                {silverChart.length > 0 && silverChart.some(d => d.grams > 0 || d.revenue > 0) ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={silverChart} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2ECE7" />
-                      <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#6A7D7C' }} />
-                      <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#6A7D7C' }} />
-                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#6A7D7C' }} hide />
-                      <Tooltip contentStyle={{ background: '#0A3E42', color: '#FFF', borderRadius: 8 }} />
-                      <Bar yAxisId="left" dataKey="grams" fill="#64748B" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                      <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#0A3E42" strokeWidth={2.4} dot={{ r: 4 }} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="sadg-chart-empty">
-                    <Layers size={32} color="#64748B" />
-                    <span>No silver transactions recorded for this period</span>
-                  </div>
-                )}
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={silverChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="silverMgmtAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#0284C7" stopOpacity={0.28} />
+                        <stop offset="100%" stopColor="#0284C7" stopOpacity={0.01} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EEF2F1" />
+                    <XAxis dataKey="date" stroke="#8E9E9C" fontSize={11} tickLine={false} axisLine={{ stroke: '#E2EAE8' }} />
+                    <YAxis stroke="#8E9E9C" fontSize={11} tickLine={false} axisLine={false} />
+                    <Tooltip content={<CustomChartTooltip isSilver={true} />} />
+                    <Area
+                      type="monotone"
+                      dataKey="grams"
+                      name="Silver (g)"
+                      stroke="#0284C7"
+                      strokeWidth={2.4}
+                      fill="url(#silverMgmtAreaGrad)"
+                      dot={{ r: 3.5, fill: '#0284C7', stroke: '#FFFFFF', strokeWidth: 1.5 }}
+                      activeDot={{ r: 6, fill: '#0F172A', stroke: '#FFFFFF', strokeWidth: 2 }}
+                      isAnimationActive={true}
+                      animationDuration={850}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </div>
 
@@ -1432,27 +1540,27 @@ export default function SuperAdminDigiGold() {
               <div className="sadg-kpi-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
                 <div className="sadg-kpi-card">
                   <span className="sadg-kpi-label">Total Matching Users</span>
-                  <b className="sadg-kpi-value">{categorySummaries[selectedUserCategory].user_count}</b>
+                  <b className="sadg-kpi-value"><AnimatedNumber value={categorySummaries[selectedUserCategory].user_count || 0} /></b>
                   <span className="sadg-kpi-sub">Registered in tier</span>
                 </div>
                 <div className="sadg-kpi-card">
                   <span className="sadg-kpi-label">Total Gold Purchased</span>
-                  <b className="sadg-kpi-value">{categorySummaries[selectedUserCategory].gold_gm} g</b>
+                  <b className="sadg-kpi-value"><AnimatedNumber value={categorySummaries[selectedUserCategory].gold_gm || 0} decimals={3} suffix=" g" /></b>
                   <span className="sadg-kpi-sub">Cumulative gold weight</span>
                 </div>
                 <div className="sadg-kpi-card">
                   <span className="sadg-kpi-label">Total Silver Purchased</span>
-                  <b className="sadg-kpi-value">{categorySummaries[selectedUserCategory].silver_gm} g</b>
+                  <b className="sadg-kpi-value"><AnimatedNumber value={categorySummaries[selectedUserCategory].silver_gm || 0} decimals={3} suffix=" g" /></b>
                   <span className="sadg-kpi-sub">Cumulative silver weight</span>
                 </div>
                 <div className="sadg-kpi-card">
                   <span className="sadg-kpi-label">Total Purchase Value</span>
-                  <b className="sadg-kpi-value">₹ {categorySummaries[selectedUserCategory].total_purchase_inr?.toLocaleString('en-IN')}</b>
+                  <b className="sadg-kpi-value"><AnimatedNumber value={categorySummaries[selectedUserCategory].total_purchase_inr || 0} prefix="₹ " /></b>
                   <span className="sadg-kpi-sub">Total capital invested</span>
                 </div>
                 <div className="sadg-kpi-card">
                   <span className="sadg-kpi-label">Completed Purchases</span>
-                  <b className="sadg-kpi-value">{categorySummaries[selectedUserCategory].completed_purchases}</b>
+                  <b className="sadg-kpi-value"><AnimatedNumber value={categorySummaries[selectedUserCategory].completed_purchases || 0} /></b>
                   <span className="sadg-kpi-sub">Verified buy orders</span>
                 </div>
               </div>
@@ -1524,7 +1632,7 @@ export default function SuperAdminDigiGold() {
            ══════════════════════════════════════════════════════════════ */}
         {activeSection === 'gold_rates' && (
           <div className="sadg-full-section">
-            {/* Live Gold Rates Cards */}
+            {/* Live Benchmark Rates Cards (22K Gold & Pure 999 Silver Only) */}
             <div className="sadg-rates-display-grid">
               <div className="sadg-rate-banner-box">
                 <div>
@@ -1532,32 +1640,32 @@ export default function SuperAdminDigiGold() {
                     Gold 22K (Athirai 916 Benchmark)
                   </span>
                   <div className="sadg-rate-banner-price">
-                    ₹ {Number(rates.gold_22k || 14250).toLocaleString('en-IN')} <small style={{ fontSize: 14 }}>/ g</small>
+                    ₹ <AnimatedNumber value={rates.gold_22k || 13200} /> <small style={{ fontSize: 14 }}>/ g</small>
                   </div>
                   <div style={{ fontSize: 12, opacity: 0.9 }}>
-                    Per mg: ₹ {Number(rates.gold_22k_mg || 14.25).toFixed(2)} | Movement: {rates.diff_22k >= 0 ? '+' : ''}{rates.diff_22k || 0} ({rates.pct_22k || 0}%)
+                    Per mg: ₹ {((rates.gold_22k || 13200) / 1000).toFixed(2)} | Movement: {rates.diff_22k >= 0 ? '+' : ''}{rates.diff_22k || 0} ({rates.pct_22k || 0}%)
                   </div>
                 </div>
                 <Coins size={38} color="#FDE68A" />
               </div>
 
-              <div className="sadg-rate-banner-box" style={{ background: 'linear-gradient(135deg, #78350F 0%, #B45309 100%)' }}>
+              <div className="sadg-rate-banner-box silver">
                 <div>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: '#FEF08A', textTransform: 'uppercase' }}>
-                    Gold 24K (Pure 999 Bullion)
+                  <span style={{ fontSize: 12, fontWeight: 800, color: '#E2E8F0', textTransform: 'uppercase' }}>
+                    Digi Silver (Pure 999 Benchmark)
                   </span>
                   <div className="sadg-rate-banner-price">
-                    ₹ {Number(rates.gold_24k || 15545).toLocaleString('en-IN')} <small style={{ fontSize: 14 }}>/ g</small>
+                    ₹ <AnimatedNumber value={rates.silver_999 || 225} decimals={2} /> <small style={{ fontSize: 14 }}>/ g</small>
                   </div>
                   <div style={{ fontSize: 12, opacity: 0.9 }}>
-                    Per mg: ₹ {((rates.gold_24k || 15545) / 1000).toFixed(2)} | Benchmark Standard
+                    Per Kilogram: ₹ {((rates.silver_999 || 225) * 1000).toLocaleString('en-IN')} | Movement: {rates.diff_silver >= 0 ? '+' : ''}{rates.diff_silver || 0} ({rates.pct_silver || 0}%)
                   </div>
                 </div>
-                <Sparkles size={38} color="#FEF08A" />
+                <Layers size={38} color="#E2E8F0" />
               </div>
             </div>
 
-            {/* Super Admin Rate Update Form */}
+            {/* Super Admin Rate Update Form (22K Gold & Pure 999 Silver Only) */}
             <div style={{ background: '#FFFFFF', border: '1px solid #E2ECE7', borderRadius: 16, padding: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                 <ShieldCheck size={20} color="#009957" />
@@ -1585,24 +1693,9 @@ export default function SuperAdminDigiGold() {
                     type="number"
                     step="0.01"
                     className="sadg-select-pill"
-                    style={{ width: 150 }}
+                    style={{ width: 160 }}
                     value={rateForm.gold_22k}
                     onChange={(e) => setRateForm({ ...rateForm, gold_22k: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: '#6A7D7C', marginBottom: 4 }}>
-                    Gold 24K (₹/g):
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="sadg-select-pill"
-                    style={{ width: 150 }}
-                    value={rateForm.gold_24k}
-                    onChange={(e) => setRateForm({ ...rateForm, gold_24k: e.target.value })}
                     required
                   />
                 </div>
@@ -1615,7 +1708,7 @@ export default function SuperAdminDigiGold() {
                     type="number"
                     step="0.01"
                     className="sadg-select-pill"
-                    style={{ width: 150 }}
+                    style={{ width: 160 }}
                     value={rateForm.silver_999}
                     onChange={(e) => setRateForm({ ...rateForm, silver_999: e.target.value })}
                     required
@@ -1646,7 +1739,6 @@ export default function SuperAdminDigiGold() {
                       <th>Date</th>
                       <th>Gold 22K (₹/g)</th>
                       <th>Gold 22K (₹/mg)</th>
-                      <th>Gold 24K (₹/g)</th>
                       <th>Silver 999 (₹/g)</th>
                       <th>Source Status</th>
                     </tr>
@@ -1654,7 +1746,7 @@ export default function SuperAdminDigiGold() {
                   <tbody>
                     {rateHistory.length === 0 ? (
                       <tr>
-                        <td colSpan={6} style={{ textAlign: 'center', padding: 30, color: '#6A7D7C' }}>
+                        <td colSpan={5} style={{ textAlign: 'center', padding: 30, color: '#6A7D7C' }}>
                           No historical rate logs recorded yet.
                         </td>
                       </tr>
@@ -1664,7 +1756,6 @@ export default function SuperAdminDigiGold() {
                           <td><b>{r.date}</b></td>
                           <td>₹ {Number(r.gold_22k).toLocaleString('en-IN')}</td>
                           <td>₹ {(Number(r.gold_22k) / 1000).toFixed(2)}</td>
-                          <td>₹ {Number(r.gold_24k).toLocaleString('en-IN')}</td>
                           <td>₹ {Number(r.silver_999).toFixed(2)}</td>
                           <td>
                             <span className="sadg-status-badge completed">Verified Athirai Rate</span>

@@ -12927,14 +12927,11 @@ class DigiGoldSuperAdminView(APIView):
                 start_dt = None
 
         # ── 2. LIVE RATES ──
+        # ── 2. LIVE RATES (22K Gold & Silver 999 Only) ──
         rates = _get_live_gold_rates()
         live_gold_22k = float(rates.get('gold_22k', 14250.0))
         live_gold_22k_mg = float(rates.get('gold_22k_mg', live_gold_22k / 1000.0))
         live_silver_999 = float(rates.get('silver_999', 275.0))
-        
-        latest_metal_rate = MetalRate.objects.order_by('-date').first()
-        live_gold_24k = float(latest_metal_rate.gold_24k) if (latest_metal_rate and latest_metal_rate.gold_24k) else round(live_gold_22k * (24.0 / 22.0), 2)
-        rates['gold_24k'] = live_gold_24k
 
         # ── 3. QUERYSETS ──
         inv_qs = DigiGoldInvestment.objects.select_related('user').all()
@@ -13000,9 +12997,9 @@ class DigiGoldSuperAdminView(APIView):
             return True
 
         # ── 4. AGGREGATIONS FOR METRICS ──
-        # Gold from DigiGoldInvestment (completed)
-        completed_gold_buys = inv_qs.filter(status='completed', transaction_type__in=['buy', 'convert'])
-        completed_gold_sells = inv_qs.filter(status='completed', transaction_type='sell')
+        # Gold from DigiGoldInvestment (completed, excluding Silver notes)
+        completed_gold_buys = inv_qs.filter(status='completed', transaction_type__in=['buy', 'convert']).exclude(notes__icontains='silver')
+        completed_gold_sells = inv_qs.filter(status='completed', transaction_type='sell').exclude(notes__icontains='silver')
 
         gold_inflow_inr = completed_gold_buys.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0')
         gold_bought_mg = completed_gold_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')
@@ -13011,8 +13008,8 @@ class DigiGoldSuperAdminView(APIView):
         gold_sold_mg = completed_gold_sells.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')
         gold_sold_gm = round(float(gold_sold_mg) / 1000.0, 4)
 
-        # Include MetalOrders if any
-        gold_mo = mo_qs.filter(status='approved', metal_type__in=['gold_22k', 'gold_24k'])
+        # Include 22K Gold MetalOrders if any
+        gold_mo = mo_qs.filter(status__in=['approved', 'completed'], metal_type='gold_22k')
         gold_mo_inr = gold_mo.aggregate(s=Sum('total_amount'))['s'] or Decimal('0')
         gold_mo_gm = float(gold_mo.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0'))
 
@@ -13020,17 +13017,18 @@ class DigiGoldSuperAdminView(APIView):
         total_gold_sold_gm = gold_bought_gm + gold_mo_gm
         gold_buy_txns = completed_gold_buys.count() + gold_mo.count()
         gold_sell_txns = completed_gold_sells.count()
-        total_gold_txns = inv_qs.count() + mo_qs.filter(metal_type__in=['gold_22k', 'gold_24k']).count()
+        total_gold_txns = inv_qs.exclude(notes__icontains='silver').count() + mo_qs.filter(metal_type='gold_22k').count()
 
         avg_gold_rate = round(total_gold_sales_inr / total_gold_sold_gm, 2) if total_gold_sold_gm > 0 else live_gold_22k
 
-        # Silver from MetalOrder
-        silver_mo = mo_qs.filter(status='approved', metal_type='silver_999')
-        silver_inr = silver_mo.aggregate(s=Sum('total_amount'))['s'] or Decimal('0')
-        silver_gm = float(silver_mo.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0'))
-        silver_buy_txns = silver_mo.count()
+        # Silver from MetalOrder and DigiGoldInvestment silver notes
+        silver_mo = mo_qs.filter(metal_type__icontains='silver')
+        silver_dg_buys = inv_qs.filter(status='completed', notes__icontains='silver')
+        silver_inr = (silver_mo.aggregate(s=Sum('total_amount'))['s'] or Decimal('0')) + (silver_dg_buys.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0'))
+        silver_gm = float(silver_mo.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0')) + (float(silver_dg_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) / 1000.0)
+        silver_buy_txns = silver_mo.count() + silver_dg_buys.count()
         silver_sell_txns = 0
-        total_silver_txns = mo_qs.filter(metal_type='silver_999').count()
+        total_silver_txns = mo_qs.filter(metal_type__icontains='silver').count() + inv_qs.filter(notes__icontains='silver').count()
         avg_silver_rate = round(float(silver_inr) / silver_gm, 2) if silver_gm > 0 else live_silver_999
 
         # Total unique investors across both models
@@ -13064,8 +13062,9 @@ class DigiGoldSuperAdminView(APIView):
             g_gm = round(g_mg / 1000.0, 3) + float(g_mo_slice.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0'))
 
             s_slice = silver_mo.filter(created_at__date__gte=d_start, created_at__date__lte=d_end)
-            s_amt = float(s_slice.aggregate(s=Sum('total_amount'))['s'] or Decimal('0'))
-            s_gm = float(s_slice.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0'))
+            s_dg_slice = silver_dg_buys.filter(created_at__date__gte=d_start, created_at__date__lte=d_end)
+            s_amt = float(s_slice.aggregate(s=Sum('total_amount'))['s'] or Decimal('0')) + float(s_dg_slice.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0'))
+            s_gm = float(s_slice.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0')) + round(float(s_dg_slice.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) / 1000.0, 3)
 
             gold_chart.append({'date': label, 'grams': round(g_gm, 3), 'revenue': round(g_amt, 2)})
             silver_chart.append({'date': label, 'grams': round(s_gm, 3), 'revenue': round(s_amt, 2)})
@@ -13090,14 +13089,15 @@ class DigiGoldSuperAdminView(APIView):
                 matched_users = User.objects.filter(role=role_code)
             
             u_ids = list(matched_users.values_list('id', flat=True))
-            t_gold = inv_qs.filter(user_id__in=u_ids, status='completed')
-            t_gold_mo = mo_qs.filter(user_id__in=u_ids, status='approved', metal_type__in=['gold_22k', 'gold_24k'])
-            t_silver_mo = mo_qs.filter(user_id__in=u_ids, status='approved', metal_type='silver_999')
+            t_gold = inv_qs.filter(user_id__in=u_ids, status='completed').exclude(notes__icontains='silver')
+            t_gold_mo = mo_qs.filter(user_id__in=u_ids, status__in=['approved', 'completed'], metal_type='gold_22k')
+            t_silver_mo = mo_qs.filter(user_id__in=u_ids, metal_type__icontains='silver')
+            t_silver_dg = inv_qs.filter(user_id__in=u_ids, status='completed', notes__icontains='silver')
 
             g_inr = float(t_gold.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0')) + float(t_gold_mo.aggregate(s=Sum('total_amount'))['s'] or Decimal('0'))
             g_gm = round(float(t_gold.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) / 1000.0, 3) + float(t_gold_mo.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0'))
-            s_inr = float(t_silver_mo.aggregate(s=Sum('total_amount'))['s'] or Decimal('0'))
-            s_gm = float(t_silver_mo.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0'))
+            s_inr = float(t_silver_mo.aggregate(s=Sum('total_amount'))['s'] or Decimal('0')) + float(t_silver_dg.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0'))
+            s_gm = float(t_silver_mo.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0')) + round(float(t_silver_dg.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) / 1000.0, 3)
             
             category_summaries[tier_key] = {
                 'name': tier_name,
@@ -13106,7 +13106,7 @@ class DigiGoldSuperAdminView(APIView):
                 'gold_gm': round(g_gm, 3),
                 'silver_gm': round(s_gm, 3),
                 'total_purchase_inr': round(g_inr + s_inr, 2),
-                'completed_purchases': t_gold.count() + t_gold_mo.count() + t_silver_mo.count()
+                'completed_purchases': t_gold.count() + t_gold_mo.count() + t_silver_mo.count() + t_silver_dg.count()
             }
 
         # ── 7. UNIFIED TRANSACTION ITEMS ──
@@ -13172,7 +13172,7 @@ class DigiGoldSuperAdminView(APIView):
                     continue
 
                 id_str, disp_name, phone = _holder_info(u)
-                metal_lbl = 'Silver 999' if is_silver else ('Gold 24K' if '24k' in mo.metal_type else 'Gold 22K')
+                metal_lbl = 'Silver 999' if is_silver else 'Gold 22K'
                 cat_label = 'Customer'
                 if u.role == 'admin': cat_label = 'Super Stockist'
                 elif u.role == 'dealer': cat_label = 'Distributor'
@@ -13218,7 +13218,7 @@ class DigiGoldSuperAdminView(APIView):
         # Sort unified items by datetime descending
         unified_items.sort(key=lambda x: x['created_at_iso'], reverse=True)
 
-        # ── 8. HISTORICAL RATE LOGS ──
+        # ── 8. HISTORICAL RATE LOGS (22K Gold & Silver 999) ──
         rate_history_qs = MetalRate.objects.order_by('-date')[:15]
         rate_history = []
         for r in rate_history_qs:
@@ -13226,7 +13226,6 @@ class DigiGoldSuperAdminView(APIView):
                 'date': r.date.strftime('%d-%m-%Y'),
                 'date_iso': r.date.isoformat(),
                 'gold_22k': float(r.gold_22k) if r.gold_22k else 0,
-                'gold_24k': float(r.gold_24k) if r.gold_24k else 0,
                 'silver_999': float(r.silver_999) if r.silver_999 else 0,
             })
 

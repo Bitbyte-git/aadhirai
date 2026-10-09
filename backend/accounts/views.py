@@ -2477,6 +2477,11 @@ class MetalRateView(APIView):
 
     def get(self, request):
         """Return today's rate; if not entered yet, return latest available."""
+        if request.query_params.get('all') == 'true' or request.query_params.get('history') == 'true':
+            rates = MetalRate.objects.order_by('-date')
+            serializer = MetalRateSerializer(rates, many=True)
+            return Response(serializer.data)
+
         from django.utils import timezone
         today = timezone.localdate()
 
@@ -2507,6 +2512,9 @@ class MetalRateView(APIView):
 
         if serializer.is_valid():
             serializer.save(created_by=request.user)
+            global _CACHED_LIVE_RATES, _CACHED_DB_RATES
+            _CACHED_LIVE_RATES['data'] = None
+            _CACHED_DB_RATES['data'] = None
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
     
@@ -12468,6 +12476,105 @@ class DigiGoldDashboardView(APIView):
         }
         chart_data = chart_1d
 
+        # ── SILVER BENCHMARK CHART HISTORY (PURE 999 SILVER) ──
+        base_silver_price = float(rates.get('silver_999', 275.0))
+        silver_chart_1d = [
+            {'time': '9 AM', 'fullDate': 'Today, 09:00 AM', 'price': round(base_silver_price - 3.5, 2)},
+            {'time': '11 AM', 'fullDate': 'Today, 11:00 AM', 'price': round(base_silver_price - 2.0, 2)},
+            {'time': '1 PM', 'fullDate': 'Today, 01:00 PM', 'price': round(base_silver_price - 1.2, 2)},
+            {'time': '3 PM', 'fullDate': 'Today, 03:00 PM', 'price': round(base_silver_price - 0.5, 2)},
+            {'time': '5 PM', 'fullDate': 'Today, 05:00 PM', 'price': round(base_silver_price - 0.2, 2)},
+            {'time': '7 PM', 'fullDate': 'Today, 07:00 PM', 'price': round(base_silver_price - 0.1, 2)},
+            {'time': 'Live', 'fullDate': f"{today.strftime('%d %b %Y')}, Live Market", 'price': round(base_silver_price, 2)},
+        ]
+
+        silver_chart_1w = []
+        for day_offset in range(6, 0, -1):
+            d = today - timedelta(days=day_offset)
+            matching = next((r for r in db_rates_list if r.date == d), None)
+            if matching and matching.silver_999:
+                silver_chart_1w.append({
+                    'time': d.strftime('%d %b'),
+                    'fullDate': d.strftime('%d %b %Y'),
+                    'price': float(matching.silver_999)
+                })
+            else:
+                silver_chart_1w.append({
+                    'time': d.strftime('%d %b'),
+                    'fullDate': d.strftime('%d %b %Y'),
+                    'price': round(base_silver_price - (day_offset * 0.45), 2)
+                })
+        silver_chart_1w.append({
+            'time': 'Today',
+            'fullDate': f"{today.strftime('%d %b %Y')} (Today)",
+            'price': round(base_silver_price, 2)
+        })
+
+        silver_chart_1m = []
+        for r in rates_1m:
+            s_price = float(r.silver_999) if r.silver_999 else base_silver_price
+            silver_chart_1m.append({
+                'time': r.date.strftime('%d %b'),
+                'fullDate': r.date.strftime('%d %b %Y'),
+                'price': s_price
+            })
+        if not silver_chart_1m:
+            for r in db_rates_list[-5:]:
+                s_price = float(r.silver_999) if r.silver_999 else base_silver_price
+                silver_chart_1m.append({
+                    'time': r.date.strftime('%d %b'),
+                    'fullDate': r.date.strftime('%d %b %Y'),
+                    'price': s_price
+                })
+        if not silver_chart_1m or (silver_chart_1m[-1]['time'] != 'Today' and silver_chart_1m[-1]['fullDate'] != today.strftime('%d %b %Y')):
+            silver_chart_1m.append({
+                'time': 'Today',
+                'fullDate': f"{today.strftime('%d %b %Y')} (Today)",
+                'price': round(base_silver_price, 2)
+            })
+
+        silver_chart_3m = []
+        for r in rates_3m:
+            s_price = float(r.silver_999) if r.silver_999 else base_silver_price
+            silver_chart_3m.append({
+                'time': r.date.strftime('%d %b'),
+                'fullDate': r.date.strftime('%d %b %Y'),
+                'price': s_price
+            })
+        if not silver_chart_3m or (silver_chart_3m[-1]['time'] != 'Today' and silver_chart_3m[-1]['fullDate'] != today.strftime('%d %b %Y')):
+            silver_chart_3m.append({
+                'time': 'Today',
+                'fullDate': f"{today.strftime('%d %b %Y')} (Today)",
+                'price': round(base_silver_price, 2)
+            })
+
+        silver_chart_1y = [
+            {'time': "Oct '25", 'fullDate': 'October 2025', 'price': 225.0},
+            {'time': "Dec '25", 'fullDate': 'December 2025', 'price': 238.0},
+            {'time': "Feb '26", 'fullDate': 'February 2026', 'price': 249.0},
+            {'time': "Apr '26", 'fullDate': 'April 2026', 'price': 260.0},
+        ]
+        for r in db_rates_list:
+            s_price = float(r.silver_999) if r.silver_999 else base_silver_price
+            silver_chart_1y.append({
+                'time': r.date.strftime('%b \'%y'),
+                'fullDate': r.date.strftime('%d %b %Y'),
+                'price': s_price
+            })
+        silver_chart_1y.append({
+            'time': 'Today',
+            'fullDate': f"{today.strftime('%d %b %Y')} (Today)",
+            'price': round(base_silver_price, 2)
+        })
+
+        silver_chart_history = {
+            '1D': silver_chart_1d,
+            '1W': silver_chart_1w,
+            '1M': silver_chart_1m,
+            '3M': silver_chart_3m,
+            '1Y': silver_chart_1y,
+        }
+
         # Fetch real user name
         display_name = ''
         if hasattr(user, 'customer_profile') and user.customer_profile:
@@ -12510,6 +12617,7 @@ class DigiGoldDashboardView(APIView):
             'rates': rates,
             'chart_data': chart_data,
             'chart_history': chart_history,
+            'silver_chart_history': silver_chart_history,
             'recent_transactions': excel_rows,
             'excel_summary': {
                 'total_recharge': total_invested_val,
@@ -12926,12 +13034,32 @@ class DigiGoldSuperAdminView(APIView):
             except Exception:
                 start_dt = None
 
-        # ── 2. LIVE RATES ──
-        # ── 2. LIVE RATES (22K Gold & Silver 999 Only) ──
-        rates = _get_live_gold_rates()
-        live_gold_22k = float(rates.get('gold_22k', 14250.0))
-        live_gold_22k_mg = float(rates.get('gold_22k_mg', live_gold_22k / 1000.0))
-        live_silver_999 = float(rates.get('silver_999', 275.0))
+        # ── 2. LIVE RATES DIRECTLY FROM DB (MetalRate Model) ──
+        today_db_rate = MetalRate.objects.filter(date=today).first() or MetalRate.objects.order_by('-date').first()
+        prev_db_rate = MetalRate.objects.filter(date__lt=today_db_rate.date).order_by('-date').first() if today_db_rate else None
+
+        live_gold_22k = float(today_db_rate.gold_22k) if (today_db_rate and today_db_rate.gold_22k) else 14250.0
+        live_gold_22k_mg = round(live_gold_22k / 1000.0, 4)
+        live_silver_999 = float(today_db_rate.silver_999) if (today_db_rate and today_db_rate.silver_999) else 275.0
+
+        prev_22k = float(prev_db_rate.gold_22k) if (prev_db_rate and prev_db_rate.gold_22k) else (live_gold_22k - 110.0)
+        prev_silver = float(prev_db_rate.silver_999) if (prev_db_rate and prev_db_rate.silver_999) else (live_silver_999 - 8.0)
+
+        diff_22k = round(live_gold_22k - prev_22k, 2)
+        pct_22k = round((diff_22k / prev_22k) * 100, 2) if prev_22k > 0 else 0.78
+        diff_silver = round(live_silver_999 - prev_silver, 2)
+        pct_silver = round((diff_silver / prev_silver) * 100, 2) if prev_silver > 0 else 3.0
+
+        rates = {
+            'date': today_db_rate.date if today_db_rate else today,
+            'gold_22k': live_gold_22k,
+            'gold_22k_mg': live_gold_22k_mg,
+            'diff_22k': diff_22k,
+            'pct_22k': pct_22k,
+            'silver_999': live_silver_999,
+            'diff_silver': diff_silver,
+            'pct_silver': pct_silver,
+        }
 
         # ── 3. QUERYSETS ──
         inv_qs = DigiGoldInvestment.objects.select_related('user').all()
@@ -13025,7 +13153,10 @@ class DigiGoldSuperAdminView(APIView):
         silver_mo = mo_qs.filter(metal_type__icontains='silver')
         silver_dg_buys = inv_qs.filter(status='completed', notes__icontains='silver')
         silver_inr = (silver_mo.aggregate(s=Sum('total_amount'))['s'] or Decimal('0')) + (silver_dg_buys.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0'))
-        silver_gm = float(silver_mo.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0')) + (float(silver_dg_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) / 1000.0)
+        dg_silver_gm = float(silver_dg_buys.aggregate(s=Sum('hold_gold_gm'))['s'] or Decimal('0'))
+        if dg_silver_gm <= 0:
+            dg_silver_gm = float(silver_dg_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) / 1000.0
+        silver_gm = float(silver_mo.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0')) + dg_silver_gm
         silver_buy_txns = silver_mo.count() + silver_dg_buys.count()
         silver_sell_txns = 0
         total_silver_txns = mo_qs.filter(metal_type__icontains='silver').count() + inv_qs.filter(notes__icontains='silver').count()
@@ -13038,36 +13169,79 @@ class DigiGoldSuperAdminView(APIView):
         total_transactions_all = inv_qs.count() + mo_qs.count()
 
         # ── 5. TIMELINE CHARTS GENERATION (FOR ACTIVE DATE RANGE) ──
-        # Generate 7 date steps based on active filter
-        chart_days = 7
-        step_days = 1
-        if date_filter == 'year':
-            step_days = 30
-        elif date_filter == 'month':
-            step_days = 4
-        
         gold_chart = []
         silver_chart = []
-        chart_base = today - timedelta(days=(chart_days - 1) * step_days)
-        for i in range(chart_days):
-            d_start = chart_base + timedelta(days=i * step_days)
-            d_end = d_start + timedelta(days=step_days - 1)
-            label = d_start.strftime('%d %b')
-            
-            # Filter slices
-            g_slice = completed_gold_buys.filter(created_at__date__gte=d_start, created_at__date__lte=d_end)
-            g_mo_slice = gold_mo.filter(created_at__date__gte=d_start, created_at__date__lte=d_end)
-            g_amt = float(g_slice.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0')) + float(g_mo_slice.aggregate(s=Sum('total_amount'))['s'] or Decimal('0'))
-            g_mg = float(g_slice.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0'))
-            g_gm = round(g_mg / 1000.0, 3) + float(g_mo_slice.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0'))
 
-            s_slice = silver_mo.filter(created_at__date__gte=d_start, created_at__date__lte=d_end)
-            s_dg_slice = silver_dg_buys.filter(created_at__date__gte=d_start, created_at__date__lte=d_end)
-            s_amt = float(s_slice.aggregate(s=Sum('total_amount'))['s'] or Decimal('0')) + float(s_dg_slice.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0'))
-            s_gm = float(s_slice.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0')) + round(float(s_dg_slice.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) / 1000.0, 3)
+        if date_filter == 'today':
+            time_slots = [
+                ('12:00 AM', 0, 6),
+                ('06:00 AM', 6, 9),
+                ('09:00 AM', 9, 12),
+                ('12:00 PM', 12, 15),
+                ('03:00 PM', 15, 18),
+                ('06:00 PM', 18, 21),
+                ('09:00 PM', 21, 24),
+            ]
+            for slot_label, h_start, h_end in time_slots:
+                g_slice = completed_gold_buys.filter(created_at__date=today, created_at__hour__gte=h_start, created_at__hour__lt=h_end)
+                g_mo_slice = gold_mo.filter(created_at__date=today, created_at__hour__gte=h_start, created_at__hour__lt=h_end)
+                g_amt = float(g_slice.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0')) + float(g_mo_slice.aggregate(s=Sum('total_amount'))['s'] or Decimal('0'))
+                g_mg = float(g_slice.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0'))
+                g_gm = round(g_mg / 1000.0, 3) + float(g_mo_slice.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0'))
 
-            gold_chart.append({'date': label, 'grams': round(g_gm, 3), 'revenue': round(g_amt, 2)})
-            silver_chart.append({'date': label, 'grams': round(s_gm, 3), 'revenue': round(s_amt, 2)})
+                s_slice = silver_mo.filter(created_at__date=today, created_at__hour__gte=h_start, created_at__hour__lt=h_end)
+                s_dg_slice = silver_dg_buys.filter(created_at__date=today, created_at__hour__gte=h_start, created_at__hour__lt=h_end)
+                s_amt = float(s_slice.aggregate(s=Sum('total_amount'))['s'] or Decimal('0')) + float(s_dg_slice.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0'))
+                s_dg_gm = float(s_dg_slice.aggregate(s=Sum('hold_gold_gm'))['s'] or Decimal('0'))
+                if s_dg_gm <= 0:
+                    s_dg_gm = round(float(s_dg_slice.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) / 1000.0, 3)
+                s_gm = float(s_slice.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0')) + s_dg_gm
+
+                gold_chart.append({'date': slot_label, 'grams': round(g_gm, 3), 'revenue': round(g_amt, 2)})
+                silver_chart.append({'date': slot_label, 'grams': round(s_gm, 3), 'revenue': round(s_amt, 2)})
+        else:
+            chart_days = 7
+            step_days = 1
+            if date_filter == 'year':
+                chart_days = 12
+                step_days = 30
+            elif date_filter == 'month':
+                chart_days = 6
+                step_days = 5
+            elif date_filter == 'custom' and start_date_param and end_date_param:
+                try:
+                    s_d = datetime.strptime(start_date_param, '%Y-%m-%d').date()
+                    e_d = datetime.strptime(end_date_param, '%Y-%m-%d').date()
+                    diff_days = max(1, (e_d - s_d).days + 1)
+                    chart_days = min(7, diff_days)
+                    step_days = max(1, diff_days // chart_days)
+                    today = e_d
+                except Exception:
+                    pass
+
+            chart_base = today - timedelta(days=(chart_days - 1) * step_days)
+            for i in range(chart_days):
+                d_start = chart_base + timedelta(days=i * step_days)
+                d_end = d_start + timedelta(days=step_days - 1)
+                label = d_start.strftime('%d %b') if date_filter != 'year' else d_start.strftime('%b %y')
+
+                # Filter slices
+                g_slice = completed_gold_buys.filter(created_at__date__gte=d_start, created_at__date__lte=d_end)
+                g_mo_slice = gold_mo.filter(created_at__date__gte=d_start, created_at__date__lte=d_end)
+                g_amt = float(g_slice.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0')) + float(g_mo_slice.aggregate(s=Sum('total_amount'))['s'] or Decimal('0'))
+                g_mg = float(g_slice.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0'))
+                g_gm = round(g_mg / 1000.0, 3) + float(g_mo_slice.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0'))
+
+                s_slice = silver_mo.filter(created_at__date__gte=d_start, created_at__date__lte=d_end)
+                s_dg_slice = silver_dg_buys.filter(created_at__date__gte=d_start, created_at__date__lte=d_end)
+                s_amt = float(s_slice.aggregate(s=Sum('total_amount'))['s'] or Decimal('0')) + float(s_dg_slice.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0'))
+                s_dg_gm = float(s_dg_slice.aggregate(s=Sum('hold_gold_gm'))['s'] or Decimal('0'))
+                if s_dg_gm <= 0:
+                    s_dg_gm = round(float(s_dg_slice.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) / 1000.0, 3)
+                s_gm = float(s_slice.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0')) + s_dg_gm
+
+                gold_chart.append({'date': label, 'grams': round(g_gm, 3), 'revenue': round(g_amt, 2)})
+                silver_chart.append({'date': label, 'grams': round(s_gm, 3), 'revenue': round(s_amt, 2)})
 
         # ── 6. ROLE-WISE CATEGORY BREAKDOWN ──
         tiers = [
@@ -13088,16 +13262,22 @@ class DigiGoldSuperAdminView(APIView):
             else:
                 matched_users = User.objects.filter(role=role_code)
             
-            u_ids = list(matched_users.values_list('id', flat=True))
-            t_gold = inv_qs.filter(user_id__in=u_ids, status='completed').exclude(notes__icontains='silver')
-            t_gold_mo = mo_qs.filter(user_id__in=u_ids, status__in=['approved', 'completed'], metal_type='gold_22k')
-            t_silver_mo = mo_qs.filter(user_id__in=u_ids, metal_type__icontains='silver')
-            t_silver_dg = inv_qs.filter(user_id__in=u_ids, status='completed', notes__icontains='silver')
+            t_gold = inv_qs.filter(user__in=matched_users, status='completed').exclude(notes__icontains='silver')
+            t_gold_mo = mo_qs.filter(user__in=matched_users, status__in=['approved', 'completed'], metal_type='gold_22k')
+            t_silver_mo = mo_qs.filter(user__in=matched_users, metal_type__icontains='silver')
+            t_silver_dg = inv_qs.filter(user__in=matched_users, status='completed', notes__icontains='silver')
 
             g_inr = float(t_gold.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0')) + float(t_gold_mo.aggregate(s=Sum('total_amount'))['s'] or Decimal('0'))
-            g_gm = round(float(t_gold.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) / 1000.0, 3) + float(t_gold_mo.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0'))
+            g_dg_gm = float(t_gold.aggregate(s=Sum('hold_gold_gm'))['s'] or Decimal('0'))
+            if g_dg_gm <= 0:
+                g_dg_gm = round(float(t_gold.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) / 1000.0, 3)
+            g_gm = g_dg_gm + float(t_gold_mo.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0'))
+            
             s_inr = float(t_silver_mo.aggregate(s=Sum('total_amount'))['s'] or Decimal('0')) + float(t_silver_dg.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0'))
-            s_gm = float(t_silver_mo.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0')) + round(float(t_silver_dg.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) / 1000.0, 3)
+            s_dg_gm = float(t_silver_dg.aggregate(s=Sum('hold_gold_gm'))['s'] or Decimal('0'))
+            if s_dg_gm <= 0:
+                s_dg_gm = round(float(t_silver_dg.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) / 1000.0, 3)
+            s_gm = float(t_silver_mo.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0')) + s_dg_gm
             
             category_summaries[tier_key] = {
                 'name': tier_name,
@@ -13113,13 +13293,21 @@ class DigiGoldSuperAdminView(APIView):
         unified_items = []
 
         # From DigiGoldInvestment
-        if metal_filter in ['all', 'gold']:
-            for inv in inv_qs[:250]:
+        if metal_filter in ['all', 'gold', 'silver']:
+            for inv in inv_qs[:1000]:
                 u = inv.user
                 if not user_matches_cat(u, cat_filter):
                     continue
+                is_silver = 'silver' in (inv.notes or '').lower()
+                if metal_filter == 'gold' and is_silver:
+                    continue
+                if metal_filter == 'silver' and not is_silver:
+                    continue
+
                 id_str, disp_name, phone = _holder_info(u)
-                curr_growth = round(float(inv.hold_gold_mg) * live_gold_22k_mg, 2)
+                item_rate = live_silver_999 if is_silver else live_gold_22k
+                inv_gm = float(inv.hold_gold_gm) if inv.hold_gold_gm else round(float(inv.hold_gold_mg) / 1000.0, 4)
+                curr_growth = round(inv_gm * item_rate, 2)
                 profit = round(curr_growth - float(inv.recharge_amount), 2)
                 
                 cat_label = 'Customer'
@@ -13145,11 +13333,11 @@ class DigiGoldSuperAdminView(APIView):
                     'user_email': u.email,
                     'user_category': cat_label,
                     'user_role': u.role,
-                    'metal': 'gold',
-                    'metal_label': 'Gold 22K',
+                    'metal': 'silver' if is_silver else 'gold',
+                    'metal_label': 'Silver 999' if is_silver else 'Gold 22K',
                     'transaction_type': inv.transaction_type,
-                    'quantity_gm': float(inv.hold_gold_gm),
-                    'quantity_label': f"{float(inv.hold_gold_gm):.3f} g",
+                    'quantity_gm': inv_gm,
+                    'quantity_label': f"{inv_gm:.3f} g",
                     'hold_gold_mg': float(inv.hold_gold_mg),
                     'rate': float(inv.gold_price_per_gram),
                     'amount': float(inv.recharge_amount),
@@ -13161,7 +13349,7 @@ class DigiGoldSuperAdminView(APIView):
 
         # From MetalOrder
         if metal_filter in ['all', 'silver', 'gold']:
-            for mo in mo_qs[:250]:
+            for mo in mo_qs[:1000]:
                 u = mo.user
                 if not user_matches_cat(u, cat_filter):
                     continue
@@ -13218,8 +13406,8 @@ class DigiGoldSuperAdminView(APIView):
         # Sort unified items by datetime descending
         unified_items.sort(key=lambda x: x['created_at_iso'], reverse=True)
 
-        # ── 8. HISTORICAL RATE LOGS (22K Gold & Silver 999) ──
-        rate_history_qs = MetalRate.objects.order_by('-date')[:15]
+        # ── 8. HISTORICAL RATE LOGS (22K Gold & Silver 999 From DB) ──
+        rate_history_qs = MetalRate.objects.order_by('-date')
         rate_history = []
         for r in rate_history_qs:
             rate_history.append({

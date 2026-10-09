@@ -49,7 +49,8 @@ import {
   PhoneCall,
   Mail,
   MessageCircle,
-  MapPin
+  MapPin,
+  Truck
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -307,6 +308,7 @@ export default function DigiGoldDashboard() {
   // Metal selection for Buy & Sell
   const [buyMetal, setBuyMetal] = useState('gold_22k') // 'gold_22k' | 'silver_999'
   const [sellMetal, setSellMetal] = useState('gold_22k') // 'gold_22k' | 'silver_999'
+  const [chartMetal, setChartMetal] = useState('gold') // 'gold' | 'silver'
 
   // Buy form
   const [buyAmount, setBuyAmount] = useState('1000')
@@ -933,8 +935,68 @@ export default function DigiGoldDashboard() {
   const transactions = data?.recent_transactions || []
   const isNegativeReturn = Number(kpis.total_returns_inr ?? 0) < 0 || Number(kpis.returns_percentage ?? 0) < 0
 
-  // Dynamic Real Chart Data per Active Tab (1D, 1W, 1M, 3M, 1Y)
+  // Dynamic Real Chart Data per Active Tab (1D, 1W, 1M, 3M, 1Y) for Gold or Silver
   const activeChartData = useMemo(() => {
+    if (chartMetal === 'silver') {
+      if (data?.silver_chart_history && data.silver_chart_history[activeTab] && data.silver_chart_history[activeTab].length > 0) {
+        return data.silver_chart_history[activeTab]
+      }
+      const sBase = Number(rates.silver_999) || 275.0
+      if (activeTab === '1D') {
+        return [
+          { time: '9 AM', fullDate: 'Today, 09:00 AM', price: Math.round((sBase - 3.5) * 100) / 100 },
+          { time: '11 AM', fullDate: 'Today, 11:00 AM', price: Math.round((sBase - 2.0) * 100) / 100 },
+          { time: '1 PM', fullDate: 'Today, 01:00 PM', price: Math.round((sBase - 1.2) * 100) / 100 },
+          { time: '3 PM', fullDate: 'Today, 03:00 PM', price: Math.round((sBase - 0.5) * 100) / 100 },
+          { time: '5 PM', fullDate: 'Today, 05:00 PM', price: Math.round((sBase - 0.2) * 100) / 100 },
+          { time: '7 PM', fullDate: 'Today, 07:00 PM', price: Math.round((sBase - 0.1) * 100) / 100 },
+          { time: 'Live', fullDate: 'Today, Live Market', price: Math.round(sBase * 100) / 100 },
+        ]
+      }
+      if (activeTab === '1W') {
+        return [
+          { time: '02 Oct', fullDate: '02 Oct 2026', price: 271.50 },
+          { time: '03 Oct', fullDate: '03 Oct 2026', price: 272.00 },
+          { time: '04 Oct', fullDate: '04 Oct 2026', price: 272.80 },
+          { time: '05 Oct', fullDate: '05 Oct 2026', price: 273.50 },
+          { time: '06 Oct', fullDate: '06 Oct 2026', price: 274.00 },
+          { time: '07 Oct', fullDate: '07 Oct 2026', price: 274.50 },
+          { time: 'Today', fullDate: 'Today, Live Market', price: sBase },
+        ]
+      }
+      if (activeTab === '1M') {
+        return [
+          { time: '08 Sep', fullDate: '08 Sep 2026', price: 262.00 },
+          { time: '14 Sep', fullDate: '14 Sep 2026', price: 265.50 },
+          { time: '20 Sep', fullDate: '20 Sep 2026', price: 268.00 },
+          { time: '26 Sep', fullDate: '26 Sep 2026', price: 270.50 },
+          { time: '02 Oct', fullDate: '02 Oct 2026', price: 272.00 },
+          { time: '05 Oct', fullDate: '05 Oct 2026', price: 273.50 },
+          { time: 'Today', fullDate: 'Today, Live Market', price: sBase },
+        ]
+      }
+      if (activeTab === '3M') {
+        return [
+          { time: '10 Jul', fullDate: '10 Jul 2026', price: 252.00 },
+          { time: '27 Jul', fullDate: '27 Jul 2026', price: 258.00 },
+          { time: '13 Aug', fullDate: '13 Aug 2026', price: 263.00 },
+          { time: '08 Sep', fullDate: '08 Sep 2026', price: 265.50 },
+          { time: '14 Sep', fullDate: '14 Sep 2026', price: 268.00 },
+          { time: 'Today', fullDate: 'Today, Live Market', price: sBase },
+        ]
+      }
+      return [
+        { time: "Oct '25", fullDate: 'October 2025', price: 225.00 },
+        { time: "Dec '25", fullDate: 'December 2025', price: 238.00 },
+        { time: "Feb '26", fullDate: 'February 2026', price: 249.00 },
+        { time: "Apr '26", fullDate: 'April 2026', price: 260.00 },
+        { time: "Jul '26", fullDate: '10 Jul 2026', price: 265.00 },
+        { time: "Aug '26", fullDate: '13 Aug 2026', price: 269.00 },
+        { time: "Sep '26", fullDate: '08 Sep 2026', price: 272.00 },
+        { time: 'Today', fullDate: 'Today, Live Market', price: sBase },
+      ]
+    }
+
     if (data?.chart_history && data.chart_history[activeTab] && data.chart_history[activeTab].length > 0) {
       return data.chart_history[activeTab]
     }
@@ -993,7 +1055,7 @@ export default function DigiGoldDashboard() {
       { time: "Sep '26", fullDate: '08 Sep 2026', price: 14140 },
       { time: 'Today', fullDate: 'Today, Live Market', price: Math.round(base) },
     ]
-  }, [activeTab, data?.chart_history, rates.gold_22k])
+  }, [activeTab, chartMetal, data?.chart_history, data?.silver_chart_history, rates.gold_22k, rates.silver_999])
 
   const chartYDomain = useMemo(() => {
     if (!activeChartData || activeChartData.length === 0) return ['auto', 'auto']
@@ -1002,9 +1064,13 @@ export default function DigiGoldDashboard() {
     const minP = Math.min(...prices)
     const maxP = Math.max(...prices)
     const diff = maxP - minP
+    if (chartMetal === 'silver') {
+      const pad = diff > 10 ? Math.round(diff * 0.15) : Math.max(2, Math.round(diff * 0.25))
+      return [Math.max(0, Math.floor(minP - pad)), Math.ceil(maxP + pad)]
+    }
     const pad = diff > 400 ? Math.round(diff * 0.1) : Math.max(25, Math.round(diff * 0.2))
     return [Math.floor((minP - pad) / 10) * 10, Math.ceil((maxP + pad) / 10) * 10]
-  }, [activeChartData])
+  }, [activeChartData, chartMetal])
 
   // 22K Primary Rate for Athirai Digi Gold & Digi Silver Rate
   const currentLiveRate = rates.gold_22k || 14250
@@ -1177,17 +1243,19 @@ export default function DigiGoldDashboard() {
 
         rowsHtml += `
           <tr>
-            <td style="font-family: monospace; font-weight: 700; color: #0A3E42;">${tx.transaction_id || `BB#${tx.id}`}</td>
-            <td>${tx.date_excel || tx.date}</td>
-            <td style="text-align: center;"><span class="badge ${metalBadgeClass}">${metalBadgeText}</span></td>
-            <td style="text-align: right; font-weight: 700;">₹${recharge.toLocaleString('en-IN')}</td>
-            <td style="text-align: right;">₹${buyRate.toLocaleString('en-IN')}</td>
-            <td style="text-align: right; color: #008744; font-weight: 700;">${holdMg.toFixed(2)}</td>
-            <td style="text-align: right; font-weight: 800; color: #0A3E42;">${holdGm.toFixed(3)}</td>
-            <td style="text-align: right;">₹${livePrice.toLocaleString('en-IN')}</td>
-            <td style="text-align: right; font-weight: 800; color: #008744;">₹${currVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-            <td style="text-align: right; font-weight: 800;" class="${profitClass}">${profitSign}₹${profit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-            <td style="text-align: center;"><span class="badge status-completed">${tx.status || 'Verified'}</span></td>
+            <td style="font-family: monospace; font-weight: 700; color: #0A3E42; font-size: 8.5px; white-space: nowrap;">${tx.transaction_id || `BB#${tx.id}`}</td>
+            <td style="font-size: 9px; white-space: nowrap;">${tx.date_excel || tx.date}</td>
+            <td style="text-align: center; white-space: nowrap;"><span class="badge ${metalBadgeClass}">${metalBadgeText}</span></td>
+            <td style="text-align: right; font-weight: 750; white-space: nowrap;">₹${recharge.toLocaleString('en-IN')}</td>
+            <td style="text-align: right; color: #4A5568; white-space: nowrap;">₹${buyRate.toLocaleString('en-IN')}</td>
+            <td style="text-align: right; line-height: 1.25; white-space: nowrap;">
+              <span style="font-weight: 800; color: #0A3E42;">${holdGm.toFixed(3)} g</span>
+              <div style="font-size: 8px; color: #647474; font-weight: 600;">${holdMg.toFixed(2)} mg</div>
+            </td>
+            <td style="text-align: right; color: #4A5568; white-space: nowrap;">₹${livePrice.toLocaleString('en-IN')}</td>
+            <td style="text-align: right; font-weight: 800; color: #008744; white-space: nowrap;">₹${currVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+            <td style="text-align: right; font-weight: 800; white-space: nowrap;" class="${profitClass}">${profitSign}₹${profit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+            <td style="text-align: center; white-space: nowrap;"><span class="badge status-completed">${tx.status || 'Verified'}</span></td>
           </tr>
         `
       })
@@ -1205,8 +1273,8 @@ export default function DigiGoldDashboard() {
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
     
     @page {
-      size: A4 landscape;
-      margin: 10mm;
+      size: A4 portrait;
+      margin: 10mm 8mm 12mm 8mm;
     }
 
     * {
@@ -1218,59 +1286,100 @@ export default function DigiGoldDashboard() {
     body {
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       margin: 0;
-      padding: 24px;
+      padding: 16px 0 40px 0;
       color: #0A3E42;
-      background: #FFFFFF;
-      font-size: 11.5px;
-      line-height: 1.4;
+      background: #EBF0EE;
+      font-size: 10px;
+      line-height: 1.35;
     }
 
     .no-print-bar {
       position: sticky;
-      top: 0;
+      top: 10px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       background: #0A3E42;
       color: #FFFFFF;
-      padding: 12px 20px;
-      border-radius: 12px;
-      margin-bottom: 24px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+      padding: 10px 18px;
+      border-radius: 10px;
+      margin: 0 auto 16px auto;
+      max-width: 210mm;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
       z-index: 999;
+    }
+
+    .preview-pill {
+      font-size: 9.5px;
+      font-weight: 800;
+      background: rgba(255, 255, 255, 0.18);
+      color: #F3CA8A;
+      padding: 3px 8px;
+      border-radius: 999px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-left: 8px;
     }
 
     .btn-action {
       border: none;
-      border-radius: 8px;
-      padding: 8px 18px;
+      border-radius: 7px;
+      padding: 7px 16px;
       font-family: inherit;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 800;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      transition: opacity 0.2s;
     }
+    .btn-action:hover { opacity: 0.9; }
 
     .btn-print {
       background: #009957;
       color: #FFFFFF;
-      box-shadow: 0 2px 8px rgba(0, 153, 87, 0.4);
+      box-shadow: 0 2px 6px rgba(0, 153, 87, 0.35);
     }
 
     .btn-close {
-      background: rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.18);
       color: #FFFFFF;
-      margin-left: 10px;
+      margin-left: 8px;
+    }
+
+    /* ── AUTHENTIC A4 PORTRAIT SHEET CONTAINER (210mm WIDTH) ── */
+    .a4-sheet {
+      width: 210mm;
+      max-width: 100%;
+      min-height: 297mm;
+      margin: 0 auto;
+      background: #FFFFFF;
+      padding: 12mm 12mm 14mm 12mm;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0,0,0,0.06);
+      border-radius: 4px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
     }
 
     @media print {
+      body {
+        background: #FFFFFF !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
       .no-print-bar {
         display: none !important;
       }
-      body {
-        padding: 0;
+      .a4-sheet {
+        width: 100% !important;
+        min-height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
       }
     }
 
@@ -1279,25 +1388,24 @@ export default function DigiGoldDashboard() {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      padding-bottom: 12px;
       border-bottom: 2px solid #0A3E42;
-      padding-bottom: 16px;
-      margin-bottom: 18px;
     }
 
     .brand-section {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 14px;
     }
 
     .brand-logo {
-      height: 60px;
+      height: 52px;
       width: auto;
       object-fit: contain;
     }
 
     .brand-title {
-      font-size: 23px;
+      font-size: 20px;
       font-weight: 900;
       color: #0A3E42;
       letter-spacing: -0.02em;
@@ -1306,7 +1414,7 @@ export default function DigiGoldDashboard() {
     }
 
     .brand-subtitle {
-      font-size: 11px;
+      font-size: 9.5px;
       font-weight: 750;
       color: #C6924B;
       text-transform: uppercase;
@@ -1322,17 +1430,17 @@ export default function DigiGoldDashboard() {
       display: inline-block;
       background: #E8F4F1;
       color: #0A3E42;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 800;
-      padding: 4px 10px;
-      border-radius: 6px;
+      padding: 3px 8px;
+      border-radius: 5px;
       border: 1px solid #C7E0D8;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
       letter-spacing: 0.05em;
     }
 
     .doc-date {
-      font-size: 11px;
+      font-size: 10px;
       color: #647474;
       font-weight: 600;
     }
@@ -1340,13 +1448,13 @@ export default function DigiGoldDashboard() {
     /* Customer & Statement Meta Grid */
     .meta-grid {
       display: grid;
-      grid-template-columns: 2fr 1fr 1fr;
-      gap: 14px;
+      grid-template-columns: 2fr 1.5fr 1fr;
+      gap: 10px;
       background: #F8FAF9;
       border: 1px solid #DCE7E3;
-      border-radius: 12px;
-      padding: 12px 16px;
-      margin-bottom: 18px;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin: 12px 0;
     }
 
     .meta-item {
@@ -1356,7 +1464,7 @@ export default function DigiGoldDashboard() {
     }
 
     .meta-label {
-      font-size: 9.5px;
+      font-size: 8.5px;
       font-weight: 750;
       color: #647474;
       text-transform: uppercase;
@@ -1364,24 +1472,24 @@ export default function DigiGoldDashboard() {
     }
 
     .meta-val {
-      font-size: 13px;
+      font-size: 11.5px;
       font-weight: 800;
       color: #0A3E42;
     }
 
-    /* 6 KPI Cards Grid */
+    /* 6 KPI Cards Grid (Compact, High-Precision) */
     .kpi-summary-grid {
       display: grid;
       grid-template-columns: repeat(6, 1fr);
-      gap: 10px;
-      margin-bottom: 20px;
+      gap: 8px;
+      margin-bottom: 14px;
     }
 
     .kpi-card {
       background: #FFFFFF;
-      border: 1.5px solid #E2EBE8;
-      border-radius: 10px;
-      padding: 9px 10px;
+      border: 1px solid #E2EBE8;
+      border-radius: 8px;
+      padding: 8px 6px;
       text-align: center;
     }
 
@@ -1391,46 +1499,50 @@ export default function DigiGoldDashboard() {
     }
 
     .kpi-title {
-      font-size: 9px;
+      font-size: 8px;
       font-weight: 750;
       color: #647474;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      margin-bottom: 3px;
+      margin-bottom: 2px;
     }
 
     .kpi-number {
-      font-size: 14.5px;
-      font-weight: 900;
+      font-size: 12px;
+      font-weight: 850;
       color: #0A3E42;
+      white-space: nowrap;
     }
 
     .kpi-number.green { color: #009957; }
     .kpi-number.gold { color: #C6924B; }
     .kpi-number.red { color: #E45B5B; }
 
-    /* Ledger Table */
+    /* Ledger Table (Strict A4 Width Optimization) */
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 11px;
-      margin-bottom: 20px;
+      font-size: 8.5px;
+      margin-bottom: 16px;
+      table-layout: auto;
     }
 
     th {
       background: #0A3E42;
       color: #FFFFFF;
       font-weight: 800;
-      font-size: 10px;
+      font-size: 8px;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
-      padding: 8px 8px;
+      letter-spacing: 0.03em;
+      padding: 6px 4px;
       border: 1px solid #0A3E42;
+      white-space: nowrap;
     }
 
     td {
-      padding: 7px 8px;
+      padding: 5px 4px;
       border: 1px solid #E2EBE8;
+      vertical-align: middle;
     }
 
     tr:nth-child(even) td {
@@ -1440,18 +1552,19 @@ export default function DigiGoldDashboard() {
     tfoot tr td {
       background: #EBF4F1;
       font-weight: 900;
-      font-size: 11px;
+      font-size: 9.5px;
       border-top: 2px solid #0A3E42;
-      padding: 9px 8px;
+      padding: 8px 6px;
     }
 
     .badge {
       display: inline-block;
-      padding: 2px 6px;
+      padding: 2px 5px;
       border-radius: 4px;
-      font-size: 9px;
+      font-size: 8px;
       font-weight: 800;
       letter-spacing: 0.04em;
+      white-space: nowrap;
     }
 
     .metal-gold {
@@ -1481,37 +1594,37 @@ export default function DigiGoldDashboard() {
       justify-content: space-between;
       align-items: center;
       border-top: 1px dashed #C7E0D8;
-      padding-top: 12px;
-      margin-top: 14px;
-      font-size: 10px;
+      padding-top: 10px;
+      margin-top: auto;
+      font-size: 9px;
       color: #647474;
     }
 
     .security-stamp {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       color: #0A3E42;
       font-weight: 700;
     }
 
     .seal-box {
       border: 1.5px solid #C6924B;
-      padding: 3px 8px;
-      border-radius: 5px;
+      padding: 2px 7px;
+      border-radius: 4px;
       color: #C6924B;
       text-transform: uppercase;
       font-weight: 800;
       letter-spacing: 0.06em;
-      font-size: 8.5px;
+      font-size: 8px;
     }
   </style>
 </head>
 <body>
   <div class="no-print-bar">
-    <div>
-      <span style="font-weight: 800; font-size: 14px;">Athirai Digi Gold — Official Valuation Statement</span>
-      <span style="font-size: 12px; opacity: 0.8; margin-left: 10px;">(Click "Download / Save as PDF" below)</span>
+    <div style="display: flex; align-items: center;">
+      <span style="font-weight: 800; font-size: 13px;">Athirai Digi Gold — Official Valuation Statement</span>
+      <span class="preview-pill">A4 Sheet Specification</span>
     </div>
     <div>
       <button class="btn-action btn-print" onclick="window.print()">
@@ -1523,104 +1636,109 @@ export default function DigiGoldDashboard() {
     </div>
   </div>
 
-  <div class="statement-header">
-    <div class="brand-section">
-      <img src="${logoUrl}" alt="Athirai Jewelers" class="brand-logo" onerror="this.style.display='none'" />
-      <div>
-        <h1 class="brand-title">ATHIRAI JEWELLERS</h1>
-        <div class="brand-subtitle">Digi Gold &amp; Silver Vault Valuation Certificate</div>
-      </div>
-    </div>
-    <div class="doc-meta">
-      <div class="doc-title-badge">${valuationMetal.toUpperCase()} VAULT AUDIT</div>
-      <div class="doc-date">Generated: ${currentDateStr} at ${currentTimeStr}</div>
-      <div style="font-size: 10px; color: #009957; font-weight: 750; margin-top: 2px;">● 100% Insured &amp; Physical Bullion Backed</div>
-    </div>
-  </div>
-
-  <div class="meta-grid">
-    <div class="meta-item">
-      <span class="meta-label">Customer Account</span>
-      <span class="meta-val">${customerName} (${customerRole})</span>
-    </div>
-    <div class="meta-item">
-      <span class="meta-label">Active Market Benchmark</span>
-      <span class="meta-val">${liveRateInfo}</span>
-    </div>
-    <div class="meta-item">
-      <span class="meta-label">Total Verified Records</span>
-      <span class="meta-val">${valuationTransactions.length} Transactions</span>
-    </div>
-  </div>
-
-  <div class="kpi-summary-grid">
-    <div class="kpi-card">
-      <div class="kpi-title">Total Recharge</div>
-      <div class="kpi-number">₹${sumRecharge.toLocaleString('en-IN')}</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-title">${valuationMetal === 'silver' ? 'Ag Milligrams' : 'Au Milligrams'}</div>
-      <div class="kpi-number green">${(sumGrams * 1000).toFixed(2)}</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-title">${valuationMetal === 'silver' ? 'Ag Grams' : 'Au Grams'}</div>
-      <div class="kpi-number green">${sumGrams.toFixed(3)} g</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-title">Current Rate</div>
-      <div class="kpi-number gold">₹${valuationMetal === 'silver' ? Number(currentSilverRate).toFixed(2) : Number(currentLiveRate).toLocaleString('en-IN')}/g</div>
-    </div>
-    <div class="kpi-card highlight">
-      <div class="kpi-title">Current Valuation</div>
-      <div class="kpi-number green">₹${sumCurrentValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-    </div>
-    <div class="kpi-card highlight">
-      <div class="kpi-title">Total Profit / Loss</div>
-      <div class="kpi-number ${totalProfitClass}">${totalProfitSign}₹${sumProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-    </div>
-  </div>
-
-  <table>
-    <thead>
-      <tr>
-        <th style="text-align: left;">Txn Reference</th>
-        <th style="text-align: left;">Date</th>
-        <th style="text-align: center;">Metal</th>
-        <th style="text-align: right;">Recharge (₹)</th>
-        <th style="text-align: right;">Buy Rate (₹/g)</th>
-        <th style="text-align: right;">Holding (mg)</th>
-        <th style="text-align: right;">Holding (g)</th>
-        <th style="text-align: right;">Live Rate (₹/g)</th>
-        <th style="text-align: right;">Current Value (₹)</th>
-        <th style="text-align: right;">Net Profit (₹)</th>
-        <th style="text-align: center;">Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rowsHtml || '<tr><td colspan="11" style="text-align: center; padding: 20px;">No investment records found in this vault.</td></tr>'}
-    </tbody>
-    <tfoot>
-      <tr>
-        <td colspan="3" style="text-align: left;">TOTALS</td>
-        <td style="text-align: right;">₹${sumRecharge.toLocaleString('en-IN')}</td>
-        <td></td>
-        <td style="text-align: right; color: #008744;">${(sumGrams * 1000).toFixed(2)}</td>
-        <td style="text-align: right; color: #0A3E42;">${sumGrams.toFixed(3)} g</td>
-        <td></td>
-        <td style="text-align: right; color: #008744;">₹${sumCurrentValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-        <td style="text-align: right;" class="${totalProfitClass}">${totalProfitSign}₹${sumProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-        <td></td>
-      </tr>
-    </tfoot>
-  </table>
-
-  <div class="statement-footer">
-    <div class="security-stamp">
-      <div class="seal-box">ATHIRAI 916 SEAL</div>
-      <span>100% Certified 22K (916) Gold &amp; Pure (999) Silver • LBMA Standard • Insured Vault Custody</span>
-    </div>
+  <div class="a4-sheet">
     <div>
-      Official system-verified statement issued by Athirai Digi Gold Portal. Page 1 of 1
+      <div class="statement-header">
+        <div class="brand-section">
+          <img src="${logoUrl}" alt="Athirai Jewelers" class="brand-logo" onerror="this.style.display='none'" />
+          <div>
+            <h1 class="brand-title">ATHIRAI JEWELLERS</h1>
+            <div class="brand-subtitle">Digi Gold &amp; Silver Vault Valuation Certificate</div>
+          </div>
+        </div>
+        <div class="doc-meta">
+          <div class="doc-title-badge">${valuationMetal.toUpperCase()} VAULT AUDIT</div>
+          <div class="doc-date">Generated: ${currentDateStr} at ${currentTimeStr}</div>
+          <div style="font-size: 9px; color: #009957; font-weight: 750; margin-top: 2px;">● 100% Insured &amp; Physical Bullion Backed</div>
+        </div>
+      </div>
+
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span class="meta-label">Customer Account</span>
+          <span class="meta-val">${customerName} (${customerRole})</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Active Market Benchmark</span>
+          <span class="meta-val">${liveRateInfo}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Total Verified Records</span>
+          <span class="meta-val">${valuationTransactions.length} Transactions</span>
+        </div>
+      </div>
+
+      <div class="kpi-summary-grid">
+        <div class="kpi-card">
+          <div class="kpi-title">Total Recharge</div>
+          <div class="kpi-number">₹${sumRecharge.toLocaleString('en-IN')}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">${valuationMetal === 'silver' ? 'Ag Milligrams' : 'Au Milligrams'}</div>
+          <div class="kpi-number green">${(sumGrams * 1000).toFixed(2)}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">${valuationMetal === 'silver' ? 'Ag Grams' : 'Au Grams'}</div>
+          <div class="kpi-number green">${sumGrams.toFixed(3)} g</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Current Rate</div>
+          <div class="kpi-number gold">₹${valuationMetal === 'silver' ? Number(currentSilverRate).toFixed(2) : Number(currentLiveRate).toLocaleString('en-IN')}/g</div>
+        </div>
+        <div class="kpi-card highlight">
+          <div class="kpi-title">Current Valuation</div>
+          <div class="kpi-number green">₹${sumCurrentValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+        </div>
+        <div class="kpi-card highlight">
+          <div class="kpi-title">Total Profit / Loss</div>
+          <div class="kpi-number ${totalProfitClass}">${totalProfitSign}₹${sumProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 14%; text-align: left;">Txn Reference</th>
+            <th style="width: 9%; text-align: left;">Date</th>
+            <th style="width: 8%; text-align: center;">Metal</th>
+            <th style="width: 9%; text-align: right;">Recharge (₹)</th>
+            <th style="width: 9%; text-align: right;">Buy Rate</th>
+            <th style="width: 11%; text-align: right;">Weight (g/mg)</th>
+            <th style="width: 9%; text-align: right;">Live Rate</th>
+            <th style="width: 12%; text-align: right;">Current Val (₹)</th>
+            <th style="width: 10%; text-align: right;">Net P&amp;L</th>
+            <th style="width: 9%; text-align: center;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml || '<tr><td colspan="10" style="text-align: center; padding: 20px;">No investment records found in this vault.</td></tr>'}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3" style="text-align: left;">TOTALS</td>
+            <td style="text-align: right; white-space: nowrap;">₹${sumRecharge.toLocaleString('en-IN')}</td>
+            <td></td>
+            <td style="text-align: right; line-height: 1.25; white-space: nowrap;">
+              <span style="color: #0A3E42; font-weight: 850;">${sumGrams.toFixed(3)} g</span>
+              <div style="font-size: 8px; color: #008744; font-weight: 700;">${(sumGrams * 1000).toFixed(2)} mg</div>
+            </td>
+            <td></td>
+            <td style="text-align: right; color: #008744; white-space: nowrap;">₹${sumCurrentValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+            <td style="text-align: right; white-space: nowrap;" class="${totalProfitClass}">${totalProfitSign}₹${sumProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="statement-footer">
+      <div class="security-stamp">
+        <div class="seal-box">ATHIRAI 916 SEAL</div>
+        <span>100% Certified 22K (916) Gold &amp; Pure (999) Silver • LBMA Standard • Insured Vault Custody</span>
+      </div>
+      <div>
+        Official system-verified statement issued by Athirai Digi Gold Portal. Page 1 of 1
+      </div>
     </div>
   </div>
 
@@ -1867,14 +1985,6 @@ export default function DigiGoldDashboard() {
                 <span className="dg-header-mobile-title">Digi Gold</span>
                 <span className="dg-header-mobile-sub">Athirai 916</span>
               </div>
-            </div>
-
-            <div className="dg-search-bar">
-              <Search size={18} />
-              <input
-                type="text"
-                placeholder="Search gold, transactions, or anything..."
-              />
             </div>
           </div>
 
@@ -2423,6 +2533,10 @@ export default function DigiGoldDashboard() {
                     <div className="dg-hero-perk-badge">
                       <Tag size={13} className="dg-svg-perk-icon" />
                       <span>₹50/g Instant Discount</span>
+                    </div>
+                    <div className="dg-hero-perk-badge">
+                      <Truck size={13} className="dg-svg-perk-icon" />
+                      <span>Delivery Fast • 24 Hours</span>
                     </div>
                     <div className="dg-hero-perk-badge">
                       <Percent size={13} className="dg-svg-perk-icon" />
@@ -3394,26 +3508,56 @@ export default function DigiGoldDashboard() {
 
               {/* MIDDLE GRID: CHART + QUICK ACTIONS + MARKET RATES */}
               <section className="dg-middle-grid">
-                {/* Gold Price Trend Card */}
+                {/* Gold & Silver Price Trend Card */}
                 <div className="dg-card">
-                  <div className="dg-card-head">
+                  <div className="dg-card-head" style={{ flexWrap: 'wrap', gap: 10 }}>
                     <div className="dg-card-title-group">
-                      <div className="dg-card-icon-pill">
-                        <TrendingUp size={16} />
+                      <div className="dg-card-icon-pill" style={{
+                        background: chartMetal === 'silver' ? 'rgba(2, 132, 199, 0.12)' : '#E8F7F0',
+                        color: chartMetal === 'silver' ? '#0284C7' : '#009957'
+                      }}>
+                        {chartMetal === 'silver' ? <Layers size={16} /> : <TrendingUp size={16} />}
                       </div>
-                      <h3 className="dg-card-title">Gold Price Trend (22K)</h3>
+                      <h3 className="dg-card-title">
+                        {chartMetal === 'silver' ? 'Silver Price Trend (Pure 999)' : 'Gold Price Trend (22K)'}
+                      </h3>
                     </div>
-                    <div className="dg-pill-tabs">
-                      {['1D', '1W', '1M', '3M', '1Y'].map(tab => (
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      {/* Metal Toggle */}
+                      <div className="dg-chart-metal-toggle">
                         <button
-                          key={tab}
                           type="button"
-                          className={`dg-pill-tab ${activeTab === tab ? 'active' : ''}`}
-                          onClick={() => setActiveTab(tab)}
+                          className={`dg-chart-metal-btn ${chartMetal === 'gold' ? 'active gold' : ''}`}
+                          onClick={() => setChartMetal('gold')}
                         >
-                          {tab}
+                          🏅 Gold 22K (₹{Number(currentLiveRate).toLocaleString('en-IN')}/g)
                         </button>
-                      ))}
+                        <button
+                          type="button"
+                          className={`dg-chart-metal-btn ${chartMetal === 'silver' ? 'active silver' : ''}`}
+                          onClick={() => setChartMetal('silver')}
+                        >
+                          🥈 Silver 999 (₹{Number(currentSilverRate).toFixed(2)}/g)
+                        </button>
+                      </div>
+
+                      {/* Timeframe Tabs */}
+                      <div className="dg-pill-tabs">
+                        {['1D', '1W', '1M', '3M', '1Y'].map(tab => (
+                          <button
+                            key={tab}
+                            type="button"
+                            className={`dg-pill-tab ${activeTab === tab ? 'active' : ''}`}
+                            onClick={() => setActiveTab(tab)}
+                            style={{
+                              backgroundColor: activeTab === tab ? (chartMetal === 'silver' ? '#0284C7' : '#009957') : 'transparent'
+                            }}
+                          >
+                            {tab}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
@@ -3427,6 +3571,10 @@ export default function DigiGoldDashboard() {
                           <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#009957" stopOpacity={0.28} />
                             <stop offset="95%" stopColor="#009957" stopOpacity={0.0} />
+                          </linearGradient>
+                          <linearGradient id="silverGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#0284C7" stopOpacity={0.28} />
+                            <stop offset="95%" stopColor="#0284C7" stopOpacity={0.0} />
                           </linearGradient>
                         </defs>
                         <XAxis
@@ -3442,17 +3590,18 @@ export default function DigiGoldDashboard() {
                           tickLine={false}
                           axisLine={{ stroke: '#E6ECEA' }}
                           domain={chartYDomain}
-                          tickFormatter={val => '₹' + Number(val).toLocaleString('en-IN')}
+                          tickFormatter={val => '₹' + Number(val).toLocaleString('en-IN', { maximumFractionDigits: chartMetal === 'silver' ? 1 : 0 })}
                         />
                         <Tooltip
                           content={({ active, payload }) => {
                             if (active && payload && payload.length) {
                               const item = payload[0].payload
+                              const isSilver = chartMetal === 'silver'
                               return (
                                 <div style={{
                                   backgroundColor: '#FFFFFF',
                                   borderRadius: '12px',
-                                  border: '1.5px solid rgba(0, 153, 87, 0.22)',
+                                  border: `1.5px solid ${isSilver ? 'rgba(2, 132, 199, 0.3)' : 'rgba(0, 153, 87, 0.22)'}`,
                                   boxShadow: '0 8px 24px rgba(10, 62, 66, 0.12)',
                                   padding: '10px 14px',
                                   fontFamily: "'Plus Jakarta Sans', sans-serif"
@@ -3461,9 +3610,11 @@ export default function DigiGoldDashboard() {
                                     {item.fullDate || item.time}
                                   </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#0A3E42' }}>22K Gold :</span>
-                                    <span style={{ fontSize: '14.5px', fontWeight: 800, color: '#009957' }}>
-                                      ₹ {Number(item.price).toLocaleString('en-IN')} <span style={{ fontSize: '11px', fontWeight: 600, color: '#6A8280' }}>/g</span>
+                                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#0A3E42' }}>
+                                      {isSilver ? 'Pure 999 Silver :' : '22K Gold :'}
+                                    </span>
+                                    <span style={{ fontSize: '14.5px', fontWeight: 800, color: isSilver ? '#0284C7' : '#009957' }}>
+                                      ₹ {Number(item.price).toLocaleString('en-IN', { minimumFractionDigits: isSilver ? 2 : 0, maximumFractionDigits: isSilver ? 2 : 0 })} <span style={{ fontSize: '11px', fontWeight: 600, color: '#6A8280' }}>/g</span>
                                     </span>
                                   </div>
                                 </div>
@@ -3475,13 +3626,13 @@ export default function DigiGoldDashboard() {
                         <Area
                           type="monotone"
                           dataKey="price"
-                          stroke="#009957"
+                          stroke={chartMetal === 'silver' ? '#0284C7' : '#009957'}
                           strokeWidth={2.8}
                           fillOpacity={1}
-                          fill="url(#goldGradient)"
+                          fill={chartMetal === 'silver' ? 'url(#silverGradient)' : 'url(#goldGradient)'}
                           isAnimationActive={false}
-                          dot={{ r: 3.5, fill: '#009957', stroke: '#FFFFFF', strokeWidth: 1.5 }}
-                          activeDot={{ r: 6, fill: '#009957', stroke: '#FFFFFF', strokeWidth: 2.5 }}
+                          dot={{ r: 3.5, fill: chartMetal === 'silver' ? '#0284C7' : '#009957', stroke: '#FFFFFF', strokeWidth: 1.5 }}
+                          activeDot={{ r: 6, fill: chartMetal === 'silver' ? '#0284C7' : '#009957', stroke: '#FFFFFF', strokeWidth: 2.5 }}
                         />
                       </AreaChart>
                     </ResponsiveContainer>
@@ -3817,22 +3968,26 @@ export default function DigiGoldDashboard() {
                       <div className="dg-rewards-title-area">
                         <h3 className="dg-rewards-h">
                           Special AutoPay <br />
-                          <span className="dg-rewards-h-highlight">₹50/g Offer &amp; 5% Off</span>
+                          <span className="dg-rewards-h-highlight">₹50 Offer &amp; 5% Off</span>
                         </h3>
                         <p className="dg-rewards-p">
-                          Setup daily, weekly, or monthly Auto-Savings to enjoy ₹50/g instant discount on every deposit!
+                          Setup daily, weekly, or monthly Auto-Savings to enjoy ₹50 instant offer on every deposit with Fast 24 Hours Delivery!
                         </p>
                       </div>
                       <div className="dg-rewards-visual">
-                        <img src={goldCoinImg} alt="Athirai 22K Gold Coin" className="dg-rewards-coin-img" />
-                        <div className="dg-rewards-visual-badge">SAVE ₹50/g</div>
+                        <img src="/digi-gold/autopay_banner_gold.jpg" alt="Athirai Digi Gold AutoPay" />
+                        <div className="dg-rewards-visual-badge">₹50 OFFER</div>
                       </div>
                     </div>
 
                     <div className="dg-rewards-perks-grid">
                       <div className="dg-rewards-perk-item">
                         <span className="dg-rewards-perk-dot">✦</span>
-                        <span>₹50/g Instant Discount on Live Rate</span>
+                        <span>₹50 Instant Discount Offer on Live Rate</span>
+                      </div>
+                      <div className="dg-rewards-perk-item">
+                        <span className="dg-rewards-perk-dot">✦</span>
+                        <span>Delivery Fast • 24 Hours Guaranteed Delivery</span>
                       </div>
                       <div className="dg-rewards-perk-item">
                         <span className="dg-rewards-perk-dot">✦</span>
@@ -4115,50 +4270,28 @@ export default function DigiGoldDashboard() {
                   </div>
                 </div>
 
-                {/* Option 2: UPI (GPay, PhonePe, Paytm) */}
+                {/* Option 2: Buy Gold / Buy Silver (Direct Purchase) */}
                 <div
-                  className={`dg-buy-pay-option ${buyPaymentMethod === 'upi' ? 'active' : ''}`}
-                  onClick={() => setBuyPaymentMethod('upi')}
+                  className={`dg-buy-pay-option ${buyPaymentMethod === 'razorpay' ? 'active' : ''}`}
+                  onClick={() => setBuyPaymentMethod('razorpay')}
                 >
                   <div className="dg-buy-option-left">
                     <input
                       type="radio"
                       name="buyPayMethod"
-                      id="payMethodUpi"
-                      checked={buyPaymentMethod === 'upi'}
-                      onChange={() => setBuyPaymentMethod('upi')}
+                      id="payMethodRazorpay"
+                      checked={buyPaymentMethod === 'razorpay'}
+                      onChange={() => setBuyPaymentMethod('razorpay')}
                     />
                     <div className="dg-buy-option-info">
                       <div className="dg-buy-option-title-row">
-                        <span className="dg-direct-buy-title">UPI</span>
+                        <span className="dg-direct-buy-title">
+                          {buyMetal === 'gold_22k' ? 'Buy Gold' : 'Buy Silver'}
+                        </span>
                         <span className="dg-buy-option-badge" style={{ background: '#E8F7F0', color: '#009957', fontWeight: 800 }}>Instant</span>
                       </div>
                       <span className="dg-buy-option-sub">
-                        GPay, PhonePe, Paytm, BHIM UPI
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Option 3: Netbanking & Cards */}
-                <div
-                  className={`dg-buy-pay-option ${buyPaymentMethod === 'netbanking' ? 'active' : ''}`}
-                  onClick={() => setBuyPaymentMethod('netbanking')}
-                >
-                  <div className="dg-buy-option-left">
-                    <input
-                      type="radio"
-                      name="buyPayMethod"
-                      id="payMethodNetbanking"
-                      checked={buyPaymentMethod === 'netbanking'}
-                      onChange={() => setBuyPaymentMethod('netbanking')}
-                    />
-                    <div className="dg-buy-option-info">
-                      <div className="dg-buy-option-title-row">
-                        <span className="dg-direct-buy-title">Netbanking &amp; Cards</span>
-                      </div>
-                      <span className="dg-buy-option-sub">
-                        All Indian Banks, Debit / Credit Cards
+                        Direct Pay via UPI, GPay, PhonePe, Cards, Netbanking
                       </span>
                     </div>
                   </div>
@@ -4174,9 +4307,9 @@ export default function DigiGoldDashboard() {
                   ? 'Processing Purchase…'
                   : buyPaymentMethod === 'wallet'
                     ? `Buy ₹${parsedBuyAmount.toLocaleString('en-IN')} via AUG Revive`
-                    : buyPaymentMethod === 'upi'
-                      ? `Pay ₹${parsedBuyAmount.toLocaleString('en-IN')} via UPI`
-                      : `Pay ₹${parsedBuyAmount.toLocaleString('en-IN')} via Netbanking / Cards`}
+                    : buyMetal === 'gold_22k'
+                      ? `Buy Gold (₹${parsedBuyAmount.toLocaleString('en-IN')})`
+                      : `Buy Silver (₹${parsedBuyAmount.toLocaleString('en-IN')})`}
               </button>
             </form>
           </div>

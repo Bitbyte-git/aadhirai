@@ -17,6 +17,7 @@ import {
   Layers,
   ArrowLeftRight,
   Menu,
+  FileText,
   X,
   ChevronDown,
   ChevronRight,
@@ -91,8 +92,11 @@ function AnimatedNumber({ value, prefix = '', suffix = '', decimals = 0 }) {
 // ── CUSTOM LUXURY CHART TOOLTIP COMPONENT ──
 function CustomChartTooltip({ active, payload, label, isSilver = false }) {
   if (!active || !payload || !payload.length) return null
-  const grams = payload.find(p => p.dataKey === 'grams')?.value ?? 0
-  const revenue = payload[0]?.payload?.revenue ?? 0
+  const pData = payload[0]?.payload || {}
+  const grams = pData.grams ?? 0
+  const revenue = pData.revenue ?? 0
+  const effectiveRate = grams > 0 ? (revenue / grams) : null
+
   return (
     <div className="sadg-chart-tooltip">
       <div className="sadg-chart-tooltip-date">{label}</div>
@@ -110,6 +114,14 @@ function CustomChartTooltip({ active, payload, label, isSilver = false }) {
           ₹ {Number(revenue).toLocaleString('en-IN')}
         </span>
       </div>
+      {effectiveRate ? (
+        <div className="sadg-chart-tooltip-row">
+          <span style={{ color: isSilver ? '#93C5FD' : '#FDE68A' }}>Avg Rate:</span>
+          <span className="sadg-chart-tooltip-val">
+            ₹ {Number(effectiveRate).toFixed(2)} / g
+          </span>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -120,8 +132,13 @@ export default function SuperAdminDigiGold() {
   const [activeSection, setActiveSection] = useState('overview')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
+  // Chart Metric Toggles: 'grams' | 'revenue'
+  const [goldChartMetric, setGoldChartMetric] = useState('grams')
+  const [silverChartMetric, setSilverChartMetric] = useState('grams')
+
   // ── FILTER STATE ──
-  const [dateFilter, setDateFilter] = useState('week') // 'today' | 'week' | 'month' | 'year' | 'custom'
+  // Default to 'today' per user requirement
+  const [dateFilter, setDateFilter] = useState('today') // 'today' | 'week' | 'month' | 'year' | 'custom'
   const [customStartDate, setCustomStartDate] = useState(() => {
     const d = new Date()
     d.setDate(d.getDate() - 6)
@@ -135,28 +152,24 @@ export default function SuperAdminDigiGold() {
   const [txnTypeFilter, setTxnTypeFilter] = useState('all') // 'all' | 'buy' | 'sell' | 'convert'
   const [selectedUserCategory, setSelectedUserCategory] = useState('all') // 'all' | 'super_stockist' | 'distributor' | 'wholesale_dealer' | 'retailer' | 'customer' | 'general_customer'
 
-  // Pagination state
+  // Pagination state for non-transaction views
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 12
 
-  // ── DATA STATE (INSTANT INITIAL LOAD FROM SESSIONSTORAGE) ──
-  const [data, setData] = useState(() => {
-    try {
-      const cached = sessionStorage.getItem('athirai_sadg_cache')
-      return cached ? JSON.parse(cached) : null
-    } catch {
-      return null
-    }
-  })
-  const [loading, setLoading] = useState(() => !data)
-  const [updatingRate, setUpdatingRate] = useState(false)
-  const [rateForm, setRateForm] = useState({ gold_22k: '', silver_999: '' })
-  const [rateFeedback, setRateFeedback] = useState(null)
+  // ── INFINITE SCROLL STATE FOR TRANSACTIONS (VIEW 2) ──
+  // Starts with 100 items, loads next batch with skeleton shimmer on scroll
+  const [txnVisibleCount, setTxnVisibleCount] = useState(100)
+  const [loadingMoreTxns, setLoadingMoreTxns] = useState(false)
+  const txnSentinelRef = useRef(null)
 
-  // ── FETCH DATA ──
+  // ── DATA STATE (ALWAYS FRESH FROM DB) ──
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  // ── FETCH DATA DIRECTLY FROM DB ──
   const fetchData = async () => {
     try {
-      if (!data) setLoading(true)
+      setLoading(true)
       const params = {
         date_filter: dateFilter,
         status: statusFilter,
@@ -172,19 +185,25 @@ export default function SuperAdminDigiGold() {
         params.search = search.trim()
       }
 
-      const res = await api.get('/digi-gold/superadmin/', { params })
-      setData(res.data)
-      try {
-        sessionStorage.setItem('athirai_sadg_cache', JSON.stringify(res.data))
-      } catch {}
+      // Fetch superadmin analytics + direct DB metal rates simultaneously
+      const [res, ratesRes] = await Promise.all([
+        api.get('/digi-gold/superadmin/', { params }),
+        api.get('/metal-rates/?all=true').catch(() => null)
+      ])
 
-      // Initialize rateForm with live rates if empty
-      if (res.data?.rates) {
-        setRateForm({
-          gold_22k: res.data.rates.gold_22k || '',
-          silver_999: res.data.rates.silver_999 || '',
-        })
+      let finalData = res.data
+      if (ratesRes?.data && Array.isArray(ratesRes.data) && ratesRes.data.length > 0) {
+        finalData = {
+          ...res.data,
+          rate_history: ratesRes.data.map(r => ({
+            date: r.date ? r.date.split('-').reverse().join('-') : '',
+            date_iso: r.date,
+            gold_22k: Number(r.gold_22k || 0),
+            silver_999: Number(r.silver_999 || 0),
+          }))
+        }
       }
+      setData(finalData)
     } catch (err) {
       console.error('Failed to load SuperAdmin Digi Gold & Silver data:', err)
     } finally {
@@ -192,13 +211,37 @@ export default function SuperAdminDigiGold() {
     }
   }
 
+  // Refetch when filters or custom dates change
   useEffect(() => {
     fetchData()
-  }, [dateFilter, statusFilter, metalFilter, txnTypeFilter, selectedUserCategory])
+    setTxnVisibleCount(100)
+  }, [dateFilter, customStartDate, customEndDate, statusFilter, metalFilter, txnTypeFilter, selectedUserCategory])
+
+  // Infinite Scroll IntersectionObserver for Transactions table
+  useEffect(() => {
+    if (activeSection !== 'transactions') return
+    const el = txnSentinelRef.current
+    if (!el) return
+
+    const observer = new IntersectionObserver((entries) => {
+      const first = entries[0]
+      if (first.isIntersecting && !loadingMoreTxns) {
+        setLoadingMoreTxns(true)
+        setTimeout(() => {
+          setTxnVisibleCount(prev => prev + 50)
+          setLoadingMoreTxns(false)
+        }, 350)
+      }
+    }, { threshold: 0.1 })
+
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [activeSection, loadingMoreTxns, txnVisibleCount])
 
   const handleSearchSubmit = (e) => {
     e.preventDefault()
     setCurrentPage(1)
+    setTxnVisibleCount(100)
     fetchData()
   }
 
@@ -243,77 +286,601 @@ export default function SuperAdminDigiGold() {
 
   const totalPages = Math.ceil(filteredItems.length / pageSize) || 1
 
-  // ── CSV EXPORT ENGINE ──
-  const handleExportCSV = () => {
-    let filename = 'athirai-transactions.csv'
-    let headers = []
-    let rows = []
-
-    if (activeSection === 'gold_rates' || activeSection === 'silver_rates') {
-      filename = activeSection === 'gold_rates' ? 'athirai-gold-rate-history.csv' : 'athirai-silver-rate-history.csv'
-      headers = ['Date', 'Gold 22K (INR/g)', 'Gold 24K (INR/g)', 'Silver 999 (INR/g)']
-      rows = rateHistory.map(r => [r.date, r.gold_22k, r.gold_24k, r.silver_999])
-    } else {
-      if (activeSection === 'gold_mgmt') filename = 'athirai-gold-sales.csv'
-      else if (activeSection === 'silver_mgmt') filename = 'athirai-silver-sales.csv'
-      else if (activeSection === 'user_buy') filename = 'athirai-user-purchases.csv'
-
-      headers = [
-        'Date & Time', 'Transaction ID', 'Customer ID', 'Investor Name', 'Email',
-        'User Category', 'Metal', 'Type', 'Quantity (g)', 'Rate (INR/g)',
-        'Amount (INR)', 'Valuation (INR)', 'Profit/Loss (INR)', 'Payment Method', 'Status'
-      ]
-      rows = filteredItems.map(it => [
-        it.datetime_str || it.date,
-        it.transaction_id,
-        it.customer_id,
-        `"${it.investor_name}"`,
-        it.user_email,
-        `"${it.user_category}"`,
-        it.metal_label,
-        it.transaction_type,
-        it.quantity_gm,
-        it.rate,
-        it.amount,
-        it.current_valuation,
-        it.profit,
-        `"${it.payment_method}"`,
-        it.status
-      ])
-    }
-
-    if (!rows.length) return
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n')
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement('a')
-    link.setAttribute('href', encodedUri)
-    link.setAttribute('download', `${filename.replace('.csv', '')}_${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  }
-
-  // ── UPDATE MARKET RATES ──
-  const handleUpdateRates = async (e) => {
-    e.preventDefault()
+  // ── OFFICIAL A4 PDF EXPORT ENGINE ──
+  const handleExportPDF = () => {
     try {
-      setUpdatingRate(true)
-      setRateFeedback(null)
-      const payload = {
-        date: new Date().toISOString().slice(0, 10),
-        gold_22k: parseFloat(rateForm.gold_22k),
-        silver_999: parseFloat(rateForm.silver_999),
+      const printWin = window.open('', '_blank', 'width=1050,height=900')
+      if (!printWin) {
+        alert('Please allow popups to download/print the official PDF statement.')
+        return
       }
-      await api.post('/metal-rates/', payload)
-      setRateFeedback({ type: 'success', message: 'Market benchmark rates updated successfully!' })
-      fetchData()
+
+      const logoUrl = `${window.location.origin}/Aadhirai-Logo.png`
+      const currentDateStr = new Date().toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      })
+      const currentTimeStr = new Date().toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      })
+
+      const isRateReport = activeSection === 'gold_rates' || activeSection === 'silver_rates'
+      let reportTitle = 'Master Transactions Audit Report'
+      let reportCategory = 'DIGI GOLD & SILVER AUDIT'
+      if (activeSection === 'gold_mgmt') {
+        reportTitle = '22K Digi Gold Vault & Sales Ledger'
+        reportCategory = 'GOLD REVENUE AUDIT'
+      } else if (activeSection === 'silver_mgmt') {
+        reportTitle = 'Pure 999 Digi Silver Vault & Sales Ledger'
+        reportCategory = 'SILVER REVENUE AUDIT'
+      } else if (activeSection === 'user_buy') {
+        reportTitle = 'Investor Purchases & Hierarchy Sales Audit'
+        reportCategory = 'INVESTOR AUDIT'
+      } else if (activeSection === 'gold_rates') {
+        reportTitle = 'Official 22K Gold Benchmark Rates Log'
+        reportCategory = 'BENCHMARK RATES AUDIT'
+      } else if (activeSection === 'silver_rates') {
+        reportTitle = 'Official Pure 999 Silver Benchmark Rates Log'
+        reportCategory = 'BENCHMARK RATES AUDIT'
+      }
+
+      let rowsHtml = ''
+      let totalAmount = 0
+      let totalWeight = 0
+      let totalValuation = 0
+
+      if (isRateReport) {
+        if (!rateHistory.length) {
+          rowsHtml = '<tr><td colspan="5" style="text-align: center; padding: 20px;">No benchmark rate history recorded yet.</td></tr>'
+        } else {
+          rateHistory.forEach((r) => {
+            rowsHtml += `
+              <tr>
+                <td style="font-weight: 700; color: #0A3E42;">${r.date}</td>
+                <td style="text-align: right; font-weight: 750;">₹ ${Number(r.gold_22k).toLocaleString('en-IN')}</td>
+                <td style="text-align: right; color: #008744;">₹ ${(Number(r.gold_22k) / 1000).toFixed(2)}</td>
+                <td style="text-align: right; font-weight: 750;">₹ ${Number(r.silver_999).toFixed(2)}</td>
+                <td style="text-align: center;"><span class="badge status-completed">Verified Athirai Rate</span></td>
+              </tr>
+            `
+          })
+        }
+      } else {
+        if (!filteredItems.length) {
+          rowsHtml = '<tr><td colspan="9" style="text-align: center; padding: 20px;">No transaction records found matching the active filters.</td></tr>'
+        } else {
+          filteredItems.forEach((it) => {
+            const amt = Number(it.amount || 0)
+            const qty = Number(it.quantity_gm || 0)
+            const val = Number(it.current_valuation || 0)
+            totalAmount += amt
+            totalWeight += qty
+            totalValuation += val
+
+            const isGold = (it.metal || '').toLowerCase().includes('gold')
+            const metalBadgeClass = isGold ? 'metal-gold' : 'metal-silver'
+            const metalText = isGold ? '22K Gold' : 'Silver 999'
+
+            rowsHtml += `
+              <tr>
+                <td style="font-family: monospace; font-weight: 700; color: #0A3E42; font-size: 9.5px;">${it.transaction_id || '-'}</td>
+                <td style="font-size: 9px; white-space: nowrap;">${it.datetime_str || it.date || '-'}</td>
+                <td style="font-weight: 700; color: #103F42;">
+                  ${it.investor_name || 'Investor'}
+                  <div style="font-size: 8px; color: #647474; font-weight: 500;">${it.user_category || ''}</div>
+                </td>
+                <td style="text-align: center;"><span class="badge ${metalBadgeClass}">${metalText}</span></td>
+                <td style="text-align: right; font-weight: 700; color: #0A3E42;">${qty.toFixed(3)} g</td>
+                <td style="text-align: right; color: #647474;">₹ ${Number(it.rate || 0).toLocaleString('en-IN')}</td>
+                <td style="text-align: right; font-weight: 750;">₹ ${amt.toLocaleString('en-IN')}</td>
+                <td style="text-align: right; font-weight: 800; color: #008744;">₹ ${val.toLocaleString('en-IN')}</td>
+                <td style="text-align: center;"><span class="badge status-completed">${it.status || 'Completed'}</span></td>
+              </tr>
+            `
+          })
+        }
+      }
+
+      const docHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Athirai Super Admin — ${reportTitle}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+    
+    @page {
+      size: A4 portrait;
+      margin: 10mm 8mm 12mm 8mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 16px 0 40px 0;
+      color: #0A3E42;
+      background: #EBF0EE;
+      font-size: 10px;
+      line-height: 1.35;
+    }
+
+    .no-print-bar {
+      position: sticky;
+      top: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0A3E42;
+      color: #FFFFFF;
+      padding: 10px 18px;
+      border-radius: 10px;
+      margin: 0 auto 16px auto;
+      max-width: 210mm;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+      z-index: 999;
+    }
+
+    .preview-pill {
+      font-size: 9.5px;
+      font-weight: 800;
+      background: rgba(255, 255, 255, 0.18);
+      color: #F3CA8A;
+      padding: 3px 8px;
+      border-radius: 999px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-left: 8px;
+    }
+
+    .btn-action {
+      border: none;
+      border-radius: 7px;
+      padding: 7px 16px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: opacity 0.2s;
+    }
+    .btn-action:hover { opacity: 0.9; }
+
+    .btn-print {
+      background: #009957;
+      color: #FFFFFF;
+      box-shadow: 0 2px 6px rgba(0, 153, 87, 0.35);
+    }
+
+    .btn-close {
+      background: rgba(255, 255, 255, 0.18);
+      color: #FFFFFF;
+      margin-left: 8px;
+    }
+
+    /* ── AUTHENTIC A4 PORTRAIT SHEET CONTAINER (210mm WIDTH) ── */
+    .a4-sheet {
+      width: 210mm;
+      max-width: 100%;
+      min-height: 297mm;
+      margin: 0 auto;
+      background: #FFFFFF;
+      padding: 12mm 12mm 14mm 12mm;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0,0,0,0.06);
+      border-radius: 4px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    @media print {
+      body {
+        background: #FFFFFF !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .no-print-bar {
+        display: none !important;
+      }
+      .a4-sheet {
+        width: 100% !important;
+        min-height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+      }
+    }
+
+    /* Header */
+    .statement-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #0A3E42;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      height: 52px;
+      width: auto;
+      object-fit: contain;
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 900;
+      color: #0A3E42;
+      letter-spacing: -0.02em;
+      margin: 0;
+      line-height: 1.1;
+    }
+
+    .brand-subtitle {
+      font-size: 9.5px;
+      font-weight: 750;
+      color: #C6924B;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 3px;
+    }
+
+    .doc-meta {
+      text-align: right;
+    }
+
+    .doc-title-badge {
+      display: inline-block;
+      background: #E8F4F1;
+      color: #0A3E42;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 5px;
+      border: 1px solid #C7E0D8;
+      margin-bottom: 3px;
+      letter-spacing: 0.05em;
+    }
+
+    .doc-date {
+      font-size: 10px;
+      color: #647474;
+      font-weight: 600;
+    }
+
+    /* Meta Grid */
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 2fr 1.5fr 1fr;
+      gap: 10px;
+      background: #F8FAF9;
+      border: 1px solid #DCE7E3;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin: 12px 0;
+    }
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .meta-label {
+      font-size: 8.5px;
+      font-weight: 750;
+      color: #647474;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .meta-val {
+      font-size: 11.5px;
+      font-weight: 800;
+      color: #0A3E42;
+    }
+
+    /* KPI Grid */
+    .kpi-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .kpi-card {
+      background: #FFFFFF;
+      border: 1px solid #E2EBE8;
+      border-radius: 8px;
+      padding: 8px 10px;
+      text-align: center;
+    }
+
+    .kpi-title {
+      font-size: 8px;
+      font-weight: 750;
+      color: #647474;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 2px;
+    }
+
+    .kpi-number {
+      font-size: 13px;
+      font-weight: 850;
+      color: #0A3E42;
+      white-space: nowrap;
+    }
+
+    .kpi-number.green { color: #009957; }
+    .kpi-number.gold { color: #C6924B; }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8.5px;
+      margin-bottom: 16px;
+      table-layout: auto;
+    }
+
+    th {
+      background: #0A3E42;
+      color: #FFFFFF;
+      font-weight: 800;
+      font-size: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      padding: 6px 4px;
+      border: 1px solid #0A3E42;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 5px 4px;
+      border: 1px solid #E2EBE8;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    tr:nth-child(even) td {
+      background: #FAFCFB;
+    }
+
+    tfoot tr td {
+      background: #EBF4F1;
+      font-weight: 900;
+      font-size: 9.5px;
+      border-top: 2px solid #0A3E42;
+      padding: 8px 6px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .metal-gold {
+      background: rgba(198, 146, 75, 0.16);
+      color: #9E6B24;
+      border: 1px solid rgba(198, 146, 75, 0.35);
+    }
+
+    .metal-silver {
+      background: rgba(10, 62, 66, 0.12);
+      color: #0A3E42;
+      border: 1px solid rgba(10, 62, 66, 0.3);
+    }
+
+    .status-completed {
+      background: #DEF7EC;
+      color: #03543F;
+      border: 1px solid #BCF0DA;
+    }
+
+    /* Footer */
+    .statement-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px dashed #C7E0D8;
+      padding-top: 10px;
+      margin-top: auto;
+      font-size: 9px;
+      color: #647474;
+    }
+
+    .security-stamp {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #0A3E42;
+      font-weight: 700;
+    }
+
+    .seal-box {
+      border: 1.5px solid #C6924B;
+      padding: 2px 7px;
+      border-radius: 4px;
+      color: #C6924B;
+      text-transform: uppercase;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      font-size: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print-bar">
+    <div style="display: flex; align-items: center;">
+      <span style="font-weight: 800; font-size: 13px;">Athirai Super Admin — Official Audit Statement</span>
+      <span class="preview-pill">A4 Sheet Specification</span>
+    </div>
+    <div>
+      <button class="btn-action btn-print" onclick="window.print()">
+        🖨️ Download / Save as PDF
+      </button>
+      <button class="btn-action btn-close" onclick="window.close()">
+        Close
+      </button>
+    </div>
+  </div>
+
+  <div class="a4-sheet">
+    <div>
+      <div class="statement-header">
+        <div class="brand-section">
+          <img src="${logoUrl}" alt="Athirai Jewelers" class="brand-logo" onerror="this.style.display='none'" />
+          <div>
+            <h1 class="brand-title">ATHIRAI JEWELLERS</h1>
+            <div class="brand-subtitle">${reportTitle}</div>
+          </div>
+        </div>
+        <div class="doc-meta">
+          <div class="doc-title-badge">${reportCategory}</div>
+          <div class="doc-date">Generated: ${currentDateStr} at ${currentTimeStr}</div>
+          <div style="font-size: 9px; color: #009957; font-weight: 750; margin-top: 2px;">● Verified Super Admin Ledger</div>
+        </div>
+      </div>
+
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span class="meta-label">Audit Period</span>
+          <span class="meta-val">${dateRange.start_date} → ${dateRange.end_date}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Active Market Benchmark</span>
+          <span class="meta-val">Gold 22K: ₹ ${Number(rates.gold_22k || 13200).toLocaleString('en-IN')}/g | Silver: ₹ ${Number(rates.silver_999 || 275).toFixed(2)}/g</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Verified Record Count</span>
+          <span class="meta-val">${isRateReport ? rateHistory.length : filteredItems.length} Records</span>
+        </div>
+      </div>
+
+      ${!isRateReport ? `
+      <div class="kpi-summary-grid">
+        <div class="kpi-card">
+          <div class="kpi-title">Total Transactions</div>
+          <div class="kpi-number">${filteredItems.length}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Accumulated Weight</div>
+          <div class="kpi-number green">${totalWeight.toFixed(3)} g</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Total Transaction Value</div>
+          <div class="kpi-number gold">₹ ${totalAmount.toLocaleString('en-IN')}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Total Current Valuation</div>
+          <div class="kpi-number green">₹ ${totalValuation.toLocaleString('en-IN')}</div>
+        </div>
+      </div>
+      ` : ''}
+
+      ${isRateReport ? `
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 25%; text-align: left;">Date</th>
+            <th style="width: 20%; text-align: right;">Gold 22K (₹/g)</th>
+            <th style="width: 20%; text-align: right;">Gold 22K (₹/mg)</th>
+            <th style="width: 20%; text-align: right;">Silver 999 (₹/g)</th>
+            <th style="width: 15%; text-align: center;">Source Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+      ` : `
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 14%; text-align: left;">Txn ID</th>
+            <th style="width: 11%; text-align: left;">Date</th>
+            <th style="width: 17%; text-align: left;">Investor &amp; Category</th>
+            <th style="width: 9%; text-align: center;">Metal</th>
+            <th style="width: 9%; text-align: right;">Qty (g)</th>
+            <th style="width: 9%; text-align: right;">Rate (₹/g)</th>
+            <th style="width: 11%; text-align: right;">Amount (₹)</th>
+            <th style="width: 11%; text-align: right;">Valuation (₹)</th>
+            <th style="width: 9%; text-align: center;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" style="text-align: left;">TOTALS</td>
+            <td style="text-align: right; color: #0A3E42; font-weight: 850;">${totalWeight.toFixed(3)} g</td>
+            <td></td>
+            <td style="text-align: right; font-weight: 850;">₹ ${totalAmount.toLocaleString('en-IN')}</td>
+            <td style="text-align: right; color: #008744; font-weight: 850;">₹ ${totalValuation.toLocaleString('en-IN')}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+      `}
+    </div>
+
+    <div class="statement-footer">
+      <div class="security-stamp">
+        <div class="seal-box">ATHIRAI 916 SEAL</div>
+        <span>100% Certified 22K (916) Gold &amp; Pure (999) Silver • LBMA Standard • Verified Super Admin Ledger</span>
+      </div>
+      <div>
+        Official system-verified statement issued by Athirai Super Admin Portal. Page 1 of 1
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+      }, 350);
+    };
+  </script>
+</body>
+</html>
+      `
+
+      printWin.document.open()
+      printWin.document.write(docHtml)
+      printWin.document.close()
     } catch (err) {
-      console.error('Rate update error:', err)
-      setRateFeedback({ type: 'error', message: err.response?.data?.error || 'Failed to update rates.' })
-    } finally {
-      setUpdatingRate(false)
+      console.error('PDF Export Error:', err)
+      alert('Failed to generate PDF. Please try again.')
     }
   }
+
+
 
   // ── SIDEBAR NAVIGATION ITEMS (EXACT ORDER PER SPEC) ──
   const navItems = [
@@ -452,10 +1019,10 @@ export default function SuperAdminDigiGold() {
             <button
               type="button"
               className="sadg-btn-export"
-              onClick={handleExportCSV}
+              onClick={handleExportPDF}
             >
-              <Download size={15} />
-              <span>Export CSV</span>
+              <FileText size={15} />
+              <span>Export PDF</span>
             </button>
           </div>
         </div>
@@ -560,7 +1127,9 @@ export default function SuperAdminDigiGold() {
                     <b className="sadg-kpi-value">
                       <AnimatedNumber value={kpis.total_silver_sales_inr || 0} prefix="₹ " />
                     </b>
-                    <span className="sadg-kpi-sub">Gross silver volume</span>
+                    <span className="sadg-kpi-sub">
+                      Gross volume • ₹{Number(rates.silver_999 || 275).toFixed(2)}/g
+                    </span>
                   </div>
 
                   {/* Card 4: Silver Sold (g) */}
@@ -572,7 +1141,9 @@ export default function SuperAdminDigiGold() {
                     <b className="sadg-kpi-value">
                       <AnimatedNumber value={kpis.total_silver_sold_gm || 0} decimals={3} suffix=" g" />
                     </b>
-                    <span className="sadg-kpi-sub">Total weight credited</span>
+                    <span className="sadg-kpi-sub">
+                      Total weight • ₹{Number(kpis.avg_silver_rate || rates.silver_999 || 275).toFixed(2)}/g avg
+                    </span>
                   </div>
 
                   {/* Card 5: Total Transactions */}
@@ -611,21 +1182,35 @@ export default function SuperAdminDigiGold() {
                         </div>
                         <h4 className="sadg-chart-title">Gold Sales Overview</h4>
                       </div>
-                      <div className="sadg-chart-legend">
-                        <span className="sadg-legend-item">
-                          <span className="sadg-legend-line" style={{ background: '#009957' }} />
-                          Gold (g)
-                        </span>
-                        <span className="sadg-legend-item">
-                          <span className="sadg-legend-line" style={{ background: '#0A3E42' }} />
-                          Revenue (₹)
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div className="sadg-chart-metric-toggle">
+                          <button
+                            type="button"
+                            className={`sadg-metric-btn ${goldChartMetric === 'grams' ? 'active' : ''}`}
+                            onClick={() => setGoldChartMetric('grams')}
+                          >
+                            Weight (g)
+                          </button>
+                          <button
+                            type="button"
+                            className={`sadg-metric-btn ${goldChartMetric === 'revenue' ? 'active' : ''}`}
+                            onClick={() => setGoldChartMetric('revenue')}
+                          >
+                            Revenue (₹)
+                          </button>
+                        </div>
+                        <div className="sadg-chart-legend">
+                          <span className="sadg-legend-item">
+                            <span className="sadg-legend-line" style={{ background: goldChartMetric === 'grams' ? '#009957' : '#0A3E42' }} />
+                            {goldChartMetric === 'grams' ? 'Gold (g)' : 'Revenue (₹)'}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
                     <div className="sadg-chart-body">
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={goldChart} margin={{ top: 12, right: 12, left: -20, bottom: 0 }}>
+                        <AreaChart data={goldChart} margin={{ top: 12, right: 12, left: -10, bottom: 0 }}>
                           <defs>
                             <linearGradient id="sadgGoldGrad" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0%" stopColor="#009957" stopOpacity={0.28} />
@@ -634,16 +1219,22 @@ export default function SuperAdminDigiGold() {
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" stroke="#EEF2F1" vertical={false} />
                           <XAxis dataKey="date" stroke="#8E9E9C" fontSize={10.5} tickLine={false} axisLine={{ stroke: '#E2EAE8' }} />
-                          <YAxis stroke="#8E9E9C" fontSize={10.5} tickLine={false} axisLine={false} />
+                          <YAxis
+                            stroke="#8E9E9C"
+                            fontSize={10.5}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={val => goldChartMetric === 'grams' ? `${val}g` : `₹${Number(val).toLocaleString('en-IN')}`}
+                          />
                           <Tooltip content={<CustomChartTooltip isSilver={false} />} />
                           <Area
                             type="monotone"
-                            dataKey="grams"
-                            name="Gold (g)"
-                            stroke="#009957"
+                            dataKey={goldChartMetric === 'grams' ? 'grams' : 'revenue'}
+                            name={goldChartMetric === 'grams' ? 'Gold (g)' : 'Revenue (₹)'}
+                            stroke={goldChartMetric === 'grams' ? '#009957' : '#0A3E42'}
                             strokeWidth={2.4}
                             fill="url(#sadgGoldGrad)"
-                            dot={{ r: 3.5, fill: '#009957', stroke: '#FFFFFF', strokeWidth: 1.5 }}
+                            dot={{ r: 3.5, fill: goldChartMetric === 'grams' ? '#009957' : '#0A3E42', stroke: '#FFFFFF', strokeWidth: 1.5 }}
                             activeDot={{ r: 6, fill: '#073B3F', stroke: '#FFFFFF', strokeWidth: 2 }}
                             isAnimationActive={true}
                             animationDuration={850}
@@ -663,21 +1254,35 @@ export default function SuperAdminDigiGold() {
                         </div>
                         <h4 className="sadg-chart-title">Silver Sales Overview</h4>
                       </div>
-                      <div className="sadg-chart-legend">
-                        <span className="sadg-legend-item">
-                          <span className="sadg-legend-line" style={{ background: '#0284C7' }} />
-                          Silver (g)
-                        </span>
-                        <span className="sadg-legend-item">
-                          <span className="sadg-legend-line" style={{ background: '#0A3E42' }} />
-                          Revenue (₹)
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div className="sadg-chart-metric-toggle">
+                          <button
+                            type="button"
+                            className={`sadg-metric-btn ${silverChartMetric === 'grams' ? 'active' : ''}`}
+                            onClick={() => setSilverChartMetric('grams')}
+                          >
+                            Weight (g)
+                          </button>
+                          <button
+                            type="button"
+                            className={`sadg-metric-btn ${silverChartMetric === 'revenue' ? 'active' : ''}`}
+                            onClick={() => setSilverChartMetric('revenue')}
+                          >
+                            Revenue (₹)
+                          </button>
+                        </div>
+                        <div className="sadg-chart-legend">
+                          <span className="sadg-legend-item">
+                            <span className="sadg-legend-line" style={{ background: silverChartMetric === 'grams' ? '#0284C7' : '#0A3E42' }} />
+                            {silverChartMetric === 'grams' ? 'Silver (g)' : 'Revenue (₹)'}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
                     <div className="sadg-chart-body">
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={silverChart} margin={{ top: 12, right: 12, left: -20, bottom: 0 }}>
+                        <AreaChart data={silverChart} margin={{ top: 12, right: 12, left: -10, bottom: 0 }}>
                           <defs>
                             <linearGradient id="sadgSilverGrad" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0%" stopColor="#0284C7" stopOpacity={0.28} />
@@ -686,16 +1291,22 @@ export default function SuperAdminDigiGold() {
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" stroke="#EEF2F1" vertical={false} />
                           <XAxis dataKey="date" stroke="#8E9E9C" fontSize={10.5} tickLine={false} axisLine={{ stroke: '#E2EAE8' }} />
-                          <YAxis stroke="#8E9E9C" fontSize={10.5} tickLine={false} axisLine={false} />
+                          <YAxis
+                            stroke="#8E9E9C"
+                            fontSize={10.5}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={val => silverChartMetric === 'grams' ? `${val}g` : `₹${Number(val).toLocaleString('en-IN')}`}
+                          />
                           <Tooltip content={<CustomChartTooltip isSilver={true} />} />
                           <Area
                             type="monotone"
-                            dataKey="grams"
-                            name="Silver (g)"
-                            stroke="#0284C7"
+                            dataKey={silverChartMetric === 'grams' ? 'grams' : 'revenue'}
+                            name={silverChartMetric === 'grams' ? 'Silver (g)' : 'Revenue (₹)'}
+                            stroke={silverChartMetric === 'grams' ? '#0284C7' : '#0A3E42'}
                             strokeWidth={2.4}
                             fill="url(#sadgSilverGrad)"
-                            dot={{ r: 3.5, fill: '#0284C7', stroke: '#FFFFFF', strokeWidth: 1.5 }}
+                            dot={{ r: 3.5, fill: silverChartMetric === 'grams' ? '#0284C7' : '#0A3E42', stroke: '#FFFFFF', strokeWidth: 1.5 }}
                             activeDot={{ r: 6, fill: '#0F172A', stroke: '#FFFFFF', strokeWidth: 2 }}
                             isAnimationActive={true}
                             animationDuration={850}
@@ -740,7 +1351,7 @@ export default function SuperAdminDigiGold() {
                             </div>
                           </td>
                           <td>
-                            <b>₹ <AnimatedNumber value={rates.gold_22k || 13200} /></b> / g
+                            <b>₹ <AnimatedNumber value={rates.gold_22k || 14250} /></b> / g
                           </td>
                           <td>
                             <span style={{ color: rates.diff_22k >= 0 ? '#009957' : '#DC5353', fontWeight: 700 }}>
@@ -756,7 +1367,7 @@ export default function SuperAdminDigiGold() {
                             </div>
                           </td>
                           <td>
-                            <b>₹ <AnimatedNumber value={rates.silver_999 || 225} decimals={2} /></b> / g
+                            <b>₹ <AnimatedNumber value={rates.silver_999 || 275} decimals={2} /></b> / g
                           </td>
                           <td>
                             <span style={{ color: rates.diff_silver >= 0 ? '#009957' : '#DC5353', fontWeight: 700 }}>
@@ -1069,90 +1680,117 @@ export default function SuperAdminDigiGold() {
                   </thead>
                   <tbody>
                     {loading ? (
-                      <tr>
-                        <td colSpan={11} style={{ textAlign: 'center', padding: 40, color: '#6A7D7C' }}>
-                          Loading transactions...
-                        </td>
-                      </tr>
-                    ) : paginatedItems.length === 0 ? (
+                      [1, 2, 3, 4, 5, 6].map((skelId) => (
+                        <tr key={`init-skel-${skelId}`} className="sadg-skel-tr">
+                          <td><div className="sadg-skel-cell" style={{ width: 110 }} /></td>
+                          <td><div className="sadg-skel-cell" style={{ width: 95 }} /></td>
+                          <td><div className="sadg-skel-cell" style={{ width: 70 }} /></td>
+                          <td>
+                            <div className="sadg-skel-cell" style={{ width: 120 }} />
+                            <div className="sadg-skel-cell" style={{ width: 150, marginTop: 4, height: 10 }} />
+                          </td>
+                          <td><div className="sadg-skel-cell" style={{ width: 75 }} /></td>
+                          <td><div className="sadg-skel-cell" style={{ width: 65 }} /></td>
+                          <td><div className="sadg-skel-cell" style={{ width: 45 }} /></td>
+                          <td><div className="sadg-skel-cell" style={{ width: 55 }} /></td>
+                          <td><div className="sadg-skel-cell" style={{ width: 65 }} /></td>
+                          <td><div className="sadg-skel-cell" style={{ width: 70 }} /></td>
+                          <td><div className="sadg-skel-cell" style={{ width: 75, borderRadius: 12 }} /></td>
+                        </tr>
+                      ))
+                    ) : filteredItems.length === 0 ? (
                       <tr>
                         <td colSpan={11} style={{ textAlign: 'center', padding: 40, color: '#6A7D7C' }}>
                           No matching transactions found for this date range and filters.
                         </td>
                       </tr>
                     ) : (
-                      paginatedItems.map((row) => (
-                        <tr key={row.id}>
-                          <td>{row.datetime_str || row.date}</td>
-                          <td>
-                            <code style={{ fontSize: 11, background: '#F0F5F2', padding: '2px 6px', borderRadius: 4, color: '#0A3E42', fontWeight: 700 }}>
-                              {row.transaction_id}
-                            </code>
-                          </td>
-                          <td>{row.customer_id}</td>
-                          <td>
-                            <b>{row.investor_name}</b>
-                            <div style={{ fontSize: 10.5, color: '#6A7D7C' }}>{row.user_email}</div>
-                          </td>
-                          <td>
-                            <span style={{ fontSize: 11, background: '#E9F7F0', color: '#0A3E42', padding: '2px 7px', borderRadius: 6, fontWeight: 700 }}>
-                              {row.user_category}
-                            </span>
-                          </td>
-                          <td>
-                            <span style={{ fontWeight: 700, color: row.metal === 'gold' ? '#C6924B' : '#64748B' }}>
-                              {row.metal_label}
-                            </span>
-                          </td>
-                          <td style={{ textTransform: 'capitalize', fontWeight: 600 }}>{row.transaction_type}</td>
-                          <td><b>{row.quantity_label}</b></td>
-                          <td>₹ {Number(row.rate).toLocaleString('en-IN')}</td>
-                          <td><b>₹ {Number(row.amount).toLocaleString('en-IN')}</b></td>
-                          <td>
-                            <span className={`sadg-status-badge ${row.status}`}>
-                              {row.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
+                      <>
+                        {filteredItems.slice(0, txnVisibleCount).map((row) => (
+                          <tr key={row.id}>
+                            <td>{row.datetime_str || row.date}</td>
+                            <td>
+                              <code style={{ fontSize: 11, background: '#F0F5F2', padding: '2px 6px', borderRadius: 4, color: '#0A3E42', fontWeight: 700 }}>
+                                {row.transaction_id}
+                              </code>
+                            </td>
+                            <td>{row.customer_id}</td>
+                            <td>
+                              <b>{row.investor_name}</b>
+                              <div style={{ fontSize: 10.5, color: '#6A7D7C' }}>{row.user_email}</div>
+                            </td>
+                            <td>
+                              <span style={{ fontSize: 11, background: '#E9F7F0', color: '#0A3E42', padding: '2px 7px', borderRadius: 6, fontWeight: 700 }}>
+                                {row.user_category}
+                              </span>
+                            </td>
+                            <td>
+                              <span style={{ fontWeight: 700, color: row.metal === 'gold' ? '#C6924B' : '#64748B' }}>
+                                {row.metal_label}
+                              </span>
+                            </td>
+                            <td style={{ textTransform: 'capitalize', fontWeight: 600 }}>{row.transaction_type}</td>
+                            <td><b>{row.quantity_label}</b></td>
+                            <td>₹ {Number(row.rate).toLocaleString('en-IN')}</td>
+                            <td><b>₹ {Number(row.amount).toLocaleString('en-IN')}</b></td>
+                            <td>
+                              <span className={`sadg-status-badge ${row.status}`}>
+                                {row.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+
+                        {/* Skeleton Shimmer Loading Rows while fetching next scroll batch */}
+                        {loadingMoreTxns && (
+                          [1, 2, 3, 4, 5].map((skelId) => (
+                            <tr key={`scroll-skel-${skelId}`} className="sadg-skel-tr">
+                              <td><div className="sadg-skel-cell" style={{ width: 110 }} /></td>
+                              <td><div className="sadg-skel-cell" style={{ width: 95 }} /></td>
+                              <td><div className="sadg-skel-cell" style={{ width: 70 }} /></td>
+                              <td>
+                                <div className="sadg-skel-cell" style={{ width: 120 }} />
+                                <div className="sadg-skel-cell" style={{ width: 150, marginTop: 4, height: 10 }} />
+                              </td>
+                              <td><div className="sadg-skel-cell" style={{ width: 75 }} /></td>
+                              <td><div className="sadg-skel-cell" style={{ width: 65 }} /></td>
+                              <td><div className="sadg-skel-cell" style={{ width: 45 }} /></td>
+                              <td><div className="sadg-skel-cell" style={{ width: 55 }} /></td>
+                              <td><div className="sadg-skel-cell" style={{ width: 65 }} /></td>
+                              <td><div className="sadg-skel-cell" style={{ width: 70 }} /></td>
+                              <td><div className="sadg-skel-cell" style={{ width: 75, borderRadius: 12 }} /></td>
+                            </tr>
+                          ))
+                        )}
+                      </>
                     )}
                   </tbody>
                 </table>
               </div>
 
-              {/* Pagination */}
-              <div className="sadg-pagination-bar">
-                <span>
-                  Showing {filteredItems.length ? (currentPage - 1) * pageSize + 1 : 0} to{' '}
-                  {Math.min(currentPage * pageSize, filteredItems.length)} of {filteredItems.length} records
+              {/* Sentinel anchor for Infinite Scroll */}
+              <div ref={txnSentinelRef} style={{ height: 12, width: '100%' }} />
+
+              {/* Infinite Scroll Live Audit Bar */}
+              <div className="sadg-pagination-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: '#4E615F', fontWeight: 600 }}>
+                  Showing <b>1 to {Math.min(txnVisibleCount, filteredItems.length)}</b> of <b>{filteredItems.length}</b> verified records
                 </span>
-                <div className="sadg-page-btns">
-                  <button
-                    type="button"
-                    className="sadg-page-btn"
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  >
-                    Previous
-                  </button>
-                  {[...Array(totalPages)].map((_, i) => (
-                    <button
-                      key={i + 1}
-                      type="button"
-                      className={`sadg-page-btn ${currentPage === i + 1 ? 'active' : ''}`}
-                      onClick={() => setCurrentPage(i + 1)}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    className="sadg-page-btn"
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  >
-                    Next
-                  </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {loadingMoreTxns ? (
+                    <span style={{ fontSize: 12, color: '#009957', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <RefreshCw size={13} className="sadg-spin" />
+                      Loading more records…
+                    </span>
+                  ) : txnVisibleCount < filteredItems.length ? (
+                    <span style={{ fontSize: 12, color: '#6A7D7C', fontWeight: 600 }}>
+                      ↓ Scroll down for next batch
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 12, color: '#009957', fontWeight: 700 }}>
+                      ✓ All {filteredItems.length} records loaded
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -1381,7 +2019,7 @@ export default function SuperAdminDigiGold() {
                 </div>
                 <span className="sadg-kpi-label">Average Selling Rate</span>
                 <b className="sadg-kpi-value">
-                  <AnimatedNumber value={kpis.avg_silver_rate || rates.silver_999 || 225} prefix="₹ " decimals={2} suffix=" / g" />
+                  <AnimatedNumber value={kpis.avg_silver_rate || rates.silver_999 || 275} prefix="₹ " decimals={2} suffix=" / g" />
                 </b>
                 <span className="sadg-kpi-sub">Benchmark pricing</span>
               </div>
@@ -1655,76 +2293,34 @@ export default function SuperAdminDigiGold() {
                     Digi Silver (Pure 999 Benchmark)
                   </span>
                   <div className="sadg-rate-banner-price">
-                    ₹ <AnimatedNumber value={rates.silver_999 || 225} decimals={2} /> <small style={{ fontSize: 14 }}>/ g</small>
+                    ₹ <AnimatedNumber value={rates.silver_999 || 275} decimals={2} /> <small style={{ fontSize: 14 }}>/ g</small>
                   </div>
                   <div style={{ fontSize: 12, opacity: 0.9 }}>
-                    Per Kilogram: ₹ {((rates.silver_999 || 225) * 1000).toLocaleString('en-IN')} | Movement: {rates.diff_silver >= 0 ? '+' : ''}{rates.diff_silver || 0} ({rates.pct_silver || 0}%)
+                    Per Kilogram: ₹ {((rates.silver_999 || 275) * 1000).toLocaleString('en-IN')} | Movement: {rates.diff_silver >= 0 ? '+' : ''}{rates.diff_silver || 0} ({rates.pct_silver || 0}%)
                   </div>
                 </div>
                 <Layers size={38} color="#E2E8F0" />
               </div>
             </div>
 
-            {/* Super Admin Rate Update Form (22K Gold & Pure 999 Silver Only) */}
-            <div style={{ background: '#FFFFFF', border: '1px solid #E2ECE7', borderRadius: 16, padding: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                <ShieldCheck size={20} color="#009957" />
-                <h4 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#103F42' }}>
-                  Update Today's Official Benchmark Rates
-                </h4>
+            {/* Super Admin Rate Notice (Official Benchmark Rates Managed via SuperAdmin Portal Popup) */}
+            <div style={{ background: '#FFFFFF', border: '1px solid #E2ECE7', borderRadius: 16, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: '#E8F7F0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#009957', flexShrink: 0 }}>
+                  <ShieldCheck size={20} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#103F42' }}>
+                    Official Market Benchmark Rates (Live Synced)
+                  </div>
+                  <div style={{ fontSize: 12, color: '#6A7D7C', marginTop: 2 }}>
+                    Official gold and silver rates are configured exclusively via the Super Admin Rate Portal popup.
+                  </div>
+                </div>
               </div>
-
-              {rateFeedback && (
-                <div style={{
-                  padding: '10px 14px', borderRadius: 8, marginBottom: 14, fontSize: 13, fontWeight: 700,
-                  background: rateFeedback.type === 'success' ? '#E8F7F0' : '#FEE2E2',
-                  color: rateFeedback.type === 'success' ? '#009957' : '#DC2626'
-                }}>
-                  {rateFeedback.message}
-                </div>
-              )}
-
-              <form onSubmit={handleUpdateRates} style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: '#6A7D7C', marginBottom: 4 }}>
-                    Gold 22K (₹/g):
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="sadg-select-pill"
-                    style={{ width: 160 }}
-                    value={rateForm.gold_22k}
-                    onChange={(e) => setRateForm({ ...rateForm, gold_22k: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: '#6A7D7C', marginBottom: 4 }}>
-                    Silver 999 (₹/g):
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="sadg-select-pill"
-                    style={{ width: 160 }}
-                    value={rateForm.silver_999}
-                    onChange={(e) => setRateForm({ ...rateForm, silver_999: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="sadg-btn-export"
-                  disabled={updatingRate}
-                  style={{ height: 38 }}
-                >
-                  <RefreshCw size={14} className={updatingRate ? 'sadg-spin' : ''} />
-                  <span>{updatingRate ? 'Publishing...' : 'Publish Official Rates'}</span>
-                </button>
-              </form>
+              <span className="sadg-status-badge completed" style={{ fontSize: 12, padding: '6px 14px' }}>
+                Synced With Super Admin Portal
+              </span>
             </div>
 
             {/* Historical Gold Rate Table */}

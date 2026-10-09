@@ -1004,6 +1004,46 @@ body {
   color: #FFFFFF;
 }
 
+.dg-chart-metal-toggle {
+  display: inline-flex;
+  background: #F1F5F4;
+  border: 1px solid #E2EAE8;
+  border-radius: 9px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.dg-chart-metal-btn {
+  padding: 4px 10px;
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 750;
+  color: #647474;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 150ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dg-chart-metal-btn:hover {
+  color: #0A3E42;
+}
+
+.dg-chart-metal-btn.active.gold {
+  background: #009957;
+  color: #FFFFFF;
+  box-shadow: 0 2px 6px rgba(0, 153, 87, 0.25);
+}
+
+.dg-chart-metal-btn.active.silver {
+  background: #0284C7;
+  color: #FFFFFF;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+}
+
 .dg-chart-area {
   width: 100%;
   height: 190px;
@@ -5495,6 +5535,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .dg-support-header-card {
@@ -5529,6 +5572,7 @@ body {
   align-items: center;
   gap: 6px;
   transition: all 0.2s ease;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
 }
 
 .dg-support-back-btn:hover {
@@ -5546,6 +5590,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
 }
 
 .dg-support-hero-content {
@@ -5561,19 +5606,21 @@ body {
 }
 
 .dg-support-main-title {
-  font-family: 'Outfit', sans-serif;
-  font-size: 25px;
-  font-weight: 850;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 26px;
+  font-weight: 800;
   color: #FFFFFF;
   margin: 0 0 8px;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .dg-support-sub-title {
-  font-size: 13px;
-  color: #CFE3DF;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 13.5px;
+  color: #D6E8E5;
   margin: 0;
-  line-height: 1.5;
+  line-height: 1.6;
+  font-weight: 450;
 }
 
 .dg-support-cta-row {
@@ -5696,33 +5743,37 @@ body {
 }
 
 .dg-channel-label {
-  font-size: 10.5px;
-  font-weight: 800;
-  color: #8E9E9C;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 11px;
+  font-weight: 750;
+  color: #6B807D;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .dg-channel-val {
-  font-family: 'Outfit', sans-serif;
-  font-size: 16px;
-  font-weight: 850;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 15.5px;
+  font-weight: 800;
   color: #0A3E42;
   margin: 0;
   word-break: break-all;
+  letter-spacing: -0.01em;
 }
 
 .dg-channel-desc {
-  font-size: 11.5px;
-  color: #647474;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 12px;
+  color: #556B69;
   margin: 2px 0 6px;
-  line-height: 1.35;
+  line-height: 1.5;
 }
 
 .dg-channel-link,
 .dg-channel-btn {
-  font-size: 12px;
-  font-weight: 850;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 12.5px;
+  font-weight: 800;
   color: #009957;
   text-decoration: none;
   background: none;
@@ -5778,21 +5829,24 @@ body {
   padding: 4px 10px;
   border-radius: 999px;
   margin-bottom: 8px;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
 }
 
 .dg-purity-title {
-  font-family: 'Outfit', sans-serif;
-  font-size: 20px;
-  font-weight: 850;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 21px;
+  font-weight: 800;
   color: #0A3E42;
   margin: 0 0 6px;
+  letter-spacing: -0.015em;
 }
 
 .dg-purity-subtitle {
-  font-size: 12.5px;
-  color: #647474;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 13px;
+  color: #556B69;
   margin: 0;
-  line-height: 1.45;
+  line-height: 1.55;
 }
 
 .dg-purity-pillars-grid {
@@ -5859,17 +5913,19 @@ body {
 }
 
 .dg-pillar-h {
-  font-size: 13.5px;
-  font-weight: 850;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 14px;
+  font-weight: 750;
   color: #0A3E42;
   margin: 0;
 }
 
 .dg-pillar-p {
-  font-size: 11.5px;
-  color: #647474;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 12px;
+  color: #556B69;
   margin: 0;
-  line-height: 1.45;
+  line-height: 1.55;
 }
 
 /* Support Request / Ticket Card */
@@ -5904,17 +5960,20 @@ body {
 }
 
 .dg-ticket-title {
-  font-family: 'Outfit', sans-serif;
-  font-size: 17.5px;
-  font-weight: 850;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 18px;
+  font-weight: 800;
   color: #0A3E42;
   margin: 0 0 2px;
+  letter-spacing: -0.015em;
 }
 
 .dg-ticket-desc {
-  font-size: 12px;
-  color: #647474;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 12.5px;
+  color: #556B69;
   margin: 0;
+  line-height: 1.5;
 }
 
 .dg-ticket-form {
@@ -5930,21 +5989,22 @@ body {
 }
 
 .dg-form-label {
-  font-size: 11.5px;
-  font-weight: 800;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 12px;
+  font-weight: 700;
   color: #0A3E42;
 }
 
 .dg-form-select,
 .dg-form-input,
 .dg-form-textarea {
-  font-family: inherit;
-  font-size: 12.5px;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 13px;
   color: #0A3E42;
   background: #F8FAF9;
   border: 1.5px solid #D5E0DC;
   border-radius: 10px;
-  padding: 9px 12px;
+  padding: 10px 12px;
   outline: none;
   transition: border-color 0.15s ease;
 }
@@ -5967,9 +6027,9 @@ body {
   border: none;
   border-radius: 12px;
   padding: 12px 18px;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 850;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 13.5px;
+  font-weight: 750;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -6004,31 +6064,35 @@ body {
 }
 
 .dg-ticket-success-title {
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
   font-size: 18px;
-  font-weight: 850;
+  font-weight: 800;
   color: #0A3E42;
   margin: 0;
 }
 
 .dg-ticket-success-code {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
   font-size: 13px;
   color: #009957;
   background: #E8F7F0;
   padding: 6px 14px;
   border-radius: 8px;
   border: 1px dashed #009957;
+  font-weight: 700;
 }
 
 .dg-ticket-success-desc {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
   font-size: 12.5px;
-  color: #647474;
-  line-height: 1.45;
+  color: #556B69;
+  line-height: 1.5;
   max-width: 380px;
   margin: 4px 0 10px;
 }
 
 .dg-ticket-reset-btn {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
   background: #0A3E42;
   color: #FFFFFF;
   border: none;
@@ -6061,11 +6125,12 @@ body {
 }
 
 .dg-faq-title {
-  font-family: 'Outfit', sans-serif;
-  font-size: 18px;
-  font-weight: 850;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 19px;
+  font-weight: 800;
   color: #0A3E42;
   margin: 0;
+  letter-spacing: -0.015em;
 }
 
 .dg-faq-list {
@@ -6077,7 +6142,7 @@ body {
 .dg-faq-item {
   border: 1px solid #E5EAE7;
   border-radius: 12px;
-  padding: 12px 16px;
+  padding: 14px 18px;
   cursor: pointer;
   transition: all 0.2s ease;
   background: #FAFCFB;
@@ -6101,8 +6166,9 @@ body {
 }
 
 .dg-faq-q {
-  font-size: 13px;
-  font-weight: 800;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 13.5px;
+  font-weight: 700;
   color: #0A3E42;
 }
 
@@ -6113,8 +6179,9 @@ body {
 }
 
 .dg-faq-a {
-  font-size: 12px;
-  color: #4B5563;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 12.5px;
+  color: #4A5F5D;
   margin: 8px 0 0;
-  line-height: 1.45;
+  line-height: 1.6;
 }

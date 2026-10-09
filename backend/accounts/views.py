@@ -12273,10 +12273,35 @@ class DigiGoldDashboardView(APIView):
             profit = round(curr_growth - float(inv.recharge_amount), 2)
             txn_ref = inv.transaction_ref or f"BB{inv.created_at.strftime('%y%m%d')}{str(inv.id).zfill(6)}"
 
-            if is_silver:
-                tx_type_label = 'Buy Silver (Pure 999)' if inv.transaction_type == 'buy' else 'Sell Silver (Pure 999)'
+            # Format payment method & source accurately
+            pay_m = (inv.payment_method or '').lower().strip()
+            if 'upi' in pay_m:
+                pay_label = 'UPI'
+            elif 'netbanking' in pay_m or 'bank' in pay_m:
+                pay_label = 'Netbanking'
+            elif pay_m == 'razorpay':
+                pay_label = 'UPI / Netbanking'
+            elif pay_m == 'wallet':
+                pay_label = 'AUG Revive'
+            elif pay_m == 'recharge_conversion' or inv.transaction_type == 'convert':
+                pay_label = 'Recharge Convert'
+            elif inv.transaction_type == 'sell':
+                pay_label = 'Wallet Return'
             else:
-                tx_type_label = 'Buy Gold (22K)' if inv.transaction_type == 'buy' else ('Recharge Convert (22K)' if inv.transaction_type == 'convert' else 'Sell Gold (22K)')
+                pay_label = 'UPI / Netbanking'
+
+            if is_silver:
+                if inv.transaction_type == 'buy':
+                    tx_type_label = f"Buy Silver ({pay_label})"
+                else:
+                    tx_type_label = 'Sell Silver (Pure 999)'
+            else:
+                if inv.transaction_type == 'buy':
+                    tx_type_label = f"Buy Gold ({pay_label})"
+                elif inv.transaction_type == 'convert':
+                    tx_type_label = 'Recharge Convert (22K)'
+                else:
+                    tx_type_label = 'Sell Gold (22K)'
 
             if len(excel_rows) < 100:
                 excel_rows.append({
@@ -12286,6 +12311,7 @@ class DigiGoldDashboardView(APIView):
                     'date_excel': inv.created_at.strftime('%d.%m.%Y'),
                     'time': inv.created_at.strftime('%I:%M %p'),
                     'type': tx_type_label,
+                    'payment_method': pay_label,
                     'metal': 'silver_999' if is_silver else 'gold_22k',
                     'amount_str': f"{float(inv.hold_gold_gm):.3f} g",
                     'recharge': float(inv.recharge_amount),
@@ -12590,7 +12616,7 @@ class DigiGoldBuyView(APIView):
                 source='purchase',
                 transaction_id=txn_id
             )
-        elif payment_method == 'razorpay':
+        elif payment_method in ['razorpay', 'upi', 'netbanking']:
             razorpay_payment_id = request.data.get('razorpay_payment_id')
             razorpay_order_id = request.data.get('razorpay_order_id')
             if razorpay_payment_id:
@@ -12600,7 +12626,7 @@ class DigiGoldBuyView(APIView):
                     user=user,
                     amount_paid=amount_val,
                     coins_credited=int(amount_val * 100),
-                    payment_method='razorpay',
+                    payment_method=payment_method,
                     status='success',
                     entry_type='credit',
                     source='razorpay_digi_gold_buy',
@@ -12854,9 +12880,10 @@ class DigiGoldConvertFromRechargeView(APIView):
 
 class DigiGoldSuperAdminView(APIView):
     """
-    Super Admin Management endpoint for Digi Gold.
-    Aggregates company-wide Digi Gold statistics and provides detailed investment records
-    matching the exact Excel format from Image 2.
+    Enterprise Super Admin Management endpoint for Digi Gold & Digi Silver.
+    Supports comprehensive date filtering (Today, Week, Month, Year, Custom),
+    metal separation (Gold vs Silver), investor role breakdown, chart timelines,
+    and unified transaction ledgers.
     """
     permission_classes = [IsAuthenticated]
 
@@ -12864,80 +12891,374 @@ class DigiGoldSuperAdminView(APIView):
         if request.user.role != 'super_admin':
             return Response({'error': 'Permission denied. Super Admin access only.'}, status=403)
 
+        from django.utils import timezone
+        from datetime import datetime, timedelta
+
+        now = timezone.now()
+        today = timezone.localdate()
+
+        # ── 1. DATE RANGE RESOLUTION ──
+        date_filter = request.query_params.get('date_filter', 'week').lower()
+        start_date_param = request.query_params.get('start_date')
+        end_date_param = request.query_params.get('end_date')
+
+        start_dt = None
+        end_dt = now
+
+        if date_filter == 'today':
+            start_dt = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+        elif date_filter == 'week':
+            week_start = today - timedelta(days=today.weekday())
+            start_dt = timezone.make_aware(datetime.combine(week_start, datetime.min.time()))
+        elif date_filter == 'month':
+            month_start = today.replace(day=1)
+            start_dt = timezone.make_aware(datetime.combine(month_start, datetime.min.time()))
+        elif date_filter == 'year':
+            year_start = today.replace(month=1, day=1)
+            start_dt = timezone.make_aware(datetime.combine(year_start, datetime.min.time()))
+        elif date_filter == 'custom' and start_date_param:
+            try:
+                s_date = datetime.strptime(start_date_param, '%Y-%m-%d').date()
+                start_dt = timezone.make_aware(datetime.combine(s_date, datetime.min.time()))
+                if end_date_param:
+                    e_date = datetime.strptime(end_date_param, '%Y-%m-%d').date()
+                    end_dt = timezone.make_aware(datetime.combine(e_date, datetime.max.time()))
+            except Exception:
+                start_dt = None
+
+        # ── 2. LIVE RATES ──
         rates = _get_live_gold_rates()
-        live_gold_22k = rates['gold_22k']
-        live_mg_price = rates['gold_22k_mg']
+        live_gold_22k = float(rates.get('gold_22k', 14250.0))
+        live_gold_22k_mg = float(rates.get('gold_22k_mg', live_gold_22k / 1000.0))
+        live_silver_999 = float(rates.get('silver_999', 275.0))
+        
+        latest_metal_rate = MetalRate.objects.order_by('-date').first()
+        live_gold_24k = float(latest_metal_rate.gold_24k) if (latest_metal_rate and latest_metal_rate.gold_24k) else round(live_gold_22k * (24.0 / 22.0), 2)
+        rates['gold_24k'] = live_gold_24k
 
-        qs = DigiGoldInvestment.objects.select_related('user').order_by('-created_at')
+        # ── 3. QUERYSETS ──
+        inv_qs = DigiGoldInvestment.objects.select_related('user').all()
+        mo_qs = MetalOrder.objects.select_related('user').all()
 
-        q = request.query_params.get('search', '').strip()
-        if q:
-            qs = qs.filter(
-                Q(user__email__icontains=q) |
-                Q(user__role__icontains=q) |
-                Q(transaction_ref__icontains=q) |
-                Q(notes__icontains=q)
+        if start_dt:
+            inv_qs = inv_qs.filter(created_at__gte=start_dt)
+            mo_qs = mo_qs.filter(created_at__gte=start_dt)
+        if end_dt:
+            inv_qs = inv_qs.filter(created_at__lte=end_dt)
+            mo_qs = mo_qs.filter(created_at__lte=end_dt)
+
+        # Filters
+        status_filter = request.query_params.get('status', 'all').lower()
+        if status_filter != 'all':
+            inv_qs = inv_qs.filter(status=status_filter)
+            mo_qs = mo_qs.filter(status=status_filter)
+
+        metal_filter = request.query_params.get('metal', 'all').lower()
+        txn_type_filter = request.query_params.get('transaction_type', 'all').lower()
+        if txn_type_filter != 'all':
+            inv_qs = inv_qs.filter(transaction_type=txn_type_filter)
+            if txn_type_filter not in ['buy', 'all']:
+                mo_qs = mo_qs.none()
+
+        search_q = request.query_params.get('search', '').strip()
+        if search_q:
+            inv_qs = inv_qs.filter(
+                Q(user__email__icontains=search_q) |
+                Q(user__role__icontains=search_q) |
+                Q(transaction_ref__icontains=search_q) |
+                Q(notes__icontains=search_q)
+            )
+            mo_qs = mo_qs.filter(
+                Q(user__email__icontains=search_q) |
+                Q(user__role__icontains=search_q) |
+                Q(weight_label__icontains=search_q)
             )
 
-        status_filter = request.query_params.get('status')
-        if status_filter and status_filter != 'all':
-            qs = qs.filter(status=status_filter)
+        cat_filter = request.query_params.get('user_category', 'all').lower()
+        def user_matches_cat(u, cat):
+            if cat == 'all':
+                return True
+            r = u.role
+            if cat == 'super_stockist':
+                return r == 'admin'
+            if cat == 'distributor':
+                return r == 'dealer'
+            if cat == 'wholesale_dealer':
+                return r == 'sub_dealer'
+            if cat == 'retailer':
+                return r == 'promotor'
+            if cat == 'customer':
+                if r != 'customer':
+                    return False
+                has_creator = hasattr(u, 'customer_profile') and u.customer_profile and u.customer_profile.created_by is not None
+                return has_creator
+            if cat == 'general_customer':
+                if r != 'customer':
+                    return False
+                no_creator = not hasattr(u, 'customer_profile') or not u.customer_profile or u.customer_profile.created_by is None
+                return no_creator
+            return True
 
-        completed_buys = DigiGoldInvestment.objects.filter(status='completed', transaction_type__in=['buy', 'convert'])
-        completed_sells = DigiGoldInvestment.objects.filter(status='completed', transaction_type='sell')
+        # ── 4. AGGREGATIONS FOR METRICS ──
+        # Gold from DigiGoldInvestment (completed)
+        completed_gold_buys = inv_qs.filter(status='completed', transaction_type__in=['buy', 'convert'])
+        completed_gold_sells = inv_qs.filter(status='completed', transaction_type='sell')
 
-        total_buy_mg = completed_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')
-        total_sell_mg = completed_sells.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')
-        net_gold_mg = max(Decimal('0'), total_buy_mg - total_sell_mg)
-        net_gold_gm = round(net_gold_mg / Decimal('1000'), 4)
+        gold_inflow_inr = completed_gold_buys.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0')
+        gold_bought_mg = completed_gold_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')
+        gold_bought_gm = round(float(gold_bought_mg) / 1000.0, 4)
 
-        total_invested = completed_buys.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0')
-        current_market_value = round(float(net_gold_mg) * live_mg_price, 2)
-        total_customer_profit = round(current_market_value - float(total_invested), 2)
-        total_investors_count = DigiGoldInvestment.objects.filter(status='completed').values('user').distinct().count()
+        gold_sold_mg = completed_gold_sells.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')
+        gold_sold_gm = round(float(gold_sold_mg) / 1000.0, 4)
 
-        items = []
-        for inv in qs[:200]:
-            id_str, disp_name, phone = _holder_info(inv.user)
-            curr_growth = round(float(inv.hold_gold_mg) * live_mg_price, 2)
-            profit = round(curr_growth - float(inv.recharge_amount), 2)
+        # Include MetalOrders if any
+        gold_mo = mo_qs.filter(status='approved', metal_type__in=['gold_22k', 'gold_24k'])
+        gold_mo_inr = gold_mo.aggregate(s=Sum('total_amount'))['s'] or Decimal('0')
+        gold_mo_gm = float(gold_mo.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0'))
 
-            items.append({
-                'id': inv.id,
-                'date': inv.created_at.strftime('%d.%m.%Y'),
-                'created_at_iso': inv.created_at.isoformat(),
-                'user_id': inv.user.id,
-                'user_id_str': id_str or f"USER#{inv.user.id}",
-                'user_name': disp_name or inv.user.email,
-                'user_email': inv.user.email,
-                'user_role': inv.user.role,
-                'transaction_type': inv.transaction_type,
-                'recharge': float(inv.recharge_amount),
-                'gold_price': float(inv.gold_price_per_gram),
-                'mg_price': float(inv.mg_price),
-                'hold_gold_mg': float(inv.hold_gold_mg),
-                'gm': float(inv.hold_gold_gm),
-                'current_price': live_gold_22k,
-                'current_mg_price': live_mg_price,
-                'current_growth': curr_growth,
-                'profit': profit,
-                'payment_method': inv.payment_method,
-                'status': inv.status,
+        total_gold_sales_inr = float(gold_inflow_inr) + float(gold_mo_inr)
+        total_gold_sold_gm = gold_bought_gm + gold_mo_gm
+        gold_buy_txns = completed_gold_buys.count() + gold_mo.count()
+        gold_sell_txns = completed_gold_sells.count()
+        total_gold_txns = inv_qs.count() + mo_qs.filter(metal_type__in=['gold_22k', 'gold_24k']).count()
+
+        avg_gold_rate = round(total_gold_sales_inr / total_gold_sold_gm, 2) if total_gold_sold_gm > 0 else live_gold_22k
+
+        # Silver from MetalOrder
+        silver_mo = mo_qs.filter(status='approved', metal_type='silver_999')
+        silver_inr = silver_mo.aggregate(s=Sum('total_amount'))['s'] or Decimal('0')
+        silver_gm = float(silver_mo.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0'))
+        silver_buy_txns = silver_mo.count()
+        silver_sell_txns = 0
+        total_silver_txns = mo_qs.filter(metal_type='silver_999').count()
+        avg_silver_rate = round(float(silver_inr) / silver_gm, 2) if silver_gm > 0 else live_silver_999
+
+        # Total unique investors across both models
+        inv_users = set(inv_qs.values_list('user_id', flat=True))
+        mo_users = set(mo_qs.values_list('user_id', flat=True))
+        all_active_investors = len(inv_users.union(mo_users))
+        total_transactions_all = inv_qs.count() + mo_qs.count()
+
+        # ── 5. TIMELINE CHARTS GENERATION (FOR ACTIVE DATE RANGE) ──
+        # Generate 7 date steps based on active filter
+        chart_days = 7
+        step_days = 1
+        if date_filter == 'year':
+            step_days = 30
+        elif date_filter == 'month':
+            step_days = 4
+        
+        gold_chart = []
+        silver_chart = []
+        chart_base = today - timedelta(days=(chart_days - 1) * step_days)
+        for i in range(chart_days):
+            d_start = chart_base + timedelta(days=i * step_days)
+            d_end = d_start + timedelta(days=step_days - 1)
+            label = d_start.strftime('%d %b')
+            
+            # Filter slices
+            g_slice = completed_gold_buys.filter(created_at__date__gte=d_start, created_at__date__lte=d_end)
+            g_mo_slice = gold_mo.filter(created_at__date__gte=d_start, created_at__date__lte=d_end)
+            g_amt = float(g_slice.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0')) + float(g_mo_slice.aggregate(s=Sum('total_amount'))['s'] or Decimal('0'))
+            g_mg = float(g_slice.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0'))
+            g_gm = round(g_mg / 1000.0, 3) + float(g_mo_slice.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0'))
+
+            s_slice = silver_mo.filter(created_at__date__gte=d_start, created_at__date__lte=d_end)
+            s_amt = float(s_slice.aggregate(s=Sum('total_amount'))['s'] or Decimal('0'))
+            s_gm = float(s_slice.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0'))
+
+            gold_chart.append({'date': label, 'grams': round(g_gm, 3), 'revenue': round(g_amt, 2)})
+            silver_chart.append({'date': label, 'grams': round(s_gm, 3), 'revenue': round(s_amt, 2)})
+
+        # ── 6. ROLE-WISE CATEGORY BREAKDOWN ──
+        tiers = [
+            ('Super Stockist', 'super_stockist', 'admin'),
+            ('Distributor', 'distributor', 'dealer'),
+            ('Wholesale Dealer', 'wholesale_dealer', 'sub_dealer'),
+            ('Retailer', 'retailer', 'promotor'),
+            ('Customer', 'customer', 'customer'),
+            ('General Customer', 'general_customer', 'general_customer'),
+        ]
+
+        category_summaries = {}
+        for tier_name, tier_key, role_code in tiers:
+            if role_code == 'general_customer':
+                matched_users = User.objects.filter(role='customer', customer_profile__created_by__isnull=True)
+            elif role_code == 'customer':
+                matched_users = User.objects.filter(role='customer', customer_profile__created_by__isnull=False)
+            else:
+                matched_users = User.objects.filter(role=role_code)
+            
+            u_ids = list(matched_users.values_list('id', flat=True))
+            t_gold = inv_qs.filter(user_id__in=u_ids, status='completed')
+            t_gold_mo = mo_qs.filter(user_id__in=u_ids, status='approved', metal_type__in=['gold_22k', 'gold_24k'])
+            t_silver_mo = mo_qs.filter(user_id__in=u_ids, status='approved', metal_type='silver_999')
+
+            g_inr = float(t_gold.aggregate(s=Sum('recharge_amount'))['s'] or Decimal('0')) + float(t_gold_mo.aggregate(s=Sum('total_amount'))['s'] or Decimal('0'))
+            g_gm = round(float(t_gold.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) / 1000.0, 3) + float(t_gold_mo.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0'))
+            s_inr = float(t_silver_mo.aggregate(s=Sum('total_amount'))['s'] or Decimal('0'))
+            s_gm = float(t_silver_mo.aggregate(s=Sum('weight_grams'))['s'] or Decimal('0'))
+            
+            category_summaries[tier_key] = {
+                'name': tier_name,
+                'key': tier_key,
+                'user_count': matched_users.count(),
+                'gold_gm': round(g_gm, 3),
+                'silver_gm': round(s_gm, 3),
+                'total_purchase_inr': round(g_inr + s_inr, 2),
+                'completed_purchases': t_gold.count() + t_gold_mo.count() + t_silver_mo.count()
+            }
+
+        # ── 7. UNIFIED TRANSACTION ITEMS ──
+        unified_items = []
+
+        # From DigiGoldInvestment
+        if metal_filter in ['all', 'gold']:
+            for inv in inv_qs[:250]:
+                u = inv.user
+                if not user_matches_cat(u, cat_filter):
+                    continue
+                id_str, disp_name, phone = _holder_info(u)
+                curr_growth = round(float(inv.hold_gold_mg) * live_gold_22k_mg, 2)
+                profit = round(curr_growth - float(inv.recharge_amount), 2)
+                
+                cat_label = 'Customer'
+                if u.role == 'admin': cat_label = 'Super Stockist'
+                elif u.role == 'dealer': cat_label = 'Distributor'
+                elif u.role == 'sub_dealer': cat_label = 'Wholesale Dealer'
+                elif u.role == 'promotor': cat_label = 'Retailer'
+                elif u.role == 'customer':
+                    if hasattr(u, 'customer_profile') and u.customer_profile and u.customer_profile.created_by is None:
+                        cat_label = 'General Customer'
+
+                unified_items.append({
+                    'id': f"dg_{inv.id}",
+                    'raw_id': inv.id,
+                    'model_type': 'digi_gold',
+                    'date': inv.created_at.strftime('%d.%m.%Y'),
+                    'datetime_str': inv.created_at.strftime('%d.%m.%Y, %I:%M %p'),
+                    'created_at_iso': inv.created_at.isoformat(),
+                    'transaction_id': inv.transaction_ref or f"DG-{inv.id:05d}",
+                    'user_id': u.id,
+                    'customer_id': id_str or f"ATH-{u.id:04d}",
+                    'investor_name': disp_name or u.email,
+                    'user_email': u.email,
+                    'user_category': cat_label,
+                    'user_role': u.role,
+                    'metal': 'gold',
+                    'metal_label': 'Gold 22K',
+                    'transaction_type': inv.transaction_type,
+                    'quantity_gm': float(inv.hold_gold_gm),
+                    'quantity_label': f"{float(inv.hold_gold_gm):.3f} g",
+                    'hold_gold_mg': float(inv.hold_gold_mg),
+                    'rate': float(inv.gold_price_per_gram),
+                    'amount': float(inv.recharge_amount),
+                    'current_valuation': curr_growth,
+                    'profit': profit,
+                    'payment_method': inv.payment_method or 'UPI',
+                    'status': inv.status,
+                })
+
+        # From MetalOrder
+        if metal_filter in ['all', 'silver', 'gold']:
+            for mo in mo_qs[:250]:
+                u = mo.user
+                if not user_matches_cat(u, cat_filter):
+                    continue
+                is_silver = 'silver' in mo.metal_type
+                if metal_filter == 'gold' and is_silver:
+                    continue
+                if metal_filter == 'silver' and not is_silver:
+                    continue
+
+                id_str, disp_name, phone = _holder_info(u)
+                metal_lbl = 'Silver 999' if is_silver else ('Gold 24K' if '24k' in mo.metal_type else 'Gold 22K')
+                cat_label = 'Customer'
+                if u.role == 'admin': cat_label = 'Super Stockist'
+                elif u.role == 'dealer': cat_label = 'Distributor'
+                elif u.role == 'sub_dealer': cat_label = 'Wholesale Dealer'
+                elif u.role == 'promotor': cat_label = 'Retailer'
+                elif u.role == 'customer':
+                    if hasattr(u, 'customer_profile') and u.customer_profile and u.customer_profile.created_by is None:
+                        cat_label = 'General Customer'
+
+                cur_rate = live_silver_999 if is_silver else live_gold_22k
+                cur_val = round(float(mo.weight_grams) * cur_rate, 2)
+                amt = float(mo.total_amount)
+                status_map = {'approved': 'completed', 'pending': 'pending', 'rejected': 'failed'}
+
+                unified_items.append({
+                    'id': f"mo_{mo.id}",
+                    'raw_id': mo.id,
+                    'model_type': 'metal_order',
+                    'date': mo.created_at.strftime('%d.%m.%Y'),
+                    'datetime_str': mo.created_at.strftime('%d.%m.%Y, %I:%M %p'),
+                    'created_at_iso': mo.created_at.isoformat(),
+                    'transaction_id': f"MO-{mo.id:05d}",
+                    'user_id': u.id,
+                    'customer_id': id_str or f"ATH-{u.id:04d}",
+                    'investor_name': disp_name or u.email,
+                    'user_email': u.email,
+                    'user_category': cat_label,
+                    'user_role': u.role,
+                    'metal': 'silver' if is_silver else 'gold',
+                    'metal_label': metal_lbl,
+                    'transaction_type': 'buy',
+                    'quantity_gm': float(mo.weight_grams),
+                    'quantity_label': f"{float(mo.weight_grams):.3f} g",
+                    'hold_gold_mg': float(mo.weight_grams) * 1000.0,
+                    'rate': float(mo.rate_per_gram),
+                    'amount': amt,
+                    'current_valuation': cur_val,
+                    'profit': round(cur_val - amt, 2),
+                    'payment_method': 'Bank Transfer / Order',
+                    'status': status_map.get(mo.status, mo.status),
+                })
+
+        # Sort unified items by datetime descending
+        unified_items.sort(key=lambda x: x['created_at_iso'], reverse=True)
+
+        # ── 8. HISTORICAL RATE LOGS ──
+        rate_history_qs = MetalRate.objects.order_by('-date')[:15]
+        rate_history = []
+        for r in rate_history_qs:
+            rate_history.append({
+                'date': r.date.strftime('%d-%m-%Y'),
+                'date_iso': r.date.isoformat(),
+                'gold_22k': float(r.gold_22k) if r.gold_22k else 0,
+                'gold_24k': float(r.gold_24k) if r.gold_24k else 0,
+                'silver_999': float(r.silver_999) if r.silver_999 else 0,
             })
 
         return Response({
-            'summary': {
-                'total_investors': total_investors_count,
-                'total_gold_mg': float(net_gold_mg),
-                'total_gold_gm': float(net_gold_gm),
-                'total_invested_inr': float(total_invested),
-                'current_valuation_inr': current_market_value,
-                'total_customer_profit_inr': total_customer_profit,
-                'todays_au_22k': live_gold_22k,
-                'todays_au_mg': live_mg_price,
+            'kpis': {
+                'total_gold_sales_inr': total_gold_sales_inr,
+                'total_gold_sold_gm': round(total_gold_sold_gm, 3),
+                'total_silver_sales_inr': float(silver_inr),
+                'total_silver_sold_gm': round(silver_gm, 3),
+                'total_transactions': total_transactions_all,
+                'active_investors': all_active_investors,
+                'gold_buy_txns': gold_buy_txns,
+                'gold_sell_txns': gold_sell_txns,
+                'total_gold_txns': total_gold_txns,
+                'avg_gold_rate': avg_gold_rate,
+                'silver_buy_txns': silver_buy_txns,
+                'silver_sell_txns': silver_sell_txns,
+                'total_silver_txns': total_silver_txns,
+                'avg_silver_rate': avg_silver_rate,
             },
             'rates': rates,
-            'items': items,
-            'total_records': qs.count(),
+            'rate_history': rate_history,
+            'gold_chart': gold_chart,
+            'silver_chart': silver_chart,
+            'category_summaries': category_summaries,
+            'items': unified_items,
+            'total_records': len(unified_items),
+            'date_range': {
+                'filter': date_filter,
+                'start_date': start_dt.strftime('%d-%m-%Y') if start_dt else (today - timedelta(days=7)).strftime('%d-%m-%Y'),
+                'end_date': end_dt.strftime('%d-%m-%Y') if end_dt else today.strftime('%d-%m-%Y'),
+            }
         })
+
 

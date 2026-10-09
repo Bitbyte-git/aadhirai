@@ -12590,6 +12590,26 @@ class DigiGoldBuyView(APIView):
                 source='purchase',
                 transaction_id=txn_id
             )
+        elif payment_method == 'razorpay':
+            razorpay_payment_id = request.data.get('razorpay_payment_id')
+            razorpay_order_id = request.data.get('razorpay_order_id')
+            if razorpay_payment_id:
+                txn_id = "BB" + razorpay_payment_id[-8:].upper()
+            try:
+                CoinRecharge.objects.create(
+                    user=user,
+                    amount_paid=amount_val,
+                    coins_credited=int(amount_val * 100),
+                    payment_method='razorpay',
+                    status='success',
+                    entry_type='credit',
+                    source='razorpay_digi_gold_buy',
+                    transaction_id=txn_id,
+                    razorpay_payment_id=razorpay_payment_id,
+                    razorpay_order_id=razorpay_order_id,
+                )
+            except Exception as e:
+                print(f"[DIGI GOLD BUY] Razorpay CoinRecharge record note: {e}")
 
         inv = DigiGoldInvestment.objects.create(
             user=user,

@@ -64,14 +64,14 @@ export default function SuperAdminDigiGold() {
     if (!items.length) return
     const headers = [
       'Date', 'User ID', 'Customer Name', 'Email', 'Role',
-      'Recharge (INR)', 'Purchase Gold Price', 'Purchase Mg Price',
-      'Hold Gold (mg)', 'Hold Gold (g)', 'Current Price', 'Current Mg Price',
-      'Current Growth (INR)', 'Profit (INR)', 'Payment Method', 'Status'
+      'You Paid (INR)', 'Vault Weight (g)', 'Vault Weight (mg)',
+      'Buy Rate (INR/g)', 'Live Rate (INR/g)',
+      'Current Value (INR)', 'Profit / Loss (INR)', 'Payment Method', 'Status'
     ]
     const rows = items.map(it => [
       it.date, it.user_id_str, `"${it.user_name}"`, it.user_email, it.user_role,
-      it.recharge, it.gold_price, it.mg_price,
-      it.hold_gold_mg, it.gm, it.current_price, it.current_mg_price,
+      it.recharge, it.gm, it.hold_gold_mg,
+      it.gold_price, it.current_price,
       it.current_growth, it.profit, it.payment_method, it.status
     ])
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n')
@@ -327,28 +327,25 @@ export default function SuperAdminDigiGold() {
                 <th style={thStyleLeft}>Date</th>
                 <th style={thStyleLeft}>Investor</th>
                 <th style={thStyleLeft}>Role / ID</th>
-                <th style={thStyleRight}>Recharge (₹)</th>
-                <th style={thStyleRight}>Gold Price (₹)</th>
-                <th style={thStyleRight}>Mg Price (₹)</th>
-                <th style={thStyleRight}>Hold Gold (mg)</th>
-                <th style={thStyleRight}>Hold Gold (g)</th>
-                <th style={thStyleRight}>Current Price (₹)</th>
-                <th style={thStyleRight}>Current Mg (₹)</th>
-                <th style={thStyleRight}>Current Growth (₹)</th>
-                <th style={thStyleRight}>Profit (₹)</th>
+                <th style={thStyleRight}>You Paid (₹)</th>
+                <th style={thStyleRight}>Vault Weight (g)</th>
+                <th style={thStyleRight}>Buy Rate (₹/g)</th>
+                <th style={thStyleRight}>Live Rate (₹/g)</th>
+                <th style={thStyleRight}>Current Value (₹)</th>
+                <th style={thStyleRight}>Profit / Loss (₹)</th>
                 <th style={thStyleCenter}>Status</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={13} style={{ textAlign: 'center', padding: '40px', color: '#647474' }}>
+                  <td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: '#647474' }}>
                     Loading Digi Gold records...
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={13} style={{ textAlign: 'center', padding: '40px', color: '#647474' }}>
+                  <td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: '#647474' }}>
                     No Digi Gold transactions recorded yet.
                   </td>
                 </tr>
@@ -368,19 +365,19 @@ export default function SuperAdminDigiGold() {
                     </span>
                     <div style={{ fontSize: '10.5px', color: '#8E9E9C', marginTop: '2px' }}>{row.user_id_str}</div>
                   </td>
-                  <td style={tdStyleRight}>₹ {row.recharge.toLocaleString('en-IN')}</td>
-                  <td style={tdStyleRight}>₹ {row.gold_price.toLocaleString('en-IN')}</td>
-                  <td style={tdStyleRight}>₹ {row.mg_price.toFixed(2)}</td>
-                  <td style={tdStyleRight}>{row.hold_gold_mg.toFixed(2)}</td>
-                  <td style={tdStyleRight}><b>{row.gm.toFixed(3)}</b></td>
-                  <td style={tdStyleRight}>₹ {row.current_price.toLocaleString('en-IN')}</td>
-                  <td style={tdStyleRight}>₹ {row.current_mg_price.toFixed(2)}</td>
-                  <td style={{ ...tdStyleRight, fontWeight: 750, color: '#009957' }}>
+                  <td style={{ ...tdStyleRight, fontWeight: 700 }}>₹ {row.recharge.toLocaleString('en-IN')}</td>
+                  <td style={tdStyleRight}>
+                    <b style={{ color: '#0A3E42', fontSize: '13px' }}>{row.gm.toFixed(3)} g</b>
+                    <div style={{ fontSize: '11px', color: '#647474' }}>({row.hold_gold_mg.toFixed(2)} mg)</div>
+                  </td>
+                  <td style={tdStyleRight}>₹ {row.gold_price.toLocaleString('en-IN')}/g</td>
+                  <td style={{ ...tdStyleRight, fontWeight: 600 }}>₹ {row.current_price.toLocaleString('en-IN')}/g</td>
+                  <td style={{ ...tdStyleRight, fontWeight: 750, color: '#0A3E42' }}>
                     ₹ {row.current_growth.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </td>
                   <td style={{
                     ...tdStyleRight,
-                    fontWeight: 750,
+                    fontWeight: 800,
                     color: row.profit >= 0 ? '#009957' : '#E45B5B'
                   }}>
                     {row.profit >= 0 ? `+₹ ${row.profit.toFixed(2)}` : `-₹ ${Math.abs(row.profit).toFixed(2)}`}

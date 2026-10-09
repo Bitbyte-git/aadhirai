@@ -433,7 +433,7 @@ const handleToggleAutopay = async () => {
         amount: Math.round(orderAmount * 100),
         currency,
         name: 'BitByte Wallet Recharge',
-        description: `Recharge for ${coinsPreview} coins`,
+        description: `Recharge for ${coinsPreview} Revive`,
         order_id: razorpay_order_id,
         handler: async response => {
           try {
@@ -444,7 +444,7 @@ const handleToggleAutopay = async () => {
               recharge_id,
             })
             if (verifyRes.data.status === 'success') {
-              setBanner({ type: 'success', text: `Recharge successful! ${verifyRes.data.coins_credited} coins added.` })
+              setBanner({ type: 'success', text: `Recharge successful! ${verifyRes.data.coins_credited} Revive added.` })
               setCustomAmount('')
               fetchWallet()
             } else {
@@ -488,7 +488,7 @@ const handleToggleAutopay = async () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
   <div>
     <p className="rc-kicker">Wallet</p>
-    <h1 className="rc-title" style={{ marginBottom: 0 }}>Recharge &amp; Coins</h1>
+    <h1 className="rc-title" style={{ marginBottom: 0 }}>Recharge &amp; AUG Revive</h1>
   </div>
   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
     <button
@@ -550,7 +550,7 @@ const handleToggleAutopay = async () => {
 
             <div className="rc-coin-preview">
               <span>You'll get</span>
-              <span>{coinsPreview.toLocaleString('en-IN')} AUG coins (₹{amount || 0})</span>
+              <span>{coinsPreview.toLocaleString('en-IN')} AUG Revive (₹{amount || 0})</span>
             </div>
 
             <button className="rc-pay-btn" disabled={paying || amount <= 0} onClick={handleBuyRecharge}>
@@ -562,11 +562,11 @@ const handleToggleAutopay = async () => {
           <div style={{ display: 'grid', gap: 20, alignContent: 'start' }}>
             <section className="rc-card rc-balance-card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span className="rc-balance-label" style={{ margin: 0 }}>Available Coin</span>
+                <span className="rc-balance-label" style={{ margin: 0 }}>Available AUG Revive</span>
                 <button
                   type="button"
                   onClick={() => setShowConvertModal(true)}
-                  title="Convert AUG Coins to 22K Digi Gold"
+                  title="Convert AUG Revive to 22K Digi Gold"
                   style={{
                     padding: '4px 11px',
                     borderRadius: 999,
@@ -590,14 +590,14 @@ const handleToggleAutopay = async () => {
               </div>
               <div className="rc-balance-value">
                 {loadingWallet ? '...' : (wallet.balance_coins || 0).toLocaleString('en-IN')}
-                <span>coins</span>
+                <span>Revive</span>
               </div>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255, 255, 255, 0.82)', marginTop: -2, letterSpacing: '0.2px' }}>
                 ≈ ₹ {((wallet.balance_coins || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <div className="rc-today-row">
                 <span>Today Recharged</span>
-                <span>₹{(wallet.today_amount || 0).toLocaleString('en-IN')} · {(wallet.today_coins || 0).toLocaleString('en-IN')} coins</span>
+                <span>₹{(wallet.today_amount || 0).toLocaleString('en-IN')} · {(wallet.today_coins || 0).toLocaleString('en-IN')} Revive</span>
               </div>
             </section>
 
@@ -622,7 +622,7 @@ const handleToggleAutopay = async () => {
                             </>
                           )}
                           <span className="rc-history-coins">
-                            {h.direction === 'debit' ? '−' : '+'}{h.coins_credited.toLocaleString('en-IN')} coins
+                            {h.direction === 'debit' ? '−' : '+'}{h.coins_credited.toLocaleString('en-IN')} Revive
                           </span>
                           <DirectionBadge direction={h.direction} />
                         </div>
@@ -730,7 +730,7 @@ const handleToggleAutopay = async () => {
                             </>
                           )}
                           <span className="rc-history-coins">
-                            {h.direction === 'debit' ? '−' : '+'}{h.coins_credited.toLocaleString('en-IN')} coins
+                            {h.direction === 'debit' ? '−' : '+'}{h.coins_credited.toLocaleString('en-IN')} Revive
                           </span>
                           <DirectionBadge direction={h.direction} />
                         </div>
@@ -880,8 +880,8 @@ const handleToggleAutopay = async () => {
         border: '1px solid #E6ECEA', display: 'grid', gap: 8, fontSize: 13
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ color: MUTED, fontWeight: 600 }}>Available AUG Coins:</span>
-          <strong style={{ color: DARK }}>{(wallet.balance_coins || 0).toLocaleString('en-IN')} coins <span style={{ color: MUTED, fontWeight: 600, fontSize: 12 }}>(≈ ₹{(((wallet.balance_coins || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span></strong>
+          <span style={{ color: MUTED, fontWeight: 600 }}>Available AUG Revive:</span>
+          <strong style={{ color: DARK }}>{(wallet.balance_coins || 0).toLocaleString('en-IN')} Revive <span style={{ color: MUTED, fontWeight: 600, fontSize: 12 }}>(≈ ₹{(((wallet.balance_coins || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span></strong>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ color: MUTED, fontWeight: 600 }}>Today's 22K Gold Rate:</span>

@@ -3812,11 +3812,11 @@ export default function CustomerNavbar() {
             </button>
             {isLoggedIn && (
               <>
-                <button type="button" className="cn-compact-aug-pill" onClick={() => requireLogin("/recharge")} title="AUG Coin Wallet">
+                <button type="button" className="cn-compact-aug-pill" onClick={() => requireLogin("/recharge")} title="AUG Revive Wallet">
                   <Icon name="star" size={12} />
-                  <span>AUG</span>
+                  <span>AUG Revive</span>
                 </button>
-                <button type="button" className="cn-compact-icon" onClick={() => requireLogin("/aug-products")} aria-label="AUG Coins" title="Shop with Coins">
+                <button type="button" className="cn-compact-icon" onClick={() => requireLogin("/aug-products")} aria-label="AUG Revive" title="Shop with Revive">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                     <circle cx="12" cy="12" r="10" fill="url(#cnCompactGoldGrad)" stroke="#B5842F" strokeWidth="1.2"/>
                     <circle cx="12" cy="12" r="7.5" stroke="#FDE08D" strokeWidth="0.8" strokeDasharray="2 1.5"/>
@@ -4167,18 +4167,18 @@ export default function CustomerNavbar() {
                     className="summary-pill"
                     type="button"
                     onClick={() => requireLogin("/recharge")}
-                    title="AUG Coin Wallet"
+                    title="AUG Revive Wallet"
                   >
                     <Icon name="star" size={15} />{" "}
-                    <span className="summary-text">AUG</span>
+                    <span className="summary-text">AUG Revive</span>
                   </button>
 
                   <button
                     className="exact-coin-icon-btn"
                     type="button"
                     onClick={() => requireLogin("/aug-products")}
-                    title="Shop with Coins"
-                    aria-label="AUG Coins"
+                    title="Shop with Revive"
+                    aria-label="AUG Revive"
                   >
                     <span className="exact-coin-disc">
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -4482,7 +4482,7 @@ export default function CustomerNavbar() {
                   <span className="mobile-service-icon coin-icon">
                     <Icon name="coin" size={17} />
                   </span>
-                  <span className="mobile-service-label">AUG Coins</span>
+                  <span className="mobile-service-label">AUG Revive</span>
                 </div>
                 <span className="mobile-service-tag">Rewards</span>
               </button>
@@ -4756,8 +4756,8 @@ export default function CustomerNavbar() {
                       <Icon name="coin" size={17} />
                     </span>
                     <div className="role-drawer-item-labels">
-                      <span className="role-drawer-item-title">AUG Coins</span>
-                      <span className="role-drawer-item-desc">Shop with gold coin rewards</span>
+                      <span className="role-drawer-item-title">AUG Revive</span>
+                      <span className="role-drawer-item-desc">Shop with Revive rewards</span>
                     </div>
                   </div>
                   <span className="role-drawer-chevron">

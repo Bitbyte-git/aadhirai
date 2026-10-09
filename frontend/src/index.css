@@ -37,12 +37,9 @@
 
 html {
   scroll-behavior: smooth;
-  /* clip, not hidden — hidden forces overflow-y:auto on html/body too
-     (the CSS overflow pairing rule), which silently breaks every
-     position:sticky element on the site by making body the scroll
-     container instead of the viewport. clip blocks horizontal bleed
-     the same way without that side effect. */
-  overflow-x: clip;
+  overflow-x: hidden;
+  touch-action: pan-y;
+  overscroll-behavior-x: none;
 }
 
 body {
@@ -50,7 +47,11 @@ body {
   background: var(--bb-bg);
   color: var(--bb-ink);
   min-width: 320px;
-  overflow-x: clip;
+  max-width: 100vw;
+  width: 100%;
+  overflow-x: hidden;
+  touch-action: pan-y;
+  overscroll-behavior-x: none;
   -webkit-font-smoothing: antialiased;
   text-rendering: geometricPrecision;
 }

@@ -2236,8 +2236,7 @@ export default function SuperAdminNavbar({
 
 .san-search-block {
   position: relative;
-  width: clamp(140px, 11vw, 220px);
-  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  width: clamp(170px, 14vw, 260px);
   flex-shrink: 1;
   min-width: 0;
 }
@@ -2680,7 +2679,7 @@ export default function SuperAdminNavbar({
 
 @media (max-width: 1600px) {
   .san-top-inner { padding: 0 14px; gap: 8px; }
-  .san-search-block { width: 160px; }
+  .san-search-block { width: 220px; }
   .san-search-block.is-focused { width: 220px; }
   .san-menu-trigger { padding: 6px clamp(4px, 0.35vw, 7px); font-size: 12.5px; gap: 4px; }
 }
@@ -2689,7 +2688,7 @@ export default function SuperAdminNavbar({
   .san-top-inner { padding: 0 10px; gap: 6px; }
   .san-brand-badge { display: none; }
   .san-brand-divider { margin: 0 6px; }
-  .san-search-block { width: 135px; }
+  .san-search-block { width: 180px; }
   .san-search-block.is-focused { width: 180px; }
   .san-search-kbd { display: none; }
   .san-menu-trigger { padding: 5px 5px; font-size: 11.5px; gap: 3px; }
@@ -2710,8 +2709,8 @@ export default function SuperAdminNavbar({
   .san-top-shell { margin-left: 0 !important; }
   .san-menu-center { display: none !important; }
   .san-nav-left { flex: 1; min-width: 0; max-width: calc(100% - 90px); }
-  .san-search-block { width: clamp(140px, 28vw, 240px); }
-  .san-search-block.is-focused { width: clamp(180px, 36vw, 300px); }
+  .san-search-block { width: clamp(180px, 34vw, 280px); }
+  .san-search-block.is-focused { width: clamp(180px, 34vw, 280px); }
 }
 
 @media (max-width: 768px) {
@@ -2723,7 +2722,7 @@ export default function SuperAdminNavbar({
   .san-search-kbd { display: none; }
   .san-nav-left { gap: 8px; }
   .san-search-block { flex: 1; min-width: 0; width: auto; max-width: 220px; }
-  .san-search-block.is-focused { width: auto; max-width: 260px; }
+  .san-search-block.is-focused { width: auto; max-width: 220px; }
   .san-search { height: 35px; padding: 0 4px 0 8px; gap: 5px; }
   .san-search-input { font-size: 12px; }
   .san-mic-btn { width: 26px; height: 26px; }
@@ -2739,7 +2738,7 @@ export default function SuperAdminNavbar({
   .san-brand-title { font-size: 15px; }
   .san-nav-left { gap: 6px; }
   .san-search-block { flex: 1; min-width: 0; width: auto; max-width: 180px; }
-  .san-search-block.is-focused { width: auto; }
+  .san-search-block.is-focused { width: auto; max-width: 180px; }
   .san-search { height: 34px; padding: 0 4px 0 8px; font-size: 12px; }
   .san-search-input { font-size: 12px; }
   .san-actions-right { gap: 6px; }
@@ -2749,7 +2748,8 @@ export default function SuperAdminNavbar({
 
 @media (max-width: 400px) {
   .san-brand-title { font-size: 13.5px; }
-  .san-search-block { max-width: 140px; }
+  .san-search-block { flex: 1; min-width: 0; width: auto; max-width: 140px; }
+  .san-search-block.is-focused { width: auto; max-width: 140px; }
 }
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 @keyframes skelShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}

@@ -1528,6 +1528,7 @@ body {
 .dg-rewards-h-highlight {
   background: linear-gradient(90deg, #F9D976 0%, #E9B646 60%, #FFFFFF 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   display: inline-block;
 }
@@ -6184,4 +6185,90 @@ body {
   color: #4A5F5D;
   margin: 8px 0 0;
   line-height: 1.6;
+}
+
+/* ── COMPACT FINTECH SUCCESS MODAL DETAILS ── */
+.dg-success-summary-badges {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.dg-success-badge-item {
+  flex: 1;
+  background: #F8FAF9;
+  border: 1px solid #E2EAE7;
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  text-align: left;
+}
+
+.dg-success-badge-item.clickable {
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.dg-success-badge-item.clickable:hover {
+  background: #F0F6F4;
+  border-color: #009957;
+}
+
+.dg-sbi-label {
+  font-size: 11px;
+  color: #647474;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dg-sbi-val {
+  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: #073E40;
+}
+
+.dg-sbi-val.txnid {
+  font-family: monospace;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dg-success-trust-note {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #009957;
+  background: rgba(0, 153, 87, 0.08);
+  padding: 6px 14px;
+  border-radius: 999px;
+  margin-bottom: 22px;
+  border: 1px solid rgba(0, 153, 87, 0.2);
+}
+
+@media (max-width: 768px) {
+  .dg-grand-festive-banner {
+    padding: 20px 18px;
+  }
+  .dg-gfb-headline {
+    font-size: 21px;
+  }
+  .dg-gfb-right {
+    flex: 1 1 100%;
+  }
+  .dg-gfb-card-deal {
+    padding: 16px;
+  }
+  .dg-success-summary-badges {
+    flex-direction: column;
+  }
 }

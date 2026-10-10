@@ -1566,39 +1566,48 @@ export default function CustomerNavbar() {
         .exact-digi-gold-btn {
           display: inline-flex;
           align-items: center;
-          gap: 8px;
-          height: 42px;
-          padding: 0 15px;
-          border-radius: 999px;
-          background: #0A3E42;
-          border: 1.5px solid #C6924B;
+          gap: 7px;
+          height: 38px;
+          padding: 0 13px;
+          border-radius: 9px;
+          background: linear-gradient(135deg, #073E40 0%, #0C4E52 100%);
+          border: 1px solid rgba(198, 146, 75, 0.45);
           color: #FFFFFF;
-          font-size: 12.5px;
-          font-weight: 750;
-          letter-spacing: 0.03em;
-          text-transform: uppercase;
+          font-family: inherit;
+          font-size: 13px;
+          font-weight: 700;
           cursor: pointer;
           white-space: nowrap;
-          box-shadow: 0 2px 10px rgba(10, 62, 66, 0.16);
-          transition: transform 180ms ease, box-shadow 180ms ease;
+          box-shadow: 0 3px 10px rgba(7, 62, 64, 0.16);
+          transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .exact-digi-gold-btn:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 14px rgba(10, 62, 66, 0.25);
+          transform: translateY(-1.5px);
+          border-color: #C6924B;
+          box-shadow: 0 6px 16px rgba(198, 146, 75, 0.28);
+          background: linear-gradient(135deg, #0A494B 0%, #0F5B60 100%);
         }
 
-        .exact-digi-gold-icon {
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: #C6924B;
-          color: #0A3E42;
+        .exact-digi-gold-coin {
+          font-size: 15px;
+          line-height: 1;
           display: flex;
           align-items: center;
-          justify-content: center;
-          font-size: 10px;
+        }
+
+        .exact-digi-gold-label {
+          letter-spacing: 0.02em;
+        }
+
+        .exact-digi-gold-badge {
+          background: #C6924B;
+          color: #073E40;
+          font-size: 9.5px;
           font-weight: 900;
+          padding: 2px 5px;
+          border-radius: 4px;
+          letter-spacing: 0.04em;
         }
 
         .exact-search {
@@ -4104,10 +4113,11 @@ export default function CustomerNavbar() {
                 type="button"
                 className="exact-digi-gold-btn"
                 onClick={() => navigate("/digi-gold")}
-                title="Aadhirai 22K Digi Gold"
+                title="Athirai 22K Digital Gold & Silver Vault"
               >
-                <span className="exact-digi-gold-icon">Au</span>
-                <span>Digi Gold</span>
+                <span className="exact-digi-gold-coin">🪙</span>
+                <span className="exact-digi-gold-label">Digi Gold</span>
+                <span className="exact-digi-gold-badge">22K</span>
               </button>
             )}
 

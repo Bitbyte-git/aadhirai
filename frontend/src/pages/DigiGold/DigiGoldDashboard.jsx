@@ -271,13 +271,13 @@ export default function DigiGoldDashboard() {
       },
       rates: liveRates,
       chart_data: [
-        { time: '8 AM', price: Math.round(basePrice - 110) },
-        { time: '10 AM', price: Math.round(basePrice - 85) },
-        { time: '12 PM', price: Math.round(basePrice - 60) },
-        { time: '2 PM', price: Math.round(basePrice - 40) },
-        { time: '4 PM', price: Math.round(basePrice - 20) },
-        { time: '6 PM', price: Math.round(basePrice - 5) },
-        { time: '8 PM', price: Math.round(basePrice) },
+        { time: '9 AM', price: Math.round(basePrice) },
+        { time: '11 AM', price: Math.round(basePrice) },
+        { time: '1 PM', price: Math.round(basePrice) },
+        { time: '3 PM', price: Math.round(basePrice) },
+        { time: '5 PM', price: Math.round(basePrice) },
+        { time: '7 PM', price: Math.round(basePrice) },
+        { time: 'Live', price: Math.round(basePrice) },
       ],
       recent_transactions: []
     }
@@ -441,13 +441,13 @@ export default function DigiGoldDashboard() {
 
       const basePrice = liveMetalRates.gold_22k
       const dynamicChartData = [
-        { time: '8 AM', price: Math.round(basePrice - 110) },
-        { time: '10 AM', price: Math.round(basePrice - 85) },
-        { time: '12 PM', price: Math.round(basePrice - 60) },
-        { time: '2 PM', price: Math.round(basePrice - 40) },
-        { time: '4 PM', price: Math.round(basePrice - 20) },
-        { time: '6 PM', price: Math.round(basePrice - 5) },
-        { time: '8 PM', price: Math.round(basePrice) },
+        { time: '9 AM', price: Math.round(basePrice) },
+        { time: '11 AM', price: Math.round(basePrice) },
+        { time: '1 PM', price: Math.round(basePrice) },
+        { time: '3 PM', price: Math.round(basePrice) },
+        { time: '5 PM', price: Math.round(basePrice) },
+        { time: '7 PM', price: Math.round(basePrice) },
+        { time: 'Live', price: Math.round(basePrice) },
       ]
 
       setData({
@@ -943,14 +943,15 @@ export default function DigiGoldDashboard() {
       }
       const sBase = Number(rates.silver_999) || 275.0
       if (activeTab === '1D') {
+        const roundedSBase = Math.round(sBase * 100) / 100
         return [
-          { time: '9 AM', fullDate: 'Today, 09:00 AM', price: Math.round((sBase - 3.5) * 100) / 100 },
-          { time: '11 AM', fullDate: 'Today, 11:00 AM', price: Math.round((sBase - 2.0) * 100) / 100 },
-          { time: '1 PM', fullDate: 'Today, 01:00 PM', price: Math.round((sBase - 1.2) * 100) / 100 },
-          { time: '3 PM', fullDate: 'Today, 03:00 PM', price: Math.round((sBase - 0.5) * 100) / 100 },
-          { time: '5 PM', fullDate: 'Today, 05:00 PM', price: Math.round((sBase - 0.2) * 100) / 100 },
-          { time: '7 PM', fullDate: 'Today, 07:00 PM', price: Math.round((sBase - 0.1) * 100) / 100 },
-          { time: 'Live', fullDate: 'Today, Live Market', price: Math.round(sBase * 100) / 100 },
+          { time: '9 AM', fullDate: 'Today, 09:00 AM', price: roundedSBase },
+          { time: '11 AM', fullDate: 'Today, 11:00 AM', price: roundedSBase },
+          { time: '1 PM', fullDate: 'Today, 01:00 PM', price: roundedSBase },
+          { time: '3 PM', fullDate: 'Today, 03:00 PM', price: roundedSBase },
+          { time: '5 PM', fullDate: 'Today, 05:00 PM', price: roundedSBase },
+          { time: '7 PM', fullDate: 'Today, 07:00 PM', price: roundedSBase },
+          { time: 'Live', fullDate: 'Today, Live Market', price: roundedSBase },
         ]
       }
       if (activeTab === '1W') {
@@ -1002,14 +1003,15 @@ export default function DigiGoldDashboard() {
     }
     const base = Number(rates.gold_22k) || 14250
     if (activeTab === '1D') {
+      const roundedBase = Math.round(base)
       return [
-        { time: '9 AM', fullDate: 'Today, 09:00 AM', price: Math.round(base - 105) },
-        { time: '11 AM', fullDate: 'Today, 11:00 AM', price: Math.round(base - 75) },
-        { time: '1 PM', fullDate: 'Today, 01:00 PM', price: Math.round(base - 45) },
-        { time: '3 PM', fullDate: 'Today, 03:00 PM', price: Math.round(base - 20) },
-        { time: '5 PM', fullDate: 'Today, 05:00 PM', price: Math.round(base - 10) },
-        { time: '7 PM', fullDate: 'Today, 07:00 PM', price: Math.round(base - 5) },
-        { time: 'Live', fullDate: 'Today, Live Market', price: Math.round(base) },
+        { time: '9 AM', fullDate: 'Today, 09:00 AM', price: roundedBase },
+        { time: '11 AM', fullDate: 'Today, 11:00 AM', price: roundedBase },
+        { time: '1 PM', fullDate: 'Today, 01:00 PM', price: roundedBase },
+        { time: '3 PM', fullDate: 'Today, 03:00 PM', price: roundedBase },
+        { time: '5 PM', fullDate: 'Today, 05:00 PM', price: roundedBase },
+        { time: '7 PM', fullDate: 'Today, 07:00 PM', price: roundedBase },
+        { time: 'Live', fullDate: 'Today, Live Market', price: roundedBase },
       ]
     }
     if (activeTab === '1W') {
@@ -1201,13 +1203,15 @@ export default function DigiGoldDashboard() {
       const currentDateStr = new Date().toLocaleDateString('en-IN', {
         day: '2-digit',
         month: 'short',
-        year: 'numeric'
+        year: 'numeric',
+        timeZone: 'Asia/Kolkata'
       })
       const currentTimeStr = new Date().toLocaleTimeString('en-IN', {
         hour: '2-digit',
         minute: '2-digit',
-        hour12: true
-      })
+        hour12: true,
+        timeZone: 'Asia/Kolkata'
+      }) + ' IST'
 
       const liveRateInfo = valuationMetal === 'silver'
         ? `₹${Number(currentSilverRate).toFixed(2)}/g (Pure 999 Silver)`
@@ -4813,71 +4817,44 @@ export default function DigiGoldDashboard() {
             <div className="dg-success-hero-num">
               <span className="dg-success-hero-val">
                 {actionSuccessData.actionType === 'sell'
-                  ? `+ ₹ ${Number(actionSuccessData.amountInr).toLocaleString('en-IN')}`
+                  ? `₹ ${Number(actionSuccessData.amountInr).toLocaleString('en-IN')}`
                   : `+ ${Number(actionSuccessData.grams).toFixed(4)} g`}
               </span>
               <span className="dg-success-hero-desc">
                 {actionSuccessData.actionType === 'sell'
-                  ? `Instant Settlement • Credited to Wallet Balance (${Number(actionSuccessData.coins).toLocaleString()} AUG Revive)`
-                  : `≈ ${Number(actionSuccessData.milligrams).toFixed(2)} mg Secured in Your Digital Vault`}
+                  ? `Credited to your wallet (${Number(actionSuccessData.coins).toLocaleString()} AUG Revive)`
+                  : `${actionSuccessData.metalLabel || '22K Digital Gold'} safely deposited in your digital vault`}
               </span>
             </div>
 
-            {/* Transaction Receipt Details */}
-            <div className="dg-success-receipt">
-              <div className="dg-success-receipt-row">
-                <span className="dg-success-receipt-label">Transaction Type:</span>
-                <span className="dg-success-receipt-val highlight">
-                  {actionSuccessData.actionType === 'buy' ? 'Vault Purchase' : actionSuccessData.actionType === 'sell' ? 'Vault Sale' : 'Coins Conversion'}
-                </span>
-              </div>
-              <div className="dg-success-receipt-row">
-                <span className="dg-success-receipt-label">Amount (₹):</span>
-                <span className="dg-success-receipt-val">
-                  ₹ {Number(actionSuccessData.amountInr).toLocaleString('en-IN')}
-                </span>
-              </div>
-              <div className="dg-success-receipt-row">
-                <span className="dg-success-receipt-label">Asset Quantity:</span>
-                <span className="dg-success-receipt-val">
-                  {Number(actionSuccessData.grams).toFixed(4)} g ({Number(actionSuccessData.milligrams).toFixed(2)} mg)
-                </span>
-              </div>
-              <div className="dg-success-receipt-row">
-                <span className="dg-success-receipt-label">Applied Rate:</span>
-                <span className="dg-success-receipt-val">
-                  ₹ {Number(actionSuccessData.rate).toLocaleString('en-IN')}/g (₹ {(Number(actionSuccessData.rate)/1000).toFixed(4)}/mg)
-                </span>
-              </div>
-              <div className="dg-success-receipt-row">
-                <span className="dg-success-receipt-label">AUG Revive Impact:</span>
-                <span className="dg-success-receipt-val" style={{ color: actionSuccessData.actionType === 'sell' ? '#009957' : '#E53E3E' }}>
-                  {actionSuccessData.actionType === 'sell' ? `+ ${Number(actionSuccessData.coins).toLocaleString()} Revive Credited` : `- ${Number(actionSuccessData.coins).toLocaleString()} Revive Deducted`}
-                </span>
+            {/* Clean 2-Item Summary Badges (No Text Clutter) */}
+            <div className="dg-success-summary-badges">
+              <div className="dg-success-badge-item">
+                <span className="dg-sbi-label">Amount Paid</span>
+                <span className="dg-sbi-val">₹ {Number(actionSuccessData.amountInr).toLocaleString('en-IN')}</span>
               </div>
               {actionSuccessData.transactionId && (
-                <div className="dg-success-receipt-row">
-                  <span className="dg-success-receipt-label">Transaction ID:</span>
-                  <span
-                    className="dg-success-receipt-val txnid"
-                    onClick={() => {
-                      navigator.clipboard.writeText(actionSuccessData.transactionId)
-                      setCopiedTxn(true)
-                      setTimeout(() => setCopiedTxn(false), 2000)
-                    }}
-                    title="Click to copy Transaction ID"
-                  >
-                    <span>{actionSuccessData.transactionId}</span>
-                    {copiedTxn ? <Check size={13} color="#009957" /> : <Copy size={13} />}
+                <div
+                  className="dg-success-badge-item clickable"
+                  onClick={() => {
+                    navigator.clipboard.writeText(actionSuccessData.transactionId)
+                    setCopiedTxn(true)
+                    setTimeout(() => setCopiedTxn(false), 2000)
+                  }}
+                  title="Click to copy Transaction ID"
+                >
+                  <span className="dg-sbi-label">Transaction Ref</span>
+                  <span className="dg-sbi-val txnid">
+                    {actionSuccessData.transactionId}
+                    {copiedTxn ? <Check size={12} color="#009957" /> : <Copy size={12} />}
                   </span>
                 </div>
               )}
-              <div className="dg-success-receipt-row">
-                <span className="dg-success-receipt-label">Time &amp; Security:</span>
-                <span className="dg-success-receipt-val" style={{ fontSize: 11.5, color: '#647474' }}>
-                  {actionSuccessData.dateTime || 'Just now'} • 100% BIS Hallmarked
-                </span>
-              </div>
+            </div>
+
+            <div className="dg-success-trust-note">
+              <ShieldCheck size={14} color="#009957" />
+              <span>100% IDBI Trustee Insured • 24K Hallmarked Security</span>
             </div>
 
             {/* Action Buttons */}

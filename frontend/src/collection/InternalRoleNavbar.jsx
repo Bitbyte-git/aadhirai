@@ -919,8 +919,7 @@ export default function InternalRoleNavbar({
         /* ── SEARCH BLOCK ── */
         .san-search-block {
           position: relative;
-          width: clamp(140px, 11vw, 210px);
-          transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+          width: clamp(170px, 13.5vw, 250px);
           flex-shrink: 0;
           min-width: 0;
         }
@@ -1122,8 +1121,8 @@ export default function InternalRoleNavbar({
           .san-hamburger { display: flex !important; }
           .san-logout-link { display: none !important; }
           .irn-nav-left { flex: 1; min-width: 0; max-width: calc(100% - 90px); }
-          .san-search-block { width: clamp(140px, 28vw, 240px); }
-          .san-search-block.is-focused, .san-search-block:focus-within { width: clamp(180px, 36vw, 300px); }
+          .san-search-block { width: clamp(180px, 34vw, 280px); }
+          .san-search-block.is-focused, .san-search-block:focus-within { width: clamp(180px, 34vw, 280px); }
         }
 
         @media (max-width: 768px) {
@@ -1134,7 +1133,7 @@ export default function InternalRoleNavbar({
           .san-brand-divider { display: none; }
           .irn-nav-left { gap: 8px; }
           .san-search-block { flex: 1; min-width: 0; width: auto; max-width: 220px; }
-          .san-search-block.is-focused, .san-search-block:focus-within { width: auto; max-width: 260px; }
+          .san-search-block.is-focused, .san-search-block:focus-within { width: auto; max-width: 220px; }
           .san-search { height: 35px; padding: 0 4px 0 8px; gap: 5px; }
           .san-search-input { font-size: 12px; }
           .san-mic-btn { width: 26px; height: 26px; }
@@ -1148,7 +1147,7 @@ export default function InternalRoleNavbar({
           .san-brand-title { font-size: 15px; }
           .irn-nav-left { gap: 6px; }
           .san-search-block { flex: 1; min-width: 0; width: auto; max-width: 180px; }
-          .san-search-block.is-focused, .san-search-block:focus-within { width: auto; }
+          .san-search-block.is-focused, .san-search-block:focus-within { width: auto; max-width: 180px; }
           .san-search { height: 34px; padding: 0 4px 0 8px; font-size: 12px; }
           .san-search-input { font-size: 12px; }
           .san-bell-btn, .san-hamburger { width: 34px; height: 34px; }
@@ -1156,7 +1155,7 @@ export default function InternalRoleNavbar({
 
         @media (max-width: 400px) {
           .san-brand-title { font-size: 13.5px; }
-          .san-search-block { max-width: 140px; }
+          .san-search-block { flex: 1; min-width: 0; width: auto; max-width: 140px; }
         }
 
         /* ── MOBILE DRAWER OVERLAY & PANEL ── */

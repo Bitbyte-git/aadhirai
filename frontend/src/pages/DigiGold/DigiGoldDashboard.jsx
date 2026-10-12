@@ -50,7 +50,12 @@ import {
   Mail,
   MessageCircle,
   MapPin,
-  Truck
+  Truck,
+  Crown,
+  Award,
+  Scale,
+  Lock,
+  Activity
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -63,7 +68,15 @@ import {
 import * as XLSX from 'xlsx'
 import api from '../../api'
 import './DigiGoldDashboard.css'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 import goldCoinImg from '../../assets/gold-coin-transparent.png'
+import silverCoinImg from '../../assets/silver-coin-transparent.png'
+import metalsPedestalImg from '../../assets/metals_pedestal.jpg'
+import deliveryHeroImg from '../../assets/delivery_hero.jpg'
+import goldCoinsStackImg from '../../assets/gold_coins_stack.jpg'
+import silverCoinsStackImg from '../../assets/silver_coins_stack.jpg'
+import specialOfferGiftImg from '../../assets/special_offer_gift.jpg'
 
 // ── LUXURY ENTERPRISE FEEDBACK / NOTICE COMPONENT ──
 function ModalFeedbackNotice({ feedback, onDismiss, onRecharge, onSwitchUPI, onBuyGold }) {
@@ -342,8 +355,10 @@ export default function DigiGoldDashboard() {
 
   // ── AUTOPAY / OFFERS STATE ──
   const [showAutoPayModal, setShowAutoPayModal] = useState(false)
+  const [autoPayMetal, setAutoPayMetal] = useState('gold') // 'gold' | 'silver'
   const [autoPayFrequency, setAutoPayFrequency] = useState('daily') // 'daily' | 'weekly' | 'monthly'
   const [autoPayAmount, setAutoPayAmount] = useState('100')
+  const [offerPlanMetal, setOfferPlanMetal] = useState('gold') // 'gold' | 'silver' for offer cards
   const [selectedDailyAmt, setSelectedDailyAmt] = useState('100')
   const [selectedWeeklyAmt, setSelectedWeeklyAmt] = useState('500')
   const [selectedMonthlyAmt, setSelectedMonthlyAmt] = useState('2000')
@@ -358,7 +373,8 @@ export default function DigiGoldDashboard() {
     }
   })
 
-  const handleOpenAutoPayModal = (freq = 'daily', amt = '') => {
+  const handleOpenAutoPayModal = (freq = 'daily', amt = '', metal = 'gold') => {
+    setAutoPayMetal(metal || offerPlanMetal || 'gold')
     setAutoPayFrequency(freq)
     if (amt) {
       setAutoPayAmount(amt.toString())
@@ -376,6 +392,107 @@ export default function DigiGoldDashboard() {
       localStorage.setItem('athirai_autopay_plans', JSON.stringify(updated))
     } catch {}
   }
+
+  // ── HOME DELIVERY STATE & CONFIGURATION ──
+  const GOLD_DENOMINATIONS = useMemo(() => [
+    { label: '50mg', weight_gm: 0.05, weight_mg: 50 },
+    { label: '100mg', weight_gm: 0.1, weight_mg: 100 },
+    { label: '200mg', weight_gm: 0.2, weight_mg: 200 },
+    { label: '250mg', weight_gm: 0.25, weight_mg: 250 },
+    { label: '500mg', weight_gm: 0.5, weight_mg: 500 },
+    { label: '1g', weight_gm: 1.0, weight_mg: 1000 },
+    { label: '2g', weight_gm: 2.0, weight_mg: 2000 },
+    { label: '4g', weight_gm: 4.0, weight_mg: 4000 },
+    { label: '8g', weight_gm: 8.0, weight_mg: 8000 },
+    { label: '10g', weight_gm: 10.0, weight_mg: 10000 },
+  ], [])
+
+  const SILVER_DENOMINATIONS = useMemo(() => [
+    { label: '250mg', weight_gm: 0.25, weight_mg: 250 },
+    { label: '500mg', weight_gm: 0.5, weight_mg: 500 },
+    { label: '1g', weight_gm: 1.0, weight_mg: 1000 },
+    { label: '2g', weight_gm: 2.0, weight_mg: 2000 },
+    { label: '5g', weight_gm: 5.0, weight_mg: 5000 },
+    { label: '10g', weight_gm: 10.0, weight_mg: 10000 },
+    { label: '20g', weight_gm: 20.0, weight_mg: 20000 },
+    { label: '50g', weight_gm: 50.0, weight_mg: 50000 },
+  ], [])
+
+  const [deliveryCart, setDeliveryCart] = useState(() => {
+    try {
+      const saved = localStorage.getItem('athirai_delivery_cart')
+      return saved ? JSON.parse(saved) : [
+        { id: 'gold-1g', metal: 'gold', label: '1g', weight_gm: 1.0, qty: 2 },
+        { id: 'silver-2g', metal: 'silver', label: '2g', weight_gm: 2.0, qty: 1 }
+      ]
+    } catch {
+      return [
+        { id: 'gold-1g', metal: 'gold', label: '1g', weight_gm: 1.0, qty: 2 },
+        { id: 'silver-2g', metal: 'silver', label: '2g', weight_gm: 2.0, qty: 1 }
+      ]
+    }
+  })
+
+  const [deliveryAddress, setDeliveryAddress] = useState({
+    name: 'Rajesh Kumar',
+    phone: '9876543210',
+    address_line1: 'No 45, Gandhi Road, Anna Nagar',
+    city: 'Chennai',
+    state: 'Tamil Nadu',
+    pincode: '600040',
+    formatted: 'No 45, Gandhi Road, Anna Nagar, Chennai - 600040'
+  })
+
+  const [isEditingAddress, setIsEditingAddress] = useState(false)
+  const [submittingDelivery, setSubmittingDelivery] = useState(false)
+  const [deliveryFeedback, setDeliveryFeedback] = useState(null)
+  const [lastConfirmedOrder, setLastConfirmedOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem('athirai_last_delivery_order')
+      return saved ? JSON.parse(saved) : {
+        order_id: 'DG202510080001',
+        payment_method: 'UPI AutoPay',
+        date: '08 Oct 2026, 11:45 AM',
+        status: 'Completed',
+        items: [
+          { id: 'gold-1g', metal: 'gold', label: '1g', weight_gm: 1.0, qty: 2, unit_price: 13200, total_price: 26400 },
+          { id: 'silver-2g', metal: 'silver', label: '2g', weight_gm: 2.0, qty: 1, unit_price: 1200, total_price: 1200 }
+        ],
+        total_weight_gm: 4.0,
+        total_amount: 27600
+      }
+    } catch {
+      return {
+        order_id: 'DG202510080001',
+        payment_method: 'UPI AutoPay',
+        date: '08 Oct 2026, 11:45 AM',
+        status: 'Completed',
+        items: [
+          { id: 'gold-1g', metal: 'gold', label: '1g', weight_gm: 1.0, qty: 2, unit_price: 13200, total_price: 26400 },
+          { id: 'silver-2g', metal: 'silver', label: '2g', weight_gm: 2.0, qty: 1, unit_price: 1200, total_price: 1200 }
+        ],
+        total_weight_gm: 4.0,
+        total_amount: 27600
+      }
+    }
+  })
+
+  useEffect(() => {
+    if (data?.customer) {
+      const c = data.customer
+      const addr = c.address || {}
+      setDeliveryAddress(prev => ({
+        ...prev,
+        name: c.name || prev.name,
+        phone: c.phone || prev.phone,
+        address_line1: addr.door_no ? `${addr.door_no}, ${addr.street_name || ''}` : prev.address_line1,
+        city: addr.city || prev.city,
+        state: addr.state || prev.state,
+        pincode: addr.pincode || prev.pincode,
+        formatted: addr.formatted && addr.formatted !== 'No address provided' ? addr.formatted : prev.formatted
+      }))
+    }
+  }, [data?.customer])
 
   // Auto-rotating Sidebar Vault Mode (3s 22K Gold <-> 3s Digi Silver)
   const [sidebarRotatingMetal, setSidebarRotatingMetal] = useState('gold')
@@ -679,11 +796,16 @@ export default function DigiGoldDashboard() {
     setSubmittingAutoPay(true)
     setAutoPayFeedback(null)
 
-    // Calculate discounted gold grams: ₹50 discount per gram on benchmark rate
-    const effectiveRate = Math.max(1, currentLiveRate - 50)
-    const goldGm = +(parsedAmt / effectiveRate).toFixed(4)
-    const goldMg = +(goldGm * 1000).toFixed(2)
+    // Calculate metal grams at transparent live benchmark rate (Gold or Silver)
+    const isGold = autoPayMetal === 'gold'
+    const effectiveRate = isGold
+      ? Math.max(1, Number(currentLiveRate || 14250))
+      : Math.max(1, Number(currentSilverRate || 275))
+    const metalGm = +(parsedAmt / effectiveRate).toFixed(4)
+    const metalMg = +(metalGm * 1000).toFixed(2)
     const freqLabel = autoPayFrequency === 'daily' ? 'Daily' : autoPayFrequency === 'weekly' ? 'Weekly' : 'Monthly'
+    const metalLabel = isGold ? '22K Gold' : '999 Pure Silver'
+    const metalKey = isGold ? 'gold_22k' : 'silver_999'
 
     try {
       const loaded = await loadRazorpay()
@@ -706,21 +828,21 @@ export default function DigiGoldDashboard() {
         amount: Math.round(Number(orderAmount) * 100),
         currency: currency || 'INR',
         name: 'Athirai Fine Jewellery',
-        description: `${freqLabel} AutoPay Gold Savings (₹50/g Off)`,
+        description: `${freqLabel} AutoPay ${metalLabel} SIP (Live Rate)`,
         order_id: razorpay_order_id,
         prefill: {
           name: data?.customer?.name || currentUser.name || '',
           email: data?.customer?.email || currentUser.email || '',
           contact: data?.customer?.phone || ''
         },
-        theme: { color: '#0A3E42' },
+        theme: { color: isGold ? '#0A3E42' : '#2C3E50' },
         handler: async (response) => {
           try {
             const res = await api.post('/digi-gold/buy/', {
               amount: parsedAmt,
               payment_method: 'razorpay',
-              metal: 'gold_22k',
-              notes: `${freqLabel} AutoPay Gold SIP (₹50/g Discount Applied & 5% Off Making Charges)`,
+              metal: metalKey,
+              notes: `${freqLabel} AutoPay ${metalLabel} SIP (Live Rate & 5% Off Making Charges)`,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_order_id: response.razorpay_order_id,
               razorpay_signature: response.razorpay_signature
@@ -732,9 +854,10 @@ export default function DigiGoldDashboard() {
             const newPlan = {
               id: 'AP-' + Date.now().toString().slice(-6),
               frequency: freqLabel,
+              metal: autoPayMetal,
+              metalLabel: metalLabel,
               amount: parsedAmt,
-              goldRate: effectiveRate,
-              discountPerGram: 50,
+              rate: effectiveRate,
               makingChargeDiscount: '5%',
               startDate: new Date().toLocaleDateString('en-GB'),
               nextDebit: autoPayFrequency === 'daily' ? 'Tomorrow at 09:00 AM' : autoPayFrequency === 'weekly' ? 'In 7 days' : 'In 30 days',
@@ -750,13 +873,13 @@ export default function DigiGoldDashboard() {
             setShowAutoPayModal(false)
             setActionSuccessData({
               actionType: 'buy',
-              metal: 'gold_22k',
-              metalLabel: `22K Gold (${freqLabel} AutoPay Plan)`,
+              metal: metalKey,
+              metalLabel: `${metalLabel} (${freqLabel} AutoPay Plan)`,
               title: `${freqLabel} AutoPay Plan Activated!`,
-              message: `Congratulations! Your ${freqLabel} AutoPay deposit for ₹${parsedAmt.toLocaleString('en-IN')} has been safely processed. Enjoy ₹50/g discount on all deposits and 5% off jewellery making charges!`,
+              message: `Congratulations! Your ${freqLabel} AutoPay deposit for ₹${parsedAmt.toLocaleString('en-IN')} has been safely processed. Enjoy live market rates and 5% off jewellery making charges!`,
               amountInr: parsedAmt,
-              grams: invData.hold_gold_gm || goldGm,
-              milligrams: invData.hold_gold_mg || goldMg,
+              grams: (isGold ? invData.hold_gold_gm : invData.hold_silver_gm) || metalGm,
+              milligrams: (isGold ? invData.hold_gold_mg : invData.hold_silver_mg) || metalMg,
               coins: Math.round(parsedAmt * 100),
               transactionId: txnId,
               rate: effectiveRate,
@@ -1110,6 +1233,161 @@ export default function DigiGoldDashboard() {
   const userAugCoins = Number(kpis.aug_coins_balance ?? 0)
   const userAugInr = Number(kpis.aug_balance_inr ?? 0)
   const hasEnoughCoins = userAugCoins >= previewConvertCoins
+
+  // ── HOME DELIVERY LIVE CALCULATIONS & ACTIONS ──
+  const deliveryGoldRate = Number(currentLiveRate || 13200)
+  const deliverySilverRate = Number(currentSilverRate || 1200)
+
+  const cartGoldItems = deliveryCart.filter(i => i.metal === 'gold')
+  const cartSilverItems = deliveryCart.filter(i => i.metal === 'silver')
+
+  const totalCartGoldWeight = cartGoldItems.reduce((acc, i) => acc + (i.weight_gm * i.qty), 0)
+  const totalCartSilverWeight = cartSilverItems.reduce((acc, i) => acc + (i.weight_gm * i.qty), 0)
+  const totalCartWeight = totalCartGoldWeight + totalCartSilverWeight
+
+  const totalCartGoldAmount = totalCartGoldWeight * deliveryGoldRate
+  const totalCartSilverAmount = totalCartSilverWeight * deliverySilverRate
+  const totalCartAmount = totalCartGoldAmount + totalCartSilverAmount
+
+  const availableGoldGm = Number(kpis?.total_gold_holding_gm ?? 0)
+  const availableSilverGm = Number(kpis?.total_silver_holding_gm ?? 0)
+
+  const handleAddDeliveryCoin = (metal, coin) => {
+    setDeliveryCart(prev => {
+      const existing = prev.find(i => i.metal === metal && i.label === coin.label)
+      let nextCart
+      if (existing) {
+        nextCart = prev.map(i => i.id === existing.id ? { ...i, qty: i.qty + 1 } : i)
+      } else {
+        const newItem = {
+          id: `${metal}-${coin.label}`,
+          metal,
+          label: coin.label,
+          weight_gm: coin.weight_gm,
+          qty: 1
+        }
+        nextCart = [...prev, newItem]
+      }
+      try { localStorage.setItem('athirai_delivery_cart', JSON.stringify(nextCart)) } catch {}
+      return nextCart
+    })
+  }
+
+  const handleUpdateDeliveryQty = (id, delta) => {
+    setDeliveryCart(prev => {
+      const nextCart = prev.map(i => {
+        if (i.id === id) {
+          const newQty = i.qty + delta
+          return newQty > 0 ? { ...i, qty: newQty } : null
+        }
+        return i
+      }).filter(Boolean)
+      try { localStorage.setItem('athirai_delivery_cart', JSON.stringify(nextCart)) } catch {}
+      return nextCart
+    })
+  }
+
+  const handleClearDeliveryCart = () => {
+    setDeliveryCart([])
+    try { localStorage.removeItem('athirai_delivery_cart') } catch {}
+  }
+
+  const handleProceedDeliveryCheckout = async () => {
+    if (!deliveryCart.length) {
+      setDeliveryFeedback({
+        type: 'error',
+        title: 'Cart is Empty',
+        detail: 'Please select at least one gold or silver coin for home delivery.'
+      })
+      return
+    }
+
+    setSubmittingDelivery(true)
+    setDeliveryFeedback(null)
+
+    const payloadItems = deliveryCart.map(i => ({
+      metal: i.metal,
+      denomination: i.label,
+      weight_gm: i.weight_gm,
+      quantity: i.qty,
+      unit_price: i.metal === 'gold' ? deliveryGoldRate : deliverySilverRate,
+      total_price: i.weight_gm * i.qty * (i.metal === 'gold' ? deliveryGoldRate : deliverySilverRate)
+    }))
+
+    try {
+      const res = await api.post('/digi-gold/delivery/order/', {
+        items: payloadItems,
+        address: deliveryAddress
+      })
+
+      const confirmed = res.data.order
+      setLastConfirmedOrder(confirmed)
+      try { localStorage.setItem('athirai_last_delivery_order', JSON.stringify(confirmed)) } catch {}
+
+      fetchDashboardData()
+
+      setActionSuccessData({
+        actionType: 'buy',
+        metal: 'gold_22k',
+        metalLabel: 'Digi Gold Home Delivery',
+        title: 'Delivery Order Confirmed!',
+        message: `Order #${confirmed.order_id} has been placed successfully! Your coins will be securely packaged and delivered to ${deliveryAddress.city} within 7 days.`,
+        amountInr: confirmed.total_amount,
+        grams: confirmed.total_weight_gm,
+        coins: Math.round(confirmed.total_amount * 100),
+        transactionId: confirmed.transaction_id,
+        rate: deliveryGoldRate,
+        dateTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+      })
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || err.message || 'Failed to place delivery order'
+      setDeliveryFeedback({
+        type: 'error',
+        title: 'Order Placement Error',
+        detail: errorMsg
+      })
+    } finally {
+      setSubmittingDelivery(false)
+    }
+  }
+
+  const handleDownloadDeliveryReceipt = async () => {
+    const el = document.getElementById('dg-receipt-to-print')
+    if (!el) return
+    try {
+      const canvas = await html2canvas(el, {
+        scale: 2.5,
+        useCORS: true,
+        backgroundColor: '#FFFFFF',
+        logging: false
+      })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+      pdf.addImage(imgData, 'PNG', 0, 10, pdfWidth, pdfHeight)
+      const orderId = lastConfirmedOrder?.order_id || 'DG202510080001'
+      pdf.save(`Athirai_Digi_Gold_Receipt_${orderId}.pdf`)
+    } catch (err) {
+      console.error('Failed to download receipt', err)
+      window.print()
+    }
+  }
+
+  const handleNavigateToOrderSummary = () => {
+    if (currentView !== 'delivery') {
+      setCurrentView('delivery')
+    }
+    setSidebarOpen(false)
+    setTimeout(() => {
+      const panel = document.getElementById('dg-order-summary-panel')
+      if (panel) {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        panel.classList.add('dg-summary-pulse-highlight')
+        setTimeout(() => panel.classList.remove('dg-summary-pulse-highlight'), 2200)
+      }
+    }, 150)
+  }
 
   // ── FILTERED TRANSACTIONS & METRICS FOR VALUATION SHEET (GOLD & SILVER SUPPORT) ──
   const valuationTransactions = useMemo(() => {
@@ -1918,6 +2196,14 @@ export default function DigiGoldDashboard() {
               <span className="dg-nav-offer-tag">₹50 Off</span>
             </button>
             <button
+              className={`dg-nav-btn ${currentView === 'delivery' ? 'active' : ''}`}
+              type="button"
+              onClick={() => { setCurrentView('delivery'); setSidebarOpen(false); }}
+            >
+              <Truck size={18} />
+              <span>Delivery</span>
+            </button>
+            <button
               className="dg-nav-btn"
               type="button"
               onClick={() => { navigate('/profile'); setSidebarOpen(false); }}
@@ -1993,6 +2279,19 @@ export default function DigiGoldDashboard() {
           </div>
 
           <div className="dg-header-right">
+            <button
+              className="dg-order-summary-shortcut-btn"
+              type="button"
+              onClick={handleNavigateToOrderSummary}
+              title="Go to Delivery Order Summary"
+            >
+              <ShoppingCart size={15} />
+              <span>Order Summary</span>
+              {deliveryCart.length > 0 && (
+                <span className="dg-cart-count-pill">{deliveryCart.length}</span>
+              )}
+            </button>
+
             <button
               className="dg-back-store-btn"
               type="button"
@@ -2480,165 +2779,176 @@ export default function DigiGoldDashboard() {
                EXCLUSIVE OFFERS & AUTOPAY / AUTO-SAVINGS VIEW
                ══════════════════════════════════════════════════════════════ */
             <div className="dg-offers-shell">
-              {/* Header Navigation Card */}
-              <div className="dg-offers-header-card">
-                <div className="dg-offers-title-wrap">
+              {/* TOP HEADER */}
+              <header className="dg-offers-header-card">
+                <div className="dg-offers-brand-wrap">
+                  {/* Subtle Back Link */}
                   <button
                     type="button"
                     onClick={() => setCurrentView('dashboard')}
-                    className="dg-offers-back-btn"
+                    className="dg-offers-back-pill"
+                    title="Return to Dashboard"
                   >
-                    <ArrowLeft size={16} /> Back to Dashboard
+                    <ArrowLeft size={14} />
+                    <span>Dashboard</span>
                   </button>
-                  <div className="dg-offers-badge-row">
-                    <span className="dg-offers-pill-badge">
-                      <Sparkles size={14} /> EXCLUSIVE OFFERS &amp; AUTOPAY
-                    </span>
-                    <span className="dg-offers-live-tag">
-                      ● LIVE 22K RATE ₹{Number(currentLiveRate).toLocaleString('en-IN')}/g
-                    </span>
+
+                  <div className="dg-offers-brand-identity">
+                    {/* Golden Lotus Emblem */}
+                    <div className="dg-lotus-emblem-wrap">
+                      <svg className="dg-lotus-emblem-svg" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M24 6C24 6 27.5 15 32 19C36.5 23 44 24 44 24C44 24 37 27 34 32C31 37 29 44 24 44C19 44 17 37 14 32C11 27 4 24 4 24C4 24 11.5 23 16 19C20.5 15 24 6 24 6Z" fill="url(#goldGrad)" />
+                        <path d="M24 14C24 14 26.5 21 29 24C31.5 27 37 28 37 28C37 28 32 30 30 34C28 38 27 42 24 42C21 42 20 38 18 34C16 30 11 28 11 28C11 28 16.5 27 19 24C21.5 21 24 14 24 14Z" fill="url(#lightGoldGrad)" opacity="0.9" />
+                        <defs>
+                          <linearGradient id="goldGrad" x1="4" y1="6" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+                            <stop stopColor="#F3D78B" />
+                            <stop offset="0.5" stopColor="#D5A33A" />
+                            <stop offset="1" stopColor="#B37E1C" />
+                          </linearGradient>
+                          <linearGradient id="lightGoldGrad" x1="11" y1="14" x2="37" y2="42" gradientUnits="userSpaceOnUse">
+                            <stop stopColor="#FFF2CE" />
+                            <stop offset="1" stopColor="#E2AE48" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                    </div>
+
+                    <div className="dg-brand-texts">
+                      <span className="dg-offers-logo-title">Digi Gold</span>
+                      <span className="dg-offers-divider">|</span>
+                      <span className="dg-offers-logo-tagline">
+                        Secure Your Tomorrow With Precious Metals
+                      </span>
+                    </div>
                   </div>
-                  <h2 className="dg-offers-main-title">
-                    Digi Gold Auto-Savings &amp; Special Offers
-                  </h2>
-                  <p className="dg-offers-sub-title">
-                    Automate your 22K gold investments and unlock guaranteed discounts &amp; exclusive jewellery benefits. Save effortlessly with daily, weekly, or monthly AutoPay!
-                  </p>
                 </div>
 
                 <div className="dg-offers-quick-actions">
                   <button
                     type="button"
-                    className="dg-offers-cta-primary"
-                    onClick={() => handleOpenAutoPayModal('daily', '100')}
+                    className="dg-offers-header-cta"
+                    onClick={() => handleOpenAutoPayModal('daily', selectedDailyAmt || '100')}
                   >
-                    <Zap size={16} />
-                    <span>Set Up Auto Savings</span>
+                    <Calendar size={15} />
+                    <span>Set Up AutoPay SIP</span>
+                    <ArrowRight size={14} />
                   </button>
                 </div>
-              </div>
+              </header>
 
-              {/* TOP FEATURED HERO BANNER (NO EMPTY SPACE - LUXURY 3-SECTION HIGH CONVERSION PROMO) */}
+              {/* ── HERO BANNER: DARK EMERALD LUXURY GOLD & SILVER INVESTMENT ── */}
               <div className="dg-offer-hero-banner">
-                {/* HERO LEFT: HEADLINE, HIGHLIGHTS & CTA */}
+                {/* HERO LEFT: TEXT, PERKS & CTA */}
                 <div className="dg-offer-hero-left">
-                  <div className="dg-offer-hero-tag">
-                    <Sparkles size={13} />
-                    <span>SPECIAL AUTO-SAVINGS OFFER</span>
+                  <div className="dg-hero-autopay-badge">
+                    <ShieldCheck size={13} />
+                    <span>AUTOPAY SIP</span>
                   </div>
+
                   <h1 className="dg-offer-hero-headline">
-                    ₹50 DISCOUNT <span className="dg-offer-per-gram">per gram!</span>
+                    Digi Gold AutoPay SIP
                   </h1>
+
                   <p className="dg-offer-hero-desc">
-                    Setup <u>Auto Savings</u> and grab guaranteed ₹50/g instant discount on every single deposit.
+                    Automate pure gold &amp; silver savings at live market rates with 100% insured vault security.
                   </p>
 
                   <div className="dg-offer-hero-perks">
                     <div className="dg-hero-perk-badge">
-                      <Tag size={13} className="dg-svg-perk-icon" />
-                      <span>₹50/g Instant Discount</span>
-                    </div>
-                    <div className="dg-hero-perk-badge">
-                      <Truck size={13} className="dg-svg-perk-icon" />
-                      <span>Delivery Fast • 24 Hours</span>
-                    </div>
-                    <div className="dg-hero-perk-badge">
-                      <Percent size={13} className="dg-svg-perk-icon" />
-                      <span>5% Less Making Charges</span>
+                      <Scale size={13} className="dg-svg-perk-icon" />
+                      <span>Live 22K Rate</span>
                     </div>
                     <div className="dg-hero-perk-badge">
                       <ShieldCheck size={13} className="dg-svg-perk-icon" />
-                      <span>100% 22K Hallmarked Gold</span>
+                      <span>100% Insured</span>
+                    </div>
+                    <div className="dg-hero-perk-badge">
+                      <BadgePercent size={13} className="dg-svg-perk-icon" />
+                      <span>5% Making Off</span>
+                    </div>
+                    <div className="dg-hero-perk-badge">
+                      <Truck size={13} className="dg-svg-perk-icon" />
+                      <span>Free Delivery</span>
                     </div>
                   </div>
 
                   <button
                     type="button"
-                    className="dg-offer-hero-cta"
+                    className="dg-offer-hero-gold-cta"
                     onClick={() => handleOpenAutoPayModal('daily', selectedDailyAmt || '100')}
                   >
-                    <span>Set Up Auto Savings</span>
+                    <Calendar size={16} />
+                    <span>Start AutoPay SIP</span>
                     <ArrowRight size={16} />
                   </button>
                 </div>
 
-                {/* HERO CENTER: EXCLUSIVE LIVE SAVINGS VOUCHER (ELIMINATES EMPTY GAP) */}
+                {/* HERO CENTER: GLASS LIVE BENCHMARK CARD */}
                 <div className="dg-offer-hero-center">
-                  <div className="dg-hero-deal-voucher">
-                    <div className="dg-voucher-glow-aura" />
-                    
-                    <div className="dg-voucher-header">
-                      <div className="dg-voucher-live-badge">
-                        <span className="dg-live-pulse-dot" />
-                        <span>LIVE SAVINGS PASS</span>
+                  <div className="dg-hero-benchmark-panel">
+                    <div className="dg-benchmark-header">
+                      <div className="dg-benchmark-live-pill">
+                        <Activity size={12} />
+                        <span>LIVE BENCHMARK</span>
                       </div>
-                      <span className="dg-voucher-code-chip">COUPON: DIGI50SAVE</span>
+                      <span className="dg-benchmark-bis-chip">22K (916) BIS</span>
                     </div>
 
-                    <div className="dg-voucher-pricing-box">
-                      <div className="dg-voucher-rate-col old">
-                        <span className="dg-voucher-rate-lbl">LIVE ATHIRAI RATE</span>
-                        <span className="dg-voucher-rate-val strikethrough">
+                    <div className="dg-benchmark-rates-row">
+                      <div className="dg-benchmark-col">
+                        <span className="dg-benchmark-lbl">TODAY'S 22K LIVE RATE</span>
+                        <span className="dg-benchmark-val gold">
                           ₹{Number(currentLiveRate).toLocaleString('en-IN')}<small>/g</small>
                         </span>
                       </div>
-                      <div className="dg-voucher-rate-arrow">➔</div>
-                      <div className="dg-voucher-rate-col deal">
-                        <span className="dg-voucher-rate-lbl">AUTOPAY OFFER RATE</span>
-                        <span className="dg-voucher-rate-val offer">
-                          ₹{Number(currentLiveRate - 50).toLocaleString('en-IN')}<small>/g</small>
+                      <div className="dg-benchmark-divider" />
+                      <div className="dg-benchmark-col">
+                        <span className="dg-benchmark-lbl">PURITY STANDARD</span>
+                        <span className="dg-benchmark-val purity">
+                          91.6% Pure Gold
                         </span>
                       </div>
                     </div>
 
-                    <div className="dg-voucher-benefit-pill">
-                      <Tag size={13} color="#FCD34D" />
-                      <span>Instant ₹50 Discount Automatically Applied</span>
+                    <div className="dg-benchmark-strip">
+                      <ShieldCheck size={14} />
+                      <span>Transparent Live Pricing • Zero Hidden Charges</span>
                     </div>
 
-                    <div className="dg-voucher-perks-row">
-                      <div className="dg-voucher-mini-perk">
-                        <CheckCircle2 size={12} color="#4ADE80" />
-                        <span>5% Less Making Charges</span>
-                      </div>
-                      <div className="dg-voucher-mini-perk">
-                        <CheckCircle2 size={12} color="#4ADE80" />
-                        <span>Instant UPI AutoPay</span>
-                      </div>
-                      <div className="dg-voucher-mini-perk">
-                        <CheckCircle2 size={12} color="#4ADE80" />
+                    <div className="dg-benchmark-features">
+                      <div className="dg-benchmark-feat-item">
+                        <Lock size={12} />
                         <span>Zero Lock-In</span>
                       </div>
+                      <div className="dg-benchmark-feat-item">
+                        <Zap size={12} />
+                        <span>Instant AutoPay</span>
+                      </div>
+                      <div className="dg-benchmark-feat-item">
+                        <Coins size={12} />
+                        <span>Liquidate Anytime</span>
+                      </div>
                     </div>
 
-                    <div className="dg-voucher-footer">
-                      <span className="dg-voucher-footer-guarantee">
-                        <ShieldCheck size={12} color="#FCD34D" />
-                        100% IDBI Trustee Insured Vaults
-                      </span>
-                      <span className="dg-voucher-status-pill">OFFER ACTIVE</span>
+                    <div className="dg-benchmark-footer">
+                      <span className="dg-benchmark-dbi-text">100% Insured Vaults</span>
+                      <span className="dg-benchmark-guaranteed-badge">GUARANTEED</span>
                     </div>
                   </div>
                 </div>
 
-                {/* HERO RIGHT: 22K 916 ATHIRAI GOLD BULLION & COIN SHOWCASE (REALISTIC BRAND ASSET) */}
-                <div className="dg-offer-hero-bullion-card">
-                  <div className="dg-bullion-ingot">
-                    <div className="dg-bullion-ingot-header">
-                      <span className="dg-bullion-brand">ATHIRAI JEWELLERY</span>
-                      <span className="dg-bullion-stamp">22K 916</span>
-                    </div>
-                    <div className="dg-bullion-coin-center">
-                      <img
-                        src={goldCoinImg}
-                        alt="Athirai 22K 916 Pure Gold Coin"
-                        className="dg-bullion-coin-img"
-                      />
-                    </div>
-                    <div className="dg-bullion-ingot-footer">
-                      <div className="dg-bullion-purity">22K (916) PURE GOLD • BIS HALLMARK</div>
-                      <div className="dg-bullion-trust">100% IDBI TRUSTEE SECURED VAULT</div>
-                    </div>
+                {/* HERO RIGHT: LUXURY PRECIOUS METALS PEDESTAL SHOWCASE */}
+                <div className="dg-offer-hero-right-showcase">
+                  <div className="dg-showcase-caption">
+                    <span className="dg-showcase-script">Gold &amp; Silver</span>
+                    <span className="dg-showcase-title">Build Lasting Wealth</span>
+                  </div>
+                  <div className="dg-pedestal-image-container">
+                    <img
+                      src={metalsPedestalImg}
+                      alt="Digi Gold 22K Gold and Pure Silver Precious Metals on Pedestal"
+                      className="dg-metals-pedestal-img"
+                    />
                   </div>
                 </div>
               </div>
@@ -2661,7 +2971,7 @@ export default function DigiGoldDashboard() {
                         <div className="dg-plan-item-left">
                           <span className="dg-plan-freq-tag">{plan.frequency} AutoPay</span>
                           <span className="dg-plan-amt">₹{Number(plan.amount).toLocaleString('en-IN')}</span>
-                          <span className="dg-plan-perk">₹50/g off applied • 5% off making charges</span>
+                          <span className="dg-plan-perk">Live 22K rate applied • 5% off making charges</span>
                         </div>
                         <div className="dg-plan-item-right">
                           <span className="dg-plan-next">Next Debit: {plan.nextDebit}</span>
@@ -2679,312 +2989,801 @@ export default function DigiGoldDashboard() {
                 </div>
               )}
 
-              {/* FESTIVE PROMO ANNOUNCEMENT TICKER */}
+              {/* ── AUTOPAY ADVANTAGE INFORMATION STRIP ── */}
               <div className="dg-offers-festive-ticker">
                 <div className="dg-festive-ticker-left">
                   <span className="dg-festive-fire-badge">
-                    <Flame size={14} /> SPECIAL OFFER ACTIVE
+                    <ShieldCheck size={14} /> AUTOPAY BENEFITS
                   </span>
-                  <span className="dg-festive-ticker-text">
-                    <b>Guaranteed AutoPay Concession:</b> Subscribe to any plan below and get <b>flat ₹50/g off</b> on live 22K market rate + <b>5% jewellery making discount</b> on every deposit!
-                  </span>
+                  <div className="dg-festive-ticker-text">
+                    <b>AutoPay Benefits:</b> Live market rates, <b>5% off jewellery making</b>, and <b>2X reward points</b>.
+                    <div className="dg-ticker-sub-perks">
+                      <span><Check size={12} strokeWidth={3} /> Direct UPI Auto-Debit</span>
+                      <span className="dg-dot-sep">•</span>
+                      <span>Pause or Cancel Anytime</span>
+                    </div>
+                  </div>
                 </div>
                 <div className="dg-festive-ticker-right">
-                  <Sparkles size={14} color="#C6924B" />
-                  <span>Instant UPI Auto-Debit • Cancel Anytime</span>
+                  <span className="dg-script-tagline">Small Steps<br />Big Wealth</span>
+                  <svg className="dg-leaf-deco-svg" viewBox="0 0 24 24" fill="none" stroke="#D5A33A" strokeWidth="1.5">
+                    <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+                    <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+                  </svg>
                 </div>
               </div>
 
-              {/* SECTION HEADER: CHOOSE YOUR AUTOPAY PLAN */}
+              {/* ── SECTION HEADER: CHOOSE YOUR AUTOPAY PLAN ── */}
               <div className="dg-offers-section-title-wrap">
                 <h3 className="dg-offers-section-title">
-                  Choose Your AutoPay Savings Frequency
+                  Choose Your Savings Plan
                 </h3>
                 <p className="dg-offers-section-desc">
-                  Pick a discipline that fits your routine. Every plan automatically applies ₹50/g savings on every transaction.
+                  Save in pure 22K Gold or 999 Silver. Pause or withdraw anytime.
                 </p>
+
+                {/* METAL SELECTOR PILLS: GOLD OR SILVER */}
+                <div className="dg-offer-metal-tabs-wrap">
+                  <button
+                    type="button"
+                    className={`dg-offer-metal-tab-pill gold ${offerPlanMetal === 'gold' ? 'active' : ''}`}
+                    onClick={() => setOfferPlanMetal('gold')}
+                  >
+                    <Coins size={16} />
+                    <span>22K Pure Gold SIP</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`dg-offer-metal-tab-pill silver ${offerPlanMetal === 'silver' ? 'active' : ''}`}
+                    onClick={() => setOfferPlanMetal('silver')}
+                  >
+                    <ShieldCheck size={16} />
+                    <span>999 Pure Silver SIP</span>
+                  </button>
+                </div>
               </div>
 
-              {/* 3 CLEAN MINIMALIST HIGH-CONVERSION AUTOPAY CARDS (NO AI ARTWORK, ESSENTIAL HIGHLIGHTS ONLY) */}
+              {/* ── 3 EQUALLY BALANCED HORIZONTAL PLANS CARDS (DYNAMIC GOLD / SILVER) ── */}
               <div className="dg-autopay-cards-grid">
-                {/* CARD 1: DAILY AUTO-SAVINGS */}
-                <div className="dg-autopay-card deal-pass daily">
-                  <div className="dg-plan-clean-header daily">
-                    <div className="dg-plan-freq-pill daily">
-                      <Clock size={12} />
-                      <span>Daily SIP</span>
+                {/* ── CARD 1: DAILY SIP (GOLD OR SILVER) ── */}
+                <div className={`dg-autopay-card ${offerPlanMetal === 'gold' ? 'plan-daily-gold' : 'plan-weekly-silver'}`}>
+                  <div className={`dg-card-header-bar ${offerPlanMetal === 'gold' ? 'daily' : 'weekly'}`}>
+                    <div className="dg-card-badge-pill daily">
+                      <Calendar size={12} />
+                      <span>DAILY SIP</span>
                     </div>
-                    <h4 className="dg-plan-clean-title">Daily Auto-Savings</h4>
-                    <span className="dg-plan-clean-sub">Micro-savings starting from just ₹10/day</span>
+                    <span className={`dg-metal-pill ${offerPlanMetal}`}>
+                      {offerPlanMetal === 'gold' ? '22K GOLD' : '999 SILVER'}
+                    </span>
                   </div>
 
-                  <div className="dg-autopay-card-body">
-                    {/* CONCESSION CALLOUT */}
-                    <div className="dg-plan-offer-callout daily">
-                      <div className="dg-plan-offer-headline">Flat ₹50/g OFF Live 22K Rate</div>
-                      <div className="dg-plan-offer-sub">
-                        Pay ₹{Number(currentLiveRate - 50).toLocaleString('en-IN')}/g instead of ₹{Number(currentLiveRate).toLocaleString('en-IN')}/g
+                  <div className="dg-card-content-wrap">
+                    <h4 className="dg-plan-title">
+                      {offerPlanMetal === 'gold' ? 'Daily Gold SIP' : 'Daily Silver SIP'}
+                    </h4>
+                    <span className="dg-plan-subtitle">
+                      {offerPlanMetal === 'gold' ? 'Start micro-savings from ₹10/day' : 'Pure silver micro-savings from ₹10/day'}
+                    </span>
+
+                    <div className={`dg-rate-notice-panel ${offerPlanMetal}`}>
+                      <div className="dg-rate-notice-title">
+                        <span>{offerPlanMetal === 'gold' ? 'Live 22K Benchmark Rate' : 'Live 999 Silver Rate'}</span>
+                        <ChevronRight size={14} />
+                      </div>
+                      <div className="dg-rate-notice-meta">
+                        {offerPlanMetal === 'gold'
+                          ? `₹${Number(currentLiveRate).toLocaleString('en-IN')}/g • BIS 916 Hallmarked`
+                          : `₹${Number(currentSilverRate).toFixed(2)}/g • 99.9% Pure Silver`}
                       </div>
                     </div>
 
-                    {/* INTERACTIVE AMOUNT PRESETS */}
-                    <div className="dg-autopay-presets-section">
-                      <div className="dg-presets-label-row">
-                        <span className="dg-autopay-presets-label">Choose Daily Amount:</span>
-                        <span className="dg-presets-selected-tag">Selected: ₹{selectedDailyAmt}/day</span>
+                    <div className="dg-amount-selection-block">
+                      <div className="dg-amount-selection-header">
+                        <span className="dg-amount-lbl">CHOOSE DAILY AMOUNT:</span>
+                        <span className={`dg-amount-selected-pill ${offerPlanMetal}`}>Selected: ₹{selectedDailyAmt}/day</span>
                       </div>
-                      <div className="dg-autopay-chips-wrap">
-                        {['10', '50', '100', '200', '500', '1000'].map(amt => {
+                      <div className="dg-amount-chips-row">
+                        {['10', '50', '100', '200', '500'].map(amt => {
                           const isSelected = selectedDailyAmt === amt
                           return (
                             <button
                               key={amt}
                               type="button"
-                              className={`dg-autopay-chip ${isSelected ? 'active' : ''}`}
+                              className={`dg-amount-chip ${offerPlanMetal} ${isSelected ? 'active' : ''}`}
                               onClick={() => setSelectedDailyAmt(amt)}
                             >
-                              <Coins size={11} className="dg-chip-coin-icon" />
                               <span>₹{amt}</span>
                             </button>
                           )
                         })}
                       </div>
+                    </div>
 
-                      <div className="dg-chip-dynamic-summary">
-                        <Sparkles size={12} color="#009957" />
-                        <span>
-                          {selectedDailyAmt === '10' && 'Saves ₹300/mo • Builds disciplined daily gold habit'}
-                          {selectedDailyAmt === '50' && 'Saves ₹1,500/mo • Accumulates ~0.11g 22K gold monthly'}
-                          {selectedDailyAmt === '100' && 'Saves ₹3,000/mo • Accumulates ~0.22g pure gold monthly'}
-                          {selectedDailyAmt === '200' && 'Saves ₹6,000/mo • Accumulates ~0.45g gold + instant discounts'}
-                          {selectedDailyAmt === '500' && 'Saves ₹15,000/mo • Accumulates ~1.12g 22K gold monthly'}
-                          {selectedDailyAmt === '1000' && 'Saves ₹30,000/mo • Accumulates ~2.25g gold with VIP discounts'}
-                        </span>
+                    <div className={`dg-plan-perks-checklist ${offerPlanMetal}`}>
+                      <div className="dg-perk-check-item">
+                        <CheckCircle2 size={14} className={`dg-check-icon ${offerPlanMetal}`} />
+                        <span><b>₹{(Number(selectedDailyAmt || 100) * 30).toLocaleString('en-IN')}/mo</b> automated {offerPlanMetal === 'gold' ? '22K gold' : 'pure silver'} savings</span>
+                      </div>
+                      <div className="dg-perk-check-item">
+                        <CheckCircle2 size={14} className={`dg-check-icon ${offerPlanMetal}`} />
+                        <span><b>100% Live Rate</b> credited on every auto-debit</span>
+                      </div>
+                      <div className="dg-perk-check-item">
+                        <CheckCircle2 size={14} className={`dg-check-icon ${offerPlanMetal}`} />
+                        <span><b>{offerPlanMetal === 'gold' ? '5% Off Making Charges' : '100% Insured Vault'}</b> {offerPlanMetal === 'gold' ? 'on showroom jewellery' : 'security guarantee'}</span>
                       </div>
                     </div>
 
-                    {/* ONLY 2 ESSENTIAL SELLING POINTS */}
-                    <div className="dg-plan-essential-perks">
-                      <div className="dg-plan-perk-row">
-                        <CheckCircle2 size={14} className="dg-perk-check-emerald" />
-                        <span><b>₹50/g Instant Discount</b> credited on every auto-debit</span>
-                      </div>
-                      <div className="dg-plan-perk-row">
-                        <CheckCircle2 size={14} className="dg-perk-check-emerald" />
-                        <span><b>5% Less Making Charges</b> on showroom jewellery redemption</span>
-                      </div>
-                    </div>
-
-                    {/* CTA */}
                     <button
                       type="button"
-                      className="dg-autopay-cta-btn daily"
-                      onClick={() => handleOpenAutoPayModal('daily', selectedDailyAmt)}
+                      className={`dg-plan-cta-button ${offerPlanMetal}`}
+                      onClick={() => handleOpenAutoPayModal('daily', selectedDailyAmt, offerPlanMetal)}
                     >
-                      <Zap size={15} />
-                      <span>Claim Offer • Set Up Daily ₹{selectedDailyAmt}</span>
+                      <Calendar size={15} />
+                      <span>Start Daily {offerPlanMetal === 'gold' ? 'Gold' : 'Silver'} SIP • ₹{selectedDailyAmt}/day</span>
                       <ArrowRight size={14} />
                     </button>
-                    <span className="dg-autopay-cta-note">Instant UPI AutoPay • Pause or cancel anytime</span>
+                    <span className="dg-plan-cta-footnote">UPI AutoPay • Cancel anytime</span>
                   </div>
                 </div>
 
-                {/* CARD 2: WEEKLY AUTO-SAVINGS (FEATURED) */}
-                <div className="dg-autopay-card deal-pass featured weekly">
-                  <div className="dg-plan-clean-header weekly">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div className="dg-plan-freq-pill weekly">
-                        <Star size={11} />
-                        <span>Weekly SIP</span>
-                      </div>
-                      <span className="dg-plan-popular-badge">MOST POPULAR</span>
+                {/* ── CARD 2: WEEKLY SIP (GOLD OR SILVER) ── */}
+                <div className={`dg-autopay-card ${offerPlanMetal === 'gold' ? 'plan-daily-gold' : 'plan-weekly-silver'}`}>
+                  <div className={`dg-card-header-bar ${offerPlanMetal === 'gold' ? 'daily' : 'weekly'}`}>
+                    <div className="dg-card-badge-pill weekly">
+                      <Calendar size={12} />
+                      <span>WEEKLY SIP</span>
                     </div>
-                    <h4 className="dg-plan-clean-title">Weekly Auto-Savings</h4>
-                    <span className="dg-plan-clean-sub">Consistent savings for salaried budgets</span>
+                    <span className={`dg-metal-pill ${offerPlanMetal}`}>
+                      {offerPlanMetal === 'gold' ? '22K GOLD' : '999 SILVER'}
+                    </span>
                   </div>
 
-                  <div className="dg-autopay-card-body">
-                    {/* CONCESSION CALLOUT */}
-                    <div className="dg-plan-offer-callout weekly">
-                      <div className="dg-plan-offer-headline gold">Flat ₹50/g OFF + 2X Rewards</div>
-                      <div className="dg-plan-offer-sub">
-                        Pay ₹{Number(currentLiveRate - 50).toLocaleString('en-IN')}/g instead of ₹{Number(currentLiveRate).toLocaleString('en-IN')}/g
+                  <div className="dg-card-content-wrap">
+                    <h4 className="dg-plan-title">
+                      {offerPlanMetal === 'gold' ? 'Weekly Gold SIP' : 'Weekly Silver SIP'}
+                    </h4>
+                    <span className="dg-plan-subtitle">
+                      {offerPlanMetal === 'gold' ? 'Consistent gold savings from ₹100/week' : 'Pure silver savings from ₹100/week'}
+                    </span>
+
+                    <div className={`dg-rate-notice-panel ${offerPlanMetal}`}>
+                      <div className="dg-rate-notice-title">
+                        <span>{offerPlanMetal === 'gold' ? 'Live Rate + 5% Off Making' : 'Live Rate + 2X Rewards'}</span>
+                        <ChevronRight size={14} />
+                      </div>
+                      <div className="dg-rate-notice-meta">
+                        {offerPlanMetal === 'gold'
+                          ? `₹${Number(currentLiveRate).toLocaleString('en-IN')}/g • Zero hidden fees`
+                          : `₹${Number(currentSilverRate).toFixed(2)}/g • 2X Reward Cashback`}
                       </div>
                     </div>
 
-                    {/* INTERACTIVE AMOUNT PRESETS */}
-                    <div className="dg-autopay-presets-section">
-                      <div className="dg-presets-label-row">
-                        <span className="dg-autopay-presets-label">Choose Weekly Amount:</span>
-                        <span className="dg-presets-selected-tag gold">Selected: ₹{selectedWeeklyAmt}/week</span>
+                    <div className="dg-amount-selection-block">
+                      <div className="dg-amount-selection-header">
+                        <span className="dg-amount-lbl">CHOOSE WEEKLY AMOUNT:</span>
+                        <span className={`dg-amount-selected-pill ${offerPlanMetal}`}>Selected: ₹{selectedWeeklyAmt}/week</span>
                       </div>
-                      <div className="dg-autopay-chips-wrap">
+                      <div className="dg-amount-chips-row">
                         {['100', '200', '500', '1000', '2000'].map(amt => {
                           const isSelected = selectedWeeklyAmt === amt
                           return (
                             <button
                               key={amt}
                               type="button"
-                              className={`dg-autopay-chip ${isSelected ? 'active' : ''}`}
+                              className={`dg-amount-chip ${offerPlanMetal} ${isSelected ? 'active' : ''}`}
                               onClick={() => setSelectedWeeklyAmt(amt)}
                             >
-                              <Coins size={11} className="dg-chip-coin-icon" />
                               <span>₹{amt}</span>
                             </button>
                           )
                         })}
                       </div>
+                    </div>
 
-                      <div className="dg-chip-dynamic-summary gold">
-                        <Sparkles size={12} color="#D97706" />
-                        <span>
-                          {selectedWeeklyAmt === '100' && 'Saves ₹400/mo • Earns 2x Revive Coin Cashback'}
-                          {selectedWeeklyAmt === '200' && 'Saves ₹800/mo • Accumulates ~0.7g pure gold yearly'}
-                          {selectedWeeklyAmt === '500' && 'Saves ₹2,000/mo • Accumulates ~1.75g gold + 2x coin bonus'}
-                          {selectedWeeklyAmt === '1000' && 'Saves ₹4,000/mo • Accumulates ~3.5g pure 22K gold yearly'}
-                          {selectedWeeklyAmt === '2000' && 'Saves ₹8,000/mo • Accumulates ~7.0g gold + VIP benefits'}
-                        </span>
+                    <div className={`dg-plan-perks-checklist ${offerPlanMetal}`}>
+                      <div className="dg-perk-check-item">
+                        <CheckCircle2 size={14} className={`dg-check-icon ${offerPlanMetal}`} />
+                        <span><b>₹{(Number(selectedWeeklyAmt || 500) * 4).toLocaleString('en-IN')}/mo</b> automated {offerPlanMetal === 'gold' ? 'gold' : 'silver'} savings</span>
+                      </div>
+                      <div className="dg-perk-check-item">
+                        <CheckCircle2 size={14} className={`dg-check-icon ${offerPlanMetal}`} />
+                        <span><b>{offerPlanMetal === 'gold' ? 'Live 22K Rate' : '2X Reward Cashback'}</b> credited on each debit</span>
+                      </div>
+                      <div className="dg-perk-check-item">
+                        <CheckCircle2 size={14} className={`dg-check-icon ${offerPlanMetal}`} />
+                        <span><b>100% Insured Vault</b> security guarantee</span>
                       </div>
                     </div>
 
-                    {/* ONLY 2 ESSENTIAL SELLING POINTS */}
-                    <div className="dg-plan-essential-perks">
-                      <div className="dg-plan-perk-row">
-                        <CheckCircle2 size={14} className="dg-perk-check-gold" />
-                        <span><b>₹50/g Instant Discount</b> on live market rate</span>
-                      </div>
-                      <div className="dg-plan-perk-row">
-                        <CheckCircle2 size={14} className="dg-perk-check-gold" />
-                        <span><b>2x Revive Coin Cashback</b> on every weekly auto-debit</span>
-                      </div>
-                    </div>
-
-                    {/* CTA */}
                     <button
                       type="button"
-                      className="dg-autopay-cta-btn weekly"
-                      onClick={() => handleOpenAutoPayModal('weekly', selectedWeeklyAmt)}
+                      className={`dg-plan-cta-button ${offerPlanMetal}`}
+                      onClick={() => handleOpenAutoPayModal('weekly', selectedWeeklyAmt, offerPlanMetal)}
                     >
-                      <Sparkles size={15} />
-                      <span>Grab Offer • Set Up Weekly ₹{selectedWeeklyAmt}</span>
+                      <Calendar size={15} />
+                      <span>Start Weekly {offerPlanMetal === 'gold' ? 'Gold' : 'Silver'} SIP • ₹{selectedWeeklyAmt}/week</span>
                       <ArrowRight size={14} />
                     </button>
-                    <span className="dg-autopay-cta-note">Instant UPI AutoPay • Pause or cancel anytime</span>
+                    <span className="dg-plan-cta-footnote">UPI AutoPay • Cancel anytime</span>
                   </div>
                 </div>
 
-                {/* CARD 3: MONTHLY WEALTH PLAN */}
-                <div className="dg-autopay-card deal-pass monthly">
-                  <div className="dg-plan-clean-header monthly">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div className="dg-plan-freq-pill monthly">
-                        <Trophy size={11} />
-                        <span>Monthly SIP</span>
-                      </div>
-                      <span className="dg-plan-vip-badge">VIP WEALTH</span>
+                {/* ── CARD 3: MONTHLY SIP (GOLD OR SILVER) ── */}
+                <div className={`dg-autopay-card ${offerPlanMetal === 'gold' ? 'plan-monthly-wealth' : 'plan-weekly-silver'}`}>
+                  <div className="dg-card-header-bar monthly">
+                    <div className="dg-card-badge-pill monthly">
+                      <Crown size={12} />
+                      <span>MONTHLY SIP</span>
                     </div>
-                    <h4 className="dg-plan-clean-title">Monthly Wealth Plan</h4>
-                    <span className="dg-plan-clean-sub">High-value accumulation for family milestones</span>
+                    <span className={`dg-metal-pill ${offerPlanMetal === 'gold' ? 'gold-silver' : 'silver'}`}>
+                      {offerPlanMetal === 'gold' ? '22K GOLD' : '999 SILVER'}
+                    </span>
                   </div>
 
-                  <div className="dg-autopay-card-body">
-                    {/* CONCESSION CALLOUT */}
-                    <div className="dg-plan-offer-callout monthly">
-                      <div className="dg-plan-offer-headline teal">Flat ₹50/g OFF + Free Coin Delivery</div>
-                      <div className="dg-plan-offer-sub">
-                        Pay ₹{Number(currentLiveRate - 50).toLocaleString('en-IN')}/g instead of ₹{Number(currentLiveRate).toLocaleString('en-IN')}/g
+                  <div className="dg-card-content-wrap">
+                    <h4 className={`dg-plan-title ${offerPlanMetal === 'gold' ? 'monthly' : ''}`}>
+                      {offerPlanMetal === 'gold' ? 'Monthly Gold Wealth' : 'Monthly Silver Wealth'}
+                    </h4>
+                    <span className={`dg-plan-subtitle ${offerPlanMetal === 'gold' ? 'monthly' : ''}`}>
+                      {offerPlanMetal === 'gold' ? 'Long-term family gold wealth' : 'Disciplined pure physical silver wealth'}
+                    </span>
+
+                    <div className={`dg-rate-notice-panel ${offerPlanMetal === 'gold' ? 'monthly' : 'silver'}`}>
+                      <div className={`dg-rate-notice-title ${offerPlanMetal === 'gold' ? 'monthly' : 'silver'}`}>
+                        <span>Live Rate + Free Coin Delivery</span>
+                        <ChevronRight size={14} />
+                      </div>
+                      <div className={`dg-rate-notice-meta ${offerPlanMetal === 'gold' ? 'monthly' : ''}`}>
+                        {offerPlanMetal === 'gold'
+                          ? `₹${Number(currentLiveRate).toLocaleString('en-IN')}/g • Free 1g Coin Eligible`
+                          : `₹${Number(currentSilverRate).toFixed(2)}/g • Free Silver Coin Eligible`}
                       </div>
                     </div>
 
-                    {/* INTERACTIVE AMOUNT PRESETS */}
-                    <div className="dg-autopay-presets-section">
-                      <div className="dg-presets-label-row">
-                        <span className="dg-autopay-presets-label">Choose Monthly Amount:</span>
-                        <span className="dg-presets-selected-tag vip">Selected: ₹{selectedMonthlyAmt}/mo</span>
+                    <div className="dg-amount-selection-block">
+                      <div className="dg-amount-selection-header">
+                        <span className={`dg-amount-lbl ${offerPlanMetal === 'gold' ? 'monthly' : ''}`}>CHOOSE MONTHLY AMOUNT:</span>
+                        <span className={`dg-amount-selected-pill ${offerPlanMetal === 'gold' ? 'monthly' : 'silver'}`}>Selected: ₹{selectedMonthlyAmt}/mo</span>
                       </div>
-                      <div className="dg-autopay-chips-wrap">
+                      <div className="dg-amount-chips-row">
                         {['1000', '2000', '5000', '10000'].map(amt => {
                           const isSelected = selectedMonthlyAmt === amt
                           return (
                             <button
                               key={amt}
                               type="button"
-                              className={`dg-autopay-chip ${isSelected ? 'active' : ''}`}
+                              className={`dg-amount-chip ${offerPlanMetal === 'gold' ? 'monthly' : 'silver'} ${isSelected ? 'active' : ''}`}
                               onClick={() => setSelectedMonthlyAmt(amt)}
                             >
-                              <Coins size={11} className="dg-chip-coin-icon" />
                               <span>₹{amt}</span>
                             </button>
                           )
                         })}
                       </div>
+                    </div>
 
-                      <div className="dg-chip-dynamic-summary vip">
-                        <Sparkles size={12} color="#0A3E42" />
-                        <span>
-                          {selectedMonthlyAmt === '1000' && 'Saves ₹12,000/yr • Accumulates ~0.9g gold for family'}
-                          {selectedMonthlyAmt === '2000' && 'Saves ₹24,000/yr • Eligible for free 1g 22K coin doorstep delivery'}
-                          {selectedMonthlyAmt === '5000' && 'Saves ₹60,000/yr • Accumulates ~4.5g gold + priority privileges'}
-                          {selectedMonthlyAmt === '10000' && 'Saves ₹1,20,000/yr • Accumulates ~9.0g pure 22K gold yearly'}
-                        </span>
+                    <div className={`dg-plan-perks-checklist ${offerPlanMetal === 'gold' ? 'monthly' : 'silver'}`}>
+                      <div className="dg-perk-check-item">
+                        <CheckCircle2 size={14} className={`dg-check-icon ${offerPlanMetal === 'gold' ? 'monthly' : 'silver'}`} />
+                        <span><b>₹{(Number(selectedMonthlyAmt || 2000) * 12).toLocaleString('en-IN')}/year</b> wealth creation</span>
+                      </div>
+                      <div className="dg-perk-check-item">
+                        <CheckCircle2 size={14} className={`dg-check-icon ${offerPlanMetal === 'gold' ? 'monthly' : 'silver'}`} />
+                        <span><b>Free {offerPlanMetal === 'gold' ? '1g 22K Gold Coin' : 'Pure Silver Coin'}</b> doorstep delivery eligible</span>
+                      </div>
+                      <div className="dg-perk-check-item">
+                        <CheckCircle2 size={14} className={`dg-check-icon ${offerPlanMetal === 'gold' ? 'monthly' : 'silver'}`} />
+                        <span><b>Insured Delivery</b> or liquidate anytime</span>
                       </div>
                     </div>
 
-                    {/* ONLY 2 ESSENTIAL SELLING POINTS */}
-                    <div className="dg-plan-essential-perks">
-                      <div className="dg-plan-perk-row">
-                        <CheckCircle2 size={14} className="dg-perk-check-teal" />
-                        <span><b>₹50/g Instant Discount</b> on every monthly debit</span>
-                      </div>
-                      <div className="dg-plan-perk-row">
-                        <CheckCircle2 size={14} className="dg-perk-check-teal" />
-                        <span><b>Free Insured Doorstep Delivery</b> of physical 1g 22K gold coins</span>
-                      </div>
-                    </div>
-
-                    {/* CTA */}
                     <button
                       type="button"
-                      className="dg-autopay-cta-btn monthly"
-                      onClick={() => handleOpenAutoPayModal('monthly', selectedMonthlyAmt)}
+                      className={`dg-plan-cta-button ${offerPlanMetal === 'gold' ? 'monthly' : 'silver'}`}
+                      onClick={() => handleOpenAutoPayModal('monthly', selectedMonthlyAmt, offerPlanMetal)}
                     >
-                      <Trophy size={15} />
-                      <span>Unlock VIP Offer • Set Up Monthly ₹{selectedMonthlyAmt}</span>
+                      <Calendar size={15} />
+                      <span>Start Monthly {offerPlanMetal === 'gold' ? 'Gold' : 'Silver'} SIP • ₹{selectedMonthlyAmt}/mo</span>
                       <ArrowRight size={14} />
                     </button>
-                    <span className="dg-autopay-cta-note">Instant UPI AutoPay • Pause or cancel anytime</span>
+                    <span className={`dg-plan-cta-footnote ${offerPlanMetal === 'gold' ? 'monthly' : ''}`}>UPI AutoPay • Cancel anytime</span>
                   </div>
                 </div>
               </div>
 
-              {/* TRUST & BENEFITS ROW */}
+              {/* ── BOTTOM TRUST AND BENEFITS STRIP (5 EQUAL COLUMNS) ── */}
               <div className="dg-offers-trust-grid">
                 <div className="dg-offers-trust-card">
-                  <div className="dg-trust-card-icon shield">
-                    <ShieldCheck size={20} color="#009957" />
+                  <div className="dg-trust-card-icon">
+                    <ShieldCheck size={22} />
                   </div>
-                  <div>
-                    <h5 className="dg-trust-card-title">100% Insured Vaults</h5>
-                    <p className="dg-trust-card-desc">Physical 22K 916 gold stored in secured IDBI trustee vaults.</p>
-                  </div>
-                </div>
-                <div className="dg-offers-trust-card">
-                  <div className="dg-trust-card-icon jewel">
-                    <Gem size={20} color="#0A3E42" />
-                  </div>
-                  <div>
-                    <h5 className="dg-trust-card-title">5% Off Jewellery Making</h5>
-                    <p className="dg-trust-card-desc">Redeem for hallmarked jewellery at Athirai Jewellery anytime.</p>
+                  <div className="dg-trust-card-body">
+                    <h5 className="dg-trust-card-title">100% Safe &amp; Secure</h5>
+                    <p className="dg-trust-card-desc">DBI Insured Vaults</p>
                   </div>
                 </div>
+
                 <div className="dg-offers-trust-card">
-                  <div className="dg-trust-card-icon bank">
-                    <Zap size={20} color="#D97706" />
+                  <div className="dg-trust-card-icon">
+                    <Star size={22} />
                   </div>
-                  <div>
-                    <h5 className="dg-trust-card-title">Direct Razorpay AutoPay</h5>
-                    <p className="dg-trust-card-desc">Instant recurring setup via UPI, GPay, PhonePe, and Cards.</p>
+                  <div className="dg-trust-card-body">
+                    <h5 className="dg-trust-card-title">Live Market Rates</h5>
+                    <p className="dg-trust-card-desc">Zero Hidden Charges</p>
                   </div>
+                </div>
+
+                <div className="dg-offers-trust-card">
+                  <div className="dg-trust-card-icon">
+                    <Truck size={22} />
+                  </div>
+                  <div className="dg-trust-card-body">
+                    <h5 className="dg-trust-card-title">Free Doorstep Delivery</h5>
+                    <p className="dg-trust-card-desc">Physical Gold &amp; Silver Coins</p>
+                  </div>
+                </div>
+
+                <div className="dg-offers-trust-card">
+                  <div className="dg-trust-card-icon">
+                    <Gift size={22} />
+                  </div>
+                  <div className="dg-trust-card-body">
+                    <h5 className="dg-trust-card-title">Rewards &amp; Perks</h5>
+                    <p className="dg-trust-card-desc">5% Off Jewellery Making</p>
+                  </div>
+                </div>
+
+                <div className="dg-offers-trust-card slogan-card">
+                  <div className="dg-trust-card-body slogan-body">
+                    <span className="dg-slogan-script">Invest Today</span>
+                    <span className="dg-slogan-main">Secure Tomorrow</span>
+                  </div>
+                  <svg className="dg-leaf-deco-mini" viewBox="0 0 24 24" fill="none" stroke="#D5A33A" strokeWidth="1.5">
+                    <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+                    <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          ) : currentView === 'delivery' ? (
+            /* ══════════════════════════════════════════════════════════════
+               DIGI GOLD PREMIUM HOME DELIVERY MODULE
+               EXACT REPLICA OF THE SECOND UPLOADED REFERENCE SCREENSHOT
+               ══════════════════════════════════════════════════════════════ */
+            <div className="dg-deliv-page-shell">
+              {/* 1. LARGE FULL-WIDTH HOME DELIVERY HERO BANNER */}
+              <div className="dg-deliv-hero-card">
+                <div className="dg-deliv-hero-left">
+                  <div className="dg-deliv-hero-tag-pill">
+                    <Truck size={14} />
+                    <span>HOME DELIVERY</span>
+                  </div>
+
+                  <h1 className="dg-deliv-hero-h1">
+                    Get Your Gold &amp; Silver Delivered to Your Home
+                  </h1>
+
+                  <p className="dg-deliv-hero-sub">
+                    Choose your preferred coins, place your order and we'll deliver it safely to your doorstep. Fast. Secure. Trusted.
+                  </p>
+
+                  <div className="dg-deliv-hero-perks-row">
+                    <div className="dg-deliv-hero-perk">
+                      <div className="dg-deliv-perk-icon"><ShieldCheck size={16} /></div>
+                      <span>100% Secure Packaging</span>
+                    </div>
+                    <div className="dg-deliv-hero-perk">
+                      <div className="dg-deliv-perk-icon"><Lock size={16} /></div>
+                      <span>Insured Delivery</span>
+                    </div>
+                    <div className="dg-deliv-hero-perk">
+                      <div className="dg-deliv-perk-icon"><TrendingUp size={16} /></div>
+                      <span>Live Market Rate</span>
+                    </div>
+                    <div className="dg-deliv-hero-perk">
+                      <div className="dg-deliv-perk-icon"><Truck size={16} /></div>
+                      <span>Doorstep Delivery</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="dg-deliv-hero-cta-btn"
+                    onClick={() => {
+                      const el = document.getElementById('dg-coins-selection-area')
+                      if (el) el.scrollIntoView({ behavior: 'smooth' })
+                    }}
+                  >
+                    <span>Shop Now</span>
+                    <ArrowRight size={16} />
+                  </button>
+                </div>
+
+                <div className="dg-deliv-hero-right">
+                  <div className="dg-deliv-hero-media-wrap">
+                    <img
+                      src={deliveryHeroImg}
+                      alt="Digi Gold Home Delivery"
+                      className="dg-deliv-hero-photo"
+                    />
+                    <div className="dg-deliv-floating-badge">
+                      <Truck size={24} />
+                      <span className="dg-dfb-title">DELIVERY WITHIN</span>
+                      <span className="dg-dfb-days">7 DAYS</span>
+                      <span className="dg-dfb-pill">T&amp;C Apply</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. TWO-COLUMN WORKSPACE: LEFT (COINS & BENEFITS) + RIGHT (WALLET, CART, SUMMARY) */}
+              <div className="dg-deliv-workspace-grid">
+                {/* ── LEFT COLUMN: COIN SELECTIONS & WHY CHOOSE US ── */}
+                <div className="dg-deliv-left-col" id="dg-coins-selection-area">
+                  {/* Section Title */}
+                  <div className="dg-deliv-sec-heading">
+                    <h2 className="dg-deliv-sec-title">Select Your Coins</h2>
+                    <p className="dg-deliv-sec-subtitle">
+                      Choose from a wide range of gold and silver coins. You can buy coins based on your wallet balance and preferred weight.
+                    </p>
+                  </div>
+
+                  {/* LARGE GOLD COINS CARD */}
+                  <div className="dg-deliv-coin-card gold-theme">
+                    <div className="dg-dcc-content-side">
+                      <div className="dg-dcc-head-row">
+                        <div className="dg-dcc-badge-icon gold">
+                          <img src={goldCoinImg} alt="Gold" />
+                        </div>
+                        <div>
+                          <h3 className="dg-dcc-title gold">GOLD COINS</h3>
+                          <span className="dg-dcc-purity">Pure 22K (916) Gold</span>
+                        </div>
+                      </div>
+
+                      <div className="dg-dcc-avail-pill gold">Available in</div>
+
+                      <div className="dg-dcc-denoms-grid">
+                        {GOLD_DENOMINATIONS.map(c => {
+                          const cartItem = deliveryCart.find(i => i.metal === 'gold' && i.label === c.label)
+                          const isSelected = !!cartItem
+                          return (
+                            <button
+                              key={c.label}
+                              type="button"
+                              className={`dg-denom-pill gold ${isSelected ? 'selected' : ''}`}
+                              onClick={() => handleAddDeliveryCoin('gold', c)}
+                            >
+                              <span>{c.label}</span>
+                              {isSelected && (
+                                <span className="dg-denom-count-bubble">{cartItem.qty}</span>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="dg-dcc-visual-side">
+                      <img
+                        src={goldCoinsStackImg}
+                        alt="22K Gold Coins Stack"
+                        className="dg-dcc-stack-img"
+                      />
+                    </div>
+                  </div>
+
+                  {/* LARGE SILVER COINS CARD */}
+                  <div className="dg-deliv-coin-card silver-theme">
+                    <div className="dg-dcc-content-side">
+                      <div className="dg-dcc-head-row">
+                        <div className="dg-dcc-badge-icon silver">
+                          <img src={silverCoinImg} alt="Silver" />
+                        </div>
+                        <div>
+                          <h3 className="dg-dcc-title silver">SILVER COINS</h3>
+                          <span className="dg-dcc-purity">Pure 999 Silver</span>
+                        </div>
+                      </div>
+
+                      <div className="dg-dcc-avail-pill silver">Available in</div>
+
+                      <div className="dg-dcc-denoms-grid silver">
+                        {SILVER_DENOMINATIONS.map(c => {
+                          const cartItem = deliveryCart.find(i => i.metal === 'silver' && i.label === c.label)
+                          const isSelected = !!cartItem
+                          return (
+                            <button
+                              key={c.label}
+                              type="button"
+                              className={`dg-denom-pill silver ${isSelected ? 'selected' : ''}`}
+                              onClick={() => handleAddDeliveryCoin('silver', c)}
+                            >
+                              <span>{c.label}</span>
+                              {isSelected && (
+                                <span className="dg-denom-count-bubble silver">{cartItem.qty}</span>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="dg-dcc-visual-side">
+                      <img
+                        src={silverCoinsStackImg}
+                        alt="999 Pure Silver Coins Stack"
+                        className="dg-dcc-stack-img"
+                      />
+                    </div>
+                  </div>
+
+                  {/* HORIZONTAL BENEFITS SECTION (WHY CHOOSE DIGI GOLD DELIVERY) */}
+                  <div className="dg-deliv-horizontal-benefits-card">
+                    <div className="dg-dhb-intro">
+                      <h4 className="dg-dhb-title">Why Choose Digi Gold Delivery?</h4>
+                      <p className="dg-dhb-sub">Premium coins, safe delivery, and complete peace of mind.</p>
+                    </div>
+
+                    <div className="dg-dhb-columns-wrap">
+                      <div className="dg-dhb-col">
+                        <div className="dg-dhb-icon-wrap"><ShieldCheck size={20} /></div>
+                        <div className="dg-dhb-text-wrap">
+                          <span className="dg-dhb-col-name">Secure Packaging</span>
+                          <span className="dg-dhb-col-desc">Tamper-proof &amp; sealed</span>
+                        </div>
+                      </div>
+
+                      <div className="dg-dhb-divider" />
+
+                      <div className="dg-dhb-col">
+                        <div className="dg-dhb-icon-wrap"><Truck size={20} /></div>
+                        <div className="dg-dhb-text-wrap">
+                          <span className="dg-dhb-col-name">Fast Delivery</span>
+                          <span className="dg-dhb-col-desc">Within 7 days (T&amp;C apply)</span>
+                        </div>
+                      </div>
+
+                      <div className="dg-dhb-divider" />
+
+                      <div className="dg-dhb-col">
+                        <div className="dg-dhb-icon-wrap"><Lock size={20} /></div>
+                        <div className="dg-dhb-text-wrap">
+                          <span className="dg-dhb-col-name">Insured Shipment</span>
+                          <span className="dg-dhb-col-desc">Full value insurance</span>
+                        </div>
+                      </div>
+
+                      <div className="dg-dhb-divider" />
+
+                      <div className="dg-dhb-col">
+                        <div className="dg-dhb-icon-wrap"><Headphones size={20} /></div>
+                        <div className="dg-dhb-text-wrap">
+                          <span className="dg-dhb-col-name">Dedicated Support</span>
+                          <span className="dg-dhb-col-desc">We're here to help</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── RIGHT COLUMN: WALLET BALANCE, CART, ADDRESS, SUMMARY & CHECKOUT ── */}
+                <div className="dg-deliv-right-col" id="dg-order-summary-panel">
+                  <div className="dg-rpanel-card">
+                    {/* 1. YOUR WALLET BALANCE */}
+                    <div className="dg-rpanel-section-block">
+                      <div className="dg-rpanel-head-row">
+                        <WalletCards size={16} color="#009B63" />
+                        <span className="dg-rpanel-head-title">Your Wallet Balance</span>
+                      </div>
+
+                      <div className="dg-rpanel-dual-wallets">
+                        <div className="dg-rpanel-wallet-box gold">
+                          <img src={goldCoinImg} alt="Gold" className="dg-rpw-coin" />
+                          <div className="dg-rpw-info">
+                            <span className="dg-rpw-label">Gold</span>
+                            <span className="dg-rpw-amount">{availableGoldGm.toFixed(1)}g</span>
+                            <span className="dg-rpw-status">Available</span>
+                          </div>
+                        </div>
+
+                        <div className="dg-rpanel-wallet-box silver">
+                          <img src={silverCoinImg} alt="Silver" className="dg-rpw-coin" />
+                          <div className="dg-rpw-info">
+                            <span className="dg-rpw-label">Silver</span>
+                            <span className="dg-rpw-amount">{availableSilverGm.toFixed(1)}g</span>
+                            <span className="dg-rpw-status">Available</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="dg-rpanel-separator" />
+
+                    {/* 2. YOUR SELECTED COINS */}
+                    <div className="dg-rpanel-section-block">
+                      <div className="dg-rpanel-head-row">
+                        <span className="dg-rpanel-head-title">Your Selected Coins</span>
+                        {deliveryCart.length > 0 && (
+                          <button
+                            type="button"
+                            className="dg-rpanel-clear-btn"
+                            onClick={handleClearDeliveryCart}
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="dg-rpanel-selected-list">
+                        {deliveryCart.length === 0 ? (
+                          <div className="dg-rpanel-empty-box">
+                            <ShoppingCart size={22} color="#8A9D98" />
+                            <span>No coins selected. Click any denomination on the left to add.</span>
+                          </div>
+                        ) : (
+                          deliveryCart.map(item => {
+                            const isGold = item.metal === 'gold'
+                            const rate = isGold ? deliveryGoldRate : deliverySilverRate
+                            return (
+                              <div key={item.id} className="dg-rpanel-selected-item">
+                                <img
+                                  src={isGold ? goldCoinImg : silverCoinImg}
+                                  alt={item.metal}
+                                  className="dg-rpanel-item-thumb"
+                                />
+                                <div className="dg-rpanel-item-info">
+                                  <span className="dg-rpanel-item-name">
+                                    {isGold ? 'Gold (22K)' : 'Silver (999)'}
+                                  </span>
+                                  <span className="dg-rpanel-item-rate">
+                                    {item.label} (₹{rate.toLocaleString('en-IN')}/g)
+                                  </span>
+                                </div>
+                                <div className="dg-rpanel-qty-controls">
+                                  <button
+                                    type="button"
+                                    className="dg-rp-qty-btn"
+                                    onClick={() => handleUpdateDeliveryQty(item.id, -1)}
+                                  >
+                                    -
+                                  </button>
+                                  <span className="dg-rp-qty-val">{item.qty}</span>
+                                  <button
+                                    type="button"
+                                    className="dg-rp-qty-btn"
+                                    onClick={() => handleUpdateDeliveryQty(item.id, 1)}
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                                <span className="dg-rpanel-item-weight">{item.label}</span>
+                              </div>
+                            )
+                          })
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="dg-rpanel-separator" />
+
+                    {/* 3. DELIVERY ADDRESS */}
+                    <div className="dg-rpanel-section-block">
+                      <div className="dg-rpanel-addr-head">
+                        <div className="dg-rpanel-addr-title">
+                          <MapPin size={15} color="#009B63" />
+                          <span>Delivery Address</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="dg-rpanel-change-link"
+                          onClick={() => setIsEditingAddress(!isEditingAddress)}
+                        >
+                          {isEditingAddress ? 'Save' : 'Change'}
+                        </button>
+                      </div>
+
+                      {isEditingAddress ? (
+                        <div className="dg-rpanel-addr-edit-box">
+                          <input
+                            type="text"
+                            className="dg-rpanel-addr-input"
+                            value={deliveryAddress.formatted}
+                            onChange={e => setDeliveryAddress({ ...deliveryAddress, formatted: e.target.value })}
+                            placeholder="Enter delivery address"
+                          />
+                        </div>
+                      ) : (
+                        <p className="dg-rpanel-addr-text">
+                          {deliveryAddress.formatted || 'No. 12, Green Park, Anna Nagar, Chennai - 600040, Tamil Nadu'}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="dg-rpanel-separator" />
+
+                    {/* 4. ORDER SUMMARY BREAKDOWN */}
+                    <div className="dg-rpanel-section-block">
+                      <span className="dg-rpanel-head-title">Order Summary</span>
+
+                      <div className="dg-rpanel-summary-rows">
+                        {deliveryCart.map(item => {
+                          const isGold = item.metal === 'gold'
+                          const rate = isGold ? deliveryGoldRate : deliverySilverRate
+                          const itemTotal = item.weight_gm * item.qty * rate
+                          return (
+                            <div key={item.id} className="dg-rpanel-summary-row">
+                              <div className="dg-rpanel-sum-left">
+                                <img
+                                  src={isGold ? goldCoinImg : silverCoinImg}
+                                  alt=""
+                                  className="dg-rpanel-sum-coin-mini"
+                                />
+                                <span>{isGold ? 'Gold (22K)' : 'Silver (999)'} {item.label}</span>
+                              </div>
+                              <span className="dg-rpanel-sum-right">
+                                ₹{Math.round(itemTotal).toLocaleString('en-IN')}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      <div className="dg-rpanel-total-divider" />
+
+                      <div className="dg-rpanel-grand-total-row">
+                        <span className="dg-rpanel-grand-label">Total Amount</span>
+                        <span className="dg-rpanel-grand-val">
+                          ₹{Math.round(totalCartAmount).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Feedback if any error */}
+                    <ModalFeedbackNotice
+                      feedback={deliveryFeedback}
+                      onDismiss={() => setDeliveryFeedback(null)}
+                    />
+
+                    {/* 5. PROCEED TO CHECKOUT BUTTON */}
+                    <button
+                      type="button"
+                      className="dg-rpanel-checkout-btn"
+                      onClick={handleProceedDeliveryCheckout}
+                      disabled={submittingDelivery || deliveryCart.length === 0}
+                    >
+                      <span>{submittingDelivery ? 'Processing Order…' : 'Proceed to Checkout →'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. FULL-WIDTH BOTTOM SPECIAL OFFER BANNER */}
+              <div className="dg-deliv-bottom-special-banner">
+                <div className="dg-dsb-left-content">
+                  <div className="dg-dsb-gift-icon-circle">
+                    <Gift size={26} />
+                  </div>
+                  <div className="dg-dsb-text-wrap">
+                    <h3 className="dg-dsb-title">Special Offer</h3>
+                    <p className="dg-dsb-desc">
+                      Get up to 5% bonus reward points on your delivery order!
+                    </p>
+                  </div>
+                </div>
+
+                <div className="dg-dsb-center-visual">
+                  <img
+                    src={specialOfferGiftImg}
+                    alt="Precious Metals Gift"
+                    className="dg-dsb-gift-img"
+                  />
+                </div>
+
+                <div className="dg-dsb-right-brand">
+                  <span className="dg-dsb-script-text">Invest in Precious Metals</span>
+                  <span className="dg-dsb-headline-text">Secure Your Future</span>
                 </div>
               </div>
             </div>
@@ -4599,25 +5398,22 @@ export default function DigiGoldDashboard() {
         </div>
       )}
 
-      {/* ── MODAL: SET UP DIGI GOLD AUTOPAY / AUTO-SAVINGS (RAZORPAY RECURRING) ── */}
+      {/* ── MODAL: SET UP DIGI GOLD & SILVER AUTOPAY SIP ── */}
       {showAutoPayModal && (
         <div className="dg-modal-overlay" onClick={() => setShowAutoPayModal(false)}>
-          <div className="dg-modal-box" onClick={e => e.stopPropagation()}>
+          <div className="dg-modal-box dg-autopay-modal-box" onClick={e => e.stopPropagation()}>
+            {/* Modal Header */}
             <div className="dg-modal-head">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                  width: 38, height: 38, borderRadius: 10,
-                  background: 'rgba(245, 158, 11, 0.15)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#B8833E'
-                }}>
-                  <Zap size={20} />
+                <div className={`dg-modal-icon-badge ${autoPayMetal}`}>
+                  <Calendar size={20} />
                 </div>
                 <div>
                   <h3 className="dg-modal-title" style={{ margin: 0, fontSize: 17 }}>
-                    Set Up Digi Gold AutoPay
+                    Set Up Digi AutoPay SIP
                   </h3>
                   <p style={{ margin: 0, fontSize: 11.5, color: '#6A8280' }}>
-                    Guaranteed ₹50/g discount &amp; 5% off jewellery making charges
+                    Live market rates • 5% off jewellery making • Cancel anytime
                   </p>
                 </div>
               </div>
@@ -4626,19 +5422,40 @@ export default function DigiGoldDashboard() {
               </button>
             </div>
 
-            {/* Frequency Switcher Tabs */}
+            {/* 1. Metal Switcher: Gold (22K) or Silver (999) */}
+            <div className="dg-modal-metal-switcher">
+              <button
+                type="button"
+                className={`dg-modal-metal-tab gold ${autoPayMetal === 'gold' ? 'active' : ''}`}
+                onClick={() => setAutoPayMetal('gold')}
+              >
+                <img src={goldCoinImg} alt="22K Gold" className="dg-tab-coin-icon" />
+                <span>22K Pure Gold</span>
+              </button>
+              <button
+                type="button"
+                className={`dg-modal-metal-tab silver ${autoPayMetal === 'silver' ? 'active' : ''}`}
+                onClick={() => setAutoPayMetal('silver')}
+              >
+                <img src={silverCoinImg} alt="999 Silver" className="dg-tab-coin-icon" />
+                <span>999 Pure Silver</span>
+              </button>
+            </div>
+
+            {/* 2. Frequency Switcher Tabs: Daily, Weekly, Monthly */}
             <div className="dg-freq-tabs-row">
               <button
                 type="button"
                 className={`dg-freq-tab-btn ${autoPayFrequency === 'daily' ? 'active' : ''}`}
                 onClick={() => {
                   setAutoPayFrequency('daily')
-                  if (!['10', '50', '100', '200', '500', '1000'].includes(autoPayAmount)) {
+                  if (!['10', '50', '100', '200', '500'].includes(autoPayAmount)) {
                     setAutoPayAmount('100')
                   }
                 }}
               >
-                Daily (Day)
+                <span className="dg-freq-name">Daily</span>
+                <span className="dg-freq-sub">From ₹10/day</span>
               </button>
               <button
                 type="button"
@@ -4650,7 +5467,8 @@ export default function DigiGoldDashboard() {
                   }
                 }}
               >
-                Weekly (Week)
+                <span className="dg-freq-name">Weekly</span>
+                <span className="dg-freq-sub">From ₹100/wk</span>
               </button>
               <button
                 type="button"
@@ -4662,26 +5480,28 @@ export default function DigiGoldDashboard() {
                   }
                 }}
               >
-                Monthly (Month)
+                <span className="dg-freq-name">Monthly</span>
+                <span className="dg-freq-sub">From ₹1,000/mo</span>
               </button>
             </div>
 
-            {/* Rate Badge with ₹50/g Discount */}
-            <div className="dg-modal-rate-badge" style={{ background: '#FFFDF5', borderColor: '#F59E0B' }}>
+            {/* 3. Rate Badge with Live Benchmark Rate (Dynamic Gold vs Silver) */}
+            <div className={`dg-modal-rate-badge ${autoPayMetal}`}>
               <div>
-                <span className="dg-modal-rate-label" style={{ color: '#8F5E00' }}>
-                  AutoPay Offer Rate (22K Gold):
+                <span className="dg-modal-rate-label">
+                  Live Benchmark Rate ({autoPayMetal === 'gold' ? '22K Gold' : '999 Silver'}):
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span className="dg-modal-rate-val" style={{ color: '#0A3E42', fontSize: 16 }}>
-                    ₹ {Number(currentLiveRate - 50).toLocaleString('en-IN')}/g
-                  </span>
-                  <span style={{ textDecoration: 'line-through', color: '#9CA3AF', fontSize: 12 }}>
-                    ₹ {Number(currentLiveRate).toLocaleString('en-IN')}
+                  <span className={`dg-modal-rate-val ${autoPayMetal}`}>
+                    ₹ {autoPayMetal === 'gold'
+                      ? Number(currentLiveRate).toLocaleString('en-IN')
+                      : Number(currentSilverRate).toFixed(2)}/g
                   </span>
                 </div>
               </div>
-              <span className="dg-offer-badge-pill">SAVE ₹50/g</span>
+              <span className={`dg-offer-badge-pill ${autoPayMetal}`}>
+                {autoPayMetal === 'gold' ? '22K 916 BIS' : '999 PURE SILVER'}
+              </span>
             </div>
 
             <ModalFeedbackNotice
@@ -4691,13 +5511,13 @@ export default function DigiGoldDashboard() {
 
             <form onSubmit={handleAutoPaySubmit}>
               <label className="dg-input-label">
-                Select {autoPayFrequency === 'daily' ? 'Daily' : autoPayFrequency === 'weekly' ? 'Weekly' : 'Monthly'} Deposit (₹):
+                Select {autoPayFrequency === 'daily' ? 'Daily' : autoPayFrequency === 'weekly' ? 'Weekly' : 'Monthly'} {autoPayMetal === 'gold' ? 'Gold' : 'Silver'} Deposit (₹):
               </label>
 
               {/* Amount Presets */}
               <div className="dg-amount-presets" style={{ flexWrap: 'wrap', gap: 6 }}>
                 {(autoPayFrequency === 'daily'
-                  ? ['10', '50', '100', '200', '500', '1000']
+                  ? ['10', '50', '100', '200', '500']
                   : autoPayFrequency === 'weekly'
                   ? ['100', '200', '500', '1000', '2000']
                   : ['1000', '2000', '5000', '10000']
@@ -4705,7 +5525,7 @@ export default function DigiGoldDashboard() {
                   <button
                     key={p}
                     type="button"
-                    className={`dg-preset-btn ${autoPayAmount === p ? 'active' : ''}`}
+                    className={`dg-preset-btn ${autoPayMetal} ${autoPayAmount === p ? 'active' : ''}`}
                     onClick={() => setAutoPayAmount(p)}
                   >
                     ₹{p}
@@ -4720,66 +5540,56 @@ export default function DigiGoldDashboard() {
                 className="dg-form-input"
                 value={autoPayAmount}
                 onChange={e => setAutoPayAmount(e.target.value)}
-                placeholder={`Enter custom amount in ₹ (Min: ₹${autoPayFrequency === 'daily' ? 10 : autoPayFrequency === 'weekly' ? 100 : 1000})`}
+                placeholder={`Custom amount in ₹ (Min: ₹${autoPayFrequency === 'daily' ? 10 : autoPayFrequency === 'weekly' ? 100 : 1000})`}
                 required
               />
 
-              {/* Live Calculation Preview */}
+              {/* Live Calculation Preview (Concise & Important Only) */}
               <div className="dg-autopay-calc-preview">
                 <div className="dg-calc-row">
                   <span style={{ color: '#647474' }}>Live Benchmark Price:</span>
-                  <span>₹ {Number(currentLiveRate).toLocaleString('en-IN')}/g</span>
+                  <span style={{ fontWeight: 700 }}>
+                    ₹ {autoPayMetal === 'gold'
+                      ? Number(currentLiveRate).toLocaleString('en-IN')
+                      : Number(currentSilverRate).toFixed(2)}/g
+                  </span>
                 </div>
                 <div className="dg-calc-row">
-                  <span style={{ color: '#009957', fontWeight: 700 }}>AutoPay Instant Discount:</span>
-                  <span style={{ color: '#009957', fontWeight: 800 }}>-₹ 50.00 /g</span>
-                </div>
-                <div className="dg-calc-row">
-                  <span style={{ color: '#647474' }}>Effective Offer Price:</span>
-                  <span style={{ fontWeight: 800, color: '#0A3E42' }}>₹ {Number(currentLiveRate - 50).toLocaleString('en-IN')}/g</span>
+                  <span style={{ color: '#009957', fontWeight: 700 }}>Showroom Privilege:</span>
+                  <span style={{ color: '#009957', fontWeight: 800 }}>5% Off Making Charges</span>
                 </div>
                 <div className="dg-calc-row highlight">
-                  <span>Vault Gold Credited per Deposit:</span>
+                  <span>Vault {autoPayMetal === 'gold' ? 'Gold' : 'Silver'} Credited per Deposit:</span>
                   <span style={{ fontSize: 14 }}>
-                    {(parseFloat(autoPayAmount || 0) / Math.max(1, currentLiveRate - 50)).toFixed(4)} g
+                    {(parseFloat(autoPayAmount || 0) / Math.max(1, autoPayMetal === 'gold' ? currentLiveRate : currentSilverRate)).toFixed(4)} g
                   </span>
                 </div>
               </div>
 
-              {/* Offer Perks Checklist */}
-              <div style={{
-                background: 'rgba(0, 153, 87, 0.06)',
-                border: '1px solid rgba(0, 153, 87, 0.2)',
-                borderRadius: 12,
-                padding: '10px 14px',
-                marginBottom: 16,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6
-              }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#009957', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {/* Offer Perks Checklist (Important Only) */}
+              <div className="dg-modal-perks-box">
+                <div className="dg-modal-perk-item">
                   <Check size={14} strokeWidth={3} />
-                  <span>₹50/g discount automatically applied on every deposit</span>
+                  <span>100% transparent live market rate applied on every deposit</span>
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#009957', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div className="dg-modal-perk-item">
                   <Check size={14} strokeWidth={3} />
-                  <span>5% Less Making Charges on jewellery redemption</span>
+                  <span>5% Less Making Charges on showroom jewellery purchase</span>
                 </div>
-                <div style={{ fontSize: 11.5, color: '#647474', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div className="dg-modal-perk-item">
                   <Check size={14} strokeWidth={3} />
-                  <span>Direct auto-debit via Razorpay UPI / Cards • Cancel anytime</span>
+                  <span>Direct auto-debit via UPI AutoPay • Pause or cancel anytime</span>
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="dg-modal-submit-btn"
-                style={{ background: 'linear-gradient(135deg, #009957, #007A45)' }}
+                className={`dg-modal-submit-btn ${autoPayMetal}`}
                 disabled={submittingAutoPay || parseFloat(autoPayAmount || 0) <= 0}
               >
                 {submittingAutoPay
                   ? 'Initiating AutoPay…'
-                  : `Activate AutoPay ₹${parseFloat(autoPayAmount || 0).toLocaleString('en-IN')}`}
+                  : `Activate AutoPay ₹${parseFloat(autoPayAmount || 0).toLocaleString('en-IN')} (${autoPayFrequency.toUpperCase()})`}
               </button>
             </form>
           </div>

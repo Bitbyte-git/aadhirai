@@ -1834,6 +1834,133 @@ body {
   color: #0A3E42;
 }
 
+/* AutoPay Modal Specifics */
+.dg-autopay-modal-box {
+  max-width: 480px;
+}
+
+.dg-modal-icon-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 153, 87, 0.12);
+  color: #009957;
+}
+
+.dg-modal-icon-badge.silver {
+  background: rgba(44, 62, 80, 0.12);
+  color: #2C3E50;
+}
+
+.dg-modal-metal-switcher {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.dg-modal-metal-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1.5px solid #E6ECEA;
+  background: #F8FAF9;
+  color: #4A635D;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 180ms ease;
+}
+
+.dg-modal-metal-tab .dg-tab-coin-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.dg-modal-metal-tab.gold.active {
+  background: #FEFBF2;
+  border-color: #D5A33A;
+  color: #8C6212;
+  box-shadow: 0 2px 8px rgba(213, 163, 58, 0.15);
+}
+
+.dg-modal-metal-tab.silver.active {
+  background: #F4F8FA;
+  border-color: #91A9B8;
+  color: #1E3A4B;
+  box-shadow: 0 2px 8px rgba(145, 169, 184, 0.18);
+}
+
+/* Frequency Switcher Tabs */
+.dg-freq-tabs-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+  background: #F4F8F6;
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid #E2EBE6;
+}
+
+.dg-freq-tab-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: all 180ms ease;
+  color: #4A635D;
+  font-family: inherit;
+}
+
+.dg-freq-tab-btn .dg-freq-name {
+  font-size: 13.5px;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.dg-freq-tab-btn .dg-freq-sub {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: #7A938D;
+  margin-top: 2px;
+}
+
+.dg-freq-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.7);
+  color: #0A3E42;
+}
+
+.dg-freq-tab-btn.active {
+  background: #FFFFFF;
+  color: #007B50;
+  border-color: rgba(0, 123, 80, 0.25);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.dg-freq-tab-btn.active .dg-freq-name {
+  color: #007B50;
+  font-weight: 800;
+}
+
+.dg-freq-tab-btn.active .dg-freq-sub {
+  color: #007B50;
+  font-weight: 600;
+}
+
 /* Live Rate Badge inside Modal */
 .dg-modal-rate-badge {
   background: #F8FAF9;
@@ -1846,6 +1973,11 @@ body {
   align-items: center;
 }
 
+.dg-modal-rate-badge.silver {
+  background: #F0F6FA;
+  border-color: #D1E1EC;
+}
+
 .dg-modal-rate-label {
   font-size: 12px;
   color: #647474;
@@ -1856,6 +1988,51 @@ body {
   font-size: 15px;
   font-weight: 800;
   color: #009957;
+}
+
+.dg-modal-rate-val.silver {
+  color: #1E3A4B;
+}
+
+.dg-offer-badge-pill.silver {
+  background: #E2ECF3;
+  color: #1E3A4B;
+}
+
+.dg-modal-perks-box {
+  background: rgba(0, 153, 87, 0.06);
+  border: 1px solid rgba(0, 153, 87, 0.2);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dg-modal-perk-item {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0A3E42;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.dg-modal-perk-item svg {
+  color: #009957;
+  flex-shrink: 0;
+}
+
+.dg-preset-btn.silver.active {
+  background: #2C3E50;
+  border-color: #2C3E50;
+  color: #FFFFFF;
+}
+
+.dg-modal-submit-btn.silver {
+  background: linear-gradient(135deg, #2C3E50, #1E2B37);
+  box-shadow: 0 4px 14px rgba(44, 62, 80, 0.3);
 }
 
 .dg-input-label {
@@ -3872,1661 +4049,1241 @@ body {
    DIGI GOLD OFFERS & AUTOPAY / AUTO-SAVINGS STYLES
    ══════════════════════════════════════════════════════════════ */
 
-.dg-nav-offer-tag {
-  margin-left: auto;
-  font-size: 9.5px;
-  font-weight: 850;
-  background: linear-gradient(135deg, #FFB800, #F59E0B);
-  color: #382400;
-  padding: 2px 7px;
-  border-radius: 999px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.35);
-  animation: dgPulse 2.5s infinite ease-in-out;
-}
-
-@keyframes dgPulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.06); opacity: 0.92; }
-}
+/* ══════════════════════════════════════════════════════════════
+   DIGI GOLD PREMIUM GOLD & SILVER AUTOPAY SIP OFFER PAGE
+   STRICT MATCH TO THE UPLOADED REFERENCE DESIGN
+   ══════════════════════════════════════════════════════════════ */
 
 .dg-offers-shell {
   display: flex;
   flex-direction: column;
   gap: 24px;
   width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 10px 16px 40px;
+  background-color: #FBF8EF;
+  background-image: 
+    radial-gradient(circle at 10% 5%, rgba(213, 163, 58, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 90% 95%, rgba(0, 168, 120, 0.06) 0%, transparent 45%),
+    radial-gradient(circle at 50% 50%, rgba(255, 253, 248, 0.8) 0%, transparent 80%);
+  border-radius: 24px;
+  position: relative;
+  box-sizing: border-box;
 }
 
-/* Header Card */
+/* ── 1. PAGE HEADER ── */
 .dg-offers-header-card {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   flex-wrap: wrap;
   gap: 16px;
-  background: #FFFFFF;
-  border: 1px solid #E6ECEA;
-  border-radius: 18px;
-  padding: 22px 24px;
-  box-shadow: 0 4px 18px rgba(10, 62, 66, 0.03);
+  background: #FFFDF8;
+  border: 1px solid #E5E0D3;
+  border-radius: 16px;
+  padding: 14px 24px;
+  box-shadow: 0 2px 12px rgba(18, 59, 53, 0.03);
 }
 
-.dg-offers-title-wrap {
-  flex: 1;
-  min-width: 280px;
+.dg-offers-brand-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.dg-offers-back-btn {
-  background: none;
-  border: none;
-  color: #009957;
-  font-weight: 800;
-  font-size: 13px;
-  cursor: pointer;
+.dg-offers-back-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 8px;
-  padding: 0;
-  transition: transform 0.2s;
+  background: #F4F8F5;
+  border: 1px solid #D1DFDE;
+  color: #007B50;
+  font-size: 11.5px;
+  font-weight: 750;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.dg-offers-back-btn:hover {
-  transform: translateX(-3px);
+.dg-offers-back-pill:hover {
+  background: #E8F4EE;
+  border-color: #007B50;
+  transform: translateX(-2px);
 }
 
-.dg-offers-badge-row {
+.dg-offers-brand-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dg-lotus-emblem-wrap {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dg-lotus-emblem-svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 2px 4px rgba(213, 163, 58, 0.3));
+}
+
+.dg-brand-texts {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 6px;
 }
 
-.dg-offers-pill-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(198, 146, 75, 0.12);
-  color: #B8833E;
-  border: 1px solid rgba(198, 146, 75, 0.3);
-  font-size: 11px;
+.dg-offers-logo-title {
+  font-family: 'Outfit', 'Playfair Display', Georgia, serif;
+  font-size: 22px;
   font-weight: 850;
-  letter-spacing: 0.06em;
-  padding: 3px 10px;
-  border-radius: 999px;
-  text-transform: uppercase;
-}
-
-.dg-offers-live-tag {
-  font-size: 11px;
-  font-weight: 800;
-  color: #009957;
-  background: rgba(0, 153, 87, 0.08);
-  padding: 3px 10px;
-  border-radius: 999px;
-}
-
-.dg-offers-main-title {
-  margin: 0 0 6px 0;
-  font-family: 'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, sans-serif;
-  font-size: 24px;
-  font-weight: 850;
-  color: #0A3E42;
+  color: #123B35;
   letter-spacing: -0.02em;
 }
 
-.dg-offers-sub-title {
-  margin: 0;
-  font-size: 13.5px;
-  color: #647474;
-  line-height: 1.5;
-  max-width: 720px;
+.dg-offers-divider {
+  color: #D5A33A;
+  font-weight: 300;
+  font-size: 16px;
+}
+
+.dg-offers-logo-tagline {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #62736F;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
 }
 
 .dg-offers-quick-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
 }
 
-.dg-offers-cta-primary {
+.dg-offers-header-cta {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: linear-gradient(135deg, #009957, #007A45);
+  background: #003D2E;
   color: #FFFFFF;
-  font-weight: 850;
-  font-size: 13px;
-  padding: 11px 20px;
-  border-radius: 12px;
-  border: none;
+  border: 1px solid #002D24;
+  font-size: 12.5px;
+  font-weight: 750;
+  padding: 9px 18px;
+  border-radius: 999px;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 153, 87, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 61, 46, 0.25);
   transition: all 0.2s ease;
 }
 
-.dg-offers-cta-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0, 153, 87, 0.4);
+.dg-offers-header-cta:hover {
+  background: #002D24;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 61, 46, 0.35);
 }
 
-/* ── HERO BANNER (3-SECTION BALANCED LAYOUT - NO EMPTY SPACE) ── */
+/* ── 2. HERO SECTION — GOLD & SILVER INVESTMENT BANNER ── */
 .dg-offer-hero-banner {
-  background: linear-gradient(115deg, #24140B 0%, #3D2311 35%, #4F2F18 70%, #2A170C 100%);
-  border: 1.5px solid rgba(245, 158, 11, 0.45);
+  background: radial-gradient(circle at 85% 30%, rgba(213, 163, 58, 0.18) 0%, transparent 60%),
+              linear-gradient(135deg, #002D24 0%, #003D2E 55%, #00221A 100%);
+  border: 1px solid rgba(213, 163, 58, 0.3);
   border-radius: 24px;
-  padding: 30px 34px;
+  padding: 32px 36px;
   display: grid;
-  grid-template-columns: 1.22fr 1.08fr 240px;
+  grid-template-columns: 1.15fr 0.95fr 1fr;
   align-items: center;
-  gap: 26px;
+  gap: 28px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 12px 36px rgba(36, 20, 11, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: 0 16px 40px rgba(0, 45, 36, 0.35);
 }
 
+/* Decorative leaf graphics near top-left of hero */
 .dg-offer-hero-banner::before {
   content: '';
   position: absolute;
-  top: -80px;
-  right: 15%;
-  width: 380px;
-  height: 380px;
-  background: radial-gradient(circle, rgba(245, 158, 11, 0.22) 0%, transparent 70%);
+  top: -20px;
+  left: -20px;
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(circle, rgba(0, 168, 120, 0.15) 0%, transparent 70%);
   border-radius: 50%;
   pointer-events: none;
 }
 
-.dg-offer-hero-banner::after {
-  content: '';
-  position: absolute;
-  bottom: -60px;
-  left: -40px;
-  width: 260px;
-  height: 260px;
-  background: radial-gradient(circle, rgba(217, 119, 6, 0.18) 0%, transparent 70%);
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-@media (max-width: 1200px) {
-  .dg-offer-hero-banner {
-    grid-template-columns: 1.2fr 1fr;
-  }
-  .dg-offer-hero-right {
-    display: none;
-  }
-}
-
-@media (max-width: 860px) {
-  .dg-offer-hero-banner {
-    grid-template-columns: 1fr;
-    padding: 24px 20px;
-    gap: 20px;
-  }
-}
-
+/* Hero Left Column */
 .dg-offer-hero-left {
   z-index: 2;
+  display: flex;
+  flex-direction: column;
 }
 
-.dg-offer-hero-tag {
+.dg-hero-autopay-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(245, 158, 11, 0.22);
-  border: 1px solid rgba(245, 158, 11, 0.55);
-  color: #FDE68A;
-  font-size: 11px;
+  background: rgba(0, 45, 36, 0.85);
+  border: 1px solid #D5A33A;
+  color: #F3D78B;
+  font-size: 10px;
   font-weight: 850;
   letter-spacing: 0.08em;
   padding: 4px 12px;
   border-radius: 999px;
   text-transform: uppercase;
-  margin-bottom: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  width: fit-content;
+  margin-bottom: 14px;
 }
 
 .dg-offer-hero-headline {
-  margin: 0 0 10px 0;
-  font-family: 'Outfit', 'Montserrat', sans-serif;
-  font-size: 33px;
-  font-weight: 900;
-  color: #FCD34D;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
-}
-
-.dg-offer-per-gram {
+  margin: 0 0 12px 0;
+  font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 32px;
+  font-weight: 850;
   color: #FFFFFF;
-  font-size: 25px;
-  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .dg-offer-hero-desc {
   margin: 0 0 18px 0;
-  font-size: 14.5px;
-  color: #F5E6D3;
-  line-height: 1.5;
-  font-weight: 500;
-}
-
-.dg-offer-hero-desc u {
-  color: #FCD34D;
-  text-decoration-color: #FCD34D;
-  text-underline-offset: 3px;
-  font-weight: 750;
+  font-size: 13px;
+  color: #D1E0DD;
+  line-height: 1.55;
+  font-weight: 450;
+  max-width: 440px;
 }
 
 .dg-offer-hero-perks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
   margin-bottom: 22px;
 }
 
 .dg-hero-perk-badge {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 7px;
-  background: rgba(255, 255, 255, 0.09);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: #FFFFFF;
-  font-size: 11.5px;
-  font-weight: 700;
-  padding: 6px 12px;
-  border-radius: 10px;
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #EAF3FA;
+  font-size: 11px;
+  font-weight: 650;
+  padding: 6px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
-.dg-perk-icon,
 .dg-svg-perk-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #FCD34D;
+  color: #F3D78B;
   flex-shrink: 0;
 }
 
-.dg-offer-hero-cta {
+.dg-offer-hero-gold-cta {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  background: linear-gradient(135deg, #FDE68A 0%, #F59E0B 100%);
-  color: #24140B;
-  font-family: 'Outfit', sans-serif;
-  font-size: 14.5px;
-  font-weight: 900;
+  gap: 9px;
+  background: linear-gradient(135deg, #F3D78B 0%, #D5A33A 60%, #B88326 100%);
+  color: #123B35;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 850;
   padding: 12px 24px;
-  border-radius: 999px;
+  border-radius: 12px;
   border: none;
   cursor: pointer;
-  box-shadow: 0 6px 22px rgba(245, 158, 11, 0.45);
-  transition: all 0.25s ease;
+  width: fit-content;
+  box-shadow: 0 6px 20px rgba(213, 163, 58, 0.4);
+  transition: all 0.2s ease;
 }
 
-.dg-offer-hero-cta:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 8px 28px rgba(245, 158, 11, 0.6);
+.dg-offer-hero-gold-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(213, 163, 58, 0.55);
 }
 
-/* ── HERO CENTER: EXCLUSIVE LIVE SAVINGS VOUCHER ── */
+/* Hero Center Column — Glass Benchmark Panel */
 .dg-offer-hero-center {
   z-index: 2;
   display: flex;
   justify-content: center;
 }
 
-.dg-hero-deal-voucher {
-  background: linear-gradient(145deg, rgba(26, 14, 7, 0.94) 0%, rgba(48, 28, 14, 0.96) 100%);
-  border: 1.5px dashed rgba(245, 158, 11, 0.6);
+.dg-hero-benchmark-panel {
+  background: rgba(0, 32, 24, 0.72);
+  border: 1px solid rgba(213, 163, 58, 0.4);
   border-radius: 18px;
   padding: 18px 20px;
   width: 100%;
   max-width: 360px;
-  position: relative;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 0 25px rgba(245, 158, 11, 0.08);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
 }
 
-.dg-voucher-glow-aura {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 160px;
-  height: 160px;
-  background: radial-gradient(circle, rgba(245, 158, 11, 0.15) 0%, transparent 70%);
-  pointer-events: none;
-}
-
-.dg-voucher-header {
+.dg-benchmark-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px dashed rgba(245, 158, 11, 0.25);
 }
 
-.dg-voucher-live-badge {
+.dg-benchmark-live-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(0, 153, 87, 0.2);
-  border: 1px solid rgba(0, 153, 87, 0.5);
-  color: #4ADE80;
+  gap: 5px;
+  background: rgba(0, 168, 120, 0.18);
+  border: 1px solid #00A878;
+  color: #34D399;
   font-size: 10px;
-  font-weight: 850;
-  letter-spacing: 0.06em;
+  font-weight: 800;
+  letter-spacing: 0.05em;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: 6px;
   text-transform: uppercase;
 }
 
-.dg-live-pulse-dot {
-  width: 6px;
-  height: 6px;
-  background: #4ADE80;
-  border-radius: 50%;
-  animation: dgPulse 1.6s infinite ease-in-out;
-}
-
-@keyframes dgPulse {
-  0% { transform: scale(0.9); opacity: 0.6; }
-  50% { transform: scale(1.3); opacity: 1; }
-  100% { transform: scale(0.9); opacity: 0.6; }
-}
-
-.dg-voucher-code-chip {
-  font-size: 10.5px;
-  font-weight: 850;
-  color: #FCD34D;
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.4);
+.dg-benchmark-bis-chip {
+  font-size: 10px;
+  font-weight: 800;
+  color: #F3D78B;
+  background: rgba(213, 163, 58, 0.18);
+  border: 1px solid #D5A33A;
   padding: 3px 8px;
   border-radius: 6px;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
 }
 
-.dg-voucher-pricing-box {
+.dg-benchmark-rates-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(245, 158, 11, 0.25);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   padding: 10px 14px;
   margin-bottom: 10px;
 }
 
-.dg-voucher-rate-col {
+.dg-benchmark-col {
   display: flex;
   flex-direction: column;
 }
 
-.dg-voucher-rate-lbl {
-  font-size: 9.5px;
-  font-weight: 800;
-  color: #D1B89D;
+.dg-benchmark-lbl {
+  font-size: 9px;
+  font-weight: 750;
+  color: #91A9B8;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   margin-bottom: 2px;
 }
 
-.dg-voucher-rate-val {
-  font-family: 'Outfit', sans-serif;
-  font-size: 16px;
-  font-weight: 850;
-}
-
-.dg-voucher-rate-val.strikethrough {
-  color: #9CA3AF;
-  text-decoration: line-through;
-  text-decoration-color: #EF4444;
-  text-decoration-thickness: 1.5px;
-}
-
-.dg-voucher-rate-val.offer {
-  color: #FCD34D;
-  font-size: 19px;
+.dg-benchmark-val {
+  font-size: 17px;
   font-weight: 900;
-  text-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
 }
 
-.dg-voucher-rate-val small {
+.dg-benchmark-val.gold {
+  color: #F3D78B;
+}
+
+.dg-benchmark-val.gold small {
   font-size: 11px;
   font-weight: 600;
-  color: #F5E6D3;
+  color: #CBD5E1;
 }
 
-.dg-voucher-rate-arrow {
-  color: #F59E0B;
-  font-size: 16px;
-  font-weight: 900;
+.dg-benchmark-val.purity {
+  color: #00A878;
+  font-size: 15px;
 }
 
-.dg-voucher-benefit-pill {
+.dg-benchmark-divider {
+  width: 1px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.dg-benchmark-strip {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(245, 158, 11, 0.16);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  color: #FEF08A;
-  font-size: 11px;
-  font-weight: 800;
-  padding: 5px 10px;
-  border-radius: 8px;
-  margin-bottom: 10px;
   justify-content: center;
+  gap: 6px;
+  background: rgba(0, 123, 80, 0.25);
+  border: 1px solid rgba(0, 168, 120, 0.4);
+  color: #6EE7B7;
+  font-size: 10.5px;
+  font-weight: 750;
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin-bottom: 12px;
   text-align: center;
 }
 
-.dg-voucher-perks-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.dg-benchmark-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
   margin-bottom: 12px;
 }
 
-.dg-voucher-mini-perk {
+.dg-benchmark-feat-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  font-size: 10px;
+  gap: 3px;
+  font-size: 9.5px;
   font-weight: 700;
-  color: #E2E8F0;
+  color: #EAF3FA;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 6px 4px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.dg-voucher-footer {
+.dg-benchmark-feat-item svg {
+  color: #00A878;
+}
+
+.dg-benchmark-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding-top: 8px;
-  border-top: 1px dashed rgba(245, 158, 11, 0.25);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
   font-size: 10px;
 }
 
-.dg-voucher-footer-guarantee {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: #CBD5E1;
+.dg-benchmark-dbi-text {
+  color: #91A9B8;
   font-weight: 600;
 }
 
-.dg-voucher-status-pill {
+.dg-benchmark-guaranteed-badge {
   font-size: 9px;
-  font-weight: 850;
-  color: #009957;
-  background: #E8F7F0;
+  font-weight: 900;
+  color: #002D24;
+  background: #00A878;
   padding: 2px 7px;
   border-radius: 4px;
   letter-spacing: 0.05em;
 }
 
-/* ── HERO RIGHT: BULLION & BADGE ── */
-.dg-offer-hero-right {
+/* Hero Right Column — Luxury Showcase */
+.dg-offer-hero-right-showcase {
   position: relative;
   z-index: 2;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
 }
 
-.dg-offer-hero-glow {
+.dg-showcase-caption {
   position: absolute;
-  width: 200px;
-  height: 200px;
-  background: radial-gradient(circle, rgba(252, 211, 77, 0.35) 0%, transparent 70%);
-  border-radius: 50%;
-  filter: blur(20px);
+  top: 12px;
+  right: 18px;
+  z-index: 3;
+  text-align: right;
+  pointer-events: none;
 }
 
-.dg-offer-hero-gold-img {
-  width: 230px;
-  height: 230px;
-  object-fit: cover;
-  border-radius: 20px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-  border: 2px solid rgba(245, 158, 11, 0.5);
-  transform: rotate(-2deg);
-  transition: transform 0.3s ease;
+.dg-showcase-script {
+  display: block;
+  font-family: 'Playfair Display', Georgia, cursive, serif;
+  font-style: italic;
+  font-size: 20px;
+  color: #F3D78B;
+  line-height: 1.1;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 
-.dg-offer-hero-banner:hover .dg-offer-hero-gold-img {
-  transform: rotate(0deg) scale(1.03);
-}
-
-.dg-offer-hero-gold-badge {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  background: rgba(10, 62, 66, 0.92);
-  color: #FCD34D;
-  border: 1px solid rgba(245, 158, 11, 0.5);
-  font-size: 10px;
-  font-weight: 850;
-  padding: 4px 10px;
-  border-radius: 8px;
-  letter-spacing: 0.06em;
-  backdrop-filter: blur(6px);
-}
-
-/* ── ACTIVE PLANS STRIP ── */
-.dg-active-plans-card {
-  background: #FFFFFF;
-  border: 1.5px solid #009957;
-  border-radius: 18px;
-  padding: 20px 24px;
-  box-shadow: 0 4px 18px rgba(0, 153, 87, 0.08);
-}
-
-.dg-active-plans-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.dg-active-status-badge {
+.dg-showcase-title {
+  display: block;
   font-size: 10.5px;
-  font-weight: 850;
-  letter-spacing: 0.06em;
-  background: #E8F7F0;
-  color: #009957;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(0, 153, 87, 0.3);
-}
-
-.dg-active-plans-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 12px;
-}
-
-.dg-active-plan-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #F8FAF9;
-  border: 1px solid #E6ECEA;
-  border-radius: 14px;
-  padding: 14px 16px;
-  gap: 12px;
-}
-
-.dg-plan-item-left {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.dg-plan-freq-tag {
-  font-size: 11px;
   font-weight: 800;
-  color: #0A3E42;
-  text-transform: capitalize;
+  color: #FFFFFF;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
 }
 
-.dg-plan-amt {
-  font-size: 18px;
-  font-weight: 900;
-  color: #009957;
-  letter-spacing: -0.01em;
+.dg-pedestal-image-container {
+  width: 100%;
+  max-width: 320px;
+  height: 250px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(213, 163, 58, 0.35);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
 
-.dg-plan-perk {
-  font-size: 11px;
-  color: #647474;
-  font-weight: 600;
+.dg-metals-pedestal-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
 }
 
-.dg-plan-item-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
+.dg-offer-hero-banner:hover .dg-metals-pedestal-img {
+  transform: scale(1.03);
 }
 
-.dg-plan-next {
-  font-size: 11px;
-  color: #8E9E9C;
-  font-weight: 600;
+/* Responsive Hero */
+@media (max-width: 1120px) {
+  .dg-offer-hero-banner {
+    grid-template-columns: 1.1fr 1fr;
+  }
+  .dg-offer-hero-right-showcase {
+    grid-column: span 2;
+    margin-top: 10px;
+  }
 }
 
-.dg-plan-cancel-btn {
-  background: none;
-  border: 1px solid #E45B5B;
-  color: #E45B5B;
-  font-size: 11px;
-  font-weight: 800;
-  padding: 3px 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
+@media (max-width: 780px) {
+  .dg-offer-hero-banner {
+    grid-template-columns: 1fr;
+    padding: 24px 20px;
+    gap: 20px;
+  }
+  .dg-offer-hero-right-showcase {
+    grid-column: span 1;
+  }
+  .dg-offer-hero-headline {
+    font-size: 25px;
+  }
 }
 
-.dg-plan-cancel-btn:hover {
-  background: #FEECEB;
-}
-
-/* ── FESTIVE PROMO ANNOUNCEMENT TICKER ── */
+/* ── 3. AUTOPAY ADVANTAGE INFORMATION STRIP ── */
 .dg-offers-festive-ticker {
-  background: linear-gradient(90deg, #FFFDF7 0%, #FFF8EA 50%, #FFFDF7 100%);
-  border: 1.5px solid #F59E0B;
-  border-radius: 16px;
-  padding: 12px 20px;
+  background: #EAF4EE;
+  border: 1px solid #C8E3D2;
+  border-radius: 14px;
+  padding: 14px 22px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  box-shadow: 0 4px 18px rgba(245, 158, 11, 0.12);
+  gap: 18px;
+  box-shadow: 0 2px 8px rgba(0, 61, 46, 0.03);
   flex-wrap: wrap;
 }
 
 .dg-festive-ticker-left {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1;
+  min-width: 280px;
 }
 
 .dg-festive-fire-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background: linear-gradient(135deg, #EF4444 0%, #EA580C 100%);
+  gap: 5px;
+  background: #007B50;
   color: #FFFFFF;
   font-size: 10.5px;
-  font-weight: 900;
+  font-weight: 850;
   padding: 4px 10px;
   border-radius: 999px;
   letter-spacing: 0.05em;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .dg-festive-ticker-text {
   font-size: 12.5px;
-  color: #1F2937;
-  line-height: 1.4;
+  color: #123B35;
+  line-height: 1.45;
 }
 
 .dg-festive-ticker-text b {
-  color: #92400E;
+  color: #003D2E;
+  font-weight: 800;
+}
+
+.dg-ticker-sub-perks {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #007B50;
+  margin-top: 4px;
+}
+
+.dg-dot-sep {
+  color: #A3B5AE;
 }
 
 .dg-festive-ticker-right {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  font-weight: 800;
-  color: #0A3E42;
-  background: rgba(10, 62, 66, 0.08);
-  padding: 5px 12px;
-  border-radius: 8px;
+  gap: 10px;
+}
+
+.dg-script-tagline {
+  font-family: 'Playfair Display', Georgia, cursive, serif;
+  font-style: italic;
+  font-size: 17px;
+  line-height: 1.15;
+  color: #007B50;
+  text-align: right;
   white-space: nowrap;
 }
 
-/* ── OFFERS SECTION HEADER ── */
+.dg-leaf-deco-svg {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+/* ── 4. OFFERS SECTION HEADER ── */
 .dg-offers-section-title-wrap {
-  margin: 4px 0 0 0;
+  margin: 6px 0 2px 0;
 }
 
 .dg-offers-section-title {
   margin: 0 0 4px 0;
   font-family: 'Outfit', sans-serif;
-  font-size: 21px;
+  font-size: 22px;
   font-weight: 850;
-  color: #0A3E42;
+  color: #123B35;
   letter-spacing: -0.01em;
 }
 
 .dg-offers-section-desc {
   margin: 0;
   font-size: 13.5px;
-  color: #647474;
-  line-height: 1.45;
+  color: #62736F;
+  line-height: 1.5;
 }
 
-/* ── 3 HIGH-CONVERSION LUXURY GOLD OFFER CARDS GRID ── */
+.dg-offer-metal-tabs-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #EAE6D8;
+  padding: 5px;
+  border-radius: 999px;
+  margin-top: 14px;
+  border: 1px solid #DDD7C5;
+}
+
+.dg-offer-metal-tab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #4A5F58;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dg-offer-metal-tab-pill:hover {
+  color: #123B35;
+}
+
+.dg-offer-metal-tab-pill.gold.active {
+  background: #FFFDF8;
+  color: #8C6212;
+  border-color: #D5A33A;
+  box-shadow: 0 2px 10px rgba(213, 163, 58, 0.2);
+}
+
+.dg-offer-metal-tab-pill.silver.active {
+  background: #FFFFFF;
+  color: #1E3A4B;
+  border-color: #91A9B8;
+  box-shadow: 0 2px 10px rgba(145, 169, 184, 0.25);
+}
+
+/* ── 5. 3 HORIZONTAL AUTOPAY PLANS GRID ── */
 .dg-autopay-cards-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 22px;
+  gap: 24px;
+  align-items: stretch;
 }
 
-@media (max-width: 1060px) {
+@media (max-width: 1040px) {
   .dg-autopay-cards-grid {
     grid-template-columns: 1fr;
   }
 }
 
-/* ── LUXURY OFFER PASS CARD CONTAINER ── */
-.dg-autopay-card.deal-pass {
-  background: #FFFFFF;
-  border: 1.5px solid #E5EAE7;
-  border-radius: 22px;
-  overflow: hidden;
+/* Common Card Shell */
+.dg-autopay-card {
+  border-radius: 20px;
+  padding: 22px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 6px 24px rgba(10, 62, 66, 0.05);
-  transition: all 0.28s ease;
+  justify-content: space-between;
+  box-shadow: 0 4px 16px rgba(18, 59, 53, 0.04);
+  transition: all 0.25s ease;
   position: relative;
+  box-sizing: border-box;
 }
 
-.dg-autopay-card.deal-pass:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 14px 34px rgba(10, 62, 66, 0.12);
+.dg-autopay-card:hover {
+  transform: translateY(-4px);
 }
 
-.dg-autopay-card.deal-pass.daily {
-  border-color: rgba(0, 153, 87, 0.4);
+.dg-card-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
-.dg-autopay-card.deal-pass.daily:hover {
-  border-color: #009957;
-}
-
-.dg-autopay-card.deal-pass.featured.weekly {
-  border: 2px solid #D97706;
-  background: linear-gradient(180deg, #FFFFFF 0%, #FFFDF8 100%);
-  box-shadow: 0 10px 32px rgba(217, 119, 6, 0.18);
-}
-
-.dg-autopay-card.deal-pass.featured.weekly:hover {
-  box-shadow: 0 16px 40px rgba(217, 119, 6, 0.26);
-}
-
-.dg-autopay-card.deal-pass.monthly {
-  border-color: rgba(10, 62, 66, 0.4);
-}
-
-.dg-autopay-card.deal-pass.monthly:hover {
-  border-color: #0A3E42;
-}
-
-/* Deal Corner Ribbon */
-.dg-card-deal-ribbon {
-  position: absolute;
-  top: 14px;
-  right: -32px;
-  transform: rotate(45deg);
-  width: 130px;
-  padding: 4px 0;
-  text-align: center;
-  font-size: 9px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  z-index: 10;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
-}
-
-.dg-card-deal-ribbon.daily {
-  background: linear-gradient(135deg, #009957 0%, #007A45 100%);
-  color: #FFFFFF;
-}
-
-.dg-card-deal-ribbon.weekly {
-  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-  color: #24140B;
-}
-
-.dg-card-deal-ribbon.monthly {
-  background: linear-gradient(135deg, #0A3E42 0%, #164E63 100%);
-  color: #FCD34D;
-  border-bottom: 1px solid rgba(245, 158, 11, 0.5);
-}
-
-/* Card Image Header */
-.dg-autopay-card-top {
-  position: relative;
-  height: 165px;
-  overflow: hidden;
-  background: #0A3E42;
-}
-
-.dg-autopay-card-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.45s ease;
-}
-
-.dg-autopay-card.deal-pass:hover .dg-autopay-card-img {
-  transform: scale(1.08);
-}
-
-.dg-card-image-gradient {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.6) 100%);
-  pointer-events: none;
-}
-
-.dg-card-image-badge {
-  position: absolute;
-  bottom: 12px;
-  right: 14px;
-  background: rgba(0, 0, 0, 0.75);
-  color: #E2E8F0;
-  font-size: 9.5px;
-  font-weight: 850;
-  padding: 3px 9px;
-  border-radius: 6px;
-  letter-spacing: 0.06em;
-  backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-.dg-card-image-badge.gold {
-  background: rgba(146, 64, 14, 0.85);
-  color: #FDE68A;
-  border-color: rgba(245, 158, 11, 0.5);
-}
-
-.dg-card-image-badge.vip {
-  background: rgba(10, 62, 66, 0.9);
-  color: #FCD34D;
-  border-color: rgba(245, 158, 11, 0.5);
-}
-
-.dg-autopay-tag-pill {
-  position: absolute;
-  top: 12px;
-  left: 12px;
+.dg-card-badge-pill {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   font-size: 10px;
   font-weight: 850;
   letter-spacing: 0.05em;
-  padding: 4px 10px;
-  border-radius: 999px;
+  padding: 3px 9px;
+  border-radius: 6px;
   text-transform: uppercase;
-  backdrop-filter: blur(8px);
+}
+
+.dg-metal-pill {
+  font-size: 9.5px;
+  font-weight: 900;
+  padding: 3px 9px;
+  border-radius: 6px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dg-header-right-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dg-mini-header-coin {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.dg-mini-double-coins {
+  display: flex;
+  align-items: center;
+}
+
+.dg-mini-coin {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.dg-mini-coin.gold {
   z-index: 2;
+  margin-right: -7px;
 }
 
-.dg-autopay-tag-pill.daily {
-  background: rgba(0, 153, 87, 0.92);
-  color: #FFFFFF;
-  box-shadow: 0 2px 8px rgba(0, 153, 87, 0.4);
+.dg-mini-coin.silver {
+  z-index: 1;
 }
 
-.dg-autopay-tag-pill.weekly {
-  background: rgba(217, 119, 6, 0.92);
-  color: #FFFFFF;
-  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.4);
-}
-
-.dg-autopay-tag-pill.monthly {
-  background: rgba(10, 62, 66, 0.95);
-  color: #FCD34D;
-  border: 1px solid rgba(245, 158, 11, 0.5);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-}
-
-/* Card Body */
-.dg-autopay-card-body {
-  padding: 20px 22px 24px;
+.dg-card-content-wrap {
   display: flex;
   flex-direction: column;
   flex: 1;
 }
 
-.dg-autopay-card-title-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
-  gap: 8px;
-}
-
-.dg-autopay-card-title {
+.dg-plan-title {
   font-family: 'Outfit', sans-serif;
-  font-size: 18.5px;
+  font-size: 20px;
   font-weight: 850;
-  color: #0A3E42;
-  margin: 0 0 2px 0;
+  color: #123B35;
+  margin: 0 0 3px 0;
   letter-spacing: -0.01em;
 }
 
-.dg-card-desc-micro {
-  font-size: 11.5px;
-  color: #647474;
+.dg-plan-title.monthly {
+  color: #FFFFFF;
+}
+
+.dg-plan-subtitle {
+  font-size: 12px;
+  color: #62736F;
   font-weight: 500;
-  display: block;
+  margin-bottom: 14px;
 }
 
-.dg-autopay-freq-badge {
-  font-size: 10.5px;
-  font-weight: 850;
-  padding: 3px 8px;
-  border-radius: 6px;
-  white-space: nowrap;
+.dg-plan-subtitle.monthly {
+  color: #CBD5E1;
 }
 
-.dg-autopay-freq-badge.daily {
-  color: #009957;
-  background: rgba(0, 153, 87, 0.1);
-}
-
-.dg-autopay-freq-badge.weekly {
-  color: #D97706;
-  background: rgba(217, 119, 6, 0.12);
-}
-
-.dg-autopay-freq-badge.monthly {
-  color: #0A3E42;
-  background: rgba(10, 62, 66, 0.1);
-}
-
-/* ── LUXURY VOUCHER COUPON BOX (INSIDE EACH CARD) ── */
-.dg-autopay-deal-coupon {
-  background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%);
-  border: 1.5px dashed rgba(0, 153, 87, 0.5);
-  border-radius: 12px;
-  padding: 11px 14px;
+/* Rate Notice Panel Inside Cards */
+.dg-rate-notice-panel {
+  border-radius: 10px;
+  padding: 10px 12px;
   margin-bottom: 16px;
-  position: relative;
 }
 
-.dg-autopay-deal-coupon.featured {
-  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
-  border: 1.5px dashed rgba(217, 119, 6, 0.55);
-}
-
-.dg-autopay-deal-coupon.monthly {
-  background: linear-gradient(135deg, #F8FAFC 0%, #EEF2F6 100%);
-  border: 1.5px dashed rgba(10, 62, 66, 0.45);
-}
-
-.dg-coupon-row {
+.dg-rate-notice-title {
+  font-size: 11.5px;
+  font-weight: 800;
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 10px;
 }
 
-.dg-coupon-icon {
-  color: #009957;
-  flex-shrink: 0;
-}
-
-.dg-coupon-icon.gold {
-  color: #D97706;
-}
-
-.dg-coupon-icon.vip {
-  color: #0A3E42;
-}
-
-.dg-coupon-title {
+.dg-rate-notice-meta {
   font-size: 11px;
-  font-weight: 850;
-  color: #065F46;
-  letter-spacing: 0.02em;
-}
-
-.dg-coupon-title.gold {
-  color: #92400E;
-}
-
-.dg-coupon-title.vip {
-  color: #0A3E42;
-}
-
-.dg-coupon-subtitle {
-  font-size: 10.5px;
-  color: #4B5563;
   font-weight: 600;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
-/* Presets Section */
-.dg-autopay-presets-section {
-  margin-bottom: 16px;
+.dg-sep {
+  opacity: 0.5;
+  margin: 0 3px;
 }
 
-.dg-presets-label-row {
+/* Amount Selection Block */
+.dg-amount-selection-block {
+  margin-bottom: 14px;
+}
+
+.dg-amount-selection-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
 }
 
-.dg-autopay-presets-label {
-  font-size: 11px;
-  font-weight: 800;
-  color: #647474;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.dg-presets-selected-tag {
+.dg-amount-lbl {
   font-size: 10.5px;
   font-weight: 800;
-  color: #009957;
-  background: #E8F7F0;
+  color: #62736F;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.dg-amount-lbl.monthly {
+  color: #CBD5E1;
+}
+
+.dg-amount-selected-pill {
+  font-size: 10.5px;
+  font-weight: 800;
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
-.dg-presets-selected-tag.gold {
-  color: #D97706;
-  background: #FEF3C7;
-}
-
-.dg-presets-selected-tag.vip {
-  color: #0A3E42;
-  background: rgba(10, 62, 66, 0.08);
-}
-
-.dg-autopay-chips-wrap {
+.dg-amount-chips-row {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 8px;
 }
 
-/* Gold Coin Interactive Chips */
-.dg-autopay-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+.dg-amount-chip {
   padding: 6px 12px;
-  border-radius: 10px;
-  background: #F8FAF9;
-  border: 1px solid #D1DFDE;
+  border-radius: 8px;
   font-size: 12px;
   font-weight: 800;
-  color: #0A3E42;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.18s ease;
+  border: 1px solid transparent;
 }
 
-.dg-chip-coin-icon {
-  color: #C6924B;
-  transition: transform 0.2s ease;
-}
-
-.dg-autopay-chip:hover {
-  background: #E8F7F0;
-  border-color: #009957;
-  color: #009957;
+.dg-amount-chip:hover {
   transform: translateY(-1px);
 }
 
-.dg-autopay-chip:hover .dg-chip-coin-icon {
-  transform: rotate(15deg);
-}
-
-.dg-autopay-chip.active {
-  background: linear-gradient(135deg, #0A3E42 0%, #14535B 100%);
-  border-color: #0A3E42;
-  color: #FFFFFF;
-  box-shadow: 0 4px 12px rgba(10, 62, 66, 0.25);
-  transform: translateY(-1px);
-}
-
-.dg-autopay-chip.active .dg-chip-coin-icon {
-  color: #FCD34D;
-}
-
-.dg-autopay-card.deal-pass.featured .dg-autopay-chip.active {
-  background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
-  border-color: #D97706;
-  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
-}
-
-/* Dynamic Summary Bar below Chips */
-.dg-chip-dynamic-summary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: #F8FAF9;
-  border: 1px solid #E6ECEA;
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 11px;
-  color: #374151;
-  font-weight: 600;
-  line-height: 1.35;
-}
-
-.dg-chip-dynamic-summary.gold {
-  background: #FFFDF7;
-  border-color: rgba(217, 119, 6, 0.25);
-}
-
-.dg-chip-dynamic-summary.vip {
-  background: #F8FAFB;
-  border-color: rgba(10, 62, 66, 0.2);
-}
-
-/* Perks List */
-.dg-autopay-perks-list {
+/* Perks Checklist */
+.dg-plan-perks-checklist {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 20px;
+  padding: 12px 0;
+  margin-bottom: 16px;
+  border-top: 1px dashed;
+  border-bottom: 1px dashed;
   flex: 1;
 }
 
-.dg-autopay-perk-item {
+.dg-perk-check-item {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  font-size: 12px;
-  color: #374151;
-  font-weight: 500;
-  line-height: 1.4;
+  gap: 7px;
+  font-size: 11.5px;
+  line-height: 1.35;
 }
 
-.dg-autopay-perk-item b {
-  font-weight: 750;
-  color: #111827;
-}
-
-.dg-perk-svg-check {
-  color: #009957;
+.dg-check-icon {
   flex-shrink: 0;
   margin-top: 1px;
 }
 
-/* CTA Buttons */
-.dg-autopay-cta-btn {
+/* Plan CTA Button */
+.dg-plan-cta-button {
   width: 100%;
-  padding: 13px 18px;
-  border-radius: 12px;
-  font-family: 'Outfit', sans-serif;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-family: inherit;
   font-size: 13.5px;
-  font-weight: 900;
+  font-weight: 850;
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: all 0.22s ease;
+  transition: all 0.2s ease;
   letter-spacing: 0.01em;
 }
 
-.dg-autopay-cta-btn.daily {
-  background: linear-gradient(135deg, #009957 0%, #007A45 100%);
-  color: #FFFFFF;
-  box-shadow: 0 4px 16px rgba(0, 153, 87, 0.35);
+.dg-plan-cta-button:hover {
+  transform: translateY(-1px);
 }
 
-.dg-autopay-cta-btn.daily:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(0, 153, 87, 0.45);
-}
-
-.dg-autopay-cta-btn.weekly {
-  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-  color: #24140B;
-  box-shadow: 0 4px 18px rgba(217, 119, 6, 0.4);
-}
-
-.dg-autopay-cta-btn.weekly:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(217, 119, 6, 0.55);
-}
-
-.dg-autopay-cta-btn.monthly {
-  background: linear-gradient(135deg, #0A3E42 0%, #07292C 100%);
-  color: #FCD34D;
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  box-shadow: 0 4px 16px rgba(10, 62, 66, 0.35);
-}
-
-.dg-autopay-cta-btn.monthly:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(10, 62, 66, 0.5);
-}
-
-.dg-autopay-cta-note {
+.dg-plan-cta-footnote {
   display: block;
   text-align: center;
   font-size: 10.5px;
-  color: #647474;
+  color: #62736F;
   margin-top: 8px;
   font-weight: 600;
 }
 
-/* ── TRUST & BENEFIT GRID ── */
+.dg-plan-cta-footnote.monthly {
+  color: #94A3B8;
+}
+
+/* ── CARD 1 SPECIFICS: DAILY GOLD ── */
+.dg-autopay-card.plan-daily-gold {
+  background: #FFFDF8;
+  border: 1.5px solid #E5E0D3;
+}
+
+.dg-autopay-card.plan-daily-gold:hover {
+  border-color: #D5A33A;
+  box-shadow: 0 10px 28px rgba(213, 163, 58, 0.15);
+}
+
+.dg-card-badge-pill.daily {
+  background: #FAF5E8;
+  border: 1px solid #EADBBE;
+  color: #9A6A1E;
+}
+
+.dg-metal-pill.gold {
+  background: #D5A33A;
+  color: #FFFFFF;
+}
+
+.dg-rate-notice-panel.gold {
+  background: #FAF8F2;
+  border: 1px solid #EADBBE;
+}
+
+.dg-rate-notice-title {
+  color: #9A6A1E;
+}
+
+.dg-rate-notice-meta {
+  color: #62736F;
+}
+
+.dg-amount-selected-pill.gold {
+  color: #9A6A1E;
+  background: #FAF5E8;
+}
+
+.dg-amount-chip.gold {
+  background: #FFFFFF;
+  border-color: #E5E0D3;
+  color: #123B35;
+}
+
+.dg-amount-chip.gold.active {
+  background: #9A6A1E;
+  border-color: #9A6A1E;
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(154, 106, 30, 0.3);
+}
+
+.dg-plan-perks-checklist.gold {
+  border-color: #E5E0D3;
+  color: #123B35;
+}
+
+.dg-check-icon.gold {
+  color: #D5A33A;
+}
+
+.dg-plan-cta-button.gold {
+  background: linear-gradient(135deg, #F3D78B 0%, #D5A33A 60%, #C49129 100%);
+  color: #123B35;
+  box-shadow: 0 4px 14px rgba(213, 163, 58, 0.35);
+}
+
+.dg-plan-cta-button.gold:hover {
+  box-shadow: 0 6px 18px rgba(213, 163, 58, 0.5);
+}
+
+/* ── CARD 2 SPECIFICS: WEEKLY SILVER ── */
+.dg-autopay-card.plan-weekly-silver {
+  background: #FFFFFF;
+  border: 1.5px solid #CFE2EE;
+}
+
+.dg-autopay-card.plan-weekly-silver:hover {
+  border-color: #1B4965;
+  box-shadow: 0 10px 28px rgba(27, 73, 101, 0.15);
+}
+
+.dg-card-badge-pill.weekly {
+  background: #EAF3FA;
+  border: 1px solid #CFE2EE;
+  color: #1B4965;
+}
+
+.dg-metal-pill.silver {
+  background: #829AA8;
+  color: #FFFFFF;
+}
+
+.dg-rate-notice-panel.silver {
+  background: #F4F8FB;
+  border: 1px solid #CFE2EE;
+}
+
+.dg-rate-notice-title.silver {
+  color: #1B4965;
+}
+
+.dg-amount-selected-pill.silver {
+  color: #1B4965;
+  background: #EAF3FA;
+}
+
+.dg-amount-chip.silver {
+  background: #FFFFFF;
+  border-color: #CFE2EE;
+  color: #123B35;
+}
+
+.dg-amount-chip.silver.active {
+  background: #1B4965;
+  border-color: #1B4965;
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(27, 73, 101, 0.3);
+}
+
+.dg-plan-perks-checklist.silver {
+  border-color: #CFE2EE;
+  color: #123B35;
+}
+
+.dg-check-icon.silver {
+  color: #1B4965;
+}
+
+.dg-plan-cta-button.silver {
+  background: #1B4965;
+  color: #FFFFFF;
+  box-shadow: 0 4px 14px rgba(27, 73, 101, 0.3);
+}
+
+.dg-plan-cta-button.silver:hover {
+  background: #133950;
+  box-shadow: 0 6px 18px rgba(27, 73, 101, 0.45);
+}
+
+/* ── CARD 3 SPECIFICS: MONTHLY WEALTH (EMERALD LUXURY) ── */
+.dg-autopay-card.plan-monthly-wealth {
+  background: linear-gradient(160deg, #002D24 0%, #003D2E 50%, #00221A 100%);
+  border: 1.5px solid #D5A33A;
+  box-shadow: 0 8px 24px rgba(0, 45, 36, 0.35);
+}
+
+.dg-autopay-card.plan-monthly-wealth:hover {
+  box-shadow: 0 12px 32px rgba(213, 163, 58, 0.25);
+}
+
+.dg-card-badge-pill.monthly {
+  background: rgba(213, 163, 58, 0.15);
+  border: 1px solid #D5A33A;
+  color: #F3D78B;
+}
+
+.dg-metal-pill.gold-silver {
+  background: #D5A33A;
+  color: #123B35;
+}
+
+.dg-rate-notice-panel.monthly {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(213, 163, 58, 0.35);
+}
+
+.dg-rate-notice-title.monthly {
+  color: #F3D78B;
+}
+
+.dg-amount-selected-pill.monthly {
+  color: #F3D78B;
+  background: rgba(213, 163, 58, 0.2);
+}
+
+.dg-amount-chip.monthly {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
+}
+
+.dg-amount-chip.monthly.active {
+  background: linear-gradient(135deg, #F3D78B, #D5A33A);
+  border-color: #D5A33A;
+  color: #123B35;
+  box-shadow: 0 2px 10px rgba(213, 163, 58, 0.4);
+}
+
+.dg-plan-perks-checklist.monthly {
+  border-color: rgba(213, 163, 58, 0.3);
+  color: #EAF3FA;
+}
+
+.dg-check-icon.monthly {
+  color: #F3D78B;
+}
+
+.dg-plan-cta-button.monthly {
+  background: linear-gradient(135deg, #F3D78B 0%, #D5A33A 60%, #C49129 100%);
+  color: #123B35;
+  box-shadow: 0 4px 16px rgba(213, 163, 58, 0.4);
+}
+
+.dg-plan-cta-button.monthly:hover {
+  box-shadow: 0 6px 20px rgba(213, 163, 58, 0.55);
+}
+
+/* ── 6. BOTTOM TRUST AND BENEFITS STRIP (5 EQUAL COLUMNS) ── */
 .dg-offers-trust-grid {
+  background: #FFFDF8;
+  border: 1px solid #E5E0D3;
+  border-radius: 16px;
+  padding: 16px 22px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: 16px;
-  margin-top: 8px;
+  align-items: center;
+  box-shadow: 0 3px 12px rgba(18, 59, 53, 0.03);
 }
 
 .dg-offers-trust-card {
-  background: #FFFFFF;
-  border: 1px solid #E6ECEA;
-  border-radius: 16px;
-  padding: 18px 20px;
   display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  box-shadow: 0 3px 12px rgba(10, 62, 66, 0.03);
+  align-items: center;
+  gap: 12px;
+  border-right: 1px solid #E5E0D3;
+  padding-right: 12px;
+}
+
+.dg-offers-trust-card:last-child {
+  border-right: none;
+  padding-right: 0;
 }
 
 .dg-trust-card-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  color: #D5A33A;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  font-size: 18px;
 }
 
-.dg-trust-card-icon.shield {
-  background: rgba(0, 153, 87, 0.1);
-  color: #009957;
-}
-
-.dg-trust-card-icon.jewel {
-  background: rgba(198, 146, 75, 0.15);
-  color: #B8833E;
-}
-
-.dg-trust-card-icon.bank {
-  background: rgba(75, 130, 232, 0.12);
-  color: #4B82E8;
+.dg-trust-card-body {
+  display: flex;
+  flex-direction: column;
 }
 
 .dg-trust-card-title {
-  margin: 0 0 3px 0;
-  font-size: 13.5px;
-  font-weight: 800;
-  color: #0A3E42;
+  margin: 0 0 2px 0;
+  font-size: 11.5px;
+  font-weight: 850;
+  color: #123B35;
+  line-height: 1.25;
 }
 
 .dg-trust-card-desc {
   margin: 0;
-  font-size: 12px;
-  color: #647474;
-  line-height: 1.45;
-}
-
-/* ── AUTOPAY MODAL STYLES ── */
-.dg-freq-tabs-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  background: #F4F8F6;
-  padding: 4px;
-  border-radius: 12px;
-}
-
-.dg-freq-tab-btn {
-  flex: 1;
-  padding: 8px 12px;
-  border-radius: 9px;
-  border: none;
-  background: transparent;
-  font-size: 12.5px;
-  font-weight: 800;
-  color: #647474;
-  cursor: pointer;
-  transition: all 0.18s ease;
-}
-
-.dg-freq-tab-btn.active {
-  background: #FFFFFF;
-  color: #0A3E42;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.dg-autopay-calc-preview {
-  background: #F8FAF9;
-  border: 1px solid #D1DFDE;
-  border-radius: 12px;
-  padding: 12px 14px;
-  margin: 14px 0 16px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.dg-calc-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-}
-
-.dg-calc-row.highlight {
-  font-size: 13px;
-  font-weight: 850;
-  color: #009957;
-  padding-top: 4px;
-  border-top: 1px dashed #D1DFDE;
-}
-
-.dg-offer-badge-pill {
-  font-size: 10px;
-  font-weight: 850;
-  background: #E8F7F0;
-  color: #009957;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-@media (max-width: 768px) {
-  .dg-offer-hero-banner {
-    flex-direction: column;
-    padding: 22px 20px;
-    gap: 20px;
-  }
-  .dg-offer-hero-right {
-    width: 100%;
-    justify-content: center;
-  }
-  .dg-offer-hero-gold-img {
-    width: 180px;
-    height: 180px;
-  }
-  .dg-offer-hero-headline {
-    font-size: 26px;
-  }
-  .dg-offer-per-gram {
-    font-size: 20px;
-  }
-}
-
-/* ══════════════════════════════════════════════════════════════
-   1. CLEAN AUTOPAY SIP CARDS (MINIMALIST, NO AI CLUTTER)
-   ══════════════════════════════════════════════════════════════ */
-.dg-plan-clean-header {
-  padding: 20px 22px 16px;
-  border-bottom: 1px solid #EBEFEA;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.dg-plan-clean-header.daily {
-  background: linear-gradient(135deg, rgba(0, 153, 87, 0.07) 0%, rgba(255, 255, 255, 0.95) 100%);
-}
-
-.dg-plan-clean-header.weekly {
-  background: linear-gradient(135deg, rgba(217, 119, 6, 0.08) 0%, rgba(255, 255, 255, 0.95) 100%);
-}
-
-.dg-plan-clean-header.monthly {
-  background: linear-gradient(135deg, rgba(10, 62, 66, 0.08) 0%, rgba(255, 255, 255, 0.95) 100%);
-}
-
-.dg-plan-freq-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
   font-size: 10.5px;
-  font-weight: 850;
-  padding: 4px 10px;
-  border-radius: 999px;
-  width: fit-content;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: #62736F;
+  line-height: 1.2;
 }
 
-.dg-plan-freq-pill.daily {
-  background: #E8F7F0;
-  color: #009957;
-  border: 1px solid rgba(0, 153, 87, 0.25);
-}
-
-.dg-plan-freq-pill.weekly {
-  background: #FEF3C7;
-  color: #B45309;
-  border: 1px solid rgba(217, 119, 6, 0.3);
-}
-
-.dg-plan-freq-pill.monthly {
-  background: #E0F2FE;
-  color: #0369A1;
-  border: 1px solid rgba(3, 105, 161, 0.25);
-}
-
-.dg-plan-popular-badge {
-  font-size: 9.5px;
-  font-weight: 900;
-  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-  color: #FFFFFF;
-  padding: 3px 8px;
-  border-radius: 6px;
-  letter-spacing: 0.05em;
-  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.25);
-}
-
-.dg-plan-vip-badge {
-  font-size: 9.5px;
-  font-weight: 900;
-  background: linear-gradient(135deg, #0A3E42 0%, #164E63 100%);
-  color: #FCD34D;
-  padding: 3px 8px;
-  border-radius: 6px;
-  letter-spacing: 0.05em;
-  border: 1px solid rgba(245, 158, 11, 0.4);
-}
-
-.dg-plan-clean-title {
-  font-family: 'Outfit', sans-serif;
-  font-size: 19px;
-  font-weight: 850;
-  color: #0A3E42;
-  margin: 2px 0 0;
-  letter-spacing: -0.01em;
-}
-
-.dg-plan-clean-sub {
-  font-size: 12px;
-  color: #647474;
-  font-weight: 500;
-}
-
-.dg-plan-offer-callout {
-  padding: 10px 14px;
-  border-radius: 10px;
-  margin-bottom: 14px;
-}
-
-.dg-plan-offer-callout.daily {
-  background: #F0FDF4;
-  border: 1px solid rgba(0, 153, 87, 0.2);
-}
-
-.dg-plan-offer-callout.weekly {
-  background: #FFFBEB;
-  border: 1px solid rgba(217, 119, 6, 0.25);
-}
-
-.dg-plan-offer-callout.monthly {
-  background: #F8FAFC;
-  border: 1px solid rgba(10, 62, 66, 0.2);
-}
-
-.dg-plan-offer-headline {
-  font-size: 12px;
-  font-weight: 850;
-  color: #009957;
-  letter-spacing: 0.01em;
-}
-
-.dg-plan-offer-headline.gold {
-  color: #B45309;
-}
-
-.dg-plan-offer-headline.teal {
-  color: #0A3E42;
-}
-
-.dg-plan-offer-sub {
-  font-size: 11px;
-  color: #647474;
-  margin-top: 2px;
-  font-weight: 600;
-}
-
-.dg-plan-essential-perks {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 14px;
-  margin-bottom: 18px;
-  padding-top: 12px;
-  border-top: 1px dashed #E2EBE8;
-}
-
-.dg-plan-perk-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: 12px;
-  color: #1F2937;
-  line-height: 1.35;
-}
-
-.dg-plan-perk-row b {
-  color: #0A3E42;
-}
-
-.dg-perk-check-emerald {
-  color: #009957;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.dg-perk-check-gold {
-  color: #D97706;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.dg-perk-check-teal {
-  color: #0A3E42;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-/* ══════════════════════════════════════════════════════════════
-   2. ATHIRAI 22K 916 PHYSICAL BULLION SHOWCASE CARD (NO AI TILT)
-   ══════════════════════════════════════════════════════════════ */
-.dg-offer-hero-bullion-card {
-  position: relative;
-  z-index: 2;
+.dg-offers-trust-card.slogan-card {
   display: flex;
   align-items: center;
-  justify-content: center;
-}
-
-.dg-bullion-ingot {
-  background: linear-gradient(145deg, #161514 0%, #26211A 50%, #151311 100%);
-  border: 1.5px solid rgba(245, 208, 97, 0.45);
-  border-radius: 20px;
-  padding: 20px 24px;
-  width: 250px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 240, 180, 0.25);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
-}
-
-.dg-bullion-ingot:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 20px 42px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 240, 180, 0.4);
-}
-
-.dg-bullion-ingot-header {
-  display: flex;
   justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(245, 208, 97, 0.2);
 }
 
-.dg-bullion-brand {
-  font-family: 'Outfit', sans-serif;
-  font-size: 11px;
-  font-weight: 900;
-  color: #F5D061;
-  letter-spacing: 0.12em;
+.dg-slogan-script {
+  font-family: 'Playfair Display', Georgia, cursive, serif;
+  font-style: italic;
+  font-size: 14px;
+  color: #9A6A1E;
+  line-height: 1.1;
+  display: block;
 }
 
-.dg-bullion-stamp {
-  font-size: 10px;
+.dg-slogan-main {
+  font-size: 12px;
   font-weight: 850;
-  color: #F5D061;
-  background: rgba(245, 208, 97, 0.15);
-  border: 1px solid rgba(245, 208, 97, 0.4);
-  padding: 2px 7px;
-  border-radius: 4px;
-  letter-spacing: 0.06em;
+  color: #123B35;
+  display: block;
 }
 
-.dg-bullion-coin-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 0;
+.dg-leaf-deco-mini {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
 }
 
-.dg-bullion-coin-img {
-  width: 115px;
-  height: 115px;
-  object-fit: contain;
-  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.6));
+@media (max-width: 900px) {
+  .dg-offers-trust-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  .dg-offers-trust-card {
+    border-right: none;
+    padding-right: 0;
+  }
 }
 
-.dg-rewards-coin-img {
-  width: 85px;
-  height: 85px;
-  object-fit: contain;
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45));
-}
-
-.dg-bullion-ingot-footer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  width: 100%;
-  padding-top: 8px;
-  border-top: 1px solid rgba(245, 208, 97, 0.2);
-  text-align: center;
-}
-
-.dg-bullion-purity {
-  font-size: 10.5px;
-  font-weight: 850;
-  color: #FFF3C4;
-  letter-spacing: 0.05em;
-}
-
-.dg-bullion-trust {
-  font-size: 9px;
-  font-weight: 700;
-  color: #A39682;
-  letter-spacing: 0.08em;
+@media (max-width: 560px) {
+  .dg-offers-trust-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -6272,3 +6029,1046 @@ body {
     flex-direction: column;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   DIGI GOLD PREMIUM HOME DELIVERY MODULE
+   EXACT REPLICA OF THE SECOND UPLOADED REFERENCE SCREENSHOT
+   ══════════════════════════════════════════════════════════════ */
+
+.dg-deliv-page-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 6px 16px 48px;
+  box-sizing: border-box;
+}
+
+/* ── 1. LARGE FULL-WIDTH HOME DELIVERY HERO BANNER ── */
+.dg-deliv-hero-card {
+  background: #FFFDF6;
+  border: 1.5px solid #EDE6D6;
+  border-radius: 26px;
+  padding: 34px 44px;
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 32px;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 6px 28px rgba(16, 61, 53, 0.05);
+  background-image: 
+    radial-gradient(circle at 12% 20%, rgba(217, 165, 46, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 88% 85%, rgba(0, 155, 99, 0.06) 0%, transparent 50%);
+}
+
+@media (max-width: 992px) {
+  .dg-deliv-hero-card {
+    grid-template-columns: 1fr;
+    padding: 26px 22px;
+  }
+}
+
+.dg-deliv-hero-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #E5F6EE;
+  color: #009B63;
+  border: 1px solid rgba(0, 155, 99, 0.22);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 11.5px;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  margin-bottom: 14px;
+}
+
+.dg-deliv-hero-h1 {
+  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+  font-size: 34px;
+  font-weight: 850;
+  color: #103D35;
+  line-height: 1.22;
+  margin: 0 0 14px 0;
+  letter-spacing: -0.015em;
+}
+
+@media (max-width: 768px) {
+  .dg-deliv-hero-h1 {
+    font-size: 26px;
+  }
+}
+
+.dg-deliv-hero-sub {
+  font-size: 14px;
+  color: #556B69;
+  line-height: 1.6;
+  margin: 0 0 24px 0;
+  max-width: 560px;
+}
+
+.dg-deliv-hero-perks-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 26px;
+}
+
+@media (max-width: 640px) {
+  .dg-deliv-hero-perks-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.dg-deliv-hero-perk {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+}
+
+.dg-deliv-perk-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #E5F6EE;
+  color: #009B63;
+  border: 1px solid #D1EFE1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.dg-deliv-hero-perk:hover .dg-deliv-perk-icon {
+  transform: translateY(-2px);
+  background: #009B63;
+  color: #FFFFFF;
+}
+
+.dg-deliv-hero-perk span {
+  font-size: 11px;
+  font-weight: 750;
+  color: #103D35;
+  line-height: 1.25;
+}
+
+.dg-deliv-hero-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #009B63;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 999px;
+  padding: 12px 28px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 155, 99, 0.28);
+  transition: all 0.2s ease;
+}
+
+.dg-deliv-hero-cta-btn:hover {
+  background: #007A4E;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 155, 99, 0.38);
+}
+
+.dg-deliv-hero-right {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.dg-deliv-hero-media-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 8px 30px rgba(16, 61, 53, 0.12);
+}
+
+.dg-deliv-hero-photo {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16/10.5;
+  object-fit: cover;
+  display: block;
+}
+
+.dg-deliv-floating-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: #00352B;
+  border: 2.5px solid #D9A52E;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #F5E5B3;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.38);
+  padding: 4px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.dg-deliv-floating-badge svg {
+  color: #D9A52E;
+  margin-bottom: 2px;
+}
+
+.dg-dfb-title {
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #E0EFE9;
+  line-height: 1;
+}
+
+.dg-dfb-days {
+  font-family: 'Outfit', sans-serif;
+  font-size: 14.5px;
+  font-weight: 900;
+  color: #F5E5B3;
+  line-height: 1.1;
+  margin: 1px 0;
+}
+
+.dg-dfb-pill {
+  background: #D9A52E;
+  color: #00352B;
+  font-size: 8px;
+  font-weight: 900;
+  padding: 1px 6px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
+/* ── 2. TWO-COLUMN WORKSPACE: LEFT (COINS & BENEFITS) + RIGHT (WALLET, CART, SUMMARY) ── */
+.dg-deliv-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) 360px;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1140px) {
+  .dg-deliv-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dg-deliv-left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.dg-deliv-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Section Title */
+.dg-deliv-sec-heading {
+  margin-bottom: 2px;
+}
+
+.dg-deliv-sec-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 22px;
+  font-weight: 850;
+  color: #103D35;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.015em;
+}
+
+.dg-deliv-sec-subtitle {
+  font-size: 13px;
+  color: #657772;
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* Large Coin Cards (Gold & Silver) */
+.dg-deliv-coin-card {
+  border-radius: 22px;
+  padding: 24px 28px;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 24px;
+  align-items: center;
+  box-shadow: 0 4px 20px rgba(16, 61, 53, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+@media (max-width: 680px) {
+  .dg-deliv-coin-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dg-deliv-coin-card.gold-theme {
+  background: #FFFDF6;
+  border: 1.5px solid #EDE6D6;
+  background-image: radial-gradient(circle at 100% 50%, rgba(217, 165, 46, 0.08) 0%, transparent 60%);
+}
+
+.dg-deliv-coin-card.silver-theme {
+  background: #EDF5FA;
+  border: 1.5px solid #D5E2EC;
+  background-image: radial-gradient(circle at 100% 50%, rgba(147, 168, 184, 0.12) 0%, transparent 60%);
+}
+
+.dg-dcc-head-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.dg-dcc-badge-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dg-dcc-badge-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.dg-dcc-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
+  font-weight: 850;
+  margin: 0;
+  letter-spacing: 0.03em;
+}
+
+.dg-dcc-title.gold {
+  color: #8C6212;
+}
+
+.dg-dcc-title.silver {
+  color: #1E3A4B;
+}
+
+.dg-dcc-purity {
+  font-size: 12px;
+  color: #657772;
+  font-weight: 600;
+}
+
+.dg-dcc-avail-pill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  letter-spacing: 0.02em;
+}
+
+.dg-dcc-avail-pill.gold {
+  background: #D9A52E;
+  color: #FFFFFF;
+}
+
+.dg-dcc-avail-pill.silver {
+  background: #5B7B91;
+  color: #FFFFFF;
+}
+
+.dg-dcc-denoms-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+
+.dg-denom-pill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 4px;
+  border-radius: 999px;
+  border: 1.5px solid #E5DFD2;
+  background: #FFFFFF;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  color: #103D35;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+}
+
+.dg-denom-pill:hover {
+  border-color: #D9A52E;
+  background: #FEF9EE;
+  transform: translateY(-1px);
+}
+
+.dg-denom-pill.selected {
+  background: #D9A52E;
+  border-color: #D9A52E;
+  color: #FFFFFF;
+  box-shadow: 0 3px 10px rgba(217, 165, 46, 0.35);
+}
+
+.dg-denom-pill.silver {
+  border-color: #D2DEE6;
+  color: #1E3A4B;
+}
+
+.dg-denom-pill.silver:hover {
+  border-color: #93A8B8;
+  background: #EBF2F7;
+}
+
+.dg-denom-pill.silver.selected {
+  background: #1E3A4B;
+  border-color: #1E3A4B;
+  color: #FFFFFF;
+  box-shadow: 0 3px 10px rgba(30, 58, 75, 0.3);
+}
+
+.dg-denom-count-bubble {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #009B63;
+  color: #FFFFFF;
+  font-size: 9px;
+  font-weight: 850;
+  min-width: 17px;
+  height: 17px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.dg-denom-count-bubble.silver {
+  background: #1E3A4B;
+}
+
+.dg-dcc-visual-side {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.dg-dcc-stack-img {
+  width: 100%;
+  max-width: 270px;
+  height: auto;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+  border-radius: 16px;
+  box-shadow: 0 6px 20px rgba(16, 61, 53, 0.08);
+}
+
+/* Horizontal Benefits Card (Why Choose Digi Gold Delivery) */
+.dg-deliv-horizontal-benefits-card {
+  background: #FFFDF8;
+  border: 1px solid #E5E0D3;
+  border-radius: 20px;
+  padding: 22px 26px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  box-shadow: 0 2px 14px rgba(16, 61, 53, 0.03);
+}
+
+@media (max-width: 900px) {
+  .dg-deliv-horizontal-benefits-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.dg-dhb-intro {
+  flex: 0 0 220px;
+}
+
+.dg-dhb-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 16px;
+  font-weight: 850;
+  color: #103D35;
+  margin: 0 0 4px 0;
+  line-height: 1.25;
+}
+
+.dg-dhb-sub {
+  font-size: 11.5px;
+  color: #657772;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.dg-dhb-columns-wrap {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  justify-content: space-between;
+  width: 100%;
+}
+
+@media (max-width: 680px) {
+  .dg-dhb-columns-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .dg-dhb-divider {
+    display: none;
+  }
+}
+
+.dg-dhb-col {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dg-dhb-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #E5F6EE;
+  color: #009B63;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dg-dhb-text-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.dg-dhb-col-name {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #103D35;
+  line-height: 1.2;
+}
+
+.dg-dhb-col-desc {
+  font-size: 11px;
+  color: #657772;
+  line-height: 1.2;
+}
+
+.dg-dhb-divider {
+  width: 1px;
+  height: 36px;
+  background: #E5E0D3;
+  margin: 0 8px;
+  flex-shrink: 0;
+}
+
+/* ── RIGHT COLUMN: WALLET BALANCE, CART, ADDRESS, SUMMARY & CHECKOUT ── */
+.dg-rpanel-card {
+  background: #FFFDF8;
+  border: 1.5px solid #EDE6D6;
+  border-radius: 22px;
+  padding: 22px 20px;
+  box-shadow: 0 4px 22px rgba(16, 61, 53, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: all 0.3s ease;
+}
+
+/* Highlight pulse for Section 8 dashboard shortcut */
+@keyframes dgSummaryPulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 155, 99, 0.5); }
+  70% { box-shadow: 0 0 0 16px rgba(0, 155, 99, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 155, 99, 0); }
+}
+
+.dg-rpanel-card.dg-summary-pulse-highlight {
+  animation: dgSummaryPulse 1.8s ease-out;
+  border-color: #009B63;
+}
+
+.dg-rpanel-section-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.dg-rpanel-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.dg-rpanel-head-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 14.5px;
+  font-weight: 850;
+  color: #103D35;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dg-rpanel-clear-btn {
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  font-weight: 750;
+  color: #009B63;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.dg-rpanel-dual-wallets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.dg-rpanel-wallet-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid #E8DFCF;
+  background: #F9F7F1;
+}
+
+.dg-rpanel-wallet-box.silver {
+  background: #F1F6FA;
+  border-color: #D9E5ED;
+}
+
+.dg-rpw-coin {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.dg-rpw-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.dg-rpw-label {
+  font-size: 10.5px;
+  color: #657772;
+  font-weight: 700;
+}
+
+.dg-rpw-amount {
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  font-weight: 850;
+  color: #103D35;
+  line-height: 1.1;
+}
+
+.dg-rpw-status {
+  font-size: 10px;
+  color: #7A8C87;
+}
+
+.dg-rpanel-separator {
+  height: 1px;
+  background: #EAE3D2;
+  margin: 2px 0;
+}
+
+.dg-rpanel-empty-box {
+  padding: 18px 10px;
+  text-align: center;
+  color: #7A8C87;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.dg-rpanel-selected-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dg-rpanel-selected-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #F2ECE1;
+}
+
+.dg-rpanel-selected-item:last-child {
+  border-bottom: none;
+}
+
+.dg-rpanel-item-thumb {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.dg-rpanel-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dg-rpanel-item-name {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  color: #103D35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dg-rpanel-item-rate {
+  display: block;
+  font-size: 10.5px;
+  color: #657772;
+}
+
+.dg-rpanel-qty-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #D5CEBD;
+  border-radius: 8px;
+  padding: 2px 6px;
+  background: #FFFFFF;
+}
+
+.dg-rp-qty-btn {
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  font-weight: 800;
+  color: #103D35;
+  cursor: pointer;
+  padding: 0 3px;
+  line-height: 1;
+}
+
+.dg-rp-qty-val {
+  font-size: 11.5px;
+  font-weight: 800;
+  min-width: 14px;
+  text-align: center;
+  color: #103D35;
+}
+
+.dg-rpanel-item-weight {
+  font-size: 12px;
+  font-weight: 750;
+  color: #103D35;
+  margin-left: auto;
+}
+
+/* Address snippet */
+.dg-rpanel-addr-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.dg-rpanel-addr-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #103D35;
+}
+
+.dg-rpanel-change-link {
+  background: transparent;
+  border: none;
+  font-size: 11.5px;
+  font-weight: 750;
+  color: #009B63;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.dg-rpanel-addr-text {
+  font-size: 11.5px;
+  color: #4A5F58;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.dg-rpanel-addr-edit-box {
+  margin-top: 6px;
+}
+
+.dg-rpanel-addr-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #CCD8D3;
+  border-radius: 8px;
+  font-size: 11.5px;
+  box-sizing: border-box;
+}
+
+/* Order Summary */
+.dg-rpanel-summary-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.dg-rpanel-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #4A5F58;
+}
+
+.dg-rpanel-sum-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dg-rpanel-sum-coin-mini {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+}
+
+.dg-rpanel-sum-right {
+  font-weight: 750;
+  color: #103D35;
+}
+
+.dg-rpanel-total-divider {
+  height: 1px;
+  border-top: 1.5px dashed #D2DBD6;
+  margin: 10px 0 6px;
+}
+
+.dg-rpanel-grand-total-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.dg-rpanel-grand-label {
+  font-size: 13.5px;
+  font-weight: 850;
+  color: #103D35;
+}
+
+.dg-rpanel-grand-val {
+  font-family: 'Outfit', sans-serif;
+  font-size: 20px;
+  font-weight: 900;
+  color: #103D35;
+}
+
+.dg-rpanel-checkout-btn {
+  width: 100%;
+  height: 48px;
+  background: #009B63;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 850;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 16px rgba(0, 155, 99, 0.3);
+  margin-top: 6px;
+}
+
+.dg-rpanel-checkout-btn:hover:not(:disabled) {
+  background: #007A4E;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 155, 99, 0.4);
+}
+
+.dg-rpanel-checkout-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ── 3. FULL-WIDTH BOTTOM SPECIAL OFFER BANNER ── */
+.dg-deliv-bottom-special-banner {
+  background: #00352B;
+  border: 1.5px solid rgba(217, 165, 46, 0.4);
+  border-radius: 22px;
+  padding: 22px 36px;
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1.2fr;
+  gap: 24px;
+  align-items: center;
+  color: #FFFFFF;
+  box-shadow: 0 8px 30px rgba(0, 53, 43, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+@media (max-width: 992px) {
+  .dg-deliv-bottom-special-banner {
+    grid-template-columns: 1fr;
+    text-align: center;
+    padding: 24px 20px;
+  }
+  .dg-dsb-right-brand {
+    align-items: center !important;
+    text-align: center !important;
+  }
+}
+
+.dg-dsb-left-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.dg-dsb-gift-icon-circle {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #D9A52E;
+  color: #00352B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(217, 165, 46, 0.4);
+}
+
+.dg-dsb-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
+  font-weight: 850;
+  color: #F5E5B3;
+  margin: 0 0 4px 0;
+}
+
+.dg-dsb-desc {
+  font-size: 12.5px;
+  color: #D0E4DC;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.dg-dsb-center-visual {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.dg-dsb-gift-img {
+  height: 110px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));
+  border-radius: 12px;
+}
+
+.dg-dsb-right-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.dg-dsb-script-text {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-style: italic;
+  font-size: 19px;
+  color: #E0C37B;
+  line-height: 1.2;
+}
+
+.dg-dsb-headline-text {
+  font-family: 'Outfit', sans-serif;
+  font-size: 17px;
+  font-weight: 850;
+  color: #FFFFFF;
+  letter-spacing: 0.02em;
+}
+
+/* ── HEADER SHORTCUT BUTTON FOR ORDER SUMMARY ── */
+.dg-order-summary-shortcut-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #E5F6EE;
+  color: #009B63;
+  border: 1.5px solid rgba(0, 155, 99, 0.3);
+  border-radius: 10px;
+  padding: 7px 13px;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dg-order-summary-shortcut-btn:hover {
+  background: #009B63;
+  color: #FFFFFF;
+}
+
+.dg-cart-count-pill {
+  background: #009B63;
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 1px 6px;
+  border-radius: 999px;
+  line-height: 1.3;
+}
+
+.dg-order-summary-shortcut-btn:hover .dg-cart-count-pill {
+  background: #FFFFFF;
+  color: #009B63;
+}
+

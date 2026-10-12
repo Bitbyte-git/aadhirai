@@ -16,6 +16,7 @@ HierarchySubtreeOrdersView, HierarchyAdminsView, HierarchyChildrenView, SalesRep
  MemberHoldingsDetailView, JewelryStockDetailView, OrderReceiptPDFView, GenericTablePDFView, AdminOrdersListView, OrderTrackingView,
  HierarchyTierDirectoryView,
  DigiGoldDashboardView, DigiGoldBuyView, DigiGoldSellView, DigiGoldConvertFromRechargeView, DigiGoldSuperAdminView,
+ DigiGoldDeliveryOrderView, DigiGoldDeliveryOrderHistoryView,
 )
 
 urlpatterns = [
@@ -150,6 +151,8 @@ urlpatterns = [
     path('digi-gold/sell/', DigiGoldSellView.as_view()),
     path('digi-gold/convert-from-recharge/', DigiGoldConvertFromRechargeView.as_view()),
     path('digi-gold/superadmin/', DigiGoldSuperAdminView.as_view()),
+    path('digi-gold/delivery/order/', DigiGoldDeliveryOrderView.as_view()),
+    path('digi-gold/delivery/orders/', DigiGoldDeliveryOrderHistoryView.as_view()),
 
     
 

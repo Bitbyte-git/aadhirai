@@ -2261,10 +2261,12 @@ export default function SuperAdminNavbar({
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  width: max(100%, 360px);
-  max-width: 440px;
+  width: min(380px, calc(100vw - 20px));
+  max-width: calc(100vw - 20px);
   max-height: 460px;
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
   background: #FFFFFF;
   border: 1.5px solid rgba(189,207,206,.9);
   border-radius: 18px;
@@ -2280,10 +2282,12 @@ export default function SuperAdminNavbar({
   .san-suggestions-dropdown {
     position: fixed !important;
     top: 66px !important;
-    left: 10px !important;
-    right: 10px !important;
+    left: 8px !important;
+    right: 8px !important;
     width: auto !important;
-    max-width: 500px !important;
+    max-width: calc(100vw - 16px) !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
     margin: 0 auto !important;
     max-height: calc(100dvh - 80px) !important;
     border-radius: 16px !important;
@@ -2362,7 +2366,7 @@ export default function SuperAdminNavbar({
 .san-menu-trigger-chevron.is-rotated { transform: rotate(180deg); }
 
 /* ── PREMIUM SAAS POPUP DROPDOWN ── */
-.san-menu-dropdown { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%) translateY(4px); min-width: 230px; max-width: 300px; background: #FFFFFF; border: 1.5px solid rgba(7, 59, 63, 0.1); border-radius: 12px; box-shadow: 0 16px 38px rgba(7, 59, 63, 0.12), 0 4px 12px rgba(0, 0, 0, 0.04); padding: 6px; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.16s ease; z-index: 1000; }
+.san-menu-dropdown { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%) translateY(4px); min-width: 230px; max-width: min(300px, calc(100vw - 20px)); box-sizing: border-box; background: #FFFFFF; border: 1.5px solid rgba(7, 59, 63, 0.1); border-radius: 12px; box-shadow: 0 16px 38px rgba(7, 59, 63, 0.12), 0 4px 12px rgba(0, 0, 0, 0.04); padding: 6px; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.16s ease; z-index: 1000; }
 .san-menu-group.is-open .san-menu-dropdown { opacity: 1; visibility: visible; pointer-events: auto; transform: translateX(-50%) translateY(0); }
 .san-menu-group:first-child .san-menu-dropdown { left: 0; transform: translateY(4px); }
 .san-menu-group:first-child.is-open .san-menu-dropdown { transform: translateY(0); }
@@ -2386,7 +2390,8 @@ export default function SuperAdminNavbar({
   top: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%) translateY(4px);
-  width: 330px;
+  width: min(330px, calc(100vw - 20px));
+  max-width: calc(100vw - 20px);
   background: #FFFFFF;
   border: 1.5px solid rgba(7, 59, 63, 0.12);
   border-radius: 14px;

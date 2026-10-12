@@ -1260,6 +1260,85 @@
     -webkit-overflow-scrolling: touch;
     box-sizing: border-box;
   }
+
+  /* ── MOBILE DROPDOWN STYLING & VIEWPORT INTEGRITY ── */
+  .sadg-cat-dropdown,
+  .sadg-select-pill,
+  .sadg-date-input,
+  .sadg-search-input {
+    font-size: 16px !important; /* Prevents mobile Safari/Chrome auto-zoom jumping */
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    text-overflow: ellipsis !important;
+  }
+  .sadg-cat-select-row {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .sadg-cat-select-row .sadg-cat-dropdown {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 9px 34px 9px 12px !important;
+  }
+  .sadg-filters-card {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 14px 12px !important;
+    gap: 12px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+  .sadg-search-box {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+  .sadg-filter-selects {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .sadg-filter-selects .sadg-select-pill {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    padding: 8px 28px 8px 10px !important;
+    background-position: right 8px center !important;
+    background-size: 10px 10px !important;
+  }
+  .sadg-view5-filter-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    gap: 8px !important;
+    box-sizing: border-box !important;
+  }
+  .sadg-view5-filter-row .sadg-cat-dropdown {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .sadg-view5-metal-row {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .sadg-view5-metal-row .sadg-select-pill {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1371,6 +1450,17 @@
     -webkit-overflow-scrolling: touch;
     box-sizing: border-box;
   }
+  .sadg-filter-selects {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .sadg-filter-selects .sadg-select-pill {
+    padding: 7px 22px 7px 8px !important;
+    background-position: right 6px center !important;
+    font-size: 14.5px !important;
+  }
 }
 
 @media (max-width: 360px) {
@@ -1402,6 +1492,10 @@
   }
   .sadg-role-card-val {
     font-size: 13px !important;
+  }
+  .sadg-filter-selects {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
   }
 }
 
@@ -1452,7 +1546,7 @@
 }
 
 /* ═════════════════════════════════════════════════════════════════════════
-   LUXURY DROPDOWN SELECT STYLING
+   LUXURY DROPDOWN SELECT STYLING (ZERO SCREEN OVERFLOW)
    ═════════════════════════════════════════════════════════════════════════ */
 .sadg-cat-dropdown,
 .sadg-select-pill {
@@ -1473,6 +1567,11 @@
   transition: all 0.2s ease;
   box-shadow: 0 1px 3px rgba(10, 62, 66, 0.04);
   outline: none;
+  max-width: 100%;
+  box-sizing: border-box;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .sadg-cat-dropdown:hover,
@@ -1485,6 +1584,40 @@
 .sadg-select-pill:focus {
   border-color: #073E40;
   box-shadow: 0 0 0 3px rgba(7, 62, 64, 0.15);
+}
+
+/* ── VIEW 5 RESPONSIVE FILTER ROW ── */
+.sadg-view5-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.sadg-view5-label {
+  font-size: 13px;
+  font-weight: 800;
+  color: #103F42;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sadg-view5-filter-row .sadg-cat-dropdown {
+  max-width: 320px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.sadg-view5-metal-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 /* ═════════════════════════════════════════════════════════════════════════

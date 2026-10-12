@@ -63,7 +63,6 @@ function CustomChartTooltip({ active, payload, label, isSilver = false }) {
   const pData = payload[0]?.payload || {}
   const grams = pData.grams ?? 0
   const revenue = pData.revenue ?? 0
-  const effectiveRate = grams > 0 ? (revenue / grams) : null
 
   return (
     <div className="sadg-chart-tooltip">
@@ -77,19 +76,11 @@ function CustomChartTooltip({ active, payload, label, isSilver = false }) {
         </span>
       </div>
       <div className="sadg-chart-tooltip-row">
-        <span style={{ color: '#A7F3D0' }}>Revenue:</span>
+        <span style={{ color: '#A7F3D0' }}>Sales:</span>
         <span className="sadg-chart-tooltip-val">
           ₹ {Number(revenue).toLocaleString('en-IN')}
         </span>
       </div>
-      {effectiveRate ? (
-        <div className="sadg-chart-tooltip-row">
-          <span style={{ color: isSilver ? '#93C5FD' : '#FDE68A' }}>Avg Rate:</span>
-          <span className="sadg-chart-tooltip-val">
-            ₹ {Number(effectiveRate).toFixed(2)} / g
-          </span>
-        </div>
-      ) : null}
     </div>
   )
 }
@@ -328,7 +319,7 @@ export default function SuperAdminDigiGold() {
         timeZone: 'Asia/Kolkata'
       }) + ' IST'
 
-      const isRateReport = activeSection === 'gold_rates' || activeSection === 'silver_rates'
+      const isRateReport = activeSection === 'gold_rates'
       let reportTitle = 'Master Transactions Audit Report'
       let reportCategory = 'DIGI GOLD & SILVER AUDIT'
       if (activeSection === 'gold_mgmt') {
@@ -341,10 +332,7 @@ export default function SuperAdminDigiGold() {
         reportTitle = 'Investor Purchases & Hierarchy Sales Audit'
         reportCategory = 'INVESTOR AUDIT'
       } else if (activeSection === 'gold_rates') {
-        reportTitle = 'Official 22K Gold Benchmark Rates Log'
-        reportCategory = 'BENCHMARK RATES AUDIT'
-      } else if (activeSection === 'silver_rates') {
-        reportTitle = 'Official Pure 999 Silver Benchmark Rates Log'
+        reportTitle = 'Official 22K Gold & Pure 999 Silver Benchmark Rates Log'
         reportCategory = 'BENCHMARK RATES AUDIT'
       }
 
@@ -355,14 +343,13 @@ export default function SuperAdminDigiGold() {
 
       if (isRateReport) {
         if (!rateHistory.length) {
-          rowsHtml = '<tr><td colspan="5" style="text-align: center; padding: 20px;">No benchmark rate history recorded yet.</td></tr>'
+          rowsHtml = '<tr><td colspan="4" style="text-align: center; padding: 20px;">No benchmark rate history recorded yet.</td></tr>'
         } else {
           rateHistory.forEach((r) => {
             rowsHtml += `
               <tr>
                 <td style="font-weight: 700; color: #0A3E42;">${r.date}</td>
                 <td style="text-align: right; font-weight: 750;">₹ ${Number(r.gold_22k).toLocaleString('en-IN')}</td>
-                <td style="text-align: right; color: #073E40;">₹ ${(Number(r.gold_22k) / 1000).toFixed(2)}</td>
                 <td style="text-align: right; font-weight: 750;">₹ ${Number(r.silver_999).toFixed(2)}</td>
                 <td style="text-align: center;"><span class="badge status-completed">Verified Athirai Rate</span></td>
               </tr>
@@ -828,10 +815,9 @@ export default function SuperAdminDigiGold() {
         <thead>
           <tr>
             <th style="width: 25%; text-align: left;">Date</th>
-            <th style="width: 20%; text-align: right;">Gold 22K (₹/g)</th>
-            <th style="width: 20%; text-align: right;">Gold 22K (₹/mg)</th>
-            <th style="width: 20%; text-align: right;">Silver 999 (₹/g)</th>
-            <th style="width: 15%; text-align: center;">Source Status</th>
+            <th style="width: 25%; text-align: right;">Gold 22K (₹/g)</th>
+            <th style="width: 25%; text-align: right;">Silver 999 (₹/g)</th>
+            <th style="width: 25%; text-align: center;">Source Status</th>
           </tr>
         </thead>
         <tbody>
@@ -910,8 +896,7 @@ export default function SuperAdminDigiGold() {
     { id: 'gold_mgmt', label: 'Gold Management', icon: Coins },
     { id: 'silver_mgmt', label: 'Silver Management', icon: Layers },
     { id: 'user_buy', label: 'User Buy Gold', icon: Users },
-    { id: 'gold_rates', label: 'Gold Rates', icon: TrendingUp },
-    { id: 'silver_rates', label: 'Silver Rates', icon: BarChart3 },
+    { id: 'gold_rates', label: 'Gold and Silver Rates', icon: TrendingUp },
   ]
 
   const handleNavClick = (id) => {
@@ -1008,7 +993,6 @@ export default function SuperAdminDigiGold() {
               {activeSection === 'silver_mgmt' && <Layers size={22} />}
               {activeSection === 'user_buy' && <Users size={22} />}
               {activeSection === 'gold_rates' && <TrendingUp size={22} />}
-              {activeSection === 'silver_rates' && <BarChart3 size={22} />}
             </div>
             <div>
               <h1 className="sadg-title">
@@ -1017,8 +1001,7 @@ export default function SuperAdminDigiGold() {
                 {activeSection === 'gold_mgmt' && 'Gold Management'}
                 {activeSection === 'silver_mgmt' && 'Silver Management'}
                 {activeSection === 'user_buy' && 'User Buy Gold & Silver'}
-                {activeSection === 'gold_rates' && 'Gold Benchmark Rates'}
-                {activeSection === 'silver_rates' && 'Silver Benchmark Rates'}
+                {activeSection === 'gold_rates' && 'Gold & Silver Benchmark Rates'}
               </h1>
               <p className="sadg-subtitle">
                 {activeSection === 'overview' && 'Sales, holdings, transaction history and user-wise investment analytics.'}
@@ -1026,8 +1009,7 @@ export default function SuperAdminDigiGold() {
                 {activeSection === 'gold_mgmt' && 'Detailed 22K Digi Gold sales analytics, vault weight accumulation, and investor ledgers.'}
                 {activeSection === 'silver_mgmt' && 'Detailed Digi Silver sales analytics, purity metrics, and settlement ledgers.'}
                 {activeSection === 'user_buy' && 'Tier-wise investor breakdown, network hierarchy sales volumes, and category purchase ledgers.'}
-                {activeSection === 'gold_rates' && 'Live 22K benchmark bullion rates, historical movement trends, and pricing logs.'}
-                {activeSection === 'silver_rates' && 'Live Pure 999 silver bullion rates, per-gram and per-kilogram valuations, and pricing history.'}
+                {activeSection === 'gold_rates' && 'Live 22K gold & pure 999 silver benchmark bullion rates, historical movement trends, and pricing logs.'}
               </p>
             </div>
           </div>
@@ -1283,13 +1265,13 @@ export default function SuperAdminDigiGold() {
                             className={`sadg-metric-btn ${goldChartMetric === 'revenue' ? 'active' : ''}`}
                             onClick={() => setGoldChartMetric('revenue')}
                           >
-                            Revenue (₹)
+                            Sales (₹)
                           </button>
                         </div>
                         <div className="sadg-chart-legend">
                           <span className="sadg-legend-item">
                             <span className="sadg-legend-line" style={{ background: goldChartMetric === 'grams' ? '#073E40' : '#0A3E42' }} />
-                            {goldChartMetric === 'grams' ? 'Gold (g)' : 'Revenue (₹)'}
+                            {goldChartMetric === 'grams' ? 'Gold (g)' : 'Sales (₹)'}
                           </span>
                         </div>
                       </div>
@@ -1317,7 +1299,7 @@ export default function SuperAdminDigiGold() {
                           <Area
                             type="monotone"
                             dataKey={goldChartMetric === 'grams' ? 'grams' : 'revenue'}
-                            name={goldChartMetric === 'grams' ? 'Gold (g)' : 'Revenue (₹)'}
+                            name={goldChartMetric === 'grams' ? 'Gold (g)' : 'Sales (₹)'}
                             stroke={goldChartMetric === 'grams' ? '#073E40' : '#0A3E42'}
                             strokeWidth={2.4}
                             fill="url(#sadgGoldGrad)"
@@ -1355,13 +1337,13 @@ export default function SuperAdminDigiGold() {
                             className={`sadg-metric-btn ${silverChartMetric === 'revenue' ? 'active' : ''}`}
                             onClick={() => setSilverChartMetric('revenue')}
                           >
-                            Revenue (₹)
+                            Sales (₹)
                           </button>
                         </div>
                         <div className="sadg-chart-legend">
                           <span className="sadg-legend-item">
                             <span className="sadg-legend-line" style={{ background: silverChartMetric === 'grams' ? '#0284C7' : '#0A3E42' }} />
-                            {silverChartMetric === 'grams' ? 'Silver (g)' : 'Revenue (₹)'}
+                            {silverChartMetric === 'grams' ? 'Silver (g)' : 'Sales (₹)'}
                           </span>
                         </div>
                       </div>
@@ -1389,7 +1371,7 @@ export default function SuperAdminDigiGold() {
                           <Area
                             type="monotone"
                             dataKey={silverChartMetric === 'grams' ? 'grams' : 'revenue'}
-                            name={silverChartMetric === 'grams' ? 'Silver (g)' : 'Revenue (₹)'}
+                            name={silverChartMetric === 'grams' ? 'Silver (g)' : 'Sales (₹)'}
                             stroke={silverChartMetric === 'grams' ? '#0284C7' : '#0A3E42'}
                             strokeWidth={2.4}
                             fill="url(#sadgSilverGrad)"
@@ -2019,13 +2001,13 @@ export default function SuperAdminDigiGold() {
                       className={`sadg-metric-btn ${goldMgmtMetric === 'revenue' ? 'active' : ''}`}
                       onClick={() => setGoldMgmtMetric('revenue')}
                     >
-                      Revenue (₹)
+                      Sales (₹)
                     </button>
                   </div>
                   <div className="sadg-chart-legend">
                     <span className="sadg-legend-item">
                       <span className="sadg-legend-line" style={{ background: '#073E40' }} />
-                      {goldMgmtMetric === 'grams' ? 'Quantity Sold (g)' : 'Sales Inflow (₹)'}
+                      {goldMgmtMetric === 'grams' ? 'Quantity Sold (g)' : 'Sales (₹)'}
                     </span>
                   </div>
                 </div>
@@ -2052,7 +2034,7 @@ export default function SuperAdminDigiGold() {
                     <Area
                       type="monotone"
                       dataKey={goldMgmtMetric === 'grams' ? 'grams' : 'revenue'}
-                      name={goldMgmtMetric === 'grams' ? 'Gold (g)' : 'Revenue (₹)'}
+                      name={goldMgmtMetric === 'grams' ? 'Gold (g)' : 'Sales (₹)'}
                       stroke="#073E40"
                       strokeWidth={2.4}
                       fill="url(#goldMgmtAreaGrad)"
@@ -2209,13 +2191,13 @@ export default function SuperAdminDigiGold() {
                       className={`sadg-metric-btn ${silverMgmtMetric === 'revenue' ? 'active' : ''}`}
                       onClick={() => setSilverMgmtMetric('revenue')}
                     >
-                      Revenue (₹)
+                      Sales (₹)
                     </button>
                   </div>
                   <div className="sadg-chart-legend">
                     <span className="sadg-legend-item">
                       <span className="sadg-legend-line" style={{ background: '#0284C7' }} />
-                      {silverMgmtMetric === 'grams' ? 'Quantity Sold (g)' : 'Sales Inflow (₹)'}
+                      {silverMgmtMetric === 'grams' ? 'Quantity Sold (g)' : 'Sales (₹)'}
                     </span>
                   </div>
                 </div>
@@ -2242,7 +2224,7 @@ export default function SuperAdminDigiGold() {
                     <Area
                       type="monotone"
                       dataKey={silverMgmtMetric === 'grams' ? 'grams' : 'revenue'}
-                      name={silverMgmtMetric === 'grams' ? 'Silver (g)' : 'Revenue (₹)'}
+                      name={silverMgmtMetric === 'grams' ? 'Silver (g)' : 'Sales (₹)'}
                       stroke="#0284C7"
                       strokeWidth={2.4}
                       fill="url(#silverMgmtAreaGrad)"
@@ -2315,13 +2297,12 @@ export default function SuperAdminDigiGold() {
           <div className="sadg-full-section">
             {/* Category Dropdown & Summary */}
             <div className="sadg-filters-card">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
-                <span style={{ fontSize: 13, fontWeight: 800, color: '#103F42', whiteSpace: 'nowrap' }}>
+              <div className="sadg-view5-filter-row">
+                <span className="sadg-view5-label">
                   Select User Category:
                 </span>
                 <select
                   className="sadg-cat-dropdown"
-                  style={{ maxWidth: 320 }}
                   value={selectedUserCategory}
                   onChange={(e) => { setSelectedUserCategory(e.target.value); setCurrentPage(1); }}
                 >
@@ -2335,7 +2316,7 @@ export default function SuperAdminDigiGold() {
                 </select>
               </div>
 
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div className="sadg-view5-metal-row">
                 <select
                   className="sadg-select-pill"
                   value={metalFilter}
@@ -2456,7 +2437,7 @@ export default function SuperAdminDigiGold() {
                     ₹ <AnimatedNumber value={rates.gold_22k || 13200} /> <small style={{ fontSize: 14 }}>/ g</small>
                   </div>
                   <div style={{ fontSize: 12, opacity: 0.9 }}>
-                    Per mg: ₹ {((rates.gold_22k || 13200) / 1000).toFixed(2)} | Movement: {rates.diff_22k >= 0 ? '+' : ''}{rates.diff_22k || 0} ({rates.pct_22k || 0}%)
+                    Movement: {rates.diff_22k >= 0 ? '+' : ''}{rates.diff_22k || 0} ({rates.pct_22k || 0}%)
                   </div>
                 </div>
                 <Coins size={38} color="#FDE68A" />
@@ -2498,7 +2479,7 @@ export default function SuperAdminDigiGold() {
               </span>
             </div>
 
-            {/* Historical Gold Rate Table */}
+            {/* Historical Gold & Silver Rate Table */}
             <div style={{ background: '#FFFFFF', border: '1px solid #E2ECE7', borderRadius: 16, overflow: 'hidden' }}>
               <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2ECE7', fontWeight: 800, fontSize: 15 }}>
                 Official Rate History Log
@@ -2509,7 +2490,6 @@ export default function SuperAdminDigiGold() {
                     <tr>
                       <th>Date</th>
                       <th>Gold 22K (₹/g)</th>
-                      <th>Gold 22K (₹/mg)</th>
                       <th>Silver 999 (₹/g)</th>
                       <th>Source Status</th>
                     </tr>
@@ -2517,7 +2497,7 @@ export default function SuperAdminDigiGold() {
                   <tbody>
                     {rateHistory.length === 0 ? (
                       <tr>
-                        <td colSpan={5} style={{ textAlign: 'center', padding: 30, color: '#6A7D7C' }}>
+                        <td colSpan={4} style={{ textAlign: 'center', padding: 30, color: '#6A7D7C' }}>
                           No historical rate logs recorded yet.
                         </td>
                       </tr>
@@ -2526,76 +2506,7 @@ export default function SuperAdminDigiGold() {
                         <tr key={r.date_iso || idx}>
                           <td><b>{r.date}</b></td>
                           <td>₹ {Number(r.gold_22k).toLocaleString('en-IN')}</td>
-                          <td>₹ {(Number(r.gold_22k) / 1000).toFixed(2)}</td>
                           <td>₹ {Number(r.silver_999).toFixed(2)}</td>
-                          <td>
-                            <span className="sadg-status-badge completed">Verified Athirai Rate</span>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════
-           VIEW 7: SILVER RATES (DEDICATED SECTION)
-           ══════════════════════════════════════════════════════════════ */}
-        {activeSection === 'silver_rates' && (
-          <div className="sadg-full-section">
-            {/* Live Silver Rates Cards */}
-            <div className="sadg-rates-display-grid">
-              <div className="sadg-rate-banner-box silver">
-                <div>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: '#E2E8F0', textTransform: 'uppercase' }}>
-                    Digi Silver (Pure 999 Benchmark)
-                  </span>
-                  <div className="sadg-rate-banner-price">
-                    ₹ {Number(rates.silver_999 || 275).toFixed(2)} <small style={{ fontSize: 14 }}>/ g</small>
-                  </div>
-                  <div style={{ fontSize: 12, opacity: 0.9 }}>
-                    Per Kilogram: ₹ {(Number(rates.silver_999 || 275) * 1000).toLocaleString('en-IN')} | Movement: {rates.diff_silver >= 0 ? '+' : ''}{rates.diff_silver || 0} ({rates.pct_silver || 0}%)
-                  </div>
-                </div>
-                <Layers size={38} color="#E2E8F0" />
-              </div>
-            </div>
-
-            {/* Historical Silver Rate Table */}
-            <div style={{ background: '#FFFFFF', border: '1px solid #E2ECE7', borderRadius: 16, overflow: 'hidden' }}>
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2ECE7', fontWeight: 800, fontSize: 15 }}>
-                Official Silver Benchmark History
-              </div>
-              <div className="sadg-table-wrap">
-                <table className="sadg-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Silver 999 (₹/g)</th>
-                      <th>Silver 999 (₹/kg)</th>
-                      <th>Movement Delta</th>
-                      <th>Source Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rateHistory.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} style={{ textAlign: 'center', padding: 30, color: '#6A7D7C' }}>
-                          No historical silver rate logs recorded yet.
-                        </td>
-                      </tr>
-                    ) : (
-                      rateHistory.map((r, idx) => (
-                        <tr key={r.date_iso || idx}>
-                          <td><b>{r.date}</b></td>
-                          <td>₹ {Number(r.silver_999).toFixed(2)}</td>
-                          <td>₹ {(Number(r.silver_999) * 1000).toLocaleString('en-IN')}</td>
-                          <td>
-                            <span style={{ color: '#073E40', fontWeight: 700 }}>+0.00 (Benchmark)</span>
-                          </td>
                           <td>
                             <span className="sadg-status-badge completed">Verified Athirai Rate</span>
                           </td>

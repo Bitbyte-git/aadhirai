@@ -12737,6 +12737,24 @@ class DigiGoldDashboardView(APIView):
 
         user_phone = getattr(user, 'phone', '') or getattr(getattr(user, 'customer_profile', None), 'phone', '')
 
+        # Fetch saved address
+        user_address = {}
+        if hasattr(user, 'customer_profile') and user.customer_profile:
+            cp = user.customer_profile
+            parts = [cp.door_no, cp.street_name, cp.town_name, cp.city_name, cp.district, cp.state]
+            full_addr = ", ".join([str(p).strip() for p in parts if p and str(p).strip()])
+            if cp.pincode:
+                full_addr += f" - {cp.pincode}" if full_addr else str(cp.pincode)
+            user_address = {
+                'door_no': cp.door_no or '',
+                'street_name': cp.street_name or '',
+                'city': cp.city_name or cp.town_name or '',
+                'district': cp.district or '',
+                'state': cp.state or '',
+                'pincode': cp.pincode or '',
+                'formatted': full_addr or 'No address provided'
+            }
+
         return Response({
             'customer': {
                 'id': user.id,
@@ -12744,6 +12762,7 @@ class DigiGoldDashboardView(APIView):
                 'email': user.email,
                 'phone': user_phone,
                 'role': user.role.replace('_', ' ').capitalize(),
+                'address': user_address,
             },
             'kpis': {
                 'total_gold_holding_gm': total_holding_gm,
@@ -13131,6 +13150,167 @@ class DigiGoldConvertFromRechargeView(APIView):
                 'hold_gold_gm': float(inv.hold_gold_gm),
             }
         })
+
+
+
+class DigiGoldDeliveryOrderView(APIView):
+    """
+    Handle physical Gold & Silver coin home delivery requests funded by digital wallet balance.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        import random
+        from django.db import transaction
+        from django.utils import timezone
+
+        user = request.user
+        items = request.data.get('items', [])
+        address = request.data.get('address', {})
+
+        if not items or not isinstance(items, list):
+            return Response({'error': 'Please select at least one gold or silver coin for delivery.'}, status=400)
+
+        total_gold_gm = Decimal('0')
+        total_silver_gm = Decimal('0')
+        total_valuation_inr = Decimal('0')
+
+        rates = _get_live_gold_rates()
+        live_gold_rate = Decimal(str(rates.get('gold_22k', 14250.0)))
+        live_silver_rate = Decimal(str(rates.get('silver_999', 275.0)))
+
+        for it in items:
+            metal = it.get('metal', 'gold')
+            qty = int(it.get('quantity', 1))
+            weight_gm = Decimal(str(it.get('weight_gm', 0)))
+            if qty <= 0 or weight_gm <= 0:
+                continue
+            item_weight = weight_gm * qty
+            if metal == 'gold':
+                total_gold_gm += item_weight
+                total_valuation_inr += item_weight * live_gold_rate
+            else:
+                total_silver_gm += item_weight
+                total_valuation_inr += item_weight * live_silver_rate
+
+        if total_gold_gm <= 0 and total_silver_gm <= 0:
+            return Response({'error': 'Invalid coin quantities or weights selected.'}, status=400)
+
+        # Validate wallet balances
+        dg_wallet, _ = DigiGoldWallet.objects.get_or_create(user=user)
+        user_gold_gm = dg_wallet.total_gold_gm
+
+        # Calculate silver holdings
+        silver_buys = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type__in=['buy', 'convert'], notes__icontains='Silver')
+        silver_sells = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type='sell', notes__icontains='Silver')
+        silver_deliv = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type='delivery', notes__icontains='Silver')
+        user_silver_mg = max(Decimal('0'), (silver_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) - (silver_sells.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) - (silver_deliv.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')))
+        user_silver_gm = user_silver_mg / Decimal('1000')
+
+        if total_gold_gm > user_gold_gm:
+            return Response({
+                'error': f'Insufficient Gold wallet balance. You selected {total_gold_gm:.3f}g but have only {user_gold_gm:.3f}g available.'
+            }, status=400)
+
+        if total_silver_gm > user_silver_gm:
+            return Response({
+                'error': f'Insufficient Silver wallet balance. You selected {total_silver_gm:.3f}g but have only {user_silver_gm:.3f}g available.'
+            }, status=400)
+
+        order_id = f"DG{timezone.now().strftime('%Y%m%d')}{random.randint(1000, 9999)}"
+        txn_id = f"DLV-{timezone.now().strftime('%Y%m%d%H%M%S')}-{random.randint(100, 999)}"
+
+        with transaction.atomic():
+            # Deduct gold
+            if total_gold_gm > 0:
+                gold_mg = total_gold_gm * Decimal('1000')
+                dg_wallet.total_gold_gm = max(Decimal('0'), dg_wallet.total_gold_gm - total_gold_gm)
+                dg_wallet.total_gold_mg = max(Decimal('0'), dg_wallet.total_gold_mg - gold_mg)
+                dg_wallet.save()
+
+                gold_items_desc = ", ".join([f"{it.get('denomination', '')} x {it.get('quantity')}" for it in items if it.get('metal') == 'gold'])
+                DigiGoldInvestment.objects.create(
+                    user=user,
+                    transaction_type='delivery',
+                    recharge_amount=total_gold_gm * live_gold_rate,
+                    gold_price_per_gram=live_gold_rate,
+                    mg_price=round(live_gold_rate / Decimal('1000'), 4),
+                    hold_gold_mg=gold_mg,
+                    hold_gold_gm=total_gold_gm,
+                    payment_method='gold_vault_deduction',
+                    transaction_ref=txn_id,
+                    status='completed',
+                    notes=f"Order {order_id}: 22K Gold Coin Delivery ({gold_items_desc}) to {address.get('city', '')}"
+                )
+
+            # Deduct silver
+            if total_silver_gm > 0:
+                silver_mg = total_silver_gm * Decimal('1000')
+                silver_items_desc = ", ".join([f"{it.get('denomination', '')} x {it.get('quantity')}" for it in items if it.get('metal') == 'silver'])
+                DigiGoldInvestment.objects.create(
+                    user=user,
+                    transaction_type='delivery',
+                    recharge_amount=total_silver_gm * live_silver_rate,
+                    gold_price_per_gram=live_silver_rate,
+                    mg_price=round(live_silver_rate / Decimal('1000'), 4),
+                    hold_gold_mg=silver_mg,
+                    hold_gold_gm=total_silver_gm,
+                    payment_method='silver_vault_deduction',
+                    transaction_ref=txn_id,
+                    status='completed',
+                    notes=f"Order {order_id}: 999 Silver Coin Delivery ({silver_items_desc}) to {address.get('city', '')}"
+                )
+
+        order_data = {
+            'order_id': order_id,
+            'transaction_id': txn_id,
+            'date': timezone.now().strftime('%d %b %Y, %I:%M %p'),
+            'raw_date': timezone.now().isoformat(),
+            'items': items,
+            'total_gold_gm': float(total_gold_gm),
+            'total_silver_gm': float(total_silver_gm),
+            'total_weight_gm': float(total_gold_gm + total_silver_gm),
+            'total_amount': float(total_valuation_inr),
+            'delivery_fee': 0.0,
+            'status': 'completed',
+            'estimated_delivery': 'Within 7 business days',
+            'payment_method': 'UPI AutoPay',
+            'address': address
+        }
+
+        return Response({
+            'success': True,
+            'message': f'Home delivery order {order_id} placed successfully!',
+            'order': order_data,
+            'remaining_gold_gm': float(dg_wallet.total_gold_gm),
+            'remaining_silver_gm': float(user_silver_gm - total_silver_gm)
+        }, status=201)
+
+
+class DigiGoldDeliveryOrderHistoryView(APIView):
+    """
+    Fetch user's delivery order history.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        orders = DigiGoldInvestment.objects.filter(user=user, transaction_type='delivery').order_by('-created_at')
+        records = []
+        for o in orders:
+            order_id = o.notes.split(':')[0].replace('Order ', '').strip() if 'Order ' in o.notes else o.transaction_ref
+            records.append({
+                'id': o.id,
+                'order_id': order_id,
+                'transaction_ref': o.transaction_ref,
+                'weight_gm': float(o.hold_gold_gm),
+                'valuation_inr': float(o.recharge_amount),
+                'metal': 'silver' if 'Silver' in o.notes else 'gold',
+                'status': o.status,
+                'notes': o.notes,
+                'date': o.created_at.strftime('%d %b %Y, %I:%M %p'),
+            })
+        return Response({'orders': records})
 
 
 class DigiGoldSuperAdminView(APIView):

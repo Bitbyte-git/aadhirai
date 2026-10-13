@@ -12456,7 +12456,7 @@ class DigiGoldDashboardView(APIView):
                     tx_type_label = 'Sell Gold (22K)'
 
             local_inv = timezone.localtime(inv.created_at)
-            if len(excel_rows) < 100:
+            if len(excel_rows) < 200:
                 excel_rows.append({
                     'id': inv.id,
                     'transaction_id': txn_ref,
@@ -12788,6 +12788,96 @@ class DigiGoldDashboardView(APIView):
                 'formatted': full_addr or 'No address provided'
             }
 
+        # Build dated vault-value snapshots from actual completed ledger events and
+        # the daily metal-rate history. This powers the Valuation Sheet graph.
+        history_events = list(
+            DigiGoldInvestment.objects.filter(
+                user=user,
+                status='completed',
+                transaction_type__in=['buy', 'convert', 'sell', 'delivery'],
+            ).order_by('created_at').values(
+                'transaction_type', 'hold_gold_mg', 'notes', 'created_at'
+            )
+        )
+        graph_gold_mg = Decimal('0')
+        graph_silver_mg = Decimal('0')
+        has_graph_activity = False
+        event_index = 0
+        vault_value_history = []
+
+        def apply_graph_event(event):
+            nonlocal graph_gold_mg, graph_silver_mg, has_graph_activity
+            has_graph_activity = True
+            event_type = event['transaction_type']
+            is_silver_event = 'silver' in (event.get('notes') or '').lower()
+            event_mg = Decimal(str(event.get('hold_gold_mg') or 0))
+            sign = Decimal('-1') if event_type in ['sell', 'delivery'] else Decimal('1')
+            if is_silver_event:
+                graph_silver_mg = max(Decimal('0'), graph_silver_mg + sign * event_mg)
+            else:
+                graph_gold_mg = max(Decimal('0'), graph_gold_mg + sign * event_mg)
+
+        def append_vault_value_point(point_date, label, gold_rate, silver_rate):
+            gold_value = float(graph_gold_mg / Decimal('1000')) * float(gold_rate)
+            silver_value = float(graph_silver_mg / Decimal('1000')) * float(silver_rate)
+            vault_value_history.append({
+                'date': point_date.isoformat(),
+                'label': label,
+                'gold_mg': float(graph_gold_mg),
+                'silver_mg': float(graph_silver_mg),
+                'gold_value': round(gold_value, 2),
+                'silver_value': round(silver_value, 2),
+                'total_value': round(gold_value + silver_value, 2),
+            })
+
+        today = timezone.localdate()
+        previous_gold_rate = live_gold_22k
+        previous_silver_rate = float(rates.get('silver_999', 0) or 0)
+        for rate_row in db_rates_list:
+            if rate_row.date >= today:
+                continue
+            while event_index < len(history_events):
+                event_local_date = timezone.localtime(history_events[event_index]['created_at']).date()
+                if event_local_date > rate_row.date:
+                    break
+                apply_graph_event(history_events[event_index])
+                event_index += 1
+            if rate_row.gold_22k:
+                previous_gold_rate = float(rate_row.gold_22k)
+            if rate_row.silver_999:
+                previous_silver_rate = float(rate_row.silver_999)
+            if has_graph_activity:
+                append_vault_value_point(
+                    rate_row.date,
+                    rate_row.date.strftime('%d %b %Y'),
+                    previous_gold_rate,
+                    previous_silver_rate,
+                )
+
+        # Fold any older ledger events that have no matching daily rate row into
+        # today's opening balance, then add today's order-by-order vault changes.
+        while event_index < len(history_events):
+            event_date = timezone.localtime(history_events[event_index]['created_at']).date()
+            if event_date >= today:
+                break
+            apply_graph_event(history_events[event_index])
+            event_index += 1
+        append_vault_value_point(today, 'Today opening', live_gold_22k, float(rates.get('silver_999', 0) or 0))
+        while event_index < len(history_events):
+            event = history_events[event_index]
+            event_date = timezone.localtime(event['created_at']).date()
+            if event_date > today:
+                break
+            apply_graph_event(event)
+            if event_date == today:
+                event_time = timezone.localtime(event['created_at']).strftime('%I:%M %p')
+                append_vault_value_point(today, event_time, live_gold_22k, float(rates.get('silver_999', 0) or 0))
+            event_index += 1
+        # Use the exact dashboard balances for the final live point.
+        graph_gold_mg = actual_gold_net_mg
+        graph_silver_mg = actual_silver_net_mg
+        append_vault_value_point(today, 'Live', live_gold_22k, float(rates.get('silver_999', 0) or 0))
+
         return Response({
             'customer': {
                 'id': user.id,
@@ -12817,6 +12907,7 @@ class DigiGoldDashboardView(APIView):
             'chart_data': chart_data,
             'chart_history': chart_history,
             'silver_chart_history': silver_chart_history,
+            'vault_value_history': vault_value_history,
             'recent_transactions': excel_rows,
             'excel_summary': {
                 'total_recharge': total_invested_val,
@@ -13450,7 +13541,9 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
 
     def get(self, request):
         user = request.user
-        is_admin = getattr(user, 'role', '') in ['super_admin', 'admin'] or request.query_params.get('all') == 'true'
+        # The query parameter is only a view preference; it must never grant
+        # access to other customers' delivery orders on its own.
+        is_admin = getattr(user, 'role', '') == 'super_admin'
         if is_admin:
             orders = JewelryOrder.objects.filter(product_category='bullion').select_related('user').prefetch_related('tracking_events').order_by('-created_at')
         else:
@@ -13477,6 +13570,7 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
                 'metal': o.product_metal,
                 'status': o.status,
                 'notes': o.product_name,
+                'created_at': o.created_at.strftime('%d %b %Y, %I:%M %p'),
                 'date': o.created_at.strftime('%d %b %Y, %I:%M %p'),
                 'address': {
                     'formatted': f"{o.address_line1}, {o.address_line2 + ', ' if o.address_line2 else ''}{o.city}, {o.state} - {o.pincode}",
@@ -13507,6 +13601,7 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
                     'metal': 'silver' if 'Silver' in o.notes else 'gold',
                     'status': o.status,
                     'notes': o.notes,
+                    'created_at': o.created_at.strftime('%d %b %Y, %I:%M %p'),
                     'date': o.created_at.strftime('%d %b %Y, %I:%M %p'),
                     'address': {'formatted': o.notes}
                 })

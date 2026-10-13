@@ -253,7 +253,9 @@ export default function AdminOrdersPage() {
   })
 
   // Filters state
-  const [period, setPeriod] = useState('today')
+  // Show the complete customer order history on first open. Admins can narrow
+  // it with the date controls when they need a specific reporting period.
+  const [period, setPeriod] = useState('all')
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')

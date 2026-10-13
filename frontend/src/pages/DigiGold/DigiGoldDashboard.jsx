@@ -60,6 +60,7 @@ import {
 } from 'lucide-react'
 import {
   ResponsiveContainer,
+  CartesianGrid,
   AreaChart,
   Area,
   XAxis,
@@ -311,6 +312,16 @@ export default function DigiGoldDashboard() {
   const [currentView, setCurrentView] = useState('dashboard') // 'dashboard' | 'transactions' | 'valuation' | 'offers' | 'support'
   const [txFilter, setTxFilter] = useState('all') // 'all' | 'buy' | 'sell'
   const [valuationMetal, setValuationMetal] = useState('all') // 'all' | 'gold' | 'silver'
+  const [valuationGraphRange, setValuationGraphRange] = useState('month')
+  const [valuationGraphStart, setValuationGraphStart] = useState(() => {
+    const date = new Date()
+    date.setDate(date.getDate() - 29)
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  })
+  const [valuationGraphEnd, setValuationGraphEnd] = useState(() => {
+    const date = new Date()
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  })
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Support & Purity Desk State
@@ -837,6 +848,7 @@ export default function DigiGoldDashboard() {
         rates: liveMetalRates,
         chart_data: dashData?.chart_data?.length ? dashData.chart_data : dynamicChartData,
         chart_history: dashData?.chart_history || null,
+        vault_value_history: dashData?.vault_value_history || [],
         recent_transactions: dashData?.recent_transactions || []
       })
 
@@ -1832,10 +1844,48 @@ export default function DigiGoldDashboard() {
     return transactions
   }, [transactions, valuationMetal])
 
+  // Allocate the current vault balance back across buy lots so sold/delivered metal
+  // no longer appears as if it is still held. Pro-rata allocation keeps the sheet
+  // consistent with the authoritative vault balance even when history is paged.
+  const valuationPositions = useMemo(() => {
+    const rows = valuationTransactions.map(tx => {
+      const type = (tx.type || '').toLowerCase()
+      const isSilver = tx.metal === 'silver_999' || tx.metal?.includes('silver') || type.includes('silver')
+      const isPurchase = type.includes('buy') || type.includes('convert') || type.includes('recharge')
+      const originalMg = Number(tx.hold_gold_mg || (tx.gm ? tx.gm * 1000 : 0))
+      return { tx, type, isSilver, isPurchase, originalMg }
+    })
+    const currentMgByMetal = {
+      gold: Number(kpis.total_gold_holding_mg ?? 0),
+      silver: Number(kpis.total_silver_holding_mg ?? 0)
+    }
+    const purchasedMgByMetal = { gold: 0, silver: 0 }
+    rows.forEach(row => {
+      if (row.isPurchase) purchasedMgByMetal[row.isSilver ? 'silver' : 'gold'] += row.originalMg
+    })
+    const remainingRatios = {
+      gold: purchasedMgByMetal.gold > 0 ? Math.min(1, currentMgByMetal.gold / purchasedMgByMetal.gold) : 0,
+      silver: purchasedMgByMetal.silver > 0 ? Math.min(1, currentMgByMetal.silver / purchasedMgByMetal.silver) : 0
+    }
+    return rows.map(row => {
+      const metal = row.isSilver ? 'silver' : 'gold'
+      const remainingMg = row.isPurchase ? row.originalMg * remainingRatios[metal] : 0
+      const paid = Number(row.tx.recharge || 0)
+      const gst = getTransactionGstAmount(row.tx)
+      const originalMetalCost = Math.max(0, paid - gst)
+      const costBasis = row.isPurchase && row.originalMg > 0
+        ? originalMetalCost * (remainingMg / row.originalMg)
+        : 0
+      return { ...row, remainingMg, costBasis }
+    })
+  }, [valuationTransactions, kpis.total_gold_holding_mg, kpis.total_silver_holding_mg])
+  const valuationPositionById = useMemo(() => new Map(
+    valuationPositions.map(position => [String(position.tx.id), position])
+  ), [valuationPositions])
+
   const valuationMetrics = useMemo(() => {
-    const totalGst = valuationTransactions.reduce((sum, tx) => sum + getTransactionGstAmount(tx), 0)
+    const totalRecharge = valuationPositions.reduce((sum, position) => sum + position.costBasis, 0)
     if (valuationMetal === 'silver') {
-      const totalRecharge = valuationTransactions.reduce((acc, tx) => acc + (Number(tx.recharge) || 0), 0) - totalGst
       const totalMg = Number(kpis.total_silver_holding_mg ?? 0)
       const totalGm = Number(kpis.total_silver_holding_gm ?? 0)
       const currentRate = Number(currentSilverRate)
@@ -1858,7 +1908,6 @@ export default function DigiGoldDashboard() {
       }
     }
     if (valuationMetal === 'gold') {
-      const totalRecharge = valuationTransactions.reduce((acc, tx) => acc + (Number(tx.recharge) || 0), 0) - totalGst
       const totalMg = Number(kpis.total_gold_holding_mg ?? 0)
       const totalGm = Number(kpis.total_gold_holding_gm ?? 0)
       const currentRate = Number(currentLiveRate)
@@ -1881,7 +1930,6 @@ export default function DigiGoldDashboard() {
       }
     }
     // 'all'
-    const totalRecharge = Number(kpis.total_invested_inr ?? 0) - totalGst
     const currentVal = Number(kpis.total_vault_value_inr ?? (Number(kpis.gold_value_inr || 0) + Number(kpis.silver_value_inr || 0)))
     const totalProfit = currentVal - totalRecharge
     return {
@@ -1899,7 +1947,101 @@ export default function DigiGoldDashboard() {
       profitVal: totalProfit,
       metalCode: 'ALL METALS'
     }
-  }, [valuationMetal, valuationTransactions, kpis, currentLiveRate, currentSilverRate])
+  }, [valuationMetal, valuationPositions, kpis, currentLiveRate, currentSilverRate])
+
+  const valuationGraphData = useMemo(() => {
+    let points = data?.vault_value_history || []
+    // Older deployed API versions may not include the graph series yet. Build
+    // a useful history from the transaction snapshots already returned by the
+    // dashboard API so the chart still works during a staggered deployment.
+    if (!points.length) {
+      const transactions = [...(data?.recent_transactions || [])]
+        .map((txn) => {
+          let date = null
+          if (txn.date_excel) {
+            const [day, month, year] = txn.date_excel.split('.').map(Number)
+            if (day && month && year) date = new Date(year, month - 1, day)
+          }
+          if (!date && txn.date) date = new Date(txn.date)
+          if (!date || Number.isNaN(date.getTime())) return null
+          const type = String(txn.type || '').toLowerCase()
+          const sign = type.includes('sell') || type.includes('delivery') ? -1 : 1
+          const mg = Number(txn.hold_gold_mg) || Number(txn.gm || 0) * 1000
+          const isSilver = String(txn.metal || '').toLowerCase().includes('silver')
+          return { txn, date, sign, mg, isSilver }
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.date - b.date || String(a.txn.time || '').localeCompare(String(b.txn.time || '')))
+
+      const goldNowMg = Number(data?.kpis?.total_gold_holding_mg) || 0
+      const silverNowMg = Number(data?.kpis?.total_silver_holding_mg) || 0
+      const goldNetEvents = transactions.filter(item => !item.isSilver).reduce((sum, item) => sum + item.sign * item.mg, 0)
+      const silverNetEvents = transactions.filter(item => item.isSilver).reduce((sum, item) => sum + item.sign * item.mg, 0)
+      let goldMg = Math.max(0, goldNowMg - goldNetEvents)
+      let silverMg = Math.max(0, silverNowMg - silverNetEvents)
+      let goldRate = Number(currentLiveRate) || 0
+      let silverRate = Number(currentSilverRate) || 0
+      const localKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+      const point = (date, label) => ({
+        date: localKey(date),
+        label,
+        gold_value: (goldMg / 1000) * goldRate,
+        silver_value: (silverMg / 1000) * silverRate,
+        total_value: (goldMg / 1000) * goldRate + (silverMg / 1000) * silverRate,
+      })
+      const today = new Date()
+      points = [point(transactions[0]?.date || today, 'Opening')]
+      transactions.forEach(({ txn, date, sign, mg, isSilver }) => {
+        if (isSilver) {
+          silverMg = Math.max(0, silverMg + sign * mg)
+          if (Number(txn.gold_price) > 0) silverRate = Number(txn.gold_price)
+        } else {
+          goldMg = Math.max(0, goldMg + sign * mg)
+          if (Number(txn.gold_price) > 0) goldRate = Number(txn.gold_price)
+        }
+        points.push(point(date, txn.time || date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })))
+      })
+      // Keep today's point current even when the customer had no transaction today.
+      goldMg = goldNowMg
+      silverMg = silverNowMg
+      goldRate = Number(currentLiveRate) || goldRate
+      silverRate = Number(currentSilverRate) || silverRate
+      if (!points.some(historyPoint => historyPoint.date === localKey(today))) {
+        points.push(point(today, 'Today'))
+      }
+      points.push(point(today, 'Live'))
+    }
+    const end = new Date()
+    const toKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    let endKey = toKey(end)
+    let startKey = endKey
+    if (valuationGraphRange === 'custom') {
+      startKey = valuationGraphStart
+      endKey = valuationGraphEnd
+    } else {
+      const days = valuationGraphRange === 'week' ? 6
+        : valuationGraphRange === 'month' ? 29
+          : valuationGraphRange === '6month' ? 182
+            : valuationGraphRange === 'year' ? 364 : 0
+      const start = new Date(end)
+      start.setDate(start.getDate() - days)
+      startKey = toKey(start)
+    }
+    const valueKey = valuationMetal === 'gold' ? 'gold_value' : valuationMetal === 'silver' ? 'silver_value' : 'total_value'
+    return points
+      .filter(point => point.date >= startKey && point.date <= endKey)
+      .map(point => ({ ...point, chart_value: Number(point[valueKey] || 0) }))
+  }, [data?.vault_value_history, data?.recent_transactions, data?.kpis, currentLiveRate, currentSilverRate, valuationGraphRange, valuationGraphStart, valuationGraphEnd, valuationMetal])
+
+  const valuationGraphChange = useMemo(() => {
+    if (valuationGraphData.length < 2) return { amount: 0, percent: 0 }
+    const first = valuationGraphData[0].chart_value
+    const last = valuationGraphData[valuationGraphData.length - 1].chart_value
+    return {
+      amount: last - first,
+      percent: first > 0 ? ((last - first) / first) * 100 : null
+    }
+  }, [valuationGraphData])
 
   // ── OFFICIAL PDF EXPORT WITH ATHIRAI LOGO & ALIGNED CERTIFICATE FORMAT ──
   const handleExportValuationPDF = () => {
@@ -1937,17 +2079,21 @@ export default function DigiGoldDashboard() {
       let sumProfit = 0
 
       valuationTransactions.forEach((tx) => {
+        const position = valuationPositionById.get(String(tx.id))
         const isSilver = tx.metal === 'silver_999' || tx.metal?.includes('silver') || (tx.type || '').toLowerCase().includes('silver')
+        const transactionType = (tx.type || '').toLowerCase()
+        const isDisposal = transactionType.includes('sell') || transactionType.includes('delivery')
         const recharge = Number(tx.recharge || 0)
         const buyRate = Number(tx.gold_price || (isSilver ? currentSilverRate : currentLiveRate))
-        const holdMg = Number(tx.hold_gold_mg || (tx.gm ? tx.gm * 1000 : 0))
-        const holdGm = Number(tx.gm || (holdMg / 1000))
+        const originalMg = Number(tx.hold_gold_mg || (tx.gm ? tx.gm * 1000 : 0))
+        const holdMg = position?.isPurchase ? position.remainingMg : originalMg
+        const holdGm = holdMg / 1000
         const livePrice = Number(isSilver ? currentSilverRate : currentLiveRate)
-        const currVal = Number(holdGm * livePrice)
-        const profit = Number(currVal - recharge)
+        const currVal = isDisposal ? 0 : Number(holdGm * livePrice)
+        const profit = isDisposal ? 0 : Number(currVal - (position?.costBasis ?? recharge))
 
-        sumRecharge += recharge
-        sumGrams += holdGm
+        sumRecharge += position?.costBasis ?? recharge
+        if (!isDisposal) sumGrams += holdGm
         sumCurrentValue += currVal
         sumProfit += profit
 
@@ -1968,8 +2114,8 @@ export default function DigiGoldDashboard() {
               <div style="font-size: 8px; color: #647474; font-weight: 600;">${holdMg.toFixed(2)} mg</div>
             </td>
             <td style="text-align: right; color: #4A5568; white-space: nowrap;">₹${livePrice.toLocaleString('en-IN')}</td>
-            <td style="text-align: right; font-weight: 800; color: #008744; white-space: nowrap;">₹${currVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-            <td style="text-align: right; font-weight: 800; white-space: nowrap;" class="${profitClass}">${profitSign}₹${profit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+            <td style="text-align: right; font-weight: 800; color: #008744; white-space: nowrap;">${isDisposal ? '—' : `₹${currVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}</td>
+            <td style="text-align: right; font-weight: 800; white-space: nowrap;" class="${profitClass}">${isDisposal ? '—' : `${profitSign}₹${profit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}</td>
             <td style="text-align: center; white-space: nowrap;"><span class="badge status-completed">${tx.status || 'Verified'}</span></td>
           </tr>
         `
@@ -2343,7 +2489,7 @@ export default function DigiGoldDashboard() {
     </div>
     <div>
       <button class="btn-action btn-print" onclick="window.print()">
-        🖨️ Download / Save as PDF
+        🖨ï¸ Download / Save as PDF
       </button>
       <button class="btn-action btn-close" onclick="window.close()">
         Close
@@ -2364,7 +2510,7 @@ export default function DigiGoldDashboard() {
         <div class="doc-meta">
           <div class="doc-title-badge">${valuationMetal.toUpperCase()} VAULT AUDIT</div>
           <div class="doc-date">Generated: ${currentDateStr} at ${currentTimeStr}</div>
-          <div style="font-size: 9px; color: #009957; font-weight: 750; margin-top: 2px;">● 100% Insured &amp; Physical Bullion Backed</div>
+          <div style="font-size: 9px; color: #009957; font-weight: 750; margin-top: 2px;">â— 100% Insured &amp; Physical Bullion Backed</div>
         </div>
       </div>
 
@@ -2482,7 +2628,8 @@ export default function DigiGoldDashboard() {
     if (txFilter === 'all') return true
     const typeStr = (tx.type || '').toLowerCase()
     if (txFilter === 'buy') return typeStr.includes('buy') || typeStr.includes('convert') || typeStr.includes('recharge')
-    if (txFilter === 'sell') return typeStr.includes('sell')
+    // Sales also includes physical delivery orders because the metal leaves the vault.
+    if (txFilter === 'sell') return typeStr.includes('sell') || typeStr.includes('delivery')
     return true
   })
 
@@ -2677,7 +2824,7 @@ export default function DigiGoldDashboard() {
 
           <div className="dg-sidebar-footer">
             <span className="dg-footer-version">Digi Gold v1.0</span>
-            <span className="dg-footer-cr">© 2026 Athirai. All rights reserved.</span>
+            <span className="dg-footer-cr">Â© 2026 Athirai. All rights reserved.</span>
           </div>
         </div>
       </aside>
@@ -2765,9 +2912,9 @@ export default function DigiGoldDashboard() {
         {/* ── 3. MAIN DASHBOARD CONTENT (SWITCHES BETWEEN DASHBOARD AND TRANSACTIONS VIEW) ── */}
         <main className="dg-content">
           {currentView === 'transactions' ? (
-            /* ══════════════════════════════════════════════════════════════
+            /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                DEDICATED TRANSACTIONS VIEW (Real-Time Holdings & Records)
-               ══════════════════════════════════════════════════════════════ */
+               â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               {/* Header Bar */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
@@ -2904,10 +3051,12 @@ export default function DigiGoldDashboard() {
                         <tr>
                           <td colSpan={9} style={{ textAlign: 'center', padding: '40px 16px', color: '#647474' }}>
                             <div style={{ fontSize: 16, fontWeight: 800, color: '#0A3E42', marginBottom: 6 }}>
-                              No Transactions Found
+                              {txFilter === 'sell' ? 'No Sales or Delivery Orders Found' : 'No Transactions Found'}
                             </div>
                             <div style={{ fontSize: 12.5, marginBottom: 16 }}>
-                              You haven't made any 22K digital gold transactions yet. Start investing today from ₹10!
+                              {txFilter === 'sell'
+                                ? 'Your gold and silver sales or physical delivery orders will appear here.'
+                                : "You haven't made any 22K digital gold transactions yet. Start investing today from ₹10!"}
                             </div>
                             <button
                               type="button"
@@ -2992,9 +3141,9 @@ export default function DigiGoldDashboard() {
               </div>
             </div>
           ) : currentView === 'valuation' ? (
-            /* ══════════════════════════════════════════════════════════════
+            /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                VALUATION SHEET FULL PAGE VIEW (MATCHING IMAGE 2 EXACTLY)
-               ══════════════════════════════════════════════════════════════ */
+               â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
             <div className="dg-valuation-shell">
               {/* Header Card */}
               <div className="dg-valuation-header-card">
@@ -3127,27 +3276,105 @@ export default function DigiGoldDashboard() {
                 </div>
               </div>
 
+              {/* Live Vault Value History Graph */}
+              <div className="dg-card" style={{ padding: 20, marginBottom: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap', marginBottom: 14 }}>
+                  <div>
+                    <h3 style={{ margin: 0, color: '#0A3E42', fontSize: 18, fontWeight: 850 }}>Vault Value History</h3>
+                    <p style={{ margin: '5px 0 0', color: '#647474', fontSize: 12.5 }}>
+                      Gold and silver held in your vault, valued at each date’s recorded market rate.
+                    </p>
+                  </div>
+                  <div style={{ color: valuationGraphChange.amount >= 0 ? '#009957' : '#E45B5B', fontWeight: 850, fontSize: 15 }}>
+                    {valuationGraphChange.amount >= 0 ? '+' : '−'}₹{Math.abs(valuationGraphChange.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {valuationGraphChange.percent !== null && ` (${valuationGraphChange.percent >= 0 ? '+' : ''}${valuationGraphChange.percent.toFixed(2)}%)`}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+                  {[
+                    { id: 'today', label: 'Today' },
+                    { id: 'week', label: 'Week' },
+                    { id: 'month', label: 'Month' },
+                    { id: '6month', label: '6 Months' },
+                    { id: 'year', label: 'Year' },
+                    { id: 'custom', label: 'Custom Date' },
+                  ].map(range => (
+                    <button
+                      key={range.id}
+                      type="button"
+                      onClick={() => setValuationGraphRange(range.id)}
+                      style={{
+                        padding: '7px 12px', borderRadius: 999,
+                        border: valuationGraphRange === range.id ? '1px solid #009957' : '1px solid #D1DFDE',
+                        background: valuationGraphRange === range.id ? '#E8F7F0' : '#fff',
+                        color: valuationGraphRange === range.id ? '#009957' : '#0A3E42',
+                        fontSize: 12, fontWeight: 800, cursor: 'pointer'
+                      }}
+                    >{range.label}</button>
+                  ))}
+                  {valuationGraphRange === 'custom' && (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <label style={{ color: '#647474', fontSize: 11, fontWeight: 700 }}>
+                        From <input type="date" value={valuationGraphStart} max={valuationGraphEnd} onChange={event => setValuationGraphStart(event.target.value)} style={{ marginLeft: 4, border: '1px solid #D1DFDE', borderRadius: 7, padding: '5px 7px', color: '#0A3E42' }} />
+                      </label>
+                      <label style={{ color: '#647474', fontSize: 11, fontWeight: 700 }}>
+                        To <input type="date" value={valuationGraphEnd} min={valuationGraphStart} onChange={event => setValuationGraphEnd(event.target.value)} style={{ marginLeft: 4, border: '1px solid #D1DFDE', borderRadius: 7, padding: '5px 7px', color: '#0A3E42' }} />
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                {valuationGraphData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <AreaChart data={valuationGraphData} margin={{ top: 8, right: 12, left: 8, bottom: 2 }}>
+                      <defs>
+                        <linearGradient id="vaultValueFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#00A45A" stopOpacity={0.22} />
+                          <stop offset="100%" stopColor="#00A45A" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke="#E7EFEC" strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fill: '#647474', fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={18} />
+                      <YAxis tickFormatter={value => `₹${Number(value).toLocaleString('en-IN')}`} tick={{ fill: '#647474', fontSize: 11 }} axisLine={false} tickLine={false} width={84} />
+                      <Tooltip
+                        formatter={value => [`₹${Number(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Vault value']}
+                        labelFormatter={(label, payload) => payload?.[0]?.payload?.date ? `${label} • ${payload[0].payload.date}` : label}
+                        contentStyle={{ border: '1px solid #DCE8E3', borderRadius: 10, boxShadow: '0 8px 24px rgba(10,62,66,.10)' }}
+                      />
+                      <Area type="monotone" dataKey="chart_value" name="Vault value" stroke="#009957" strokeWidth={2.5} fill="url(#vaultValueFill)" dot={false} activeDot={{ r: 5, fill: '#009957', stroke: '#fff', strokeWidth: 2 }} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{ minHeight: 180, display: 'grid', placeItems: 'center', color: '#647474', fontSize: 13 }}>
+                    No vault value history is available for the selected dates.
+                  </div>
+                )}
+              </div>
+
               {/* Table Card */}
               <div className="dg-card" style={{ padding: 20 }}>
+                <div style={{ margin: '0 0 12px', color: '#647474', fontSize: 12.5 }}>
+                  Transaction history shows each purchase, sale, or delivery as it was recorded. Your actual current vault balance and live value are shown above.
+                </div>
                 <div className="dg-table-wrap">
                   <table className="dg-excel-table" style={{ width: '100%' }}>
                     <thead>
                       <tr>
                         <th>Txn ID</th>
                         <th>Date</th>
+                        <th>Transaction</th>
                         {valuationMetal === 'all' && <th>Metal</th>}
-                        <th>Transaction Amount (₹)</th>
-                        <th>Vault Weight (g)</th>
-                        <th>Buy Rate (₹/g)</th>
-                        <th>Live Rate (₹/g)</th>
-                        <th>Current Value (₹)</th>
-                        <th>Price Change (₹)</th>
+                        <th>Transaction Amount</th>
+                        <th>Weight (g)</th>
+                        <th>Rate at Transaction</th>
+                        <th>Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {valuationTransactions.length === 0 ? (
                         <tr>
-                          <td colSpan={valuationMetal === 'all' ? 9 : 8} style={{ textAlign: 'center', padding: '36px 16px', color: '#647474' }}>
+                          <td colSpan={valuationMetal === 'all' ? 8 : 7} style={{ textAlign: 'center', padding: '36px 16px', color: '#647474' }}>
                             <div style={{ fontSize: 16, fontWeight: 800, color: '#0A3E42', marginBottom: 6 }}>
                               No {valuationMetal === 'silver' ? 'Silver' : valuationMetal === 'gold' ? 'Gold' : ''} Holdings in this Valuation Sheet Yet
                             </div>
@@ -3174,13 +3401,11 @@ export default function DigiGoldDashboard() {
                           const isSilver = tx.metal === 'silver_999' || tx.metal?.includes('silver') || (tx.type || '').toLowerCase().includes('silver')
                           const recharge = Number(tx.recharge || 0)
                           const gstAmount = getTransactionGstAmount(tx)
-                          const isDelivery = (tx.type || '').toLowerCase().includes('delivery')
-                          const buyRate = Number(tx.gold_price || (isSilver ? currentSilverRate : currentLiveRate))
+                          const transactionType = (tx.type || '').toLowerCase()
+                          const isDelivery = transactionType.includes('delivery')
+                          const transactionRate = Number(tx.gold_price || (isSilver ? currentSilverRate : currentLiveRate))
                           const holdMg = Number(tx.hold_gold_mg || (tx.gm ? tx.gm * 1000 : 0))
-                          const holdGm = Number(tx.gm || (holdMg / 1000))
-                          const livePrice = Number(isSilver ? currentSilverRate : currentLiveRate)
-                          const currentValue = Number(holdGm * livePrice)
-                          const priceChange = Number(currentValue - (recharge - gstAmount))
+                          const holdGm = holdMg / 1000
 
                           return (
                             <tr key={tx.id || idx}>
@@ -3190,6 +3415,7 @@ export default function DigiGoldDashboard() {
                                 </span>
                               </td>
                               <td style={{ whiteSpace: 'nowrap' }}>{tx.date_excel || tx.date}</td>
+                              <td>{tx.type || 'Transaction'}</td>
                               {valuationMetal === 'all' && (
                                 <td>
                                   <span className={`dg-metal-pill ${isSilver ? 'silver' : 'gold'}`}>
@@ -3217,17 +3443,8 @@ export default function DigiGoldDashboard() {
                                   </span>
                                 </div>
                               </td>
-                              <td>₹ {buyRate.toLocaleString('en-IN')}/g</td>
-                              <td style={{ fontWeight: 700, color: '#0A3E42' }}>₹ {livePrice.toLocaleString('en-IN')}/g</td>
-                              <td style={{ fontWeight: 800, color: '#0A3E42' }}>
-                                {isDelivery ? '—' : `₹ ${currentValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                              </td>
-                              <td style={{
-                                fontWeight: 800,
-                                color: isDelivery ? '#647474' : priceChange >= 0 ? '#009957' : '#E45B5B'
-                              }}>
-                                {isDelivery ? '—' : `${priceChange >= 0 ? '+' : ''}₹ ${priceChange.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                              </td>
+                              <td>&#8377; {transactionRate.toLocaleString('en-IN')}/g</td>
+                              <td>{tx.status || 'Completed'}</td>
                             </tr>
                           )
                         })
@@ -3238,9 +3455,9 @@ export default function DigiGoldDashboard() {
               </div>
             </div>
           ) : currentView === 'offers' ? (
-            /* ══════════════════════════════════════════════════════════════
+            /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                EXCLUSIVE OFFERS & AUTOPAY / AUTO-SAVINGS VIEW
-               ══════════════════════════════════════════════════════════════ */
+               â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
             <div className="dg-offers-shell">
               {/* SUBTAB SWITCHER FOR OFFERS & DELIVERY */}
               <div className="dg-offers-deliv-tabs-nav">
@@ -3830,10 +4047,10 @@ export default function DigiGoldDashboard() {
               </div>
             </div>
           ) : currentView === 'delivery' ? (
-            /* ══════════════════════════════════════════════════════════════
+            /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                DIGI GOLD PREMIUM HOME DELIVERY MODULE
                EXACT REPLICA OF THE SECOND UPLOADED REFERENCE SCREENSHOT
-               ══════════════════════════════════════════════════════════════ */
+               â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
             <div className="dg-deliv-page-shell">
               {/* SUBTAB SWITCHER FOR OFFERS & DELIVERY */}
               <div className="dg-offers-deliv-tabs-nav">
@@ -4464,10 +4681,10 @@ export default function DigiGoldDashboard() {
               </div>
             </div>
           ) : currentView === 'orders' ? (
-            /* ══════════════════════════════════════════════════════════════
+            /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                DEDICATED DIGI GOLD BULLION ORDERS & DELIVERY TRACKING VIEW
                (MODELED AFTER ORDERSUMMARY.JSX WITH COIN IMAGES & 5-STEP TIMELINE)
-               ══════════════════════════════════════════════════════════════ */
+               â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
             <div className="dg-orders-page-shell">
               {/* Header Navigation & Title Card */}
               <div className="dg-orders-header-card">
@@ -4901,9 +5118,9 @@ export default function DigiGoldDashboard() {
               )}
             </div>
           ) : currentView === 'support' ? (
-            /* ══════════════════════════════════════════════════════════════
+            /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                ATHIRAI DIGI GOLD 24/7 SUPPORT & PURITY VERIFICATION PORTAL
-               ══════════════════════════════════════════════════════════════ */
+               â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
             <div className="dg-support-shell">
               {/* Header Navigation & Banner */}
               <div className="dg-support-header-card">
@@ -5221,9 +5438,9 @@ export default function DigiGoldDashboard() {
               </div>
             </div>
           ) : (
-            /* ══════════════════════════════════════════════════════════════
+            /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                STANDARD DASHBOARD OVERVIEW
-               ══════════════════════════════════════════════════════════════ */
+               â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
             <>
               {/* TOP HERO WELCOME CARD */}
               <section className="dg-hero-card">

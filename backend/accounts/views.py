@@ -12400,12 +12400,18 @@ class DigiGoldDashboardView(APIView):
                     actual_silver_invested += Decimal(str(investment_cost))
                 elif inv.transaction_type == 'sell':
                     actual_silver_sell_mg += inv.hold_gold_mg
+                elif inv.transaction_type == 'delivery':
+                    actual_silver_sell_mg += inv.hold_gold_mg
+                    actual_silver_invested -= Decimal(str(investment_cost))
             else:
                 if inv.transaction_type in ['buy', 'convert']:
                     actual_gold_buy_mg += inv.hold_gold_mg
                     actual_gold_invested += Decimal(str(investment_cost))
                 elif inv.transaction_type == 'sell':
                     actual_gold_sell_mg += inv.hold_gold_mg
+                elif inv.transaction_type == 'delivery':
+                    actual_gold_sell_mg += inv.hold_gold_mg
+                    actual_gold_invested -= Decimal(str(investment_cost))
 
             curr_growth = round(float(inv.hold_gold_mg) * item_live_mg_price, 2)
             profit = round(curr_growth - investment_cost, 2)
@@ -12419,6 +12425,8 @@ class DigiGoldDashboardView(APIView):
                 pay_label = 'Netbanking'
             elif pay_m == 'razorpay':
                 pay_label = 'UPI / Netbanking'
+            elif 'vault_deduction' in pay_m:
+                pay_label = 'Vault Delivery'
             elif pay_m == 'wallet':
                 pay_label = 'AUG Revive'
             elif pay_m == 'recharge_conversion' or inv.transaction_type == 'convert':
@@ -12433,6 +12441,8 @@ class DigiGoldDashboardView(APIView):
                     tx_type_label = f"Buy Silver ({pay_label})"
                 elif inv.transaction_type == 'convert':
                     tx_type_label = 'AUG Revive Convert (999 Silver)'
+                elif inv.transaction_type == 'delivery':
+                    tx_type_label = 'Physical Silver Delivery (Vault)'
                 else:
                     tx_type_label = 'Sell Silver (Pure 999)'
             else:
@@ -12440,6 +12450,8 @@ class DigiGoldDashboardView(APIView):
                     tx_type_label = f"Buy Gold ({pay_label})"
                 elif inv.transaction_type == 'convert':
                     tx_type_label = 'Recharge Convert (22K)'
+                elif inv.transaction_type == 'delivery':
+                    tx_type_label = 'Physical Gold Delivery (Vault)'
                 else:
                     tx_type_label = 'Sell Gold (22K)'
 
@@ -12480,7 +12492,7 @@ class DigiGoldDashboardView(APIView):
         actual_silver_value = round(float(actual_silver_net_mg) * live_silver_mg_price, 2)
 
         # Combined portfolio totals
-        total_invested = actual_gold_invested + actual_silver_invested
+        total_invested = max(Decimal('0'), actual_gold_invested) + max(Decimal('0'), actual_silver_invested)
         total_vault_value = round(actual_gold_value + actual_silver_value, 2)
         actual_profit = round(total_vault_value - float(total_invested), 2)
         actual_profit_pct = round((actual_profit / float(total_invested)) * 100, 2) if float(total_invested) > 0 else 0.0
@@ -13039,14 +13051,16 @@ class DigiGoldSellView(APIView):
         if metal == 'silver_999':
             silver_buys = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type__in=['buy', 'convert'], notes__icontains='Silver')
             silver_sells = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type='sell', notes__icontains='Silver')
-            available_mg = max(Decimal('0'), (silver_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) - (silver_sells.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')))
+            silver_deliveries = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type='delivery', notes__icontains='Silver')
+            available_mg = max(Decimal('0'), (silver_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) - (silver_sells.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) - (silver_deliveries.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')))
             metal_label = 'Digi Silver (Pure 999)'
             metal_price = float(rates.get('silver_999', 275.0))
             mg_price = round(metal_price / 1000.0, 4)
         else:
             gold_buys = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type__in=['buy', 'convert']).exclude(notes__icontains='Silver')
             gold_sells = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type='sell').exclude(notes__icontains='Silver')
-            available_mg = max(Decimal('0'), (gold_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) - (gold_sells.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')))
+            gold_deliveries = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type='delivery').exclude(notes__icontains='Silver')
+            available_mg = max(Decimal('0'), (gold_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) - (gold_sells.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) - (gold_deliveries.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')))
             metal_label = '22K Digi Gold'
             metal_price = float(rates.get('gold_22k', 14250.0))
             mg_price = float(rates.get('gold_22k_mg', round(metal_price / 1000.0, 4)))
@@ -13243,6 +13257,7 @@ class DigiGoldDeliveryOrderView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
         import random
         from django.db import transaction
@@ -13281,8 +13296,17 @@ class DigiGoldDeliveryOrderView(APIView):
             return Response({'error': 'Invalid coin quantities or weights selected.'}, status=400)
 
         # Validate wallet balances strictly
-        dg_wallet, _ = DigiGoldWallet.objects.get_or_create(user=user)
-        user_gold_gm = Decimal(str(dg_wallet.total_gold_gm or 0))
+        dg_wallet, _ = DigiGoldWallet.objects.select_for_update().get_or_create(user=user)
+        gold_buys = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type__in=['buy', 'convert']).exclude(notes__icontains='Silver')
+        gold_sells = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type='sell').exclude(notes__icontains='Silver')
+        gold_deliv = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type='delivery').exclude(notes__icontains='Silver')
+        user_gold_mg = max(
+            Decimal('0'),
+            (gold_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0'))
+            - (gold_sells.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0'))
+            - (gold_deliv.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0'))
+        )
+        user_gold_gm = user_gold_mg / Decimal('1000')
 
         # Calculate silver holdings
         silver_buys = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type__in=['buy', 'convert'], notes__icontains='Silver')
@@ -13308,8 +13332,8 @@ class DigiGoldDeliveryOrderView(APIView):
             # 1. Deduct Gold from DigiGoldWallet
             if total_gold_gm > 0:
                 gold_mg = total_gold_gm * Decimal('1000')
-                dg_wallet.total_gold_gm = max(Decimal('0'), dg_wallet.total_gold_gm - total_gold_gm)
-                dg_wallet.total_gold_mg = max(Decimal('0'), dg_wallet.total_gold_mg - gold_mg)
+                dg_wallet.total_gold_gm = max(Decimal('0'), user_gold_gm - total_gold_gm)
+                dg_wallet.total_gold_mg = max(Decimal('0'), user_gold_mg * Decimal('1000') - gold_mg)
                 dg_wallet.save()
 
                 gold_items_desc = ", ".join([f"{it.get('denomination', '')} x {it.get('quantity', 1)}" for it in items if it.get('metal') == 'gold'])
@@ -13404,7 +13428,7 @@ class DigiGoldDeliveryOrderView(APIView):
             'total_amount': float(total_valuation_inr),
             'delivery_fee': 0.0,
             'status': 'confirmed',
-            'estimated_delivery': 'Within 5-7 business days',
+            'estimated_delivery': 'Within 7 days',
             'payment_method': 'Vault Balance Deduction',
             'address': address
         }

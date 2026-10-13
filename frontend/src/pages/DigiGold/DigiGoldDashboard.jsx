@@ -220,6 +220,17 @@ const loadRazorpay = () => new Promise(resolve => {
   document.body.appendChild(script)
 })
 
+const getTransactionGstAmount = (tx) => {
+  const type = (tx.type || '').toLowerCase()
+  const isPurchase = type.includes('buy') || type.includes('convert') || type.includes('recharge')
+  if (!isPurchase) return 0
+  const paid = Number(tx.recharge || 0)
+  const mg = Number(tx.hold_gold_mg || (tx.gm ? tx.gm * 1000 : 0))
+  const mgRate = Number(tx.mg_price || (Number(tx.gold_price) / 1000))
+  if (!paid || !mg || !mgRate) return 0
+  return Math.max(0, Number((paid - (mg * mgRate)).toFixed(2)))
+}
+
 export default function DigiGoldDashboard() {
   const navigate = useNavigate()
 
@@ -844,7 +855,7 @@ export default function DigiGoldDashboard() {
                 status: o.status === 'completed' ? 'confirmed' : (o.status || 'confirmed'),
                 status_label: o.status === 'delivered' ? 'Delivered Successfully' : (o.status === 'shipped' ? 'Shipped & In Transit' : 'Order Confirmed'),
                 tracking_number: o.transaction_ref || `ATH-SEC-${o.id}`,
-                estimated_delivery: 'Within 7 business days',
+                estimated_delivery: 'Within 7 days',
                 address: o.notes?.includes(' to ') ? o.notes.split(' to ')[1] : (deliveryAddress.formatted || 'Customer Address'),
                 total_amount: Math.round(Number(o.valuation_inr) || 0),
                 total_weight_gm: Number(o.weight_gm) || 0,
@@ -1041,7 +1052,7 @@ export default function DigiGoldDashboard() {
     }
   }
 
-  // ── AUTOPAY SUBMIT HANDLER (RAZORPAY RECURRING / DIRECT BUY WITH ₹50 DISCOUNT) ──
+  // ── AUTOPAY SUBMIT HANDLER (RAZORPAY RECURRING / DIRECT BUY) ──
   const handleAutoPaySubmit = async (e) => {
     if (e) e.preventDefault()
     const parsedAmt = parseFloat(autoPayAmount)
@@ -1636,7 +1647,7 @@ export default function DigiGoldDashboard() {
         status: 'confirmed',
         status_label: 'Order Confirmed',
         tracking_number: `ATH-SEC-${Math.floor(1000000 + Math.random() * 9000000)}`,
-        estimated_delivery: 'Within 7 business days',
+        estimated_delivery: 'Within 7 days',
         address: deliveryAddress.formatted,
         total_amount: confirmed.total_amount || Math.round(totalCartAmount),
         total_weight_gm: confirmed.total_weight_gm || deliveryCart.reduce((s, i) => s + (i.weight_gm * i.qty), 0),
@@ -1658,14 +1669,25 @@ export default function DigiGoldDashboard() {
 
       handleClearDeliveryCart()
       if (res.data?.remaining_gold_gm !== undefined || res.data?.remaining_silver_gm !== undefined) {
-        setData(prev => ({
-          ...prev,
-          kpis: {
-            ...prev?.kpis,
-            total_gold_holding_gm: typeof res.data.remaining_gold_gm === 'number' ? res.data.remaining_gold_gm : prev?.kpis?.total_gold_holding_gm,
-            total_silver_holding_gm: typeof res.data.remaining_silver_gm === 'number' ? res.data.remaining_silver_gm : prev?.kpis?.total_silver_holding_gm,
+        setData(prev => {
+          const goldGm = typeof res.data.remaining_gold_gm === 'number' ? res.data.remaining_gold_gm : Number(prev?.kpis?.total_gold_holding_gm || 0)
+          const silverGm = typeof res.data.remaining_silver_gm === 'number' ? res.data.remaining_silver_gm : Number(prev?.kpis?.total_silver_holding_gm || 0)
+          const goldValue = goldGm * deliveryGoldRate
+          const silverValue = silverGm * deliverySilverRate
+          return {
+            ...prev,
+            kpis: {
+              ...prev?.kpis,
+              total_gold_holding_gm: goldGm,
+              total_gold_holding_mg: goldGm * 1000,
+              total_silver_holding_gm: silverGm,
+              total_silver_holding_mg: silverGm * 1000,
+              gold_value_inr: goldValue,
+              silver_value_inr: silverValue,
+              total_vault_value_inr: goldValue + silverValue
+            }
           }
-        }))
+        })
       }
       fetchDashboardData()
 
@@ -1811,8 +1833,9 @@ export default function DigiGoldDashboard() {
   }, [transactions, valuationMetal])
 
   const valuationMetrics = useMemo(() => {
+    const totalGst = valuationTransactions.reduce((sum, tx) => sum + getTransactionGstAmount(tx), 0)
     if (valuationMetal === 'silver') {
-      const totalRecharge = valuationTransactions.reduce((acc, tx) => acc + (Number(tx.recharge) || 0), 0)
+      const totalRecharge = valuationTransactions.reduce((acc, tx) => acc + (Number(tx.recharge) || 0), 0) - totalGst
       const totalMg = Number(kpis.total_silver_holding_mg ?? 0)
       const totalGm = Number(kpis.total_silver_holding_gm ?? 0)
       const currentRate = Number(currentSilverRate)
@@ -1835,7 +1858,7 @@ export default function DigiGoldDashboard() {
       }
     }
     if (valuationMetal === 'gold') {
-      const totalRecharge = valuationTransactions.reduce((acc, tx) => acc + (Number(tx.recharge) || 0), 0)
+      const totalRecharge = valuationTransactions.reduce((acc, tx) => acc + (Number(tx.recharge) || 0), 0) - totalGst
       const totalMg = Number(kpis.total_gold_holding_mg ?? 0)
       const totalGm = Number(kpis.total_gold_holding_gm ?? 0)
       const currentRate = Number(currentLiveRate)
@@ -1858,9 +1881,9 @@ export default function DigiGoldDashboard() {
       }
     }
     // 'all'
-    const totalRecharge = Number(kpis.total_invested_inr ?? 0)
+    const totalRecharge = Number(kpis.total_invested_inr ?? 0) - totalGst
     const currentVal = Number(kpis.total_vault_value_inr ?? (Number(kpis.gold_value_inr || 0) + Number(kpis.silver_value_inr || 0)))
-    const totalProfit = Number(kpis.total_returns_inr ?? (currentVal - totalRecharge))
+    const totalProfit = currentVal - totalRecharge
     return {
       title: 'Aadhirai Consolidated Digital Vault Investment & Valuation Sheet',
       subTitle: `Live combined portfolio valuation (22K Gold + Pure 999 Silver) with real-time market recalculation`,
@@ -2588,6 +2611,24 @@ export default function DigiGoldDashboard() {
               <History size={18} />
               <span>Transactions</span>
             </button>
+
+            <button
+              className={`dg-nav-btn ${currentView === 'offers' ? 'active' : ''}`}
+              type="button"
+              onClick={() => { setCurrentView('offers'); setSidebarOpen(false); }}
+            >
+              <BadgePercent size={18} />
+              <span>Offers</span>
+            </button>
+            <button
+              className={`dg-nav-btn ${currentView === 'delivery' ? 'active' : ''}`}
+              type="button"
+              onClick={() => { setCurrentView('delivery'); setSidebarOpen(false); }}
+            >
+              <Truck size={18} />
+              <span>Delivery</span>
+            </button>
+
             <button
               className={`dg-nav-btn ${currentView === 'orders' ? 'active' : ''}`}
               type="button"
@@ -2596,14 +2637,7 @@ export default function DigiGoldDashboard() {
               <Package size={18} />
               <span>Orders</span>
             </button>
-            <button
-              className={`dg-nav-btn ${['offers', 'delivery'].includes(currentView) ? 'active' : ''}`}
-              type="button"
-              onClick={() => { setCurrentView('delivery'); setSidebarOpen(false); }}
-            >
-              <Truck size={18} />
-              <span>Offers and Delivery</span>
-            </button>
+
             <button
               className="dg-nav-btn"
               type="button"
@@ -2857,11 +2891,11 @@ export default function DigiGoldDashboard() {
                         <th>Txn ID</th>
                         <th>Date &amp; Time</th>
                         <th>Transaction Type</th>
-                        <th>You Paid (₹)</th>
+                        <th>Transaction Amount (₹)</th>
                         <th>Buy Rate (₹/g)</th>
                         <th>Vault Weight (g)</th>
                         <th>Current Value (₹)</th>
-                        <th>Profit / Loss (₹)</th>
+                        <th>Price Change (₹)</th>
                         <th>Status</th>
                       </tr>
                     </thead>
@@ -2888,7 +2922,19 @@ export default function DigiGoldDashboard() {
                           </td>
                         </tr>
                       ) : (
-                        filteredTransactions.map((tx, idx) => (
+                        filteredTransactions.map((tx, idx) => {
+                          const paidAmount = Number(tx.recharge || 0)
+                          const holdMg = Number(tx.hold_gold_mg || (tx.gm ? tx.gm * 1000 : 0))
+                          const unitRate = Number(tx.gold_price || currentLiveRate)
+                          const currentValue = Number(tx.current_growth || holdMg * (Number(tx.mg_price) || unitRate / 1000))
+                          const transactionType = (tx.type || '').toLowerCase()
+                          const isDelivery = transactionType.includes('delivery')
+                          const isPurchase = transactionType.includes('buy') || transactionType.includes('convert') || transactionType.includes('recharge')
+                          const metalCost = holdMg > 0 ? holdMg * unitRate / 1000 : paidAmount
+                          const gstPaid = isPurchase ? Math.max(0, paidAmount - metalCost) : 0
+                          const priceChange = currentValue - (isPurchase ? paidAmount - gstPaid : paidAmount)
+
+                          return (
                           <tr key={tx.id || idx}>
                             <td className="dg-table-txnid" style={{ verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                               <span className="dg-txnid-badge" title={tx.transaction_id || `BB#${tx.id}`}>
@@ -2909,7 +2955,14 @@ export default function DigiGoldDashboard() {
                               </span>
                             </td>
                             <td style={{ fontWeight: 800 }}>
-                              ₹ {Number(tx.recharge || 0).toLocaleString('en-IN')}
+                              <div>₹ {paidAmount.toLocaleString('en-IN')}</div>
+                              {isDelivery ? (
+                                <small style={{ display: 'block', marginTop: 3, color: '#647474', fontSize: 10.5, fontWeight: 650 }}>Vault deduction</small>
+                              ) : gstPaid >= 0.01 && (
+                                <small style={{ display: 'block', marginTop: 3, color: '#647474', fontSize: 10.5, fontWeight: 650 }}>
+                                  GST (3%): ₹{gstPaid.toFixed(2)}
+                                </small>
+                              )}
                             </td>
                             <td>
                               ₹ {Number(tx.gold_price || currentLiveRate).toLocaleString('en-IN')}/g
@@ -2918,19 +2971,20 @@ export default function DigiGoldDashboard() {
                               {Number(tx.gm || (tx.hold_gold_mg ? tx.hold_gold_mg / 1000 : 0)).toFixed(3)} g
                             </td>
                             <td>
-                              ₹ {Number(tx.current_growth || (tx.hold_gold_mg ? tx.hold_gold_mg * currentLiveMgRate : 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              {isDelivery ? '—' : `₹ ${currentValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
                             </td>
                             <td style={{
                               fontWeight: 800,
-                              color: Number(tx.profit || 0) >= 0 ? '#009957' : '#E45B5B'
+                              color: isDelivery ? '#647474' : priceChange >= 0 ? '#009957' : '#E45B5B'
                             }}>
-                              {Number(tx.profit || 0) >= 0 ? '+' : ''}₹ {Number(tx.profit || 0).toFixed(2)}
+                              {isDelivery ? '—' : `${priceChange >= 0 ? '+' : ''}₹ ${priceChange.toFixed(2)}`}
                             </td>
                             <td>
                               <span className="dg-status-pill completed">{tx.status || 'Completed'}</span>
                             </td>
                           </tr>
-                        ))
+                          )
+                        })
                       )}
                     </tbody>
                   </table>
@@ -3046,7 +3100,7 @@ export default function DigiGoldDashboard() {
               {/* Summary Top 6 Cards Banner (Exact Image 2 layout with dynamic live numbers) */}
               <div className="dg-valuation-kpi-grid">
                 <div className="dg-valuation-kpi-item">
-                  <span className="dg-valuation-kpi-label">Total Recharge</span>
+                  <span className="dg-valuation-kpi-label">Metal Cost (GST Excl.)</span>
                   <span className="dg-valuation-kpi-val">₹ {Number(valuationMetrics.totalRecharge).toLocaleString('en-IN')}</span>
                 </div>
                 <div className="dg-valuation-kpi-item">
@@ -3066,7 +3120,7 @@ export default function DigiGoldDashboard() {
                   <span className="dg-valuation-kpi-val green">₹ {Number(valuationMetrics.growthVal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="dg-valuation-kpi-item">
-                  <span className="dg-valuation-kpi-label">Profit / Loss</span>
+                  <span className="dg-valuation-kpi-label">Price Change</span>
                   <span className={`dg-valuation-kpi-val ${Number(valuationMetrics.profitVal) >= 0 ? 'green' : 'red'}`}>
                     {Number(valuationMetrics.profitVal) >= 0 ? '+' : ''}₹ {Number(valuationMetrics.profitVal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </span>
@@ -3082,12 +3136,12 @@ export default function DigiGoldDashboard() {
                         <th>Txn ID</th>
                         <th>Date</th>
                         {valuationMetal === 'all' && <th>Metal</th>}
-                        <th>You Paid (₹)</th>
+                        <th>Transaction Amount (₹)</th>
                         <th>Vault Weight (g)</th>
                         <th>Buy Rate (₹/g)</th>
                         <th>Live Rate (₹/g)</th>
                         <th>Current Value (₹)</th>
-                        <th>Profit / Loss (₹)</th>
+                        <th>Price Change (₹)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -3119,12 +3173,14 @@ export default function DigiGoldDashboard() {
                         valuationTransactions.map((tx, idx) => {
                           const isSilver = tx.metal === 'silver_999' || tx.metal?.includes('silver') || (tx.type || '').toLowerCase().includes('silver')
                           const recharge = Number(tx.recharge || 0)
+                          const gstAmount = getTransactionGstAmount(tx)
+                          const isDelivery = (tx.type || '').toLowerCase().includes('delivery')
                           const buyRate = Number(tx.gold_price || (isSilver ? currentSilverRate : currentLiveRate))
                           const holdMg = Number(tx.hold_gold_mg || (tx.gm ? tx.gm * 1000 : 0))
                           const holdGm = Number(tx.gm || (holdMg / 1000))
                           const livePrice = Number(isSilver ? currentSilverRate : currentLiveRate)
                           const currentValue = Number(holdGm * livePrice)
-                          const profit = Number(currentValue - recharge)
+                          const priceChange = Number(currentValue - (recharge - gstAmount))
 
                           return (
                             <tr key={tx.id || idx}>
@@ -3141,7 +3197,16 @@ export default function DigiGoldDashboard() {
                                   </span>
                                 </td>
                               )}
-                              <td style={{ fontWeight: 800, color: '#0A3E42' }}>₹ {recharge.toLocaleString('en-IN')}</td>
+                              <td style={{ fontWeight: 800, color: '#0A3E42' }}>
+                                <div>₹ {recharge.toLocaleString('en-IN')}</div>
+                                {isDelivery ? (
+                                  <small style={{ display: 'block', marginTop: 3, color: '#647474', fontSize: 10.5, fontWeight: 650 }}>Vault deduction</small>
+                                ) : gstAmount >= 0.01 && (
+                                  <small style={{ display: 'block', marginTop: 3, color: '#647474', fontSize: 10.5, fontWeight: 650 }}>
+                                    GST (3%): ₹{gstAmount.toFixed(2)}
+                                  </small>
+                                )}
+                              </td>
                               <td>
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                                   <span style={{ fontWeight: 800, color: '#0A3E42' }}>
@@ -3155,13 +3220,13 @@ export default function DigiGoldDashboard() {
                               <td>₹ {buyRate.toLocaleString('en-IN')}/g</td>
                               <td style={{ fontWeight: 700, color: '#0A3E42' }}>₹ {livePrice.toLocaleString('en-IN')}/g</td>
                               <td style={{ fontWeight: 800, color: '#0A3E42' }}>
-                                ₹ {currentValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {isDelivery ? '—' : `₹ ${currentValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                               </td>
                               <td style={{
                                 fontWeight: 800,
-                                color: profit >= 0 ? '#009957' : '#E45B5B'
+                                color: isDelivery ? '#647474' : priceChange >= 0 ? '#009957' : '#E45B5B'
                               }}>
-                                {profit >= 0 ? '+' : ''}₹ {profit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {isDelivery ? '—' : `${priceChange >= 0 ? '+' : ''}₹ ${priceChange.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                               </td>
                             </tr>
                           )
@@ -5125,8 +5190,8 @@ export default function DigiGoldDashboard() {
                       a: 'Yes! You can walk into any Athirai Jewellery showroom and exchange your Digi Gold vault balance for actual hallmarked jewellery or coins. You also enjoy an exclusive 5% concession on making charges.'
                     },
                     {
-                      q: 'How does the AutoPay ₹50/g discount work?',
-                      a: 'When you activate Daily, Weekly, or Monthly AutoPay, you automatically receive a flat ₹50/gram discount on the live market benchmark rate on every scheduled debit.'
+                      q: 'What benefits come with AutoPay?',
+                      a: 'Choose daily, weekly, or monthly deposits. Digi Gold and Silver purchases use the live market rate, and eligible jewellery purchases receive the stated making-charge benefit.'
                     },
                     {
                       q: 'Can I cancel or pause my AutoPay plan at any time?',
@@ -5382,14 +5447,16 @@ export default function DigiGoldDashboard() {
                           className={`dg-chart-metal-btn ${chartMetal === 'gold' ? 'active gold' : ''}`}
                           onClick={() => setChartMetal('gold')}
                         >
-                          🏅 Gold 22K (₹{Number(currentLiveRate).toLocaleString('en-IN')}/g)
+                          <Coins size={13} aria-hidden="true" />
+                          <span>Gold 22K (₹{Number(currentLiveRate).toLocaleString('en-IN')}/g)</span>
                         </button>
                         <button
                           type="button"
                           className={`dg-chart-metal-btn ${chartMetal === 'silver' ? 'active silver' : ''}`}
                           onClick={() => setChartMetal('silver')}
                         >
-                          🥈 Silver 999 (₹{Number(currentSilverRate).toFixed(2)}/g)
+                          <Layers size={13} aria-hidden="true" />
+                          <span>Silver 999 (₹{Number(currentSilverRate).toFixed(2)}/g)</span>
                         </button>
                       </div>
 
@@ -5555,7 +5622,7 @@ export default function DigiGoldDashboard() {
                     {/* 22K Gold (Athirai Primary Digi Gold) */}
                     <div className="dg-rate-card-item gold">
                       <div className="dg-rate-item-left">
-                        <div className="dg-rate-coin gold">22K</div>
+                        <div className="dg-rate-coin gold" aria-hidden="true"><Coins size={17} strokeWidth={2} /></div>
                         <div className="dg-rate-item-info">
                           <div className="dg-rate-item-name">Gold (22K)</div>
                           <div className="dg-rate-hallmark-tag gold">ATHIRAI 916 HALLMARK</div>
@@ -5576,7 +5643,7 @@ export default function DigiGoldDashboard() {
                     {/* Digi Silver */}
                     <div className="dg-rate-card-item silver">
                       <div className="dg-rate-item-left">
-                        <div className="dg-rate-coin silver">Ag</div>
+                        <div className="dg-rate-coin silver" aria-hidden="true"><Layers size={17} strokeWidth={2} /></div>
                         <div className="dg-rate-item-info">
                           <div className="dg-rate-item-name">Digi Silver</div>
                           <div className="dg-rate-hallmark-tag silver">PURE 999 HALLMARK</div>
@@ -5819,26 +5886,25 @@ export default function DigiGoldDashboard() {
                       <div className="dg-rewards-title-area">
                         <h3 className="dg-rewards-h">
                           Special AutoPay <br />
-                          <span className="dg-rewards-h-highlight">₹50 Offer &amp; 5% Off</span>
+                          <span className="dg-rewards-h-highlight">5% Jewellery Benefit</span>
                         </h3>
                         <p className="dg-rewards-p">
-                          Setup daily, weekly, or monthly Auto-Savings to enjoy ₹50 instant offer on every deposit with Fast 24 Hours Delivery!
+                          Save with daily, weekly, or monthly AutoPay and enjoy 5% off jewellery making charges.
                         </p>
                       </div>
                       <div className="dg-rewards-visual">
                         <img src="/digi-gold/autopay_banner_gold.jpg" alt="Athirai Digi Gold AutoPay" />
-                        <div className="dg-rewards-visual-badge">₹50 OFFER</div>
                       </div>
                     </div>
 
                     <div className="dg-rewards-perks-grid">
                       <div className="dg-rewards-perk-item">
                         <span className="dg-rewards-perk-dot">✦</span>
-                        <span>₹50 Instant Discount Offer on Live Rate</span>
+                        <span>Flexible daily, weekly, or monthly savings</span>
                       </div>
                       <div className="dg-rewards-perk-item">
                         <span className="dg-rewards-perk-dot">✦</span>
-                        <span>Delivery Fast • 24 Hours Guaranteed Delivery</span>
+                        <span>Delivery within 7 days</span>
                       </div>
                       <div className="dg-rewards-perk-item">
                         <span className="dg-rewards-perk-dot">✦</span>
@@ -6087,7 +6153,7 @@ export default function DigiGoldDashboard() {
                   {buyMetal === 'gold_22k'
                     ? `${previewGoldGm.toFixed(4)} g (${previewGoldMg.toFixed(2)} mg) of 22K pure gold`
                     : `${previewGoldGm.toFixed(3)} g of Pure 999 silver`}
-                  <small style={{ display: 'block', fontSize: 12, marginTop: 4 }}>GST included (3%): &#8377;{buyCharges.gst.toFixed(2)}</small>
+                  <small style={{ display: 'block', fontSize: 12, marginTop: 4 }}>GST (3%) - &#8377;{buyCharges.gst.toFixed(2)}</small>
                 </span>
               </div>
 

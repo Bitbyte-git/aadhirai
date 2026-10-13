@@ -1146,9 +1146,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 13px 15px;
+  padding: 12px 14px;
   border-radius: 14px;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
   transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
@@ -1170,7 +1171,8 @@ body {
 .dg-rate-item-left {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 9px;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -1185,6 +1187,10 @@ body {
   font-size: 11.5px;
   flex-shrink: 0;
   letter-spacing: -0.02em;
+}
+
+.dg-rate-coin svg {
+  display: block;
 }
 
 .dg-rate-coin.gold {
@@ -1203,6 +1209,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -1214,12 +1221,17 @@ body {
 }
 
 .dg-rate-hallmark-tag {
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 800;
-  letter-spacing: 0.04em;
-  padding: 2px 6px;
+  letter-spacing: 0.02em;
+  padding: 2px 4px;
   border-radius: 4px;
-  width: fit-content;
+  width: max-content;
+  max-width: none;
+  align-self: flex-start;
+  flex-shrink: 0;
+  overflow: visible;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
@@ -1238,7 +1250,8 @@ body {
   flex-direction: column;
   align-items: flex-end;
   gap: 3px;
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  min-width: 100px;
   white-space: nowrap;
 }
 

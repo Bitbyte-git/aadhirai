@@ -337,7 +337,8 @@ export default function DigiGoldDashboard() {
   const [sellFeedback, setSellFeedback] = useState(null)
   const [sellMessage, setSellMessage] = useState('')
 
-  // Convert AUG Coins to 22K Digi Gold form
+  // Convert AUG Revive into Digi Gold or Digi Silver
+  const [convertMetal, setConvertMetal] = useState('gold_22k')
   const [convertAmount, setConvertAmount] = useState('1000')
   const [submittingConvert, setSubmittingConvert] = useState(false)
   const [convertFeedback, setConvertFeedback] = useState(null)
@@ -902,7 +903,7 @@ export default function DigiGoldDashboard() {
           return
         }
 
-        const orderRes = await api.post('/create-razorpay-order/', { amount: parsedAmt })
+        const orderRes = await api.post('/create-razorpay-order/', { amount: parsedAmt, purpose: 'digi_gold' })
         const { razorpay_order_id, key, amount: orderAmount, currency } = orderRes.data
 
         const options = {
@@ -942,7 +943,7 @@ export default function DigiGoldDashboard() {
                 amountInr: parsedAmt,
                 grams: invData.hold_gold_gm || previewGoldGm,
                 milligrams: invData.hold_gold_mg || previewGoldMg,
-                coins: Math.round(parsedAmt * 100),
+                coins: Math.round(buyCharges.total * 100),
                 transactionId: txnId,
                 rate: buyMetal === 'gold_22k' ? currentLiveRate : currentSilverRate,
                 dateTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
@@ -1003,7 +1004,7 @@ export default function DigiGoldDashboard() {
         amountInr: parsedAmt,
         grams: invData.hold_gold_gm || previewGoldGm,
         milligrams: invData.hold_gold_mg || previewGoldMg,
-        coins: Math.round(parsedAmt * 100),
+        coins: Math.round(buyCharges.total * 100),
         transactionId: txnId,
         rate: buyMetal === 'gold_22k' ? currentLiveRate : currentSilverRate,
         dateTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
@@ -1092,7 +1093,7 @@ export default function DigiGoldDashboard() {
         return
       }
 
-      const orderRes = await api.post('/create-razorpay-order/', { amount: parsedAmt })
+      const orderRes = await api.post('/create-razorpay-order/', { amount: parsedAmt, purpose: 'digi_gold' })
       const { razorpay_order_id, key, amount: orderAmount, currency } = orderRes.data
 
       const options = {
@@ -1263,7 +1264,8 @@ export default function DigiGoldDashboard() {
     setConvertFeedback(null)
     try {
       const res = await api.post('/digi-gold/convert-from-recharge/', {
-        amount: parseFloat(convertAmount)
+        amount: parseFloat(convertAmount),
+        metal: convertMetal
       })
       const txnId = res.data?.transaction_id
       const invData = res.data?.investment || {}
@@ -1272,16 +1274,16 @@ export default function DigiGoldDashboard() {
       setShowConvertModal(false)
       setActionSuccessData({
         actionType: 'convert',
-        metal: 'gold_22k',
-        metalLabel: '22K Digital Gold (Athirai 916)',
-        title: 'AUG Revive Converted to Digi Gold!',
-        message: res.data?.message || `Successfully converted ₹${convertAmount} from your store AUG Revive into 22K Digital Gold.`,
+        metal: convertMetal,
+        metalLabel: convertMetal === 'gold_22k' ? '22K Digital Gold (Athirai 916)' : 'Digi Silver (Pure 999)',
+        title: convertMetal === 'gold_22k' ? 'AUG Revive Converted to Digi Gold!' : 'AUG Revive Converted to Digi Silver!',
+        message: res.data?.message || `Successfully converted AUG Revive into ${convertMetal === 'gold_22k' ? '22K Digital Gold' : 'Pure 999 Silver'}.`,
         amountInr: parseFloat(convertAmount),
         grams: invData.hold_gold_gm || previewConvertGm,
         milligrams: invData.hold_gold_mg || previewConvertMg,
-        coins: Math.round(parseFloat(convertAmount) * 100),
+        coins: previewConvertTotalCoins,
         transactionId: txnId,
-        rate: currentLiveRate,
+        rate: convertMetal === 'gold_22k' ? currentLiveRate : currentSilverRate,
         dateTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
       })
 
@@ -1476,10 +1478,17 @@ export default function DigiGoldDashboard() {
 
   // Live calculations for Buy modal
   const parsedBuyAmount = parseFloat(buyAmount) || 0
-  const activeBuyRate = buyMetal === 'gold_22k' ? currentLiveRate : currentSilverRate
   const activeBuyMgRate = buyMetal === 'gold_22k' ? currentLiveMgRate : (currentSilverRate / 1000)
-  const previewGoldMg = activeBuyMgRate > 0 ? (parsedBuyAmount / activeBuyMgRate) : 0
-  const previewGoldGm = activeBuyRate > 0 ? (parsedBuyAmount / activeBuyRate) : 0
+  const getDigiGoldCharges = (budget, mgRate, metal) => {
+    const metalValue = Math.round((budget / 1.03) * 100) / 100
+    const gst = Math.round((budget - metalValue) * 100) / 100
+    const grams = mgRate > 0 ? metalValue / (mgRate * 1000) : 0
+    return { gst, metalValue, grams, mg: grams * 1000, total: budget }
+  }
+  const buyCharges = getDigiGoldCharges(parsedBuyAmount, activeBuyMgRate, buyMetal)
+  const previewGoldGm = buyCharges.grams
+  const previewGoldMg = buyCharges.mg
+  const buyAugRequired = buyCharges.total
 
   // Available holdings for selected sell metal
   const availableSellGm = sellMetal === 'gold_22k'
@@ -1499,12 +1508,16 @@ export default function DigiGoldDashboard() {
 
   // Live calculations for Convert AUG Coins modal
   const parsedConvertAmount = parseFloat(convertAmount) || 0
-  const previewConvertCoins = Math.round(parsedConvertAmount * 100)
-  const previewConvertMg = currentLiveMgRate > 0 ? (parsedConvertAmount / currentLiveMgRate) : 0
-  const previewConvertGm = currentLiveRate > 0 ? (parsedConvertAmount / currentLiveRate) : 0
+  const convertRate = convertMetal === 'gold_22k' ? currentLiveRate : currentSilverRate
+  const convertMgRate = convertMetal === 'gold_22k' ? currentLiveMgRate : currentSilverRate / 1000
+  const convertCharges = getDigiGoldCharges(parsedConvertAmount, convertMgRate, convertMetal)
+  const previewConvertMg = convertCharges.mg
+  const previewConvertGm = convertCharges.grams
   const userAugCoins = Number(kpis.aug_coins_balance ?? 0)
   const userAugInr = Number(kpis.aug_balance_inr ?? 0)
-  const hasEnoughCoins = userAugCoins >= previewConvertCoins
+  const previewConvertTotalCoins = Math.round(convertCharges.total * 100)
+  const hasEnoughCoins = userAugCoins >= previewConvertTotalCoins
+  const maxConvertMetalValue = userAugInr
 
   // ── HOME DELIVERY LIVE CALCULATIONS & ACTIONS ──
   const deliveryGoldRate = Number(currentLiveRate || 13200)
@@ -5989,7 +6002,7 @@ export default function DigiGoldDashboard() {
       {/* ── MODAL: BUY 22K GOLD / DIGI SILVER ── */}
       {showBuyModal && (
         <div className="dg-modal-overlay" onClick={() => setShowBuyModal(false)}>
-          <div className="dg-modal-box" onClick={e => e.stopPropagation()}>
+          <div className="dg-modal-box dg-buy-modal-box" onClick={e => e.stopPropagation()}>
             <div className="dg-modal-head">
               <h3 className="dg-modal-title">Buy {buyMetal === 'gold_22k' ? '22K Digital Gold' : 'Digi Silver'}</h3>
               <button className="dg-modal-close" onClick={() => setShowBuyModal(false)}>
@@ -6043,7 +6056,7 @@ export default function DigiGoldDashboard() {
             />
 
             <form onSubmit={handleBuyGold}>
-              <label className="dg-input-label">Select Amount (₹):</label>
+              <label className="dg-input-label">Enter Total Amount (GST included):</label>
               <div className="dg-amount-presets">
                 {['100', '500', '1000', '5000'].map(p => (
                   <button
@@ -6052,7 +6065,7 @@ export default function DigiGoldDashboard() {
                     className={`dg-preset-btn ${buyAmount === p ? 'active' : ''}`}
                     onClick={() => setBuyAmount(p)}
                   >
-                    ₹{p}
+                    &#8377;{p}
                   </button>
                 ))}
               </div>
@@ -6074,6 +6087,7 @@ export default function DigiGoldDashboard() {
                   {buyMetal === 'gold_22k'
                     ? `${previewGoldGm.toFixed(4)} g (${previewGoldMg.toFixed(2)} mg) of 22K pure gold`
                     : `${previewGoldGm.toFixed(3)} g of Pure 999 silver`}
+                  <small style={{ display: 'block', fontSize: 12, marginTop: 4 }}>GST included (3%): &#8377;{buyCharges.gst.toFixed(2)}</small>
                 </span>
               </div>
 
@@ -6100,7 +6114,7 @@ export default function DigiGoldDashboard() {
                       </div>
                       <span className="dg-buy-option-sub">
                         Available Balance: ₹{Number(kpis.aug_balance_inr ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        {Number(kpis.aug_balance_inr ?? 0) < parsedBuyAmount && (
+                        {buyPaymentMethod === 'wallet' && Number(kpis.aug_balance_inr ?? 0) < buyCharges.total && (
                           <span className="dg-buy-option-warning"> (Insufficient)</span>
                         )}
                       </span>
@@ -6136,10 +6150,13 @@ export default function DigiGoldDashboard() {
                 </div>
               </div>
 
+              {buyPaymentMethod === 'wallet' && Number(kpis.aug_balance_inr ?? 0) < buyAugRequired && parsedBuyAmount > 0 && (
+                <div className="dg-buy-option-warning">AUG Revive balance must cover the entered total (₹{buyAugRequired.toFixed(2)}).</div>
+              )}
               <button
                 type="submit"
                 className="dg-modal-submit-btn"
-                disabled={submittingBuy || parsedBuyAmount <= 0}
+                disabled={submittingBuy || parsedBuyAmount <= 0 || (buyPaymentMethod === 'wallet' && Number(kpis.aug_balance_inr ?? 0) < buyAugRequired)}
               >
                 {submittingBuy
                   ? 'Processing Purchase…'
@@ -6309,8 +6326,8 @@ export default function DigiGoldDashboard() {
                   <ArrowLeftRight size={20} />
                 </div>
                 <div>
-                  <h3 className="dg-modal-title" style={{ margin: 0, fontSize: 17 }}>Convert AUG Revive to Digi Gold</h3>
-                  <p style={{ margin: 0, fontSize: 11.5, color: '#6A8280' }}>Deducts AUG Revive and creates 22K Digital Gold in your vault</p>
+                  <h3 className="dg-modal-title" style={{ margin: 0, fontSize: 17 }}>Convert AUG Revive to {convertMetal === 'gold_22k' ? 'Digi Gold' : 'Digi Silver'}</h3>
+                  <p style={{ margin: 0, fontSize: 11.5, color: '#6A8280' }}>Deducts AUG Revive and adds {convertMetal === 'gold_22k' ? '22K gold' : '999 silver'} to your vault</p>
                 </div>
               </div>
               <button className="dg-modal-close" onClick={() => setShowConvertModal(false)}>
@@ -6328,11 +6345,11 @@ export default function DigiGoldDashboard() {
                 <span style={{ fontSize: 11, color: '#8E9E9C', display: 'block' }}>≈ ₹ {userAugInr.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
               <div style={{ padding: '10px 12px', background: 'rgba(0,153,87,0.06)', borderRadius: 12, border: '1px solid rgba(0,153,87,0.2)' }}>
-                <span style={{ fontSize: 11, color: '#009957', fontWeight: 700, display: 'block' }}>Today's 22K Live Rate</span>
+                <span style={{ fontSize: 11, color: '#009957', fontWeight: 700, display: 'block' }}>Today's {convertMetal === 'gold_22k' ? '22K Gold' : '999 Silver'} Live Rate</span>
                 <span style={{ fontSize: 14.5, fontWeight: 800, color: '#0A3E42' }}>
-                  ₹ {Number(currentLiveRate).toLocaleString('en-IN')} <small style={{ fontSize: 11, color: '#6A8280' }}>/g</small>
+                  ₹ {Number(convertRate).toLocaleString('en-IN')} <small style={{ fontSize: 11, color: '#6A8280' }}>/g</small>
                 </span>
-                <span style={{ fontSize: 11, color: '#009957', fontWeight: 600, display: 'block' }}>₹ {Number(currentLiveMgRate).toFixed(2)} /mg • Athirai 916</span>
+                <span style={{ fontSize: 11, color: '#009957', fontWeight: 600, display: 'block' }}>₹ {Number(convertMgRate).toFixed(2)} /mg • {convertMetal === 'gold_22k' ? 'Athirai 916' : 'Pure 999'}</span>
               </div>
             </div>
 
@@ -6343,7 +6360,11 @@ export default function DigiGoldDashboard() {
             />
 
             <form onSubmit={handleConvertCoins}>
-              <label className="dg-input-label">Select Amount to Convert (₹):</label>
+              <div className="dg-modal-metal-switcher" style={{ marginBottom: 12 }}>
+                <button type="button" className={`dg-modal-metal-tab gold ${convertMetal === 'gold_22k' ? 'active' : ''}`} onClick={() => setConvertMetal('gold_22k')}>22K Gold</button>
+                <button type="button" className={`dg-modal-metal-tab silver ${convertMetal === 'silver_999' ? 'active' : ''}`} onClick={() => setConvertMetal('silver_999')}>Digi Silver (999)</button>
+              </div>
+              <label className="dg-input-label">Enter Total Amount (GST included):</label>
               <div className="dg-amount-presets">
                 {['500', '1000', '2500', '5000'].map(p => (
                   <button
@@ -6352,14 +6373,14 @@ export default function DigiGoldDashboard() {
                     className={`dg-preset-btn ${convertAmount === p ? 'active' : ''}`}
                     onClick={() => setConvertAmount(p)}
                   >
-                    ₹{p}
+                    &#8377;{p}
                   </button>
                 ))}
-                {userAugInr > 0 && (
+                {maxConvertMetalValue > 0 && (
                   <button
                     type="button"
-                    className={`dg-preset-btn ${convertAmount === String(Math.floor(userAugInr)) ? 'active' : ''}`}
-                    onClick={() => setConvertAmount(String(Math.floor(userAugInr)))}
+                    className="dg-preset-btn"
+                    onClick={() => setConvertAmount(String(Math.floor(maxConvertMetalValue * 100) / 100))}
                   >
                     Max (₹{Math.floor(userAugInr).toLocaleString()})
                   </button>
@@ -6388,18 +6409,22 @@ export default function DigiGoldDashboard() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12.5 }}>
                   <span style={{ color: '#4A5568', fontWeight: 600 }}>AUG Revive to Deduct:</span>
                   <span style={{ fontWeight: 800, color: '#E53E3E' }}>
-                    - {previewConvertCoins.toLocaleString()} Revive
+                    - {previewConvertTotalCoins.toLocaleString()} Revive
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12.5 }}>
-                  <span style={{ color: '#4A5568', fontWeight: 600 }}>22K Digital Gold Added:</span>
+                  <span style={{ color: '#4A5568', fontWeight: 600 }}>GST (3%):</span>
+                  <span style={{ fontWeight: 800 }}>&#8377;{convertCharges.gst.toFixed(2)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12.5 }}>
+                  <span style={{ color: '#4A5568', fontWeight: 600 }}>{convertMetal === 'gold_22k' ? '22K Gold Added:' : '999 Silver Added:'}</span>
                   <span style={{ fontWeight: 800, color: '#009957' }}>
                     + {previewConvertGm.toFixed(4)} g ({previewConvertMg.toFixed(2)} mg)
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 6, borderTop: '1px dashed rgba(0,153,87,0.3)', fontSize: 12 }}>
                   <span style={{ color: '#6A8280' }}>Purity &amp; Hallmark:</span>
-                  <span style={{ fontWeight: 700, color: '#0A3E42' }}>Athirai 916 Hallmark (22K)</span>
+                  <span style={{ fontWeight: 700, color: '#0A3E42' }}>{convertMetal === 'gold_22k' ? 'Athirai 916 Hallmark (22K)' : 'Pure 999 Silver'}</span>
                 </div>
               </div>
 
@@ -6417,7 +6442,7 @@ export default function DigiGoldDashboard() {
                   gap: 8
                 }}>
                   <AlertCircle size={15} />
-                  <span>Insufficient AUG Revive. You have {userAugCoins.toLocaleString()} Revive (need {previewConvertCoins.toLocaleString()} Revive).</span>
+                  <span>Insufficient AUG Revive. You have {userAugCoins.toLocaleString()} Revive (need {previewConvertTotalCoins.toLocaleString()} Revive).</span>
                 </div>
               )}
 
@@ -6426,7 +6451,7 @@ export default function DigiGoldDashboard() {
                 className="dg-modal-submit-btn"
                 disabled={submittingConvert || parsedConvertAmount <= 0 || !hasEnoughCoins}
               >
-                {submittingConvert ? 'Processing Conversion…' : `Convert ${previewConvertCoins.toLocaleString()} Revive to ${previewConvertGm.toFixed(4)}g 22K Gold`}
+                {submittingConvert ? 'Processing Conversion…' : `Convert ${previewConvertTotalCoins.toLocaleString()} Revive to ${previewConvertGm.toFixed(4)}g ${convertMetal === 'gold_22k' ? '22K Gold' : '999 Silver'}`}
               </button>
             </form>
           </div>

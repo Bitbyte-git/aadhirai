@@ -1088,7 +1088,8 @@ class DigiGoldInvestmentSerializer(serializers.ModelSerializer):
         model = DigiGoldInvestment
         fields = [
             'id', 'user', 'user_email', 'user_role', 'user_id_str', 'user_name',
-            'transaction_type', 'recharge_amount', 'gold_price_per_gram', 'mg_price',
+            'transaction_type', 'recharge_amount',
+            'gold_price_per_gram', 'mg_price',
             'hold_gold_mg', 'hold_gold_gm', 'payment_method', 'transaction_ref',
             'status', 'notes', 'created_at', 'updated_at',
             'current_gold_price', 'current_mg_price', 'current_growth', 'profit'
@@ -1133,4 +1134,4 @@ class DigiGoldInvestmentSerializer(serializers.ModelSerializer):
             return name or obj.user.email
         except Exception:
             return obj.user.email
-
+

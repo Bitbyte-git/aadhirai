@@ -6,6 +6,7 @@ from django.contrib.auth import authenticate
 from rest_framework.decorators import api_view, permission_classes
 from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink, EmailOTP, Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent, StockSale, StockNotifyRequest, DigiGoldInvestment, DigiGoldWallet
 from django.db.models import Prefetch, Count, Q, Sum, Max, Min, F, Value, Case, When, DecimalField
+from django.db import transaction
 from django.core.cache import cache   # ── NEW: for month_rollup/status caching ──
 from django.db.models.functions import TruncHour, TruncDate, TruncWeek, TruncMonth
 from .serializers import *
@@ -3638,11 +3639,14 @@ def create_razorpay_order(request):
         )
         
         # Razorpay-ல order create பண்ணு
-        razorpay_order = client.order.create({
-            "amount": int(float(amount)) * 100,  # Paise-ல அனுப்பணும்
+        order_payload = {
+            "amount": int((Decimal(str(amount)) * 100).quantize(Decimal('1'))),
             "currency": "INR",
             "payment_capture": 1
-        })
+        }
+        if request.data.get('purpose') == 'digi_gold':
+            order_payload['notes'] = {'purpose': 'digi_gold', 'user_id': str(request.user.id)}
+        razorpay_order = client.order.create(order_payload)
         
         return Response({
             "razorpay_order_id": razorpay_order["id"],
@@ -12201,6 +12205,15 @@ def ping(request):
 
 import time as _pytime
 
+def _digi_gold_budget_breakdown(total, mg_price, is_silver=False):
+    """Apply 3% GST within the entered budget; the remainder buys metal."""
+    total = Decimal(str(total)).quantize(Decimal('0.01'))
+    metal_value = (total / Decimal('1.03')).quantize(Decimal('0.01'))
+    gst = total - metal_value
+    rate = Decimal(str(mg_price))
+    grams = metal_value / (rate * Decimal('1000'))
+    return metal_value, grams, grams * Decimal('1000'), gst
+
 _CACHED_LIVE_RATES = {'time': 0, 'data': None}
 _CACHED_DB_RATES = {'time': 0, 'data': None}
 _CACHED_USER_ROLE_COUNTS = {'time': 0, 'data': None}
@@ -12377,24 +12390,25 @@ class DigiGoldDashboardView(APIView):
         excel_rows = []
         for inv in investments_qs:
             is_silver = 'Silver' in (inv.notes or '')
+            investment_cost = float(inv.recharge_amount)
             item_live_price = float(rates.get('silver_999', 275.0)) if is_silver else live_gold_22k
             item_live_mg_price = live_silver_mg_price if is_silver else live_mg_price
 
             if is_silver:
                 if inv.transaction_type in ['buy', 'convert']:
                     actual_silver_buy_mg += inv.hold_gold_mg
-                    actual_silver_invested += inv.recharge_amount
+                    actual_silver_invested += Decimal(str(investment_cost))
                 elif inv.transaction_type == 'sell':
                     actual_silver_sell_mg += inv.hold_gold_mg
             else:
                 if inv.transaction_type in ['buy', 'convert']:
                     actual_gold_buy_mg += inv.hold_gold_mg
-                    actual_gold_invested += inv.recharge_amount
+                    actual_gold_invested += Decimal(str(investment_cost))
                 elif inv.transaction_type == 'sell':
                     actual_gold_sell_mg += inv.hold_gold_mg
 
             curr_growth = round(float(inv.hold_gold_mg) * item_live_mg_price, 2)
-            profit = round(curr_growth - float(inv.recharge_amount), 2)
+            profit = round(curr_growth - investment_cost, 2)
             txn_ref = inv.transaction_ref or f"BB{inv.created_at.strftime('%y%m%d')}{str(inv.id).zfill(6)}"
 
             # Format payment method & source accurately
@@ -12417,6 +12431,8 @@ class DigiGoldDashboardView(APIView):
             if is_silver:
                 if inv.transaction_type == 'buy':
                     tx_type_label = f"Buy Silver ({pay_label})"
+                elif inv.transaction_type == 'convert':
+                    tx_type_label = 'AUG Revive Convert (999 Silver)'
                 else:
                     tx_type_label = 'Sell Silver (Pure 999)'
             else:
@@ -12439,7 +12455,9 @@ class DigiGoldDashboardView(APIView):
                     'payment_method': pay_label,
                     'metal': 'silver_999' if is_silver else 'gold_22k',
                     'amount_str': f"{float(inv.hold_gold_gm):.3f} g",
-                    'recharge': float(inv.recharge_amount),
+                    'recharge': investment_cost,
+                    'metal_value': float(inv.recharge_amount),
+                    'total_paid': investment_cost,
                     'gold_price': float(inv.gold_price_per_gram),
                     'mg_price': float(inv.mg_price),
                     'hold_gold_mg': float(inv.hold_gold_mg),
@@ -12807,12 +12825,18 @@ class DigiGoldBuyView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
         user = request.user
         amount = request.data.get('amount')
         grams = request.data.get('grams')
         payment_method = request.data.get('payment_method', 'wallet')
         metal = request.data.get('metal', 'gold_22k')
+
+        if payment_method not in {'wallet', 'razorpay', 'upi', 'netbanking'}:
+            return Response({'error': 'Unsupported payment method.'}, status=400)
+        if metal not in {'gold_22k', 'silver_999'}:
+            return Response({'error': 'Unsupported metal.'}, status=400)
 
         rates = _get_live_gold_rates()
         if metal == 'silver_999':
@@ -12839,8 +12863,7 @@ class DigiGoldBuyView(APIView):
                     'detail': 'Please enter a valid numerical amount.',
                     'code': 'invalid_amount'
                 }, status=400)
-            hold_mg = amount_val / Decimal(str(mg_price))
-            hold_gm = hold_mg / Decimal('1000')
+            budget_val = amount_val
         elif grams:
             try:
                 gm_val = Decimal(str(grams))
@@ -12859,6 +12882,7 @@ class DigiGoldBuyView(APIView):
             hold_gm = gm_val
             hold_mg = gm_val * Decimal('1000')
             amount_val = hold_mg * Decimal(str(mg_price))
+            budget_val = amount_val
         else:
             return Response({
                 'error': 'Amount or grams is required.',
@@ -12866,18 +12890,27 @@ class DigiGoldBuyView(APIView):
                 'code': 'missing_params'
             }, status=400)
 
+        budget_val = budget_val.quantize(Decimal('0.01'))
+        try:
+            amount_val, hold_gm, hold_mg, gst_amount = _digi_gold_budget_breakdown(
+                budget_val, mg_price, is_silver=(metal == 'silver_999')
+            )
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=400)
+        total_charge = budget_val
+
         txn_id = generate_transaction_id()
         if payment_method == 'wallet':
-            aug_wallet, _ = Wallet.objects.get_or_create(user=user)
-            needed_coins = int(amount_val * 100)
+            aug_wallet, _ = Wallet.objects.select_for_update().get_or_create(user=user)
+            needed_coins = int(total_charge * 100)
             current_bal_inr = round(float(aug_wallet.balance_coins) / 100.0, 2)
             if aug_wallet.balance_coins < needed_coins:
                 return Response({
                     'error': 'Insufficient recharge wallet balance.',
-                    'detail': f'Your current wallet balance is ₹{current_bal_inr:,.2f}, but ₹{float(amount_val):,.2f} is required for this investment.',
+                    'detail': f'Your current wallet balance is ₹{current_bal_inr:,.2f}, but ₹{float(budget_val):,.2f} is required for this investment.',
                     'code': 'insufficient_balance',
                     'available_inr': current_bal_inr,
-                    'required_inr': float(amount_val)
+                    'required_inr': float(total_charge)
                 }, status=400)
             aug_wallet.balance_coins -= needed_coins
             aug_wallet.lifetime_spent += needed_coins
@@ -12885,7 +12918,7 @@ class DigiGoldBuyView(APIView):
 
             CoinRecharge.objects.create(
                 user=user,
-                amount_paid=amount_val,
+                amount_paid=total_charge,
                 coins_credited=needed_coins,
                 payment_method='wallet',
                 status='success',
@@ -12896,13 +12929,36 @@ class DigiGoldBuyView(APIView):
         elif payment_method in ['razorpay', 'upi', 'netbanking']:
             razorpay_payment_id = request.data.get('razorpay_payment_id')
             razorpay_order_id = request.data.get('razorpay_order_id')
-            if razorpay_payment_id:
+            razorpay_signature = request.data.get('razorpay_signature')
+            if not all([razorpay_payment_id, razorpay_order_id, razorpay_signature]):
+                return Response({'error': 'Razorpay payment verification details are required.'}, status=400)
+            signature_body = f'{razorpay_order_id}|{razorpay_payment_id}'
+            expected_signature = hmac.new(settings.RAZORPAY_KEY_SECRET.encode(), signature_body.encode(), hashlib.sha256).hexdigest()
+            if not hmac.compare_digest(expected_signature, str(razorpay_signature)):
+                return Response({'error': 'Razorpay payment signature is invalid.'}, status=400)
+            try:
+                rzp = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+                order = rzp.order.fetch(razorpay_order_id)
+                order_notes = order.get('notes') or {}
+                if order_notes.get('purpose') != 'digi_gold' or order_notes.get('user_id') != str(user.id):
+                    return Response({'error': 'Razorpay order does not belong to this Digi Gold purchase.'}, status=400)
+                if int(order.get('amount', 0)) != int((budget_val * 100).quantize(Decimal('1'))):
+                    return Response({'error': 'Paid amount does not match the entered total.'}, status=400)
+                payment = rzp.payment.fetch(razorpay_payment_id)
+                if payment.get('status') != 'captured' or payment.get('order_id') != razorpay_order_id:
+                    return Response({'error': 'Razorpay payment is not captured for this order.'}, status=400)
                 txn_id = "BB" + razorpay_payment_id[-8:].upper()
+                if DigiGoldInvestment.objects.filter(transaction_ref=txn_id).exists():
+                    return Response({'error': 'This Razorpay payment has already been applied.'}, status=400)
+            except Exception:
+                return Response({'error': 'Unable to verify Razorpay payment.'}, status=400)
+
+            aug_wallet, _ = Wallet.objects.select_for_update().get_or_create(user=user)
             try:
                 CoinRecharge.objects.create(
                     user=user,
-                    amount_paid=amount_val,
-                    coins_credited=int(amount_val * 100),
+                    amount_paid=budget_val,
+                    coins_credited=int(budget_val * 100),
                     payment_method=payment_method,
                     status='success',
                     entry_type='credit',
@@ -12917,7 +12973,7 @@ class DigiGoldBuyView(APIView):
         inv = DigiGoldInvestment.objects.create(
             user=user,
             transaction_type='buy',
-            recharge_amount=round(amount_val, 2),
+            recharge_amount=round(budget_val, 2),
             gold_price_per_gram=round(Decimal(str(metal_price)), 2),
             mg_price=round(Decimal(str(mg_price)), 4),
             hold_gold_mg=round(hold_mg, 4),
@@ -12929,9 +12985,10 @@ class DigiGoldBuyView(APIView):
         )
 
         dg_wallet, _ = DigiGoldWallet.objects.get_or_create(user=user)
-        dg_wallet.total_gold_mg += round(hold_mg, 4)
-        dg_wallet.total_gold_gm += round(hold_gm, 6)
-        dg_wallet.total_invested_inr += round(amount_val, 2)
+        if metal == 'gold_22k':
+            dg_wallet.total_gold_mg += round(hold_mg, 4)
+            dg_wallet.total_gold_gm += round(hold_gm, 6)
+        dg_wallet.total_invested_inr += round(budget_val, 2)
         dg_wallet.save()
 
         return Response({
@@ -12942,7 +12999,9 @@ class DigiGoldBuyView(APIView):
                 'id': inv.id,
                 'transaction_id': txn_id,
                 'metal': metal,
-                'amount_paid': float(inv.recharge_amount),
+                'amount_paid': float(budget_val),
+                'total_paid': float(budget_val),
+                'gst_amount': float(gst_amount),
                 'gold_price_per_gram': float(inv.gold_price_per_gram),
                 'mg_price': float(inv.mg_price),
                 'hold_gold_mg': float(inv.hold_gold_mg),
@@ -13072,6 +13131,7 @@ class DigiGoldConvertFromRechargeView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
         user = request.user
         amount = request.data.get('amount')
@@ -13085,13 +13145,37 @@ class DigiGoldConvertFromRechargeView(APIView):
         except Exception:
             return Response({'error': 'Invalid amount'}, status=400)
 
-        aug_wallet, _ = Wallet.objects.get_or_create(user=user)
-        needed_coins = int(amount_val * 100)
+        amount_val = amount_val.quantize(Decimal('0.01'))
+
+        metal = request.data.get('metal', 'gold_22k')
+        if metal not in {'gold_22k', 'silver_999'}:
+            return Response({'error': 'Unsupported metal.'}, status=400)
+
+        rates = _get_live_gold_rates()
+        if metal == 'silver_999':
+            metal_label = 'Digi Silver (Pure 999)'
+            metal_price = Decimal(str(rates.get('silver_999', 275.0)))
+            mg_price = metal_price / Decimal('1000')
+        else:
+            metal_label = '22K Digi Gold'
+            metal_price = Decimal(str(rates['gold_22k']))
+            mg_price = Decimal(str(rates['gold_22k_mg']))
+        budget_val = amount_val
+        try:
+            amount_val, hold_gm, hold_mg, gst_amount = _digi_gold_budget_breakdown(
+                budget_val, mg_price, is_silver=(metal == 'silver_999')
+            )
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=400)
+        total_charge = budget_val
+
+        aug_wallet, _ = Wallet.objects.select_for_update().get_or_create(user=user)
+        needed_coins = int(total_charge * 100)
         if aug_wallet.balance_coins < needed_coins:
             avail_inr = round(float(aug_wallet.balance_coins) / 100.0, 2)
             return Response({
                 'error': 'Insufficient AUG Coins balance.',
-                'detail': f'You have {aug_wallet.balance_coins:,} AUG coins (₹{avail_inr:,.2f}), but need {needed_coins:,} coins (₹{float(amount_val):,.2f}) to convert.',
+                'detail': f'You have {aug_wallet.balance_coins:,} AUG coins (₹{avail_inr:,.2f}), but need {needed_coins:,} coins (₹{float(budget_val):,.2f}) to convert.',
                 'code': 'insufficient_balance'
             }, status=400)
 
@@ -13103,7 +13187,7 @@ class DigiGoldConvertFromRechargeView(APIView):
 
         CoinRecharge.objects.create(
             user=user,
-            amount_paid=amount_val,
+            amount_paid=total_charge,
             coins_credited=needed_coins,
             payment_method='wallet',
             status='success',
@@ -13112,41 +13196,38 @@ class DigiGoldConvertFromRechargeView(APIView):
             transaction_id=txn_id
         )
 
-        rates = _get_live_gold_rates()
-        gold_price = rates['gold_22k']
-        mg_price = rates['gold_22k_mg']
-
-        hold_mg = amount_val / Decimal(str(mg_price))
-        hold_gm = hold_mg / Decimal('1000')
-
         inv = DigiGoldInvestment.objects.create(
             user=user,
             transaction_type='convert',
             transaction_ref=txn_id,
-            recharge_amount=round(amount_val, 2),
-            gold_price_per_gram=round(Decimal(str(gold_price)), 2),
+            recharge_amount=round(budget_val, 2),
+            gold_price_per_gram=round(Decimal(str(metal_price)), 2),
             mg_price=round(Decimal(str(mg_price)), 4),
             hold_gold_mg=round(hold_mg, 4),
             hold_gold_gm=round(hold_gm, 6),
             payment_method='recharge_conversion',
             status='completed',
-            notes=f"Converted ₹{amount_val} recharge to {round(hold_gm, 4)}g 22K Digi Gold"
+            notes=f"Converted ₹{budget_val} recharge to {round(hold_gm, 4)}g {metal_label}"
         )
 
-        dg_wallet, _ = DigiGoldWallet.objects.get_or_create(user=user)
-        dg_wallet.total_gold_mg += round(hold_mg, 4)
-        dg_wallet.total_gold_gm += round(hold_gm, 6)
-        dg_wallet.total_invested_inr += round(amount_val, 2)
+        dg_wallet, _ = DigiGoldWallet.objects.select_for_update().get_or_create(user=user)
+        if metal == 'gold_22k':
+            dg_wallet.total_gold_mg += round(hold_mg, 4)
+            dg_wallet.total_gold_gm += round(hold_gm, 6)
+        dg_wallet.total_invested_inr += round(budget_val, 2)
         dg_wallet.save()
 
         return Response({
             'success': True,
-            'message': f'Converted ₹{amount_val} to {round(hold_gm, 4)}g ({round(hold_mg, 2)}mg) 22K Digi Gold!',
+            'message': f'Converted ₹{budget_val} to {round(hold_gm, 4)}g ({round(hold_mg, 2)}mg) {metal_label}!',
             'transaction_id': txn_id,
             'investment': {
                 'id': inv.id,
                 'transaction_id': txn_id,
-                'recharge_amount': float(inv.recharge_amount),
+                'recharge_amount': float(budget_val),
+                'total_paid': float(budget_val),
+                'gst_amount': float(gst_amount),
+                'metal': metal,
                 'gold_price_per_gram': float(inv.gold_price_per_gram),
                 'mg_price': float(inv.mg_price),
                 'hold_gold_mg': float(inv.hold_gold_mg),
@@ -13728,7 +13809,8 @@ class DigiGoldSuperAdminView(APIView):
                 item_rate = live_silver_999 if is_silver else live_gold_22k
                 inv_gm = float(inv.hold_gold_gm) if inv.hold_gold_gm else round(float(inv.hold_gold_mg) / 1000.0, 4)
                 curr_growth = round(inv_gm * item_rate, 2)
-                profit = round(curr_growth - float(inv.recharge_amount), 2)
+                total_paid = float(inv.recharge_amount)
+                profit = round(curr_growth - total_paid, 2)
 
                 local_inv = timezone.localtime(inv.created_at)
                 unified_items.append({
@@ -13752,7 +13834,8 @@ class DigiGoldSuperAdminView(APIView):
                     'quantity_label': f"{inv_gm:.3f} g",
                     'hold_gold_mg': float(inv.hold_gold_mg),
                     'rate': float(inv.gold_price_per_gram),
-                    'amount': float(inv.recharge_amount),
+                    'amount': total_paid,
+                    'metal_value': float(inv.recharge_amount),
                     'current_valuation': curr_growth,
                     'profit': profit,
                     'payment_method': inv.payment_method or 'UPI',

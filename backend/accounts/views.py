@@ -3331,9 +3331,12 @@ class JewelryOrderView(APIView):
     def patch(self, request, pk):
         if request.user.role != 'super_admin':
             return Response({'error': 'Permission denied'}, status=403)
-        try:
-            order = JewelryOrder.objects.get(id=pk)
-        except JewelryOrder.DoesNotExist:
+        order = None
+        if str(pk).isdigit():
+            order = JewelryOrder.objects.filter(id=int(pk)).first()
+        if not order:
+            order = JewelryOrder.objects.filter(order_id=str(pk)).first()
+        if not order:
             return Response({'error': 'Not found'}, status=404)
         status_val = request.data.get('status')
         if status_val and status_val != order.status:
@@ -13196,9 +13199,9 @@ class DigiGoldDeliveryOrderView(APIView):
         if total_gold_gm <= 0 and total_silver_gm <= 0:
             return Response({'error': 'Invalid coin quantities or weights selected.'}, status=400)
 
-        # Validate wallet balances
+        # Validate wallet balances strictly
         dg_wallet, _ = DigiGoldWallet.objects.get_or_create(user=user)
-        user_gold_gm = dg_wallet.total_gold_gm
+        user_gold_gm = Decimal(str(dg_wallet.total_gold_gm or 0))
 
         # Calculate silver holdings
         silver_buys = DigiGoldInvestment.objects.filter(user=user, status='completed', transaction_type__in=['buy', 'convert'], notes__icontains='Silver')
@@ -13207,28 +13210,28 @@ class DigiGoldDeliveryOrderView(APIView):
         user_silver_mg = max(Decimal('0'), (silver_buys.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) - (silver_sells.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')) - (silver_deliv.aggregate(s=Sum('hold_gold_mg'))['s'] or Decimal('0')))
         user_silver_gm = user_silver_mg / Decimal('1000')
 
+        # Strictly verify customer has sufficient balance in vault wallet
         if total_gold_gm > user_gold_gm:
             return Response({
-                'error': f'Insufficient Gold wallet balance. You selected {total_gold_gm:.3f}g but have only {user_gold_gm:.3f}g available.'
+                'error': f'Insufficient Gold in vault wallet. You have {user_gold_gm:.3f}g available, but selected {total_gold_gm:.3f}g for delivery.'
             }, status=400)
 
         if total_silver_gm > user_silver_gm:
             return Response({
-                'error': f'Insufficient Silver wallet balance. You selected {total_silver_gm:.3f}g but have only {user_silver_gm:.3f}g available.'
+                'error': f'Insufficient Silver in vault wallet. You have {user_silver_gm:.3f}g available, but selected {total_silver_gm:.3f}g for delivery.'
             }, status=400)
 
-        order_id = f"DG{timezone.now().strftime('%Y%m%d')}{random.randint(1000, 9999)}"
         txn_id = f"DLV-{timezone.now().strftime('%Y%m%d%H%M%S')}-{random.randint(100, 999)}"
 
         with transaction.atomic():
-            # Deduct gold
+            # 1. Deduct Gold from DigiGoldWallet
             if total_gold_gm > 0:
                 gold_mg = total_gold_gm * Decimal('1000')
                 dg_wallet.total_gold_gm = max(Decimal('0'), dg_wallet.total_gold_gm - total_gold_gm)
                 dg_wallet.total_gold_mg = max(Decimal('0'), dg_wallet.total_gold_mg - gold_mg)
                 dg_wallet.save()
 
-                gold_items_desc = ", ".join([f"{it.get('denomination', '')} x {it.get('quantity')}" for it in items if it.get('metal') == 'gold'])
+                gold_items_desc = ", ".join([f"{it.get('denomination', '')} x {it.get('quantity', 1)}" for it in items if it.get('metal') == 'gold'])
                 DigiGoldInvestment.objects.create(
                     user=user,
                     transaction_type='delivery',
@@ -13240,13 +13243,13 @@ class DigiGoldDeliveryOrderView(APIView):
                     payment_method='gold_vault_deduction',
                     transaction_ref=txn_id,
                     status='completed',
-                    notes=f"Order {order_id}: 22K Gold Coin Delivery ({gold_items_desc}) to {address.get('city', '')}"
+                    notes=f"Bullion Delivery (22K Gold: {gold_items_desc}) to {address.get('city', '') or address.get('district', '') or address.get('formatted', '')}"
                 )
 
-            # Deduct silver
+            # 2. Deduct Silver
             if total_silver_gm > 0:
                 silver_mg = total_silver_gm * Decimal('1000')
-                silver_items_desc = ", ".join([f"{it.get('denomination', '')} x {it.get('quantity')}" for it in items if it.get('metal') == 'silver'])
+                silver_items_desc = ", ".join([f"{it.get('denomination', '')} x {it.get('quantity', 1)}" for it in items if it.get('metal') == 'silver'])
                 DigiGoldInvestment.objects.create(
                     user=user,
                     transaction_type='delivery',
@@ -13258,8 +13261,55 @@ class DigiGoldDeliveryOrderView(APIView):
                     payment_method='silver_vault_deduction',
                     transaction_ref=txn_id,
                     status='completed',
-                    notes=f"Order {order_id}: 999 Silver Coin Delivery ({silver_items_desc}) to {address.get('city', '')}"
+                    notes=f"Bullion Delivery (999 Silver: {silver_items_desc}) to {address.get('city', '') or address.get('district', '') or address.get('formatted', '')}"
                 )
+
+            # 3. Create real JewelryOrder in DB so Superadmin can manage in Adminorderspage.jsx like Amazon / Flipkart
+            all_items_desc = ", ".join([f"{it.get('metal', 'gold').upper()} {it.get('denomination', '')} x {it.get('quantity', 1)}" for it in items])
+            primary_metal = 'gold' if total_gold_gm > 0 else 'silver'
+
+            cust_name = address.get('name') or user.first_name or user.username or 'Customer'
+            cust_phone = address.get('phone') or getattr(user, 'phone', '') or ''
+            d_no = address.get('door_no', '')
+            line1 = address.get('address_line1') or address.get('formatted') or 'Doorstep Delivery'
+            if d_no and not line1.startswith(str(d_no)):
+                line1 = f"D.No: {d_no}, {line1}"
+            line2 = address.get('address_line2', '')
+            city_val = address.get('district') or address.get('city') or 'Chennai'
+            state_val = address.get('state') or 'Tamil Nadu'
+            pin_val = str(address.get('pincode', '600001'))[:6]
+
+            j_order = JewelryOrder.objects.create(
+                user=user,
+                product_name=f"Digi Bullion Delivery ({all_items_desc})",
+                product_metal=primary_metal,
+                product_category='bullion',
+                product_image_url='/assets/gold-coin-transparent.png' if primary_metal == 'gold' else '/assets/silver-coin-transparent.png',
+                product_net_weight=total_gold_gm + total_silver_gm,
+                customer_name=cust_name,
+                customer_phone=cust_phone,
+                address_line1=line1,
+                address_line2=line2,
+                city=city_val,
+                state=state_val,
+                pincode=pin_val,
+                quantity=sum(int(it.get('quantity', 1)) for it in items),
+                unit_price=live_gold_rate if primary_metal == 'gold' else live_silver_rate,
+                total_price=total_valuation_inr,
+                payment_method='upi',
+                payment_status='paid',
+                status='confirmed',
+            )
+
+            # 4. Create initial Amazon/Flipkart-style OrderTrackingEvent
+            OrderTrackingEvent.objects.create(
+                order=j_order,
+                stage='confirmed',
+                location=city_val,
+                note='Bullion delivery request confirmed & reserved from digital vault wallet'
+            )
+
+        order_id = j_order.order_id
 
         order_data = {
             'order_id': order_id,
@@ -13272,9 +13322,9 @@ class DigiGoldDeliveryOrderView(APIView):
             'total_weight_gm': float(total_gold_gm + total_silver_gm),
             'total_amount': float(total_valuation_inr),
             'delivery_fee': 0.0,
-            'status': 'completed',
-            'estimated_delivery': 'Within 7 business days',
-            'payment_method': 'UPI AutoPay',
+            'status': 'confirmed',
+            'estimated_delivery': 'Within 5-7 business days',
+            'payment_method': 'Vault Balance Deduction',
             'address': address
         }
 
@@ -13289,27 +13339,73 @@ class DigiGoldDeliveryOrderView(APIView):
 
 class DigiGoldDeliveryOrderHistoryView(APIView):
     """
-    Fetch user's delivery order history.
+    Fetch user's delivery order history with real status updates from JewelryOrder.
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        orders = DigiGoldInvestment.objects.filter(user=user, transaction_type='delivery').order_by('-created_at')
+        is_admin = getattr(user, 'role', '') in ['super_admin', 'admin'] or request.query_params.get('all') == 'true'
+        if is_admin:
+            orders = JewelryOrder.objects.filter(product_category='bullion').select_related('user').prefetch_related('tracking_events').order_by('-created_at')
+        else:
+            orders = JewelryOrder.objects.filter(user=user, product_category='bullion').select_related('user').prefetch_related('tracking_events').order_by('-created_at')
+
         records = []
         for o in orders:
-            order_id = o.notes.split(':')[0].replace('Order ', '').strip() if 'Order ' in o.notes else o.transaction_ref
+            tracking = [{
+                'stage': t.stage,
+                'location': t.location,
+                'note': t.note,
+                'created_at': t.created_at.strftime('%d %b %Y, %I:%M %p')
+            } for t in o.tracking_events.all().order_by('created_at')]
+
             records.append({
                 'id': o.id,
-                'order_id': order_id,
-                'transaction_ref': o.transaction_ref,
-                'weight_gm': float(o.hold_gold_gm),
-                'valuation_inr': float(o.recharge_amount),
-                'metal': 'silver' if 'Silver' in o.notes else 'gold',
+                'order_id': o.order_id,
+                'transaction_ref': o.order_id,
+                'customer_name': o.customer_name or (o.user.first_name or o.user.username if o.user else 'Customer'),
+                'customer_phone': o.customer_phone or (getattr(o.user, 'phone', '') if o.user else ''),
+                'customer_email': getattr(o.user, 'email', '') if o.user else '',
+                'weight_gm': float(o.product_net_weight or 0),
+                'valuation_inr': float(o.total_price),
+                'metal': o.product_metal,
                 'status': o.status,
-                'notes': o.notes,
+                'notes': o.product_name,
                 'date': o.created_at.strftime('%d %b %Y, %I:%M %p'),
+                'address': {
+                    'formatted': f"{o.address_line1}, {o.address_line2 + ', ' if o.address_line2 else ''}{o.city}, {o.state} - {o.pincode}",
+                    'name': o.customer_name,
+                    'phone': o.customer_phone
+                },
+                'tracking': tracking
             })
+
+        # Fallback to DigiGoldInvestment if no JewelryOrder exists yet or supplementary records
+        if not records or is_admin:
+            existing_ids = set(o.order_id for o in orders)
+            inv_filter = {'transaction_type': 'delivery'} if is_admin else {'user': user, 'transaction_type': 'delivery'}
+            inv_orders = DigiGoldInvestment.objects.filter(**inv_filter).select_related('user').order_by('-created_at')
+            for o in inv_orders:
+                order_id = o.notes.split(':')[0].replace('Order ', '').strip() if 'Order ' in o.notes else o.transaction_ref
+                if order_id in existing_ids:
+                    continue
+                records.append({
+                    'id': o.id,
+                    'order_id': order_id,
+                    'transaction_ref': o.transaction_ref,
+                    'customer_name': o.user.first_name or o.user.username if o.user else 'Customer',
+                    'customer_phone': getattr(o.user, 'phone', '') if o.user else '',
+                    'customer_email': getattr(o.user, 'email', '') if o.user else '',
+                    'weight_gm': float(o.hold_gold_gm),
+                    'valuation_inr': float(o.recharge_amount),
+                    'metal': 'silver' if 'Silver' in o.notes else 'gold',
+                    'status': o.status,
+                    'notes': o.notes,
+                    'date': o.created_at.strftime('%d %b %Y, %I:%M %p'),
+                    'address': {'formatted': o.notes}
+                })
+
         return Response({'orders': records})
 
 

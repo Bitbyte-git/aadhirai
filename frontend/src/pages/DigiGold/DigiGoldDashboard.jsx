@@ -55,7 +55,8 @@ import {
   Award,
   Scale,
   Lock,
-  Activity
+  Activity,
+  PackageCheck
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -230,15 +231,15 @@ export default function DigiGoldDashboard() {
         const u = JSON.parse(stored)
         const fullName = u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : ''
         return {
-          name: fullName || u.username || u.name || (u.email ? u.email.split('@')[0] : 'Senthil'),
+          name: fullName || u.username || u.name || (u.email ? u.email.split('@')[0] : 'Customer'),
           role: (u.role || localStorage.getItem('role') || 'Customer').replace('_', ' '),
           email: u.email || localStorage.getItem('email') || '',
           phone: u.phone || ''
         }
       }
-    } catch {}
+    } catch { }
     const storedEmail = localStorage.getItem('email') || ''
-    const fallbackName = storedEmail ? storedEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Senthil'
+    const fallbackName = storedEmail ? storedEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Customer'
     const name = localStorage.getItem('name') || localStorage.getItem('username') || fallbackName
     const role = (localStorage.getItem('role') || 'Customer').replace('_', ' ')
     return { name, role, email: storedEmail }
@@ -254,7 +255,7 @@ export default function DigiGoldDashboard() {
     try {
       const s = sessionStorage.getItem('athirai_rates')
       if (s) cachedRates = JSON.parse(s)
-    } catch {}
+    } catch { }
 
     const liveRates = cachedRates || {
       gold_22k: 14250,
@@ -390,7 +391,7 @@ export default function DigiGoldDashboard() {
     setActiveAutoPayPlans(updated)
     try {
       localStorage.setItem('athirai_autopay_plans', JSON.stringify(updated))
-    } catch {}
+    } catch { }
   }
 
   // ── HOME DELIVERY STATE & CONFIGURATION ──
@@ -421,61 +422,293 @@ export default function DigiGoldDashboard() {
   const [deliveryCart, setDeliveryCart] = useState(() => {
     try {
       const saved = localStorage.getItem('athirai_delivery_cart')
-      return saved ? JSON.parse(saved) : [
-        { id: 'gold-1g', metal: 'gold', label: '1g', weight_gm: 1.0, qty: 2 },
-        { id: 'silver-2g', metal: 'silver', label: '2g', weight_gm: 2.0, qty: 1 }
-      ]
+      return saved ? JSON.parse(saved) : []
     } catch {
-      return [
-        { id: 'gold-1g', metal: 'gold', label: '1g', weight_gm: 1.0, qty: 2 },
-        { id: 'silver-2g', metal: 'silver', label: '2g', weight_gm: 2.0, qty: 1 }
-      ]
+      return []
     }
   })
 
-  const [deliveryAddress, setDeliveryAddress] = useState({
-    name: 'Rajesh Kumar',
-    phone: '9876543210',
-    address_line1: 'No 45, Gandhi Road, Anna Nagar',
-    city: 'Chennai',
-    state: 'Tamil Nadu',
-    pincode: '600040',
-    formatted: 'No 45, Gandhi Road, Anna Nagar, Chennai - 600040'
+  const [deliveryAddress, setDeliveryAddress] = useState(() => {
+    try {
+      const saved = localStorage.getItem('athirai_delivery_address')
+      if (saved) return JSON.parse(saved)
+      const stored = localStorage.getItem('user')
+      if (stored) {
+        const u = JSON.parse(stored)
+        const addrParts = [u.door_no ? `D.No: ${u.door_no}` : '', u.address || u.street_name, u.city || u.district, u.state, u.pincode].filter(Boolean)
+        return {
+          name: currentUser.name || u.first_name || '',
+          phone: currentUser.phone || u.phone || u.mobile_number || '',
+          door_no: u.door_no || '',
+          address_line1: u.address || u.street_name || '',
+          address_line2: u.town_name || '',
+          district: u.district || u.city || '',
+          city: u.city || u.district || '',
+          state: u.state || '',
+          pincode: u.pincode || '',
+          country: u.country || 'India',
+          formatted: addrParts.join(', ')
+        }
+      }
+    } catch { }
+    return {
+      name: currentUser.name || '',
+      phone: currentUser.phone || '',
+      door_no: '',
+      address_line1: '',
+      address_line2: '',
+      district: '',
+      city: '',
+      state: '',
+      pincode: '',
+      country: 'India',
+      formatted: ''
+    }
   })
 
-  const [isEditingAddress, setIsEditingAddress] = useState(false)
+  // ── DELIVERY ADDRESS POPUP STATE & HANDLERS ──
+  const [showAddressModal, setShowAddressModal] = useState(false)
+  const [addressForm, setAddressForm] = useState({
+    name: '',
+    phone: '',
+    door_no: '',
+    address_line1: '',
+    address_line2: '',
+    pincode: '',
+    district: '',
+    state: '',
+    country: 'India'
+  })
+  const [pincodeLoading, setPincodeLoading] = useState(false)
+  const [pincodeMsg, setPincodeMsg] = useState('')
+  const [profileFetching, setProfileFetching] = useState(false)
+  const [addressFeedback, setAddressFeedback] = useState(null)
+
+  const handleOpenAddressModal = () => {
+    setAddressForm({
+      name: deliveryAddress.name || currentUser.name || '',
+      phone: deliveryAddress.phone || currentUser.phone || '',
+      door_no: deliveryAddress.door_no || '',
+      address_line1: deliveryAddress.address_line1 || '',
+      address_line2: deliveryAddress.address_line2 || '',
+      pincode: deliveryAddress.pincode || '',
+      district: deliveryAddress.district || deliveryAddress.city || '',
+      state: deliveryAddress.state || '',
+      country: deliveryAddress.country || 'India'
+    })
+    setPincodeMsg('')
+    setAddressFeedback(null)
+    setShowAddressModal(true)
+  }
+
+  const handlePincodeChange = async (pinValue) => {
+    const cleanPin = pinValue.replace(/\D/g, '').slice(0, 6)
+    setAddressForm(prev => ({ ...prev, pincode: cleanPin }))
+
+    if (cleanPin.length === 6) {
+      setPincodeLoading(true)
+      setPincodeMsg('Fetching district, state & country…')
+      try {
+        const response = await fetch(`https://api.postalpincode.in/pincode/${cleanPin}`)
+        const resData = await response.json()
+        if (Array.isArray(resData) && resData[0]?.Status === 'Success' && resData[0]?.PostOffice?.length) {
+          const po = resData[0].PostOffice[0]
+          const detectedDistrict = po.District || po.Division || ''
+          const detectedState = po.State || ''
+          const detectedCountry = po.Country || 'India'
+
+          setAddressForm(prev => ({
+            ...prev,
+            pincode: cleanPin,
+            district: detectedDistrict,
+            state: detectedState,
+            country: detectedCountry,
+            address_line2: prev.address_line2 || (po.Name && po.Name !== detectedDistrict ? po.Name : prev.address_line2)
+          }))
+          setPincodeMsg(`Auto-detected: ${detectedDistrict}, ${detectedState}, ${detectedCountry}`)
+        } else {
+          setPincodeMsg('Pincode not found. Please enter district and state manually.')
+        }
+      } catch (err) {
+        console.warn('Pincode lookup error:', err)
+        setPincodeMsg('Could not auto-fetch. Please enter district and state manually.')
+      } finally {
+        setPincodeLoading(false)
+      }
+    } else {
+      setPincodeMsg('')
+    }
+  }
+
+  const handleAutoFetchProfileAddress = async () => {
+    setProfileFetching(true)
+    setAddressFeedback(null)
+    try {
+      let prof = null
+      try {
+        const res = await api.get('/dashboard/')
+        if (res.data) prof = res.data
+      } catch (e) {
+        console.warn('Dashboard profile fetch notice:', e)
+      }
+
+      let storedUser = null
+      try {
+        const raw = localStorage.getItem('user')
+        if (raw) storedUser = JSON.parse(raw)
+      } catch { }
+
+      const source = prof || storedUser || {}
+      const fallbackName = currentUser.name || (source.first_name ? `${source.first_name || ''} ${source.last_name || ''}`.trim() : '')
+      const phone = source.mobile_number || source.phone || currentUser.phone || ''
+      const doorNo = source.door_no || ''
+      const street = source.street_name || source.address_line1 || source.address || ''
+      const locality = source.town_name || source.address_line2 || ''
+      const rawPin = (source.pincode || '').toString().replace(/\D/g, '').slice(0, 6)
+      const dist = source.district || source.city_name || source.city || ''
+      const st = source.state || ''
+      const ctry = source.country || 'India'
+
+      const updated = {
+        name: addressForm.name || fallbackName || 'Customer',
+        phone: addressForm.phone || phone || '',
+        door_no: doorNo,
+        address_line1: street,
+        address_line2: locality,
+        pincode: rawPin,
+        district: dist,
+        state: st,
+        country: ctry
+      }
+
+      setAddressForm(updated)
+
+      if (rawPin && rawPin.length === 6 && (!dist || !st)) {
+        handlePincodeChange(rawPin)
+      }
+
+      if (street || doorNo || rawPin) {
+        setAddressFeedback({
+          type: 'success',
+          text: 'Customer profile address details loaded successfully!'
+        })
+      } else {
+        setAddressFeedback({
+          type: 'info',
+          text: 'Profile found with contact details. Please enter your Door No, Street and PIN.'
+        })
+      }
+    } catch (err) {
+      setAddressFeedback({
+        type: 'error',
+        text: 'Could not fetch profile. Please enter your address manually.'
+      })
+    } finally {
+      setProfileFetching(false)
+    }
+  }
+
+  const handleResetAddressForm = () => {
+    setAddressForm({
+      name: currentUser.name || '',
+      phone: currentUser.phone || '',
+      door_no: '',
+      address_line1: '',
+      address_line2: '',
+      pincode: '',
+      district: '',
+      state: '',
+      country: 'India'
+    })
+    setPincodeMsg('')
+    setAddressFeedback(null)
+  }
+
+  const handleSaveDeliveryAddress = (e) => {
+    if (e) e.preventDefault()
+    setAddressFeedback(null)
+
+    if (!addressForm.door_no && !addressForm.address_line1) {
+      setAddressFeedback({
+        type: 'error',
+        text: 'Please enter Door No (D/No) or Address Line 1.'
+      })
+      return
+    }
+
+    if (!addressForm.pincode || addressForm.pincode.length !== 6) {
+      setAddressFeedback({
+        type: 'error',
+        text: 'Please enter a valid 6-digit PIN code.'
+      })
+      return
+    }
+
+    if (!addressForm.district || !addressForm.state) {
+      setAddressFeedback({
+        type: 'error',
+        text: 'Please enter District and State.'
+      })
+      return
+    }
+
+    const parts = [
+      addressForm.door_no ? `D.No: ${addressForm.door_no}` : '',
+      addressForm.address_line1,
+      addressForm.address_line2,
+      addressForm.district,
+      addressForm.state ? `${addressForm.state} - ${addressForm.pincode}` : addressForm.pincode,
+      addressForm.country || 'India'
+    ].filter(Boolean)
+
+    const formattedAddress = parts.join(', ')
+
+    const updated = {
+      ...addressForm,
+      city: addressForm.district,
+      formatted: formattedAddress
+    }
+
+    setDeliveryAddress(updated)
+    try {
+      localStorage.setItem('athirai_delivery_address', JSON.stringify(updated))
+    } catch { }
+
+    setShowAddressModal(false)
+  }
+
   const [submittingDelivery, setSubmittingDelivery] = useState(false)
   const [deliveryFeedback, setDeliveryFeedback] = useState(null)
   const [lastConfirmedOrder, setLastConfirmedOrder] = useState(() => {
     try {
       const saved = localStorage.getItem('athirai_last_delivery_order')
-      return saved ? JSON.parse(saved) : {
-        order_id: 'DG202510080001',
-        payment_method: 'UPI AutoPay',
-        date: '08 Oct 2026, 11:45 AM',
-        status: 'Completed',
-        items: [
-          { id: 'gold-1g', metal: 'gold', label: '1g', weight_gm: 1.0, qty: 2, unit_price: 13200, total_price: 26400 },
-          { id: 'silver-2g', metal: 'silver', label: '2g', weight_gm: 2.0, qty: 1, unit_price: 1200, total_price: 1200 }
-        ],
-        total_weight_gm: 4.0,
-        total_amount: 27600
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed?.order_id && !['DG202510080001', 'DG-2026-8812'].includes(parsed.order_id)) {
+          return parsed
+        }
       }
-    } catch {
-      return {
-        order_id: 'DG202510080001',
-        payment_method: 'UPI AutoPay',
-        date: '08 Oct 2026, 11:45 AM',
-        status: 'Completed',
-        items: [
-          { id: 'gold-1g', metal: 'gold', label: '1g', weight_gm: 1.0, qty: 2, unit_price: 13200, total_price: 26400 },
-          { id: 'silver-2g', metal: 'silver', label: '2g', weight_gm: 2.0, qty: 1, unit_price: 1200, total_price: 1200 }
-        ],
-        total_weight_gm: 4.0,
-        total_amount: 27600
-      }
-    }
+    } catch { }
+    return null
   })
+
+  // ── BULLION DELIVERY ORDERS HISTORY STATE (PURE REAL DATA) ──
+  const [deliveryOrdersList, setDeliveryOrdersList] = useState(() => {
+    try {
+      const saved = localStorage.getItem('athirai_delivery_orders_history')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) {
+          const fakeIds = ['DG-2026-8812', 'DG-2026-7240', 'DG-2026-6105', 'DG202510080001']
+          return parsed.filter(o => o && o.order_id && !fakeIds.includes(o.order_id))
+        }
+      }
+    } catch { }
+    return []
+  })
+  const [deliveryOrdersFilter, setDeliveryOrdersFilter] = useState('all')
+  const [deliveryOrdersSearch, setDeliveryOrdersSearch] = useState('')
+  const [trackingModalOrder, setTrackingModalOrder] = useState(null)
 
   useEffect(() => {
     if (data?.customer) {
@@ -536,7 +769,7 @@ export default function DigiGoldDashboard() {
             diff_silver: 8.0,
             pct_silver: 3.0,
           }
-          try { sessionStorage.setItem('athirai_rates', JSON.stringify(liveMetalRates)) } catch {}
+          try { sessionStorage.setItem('athirai_rates', JSON.stringify(liveMetalRates)) } catch { }
         }
       }
 
@@ -594,6 +827,45 @@ export default function DigiGoldDashboard() {
         chart_history: dashData?.chart_history || null,
         recent_transactions: dashData?.recent_transactions || []
       })
+
+      // Fetch real bullion delivery orders from backend
+      try {
+        const delivRes = await api.get('/digi-gold/delivery/orders/')
+        if (delivRes.data?.orders && Array.isArray(delivRes.data.orders)) {
+          const fakeIds = ['DG-2026-8812', 'DG-2026-7240', 'DG-2026-6105', 'DG202510080001']
+          const validOrders = delivRes.data.orders
+            .filter(o => o && o.order_id && !fakeIds.includes(o.order_id))
+            .map(o => {
+              const isSilver = o.metal === 'silver'
+              return {
+                order_id: o.order_id || `DG-${o.id}`,
+                date: o.date,
+                status: o.status === 'completed' ? 'confirmed' : (o.status || 'confirmed'),
+                status_label: o.status === 'delivered' ? 'Delivered Successfully' : (o.status === 'shipped' ? 'Shipped & In Transit' : 'Order Confirmed'),
+                tracking_number: o.transaction_ref || `ATH-SEC-${o.id}`,
+                estimated_delivery: 'Within 7 business days',
+                address: o.notes?.includes(' to ') ? o.notes.split(' to ')[1] : (deliveryAddress.formatted || 'Customer Address'),
+                total_amount: Math.round(Number(o.valuation_inr) || 0),
+                total_weight_gm: Number(o.weight_gm) || 0,
+                items: [
+                  {
+                    metal: isSilver ? 'silver' : 'gold',
+                    label: `${o.weight_gm}g`,
+                    weight_gm: Number(o.weight_gm) || 0,
+                    qty: 1,
+                    unit_price: Math.round(Number(o.valuation_inr) / (Number(o.weight_gm) || 1)),
+                    total_price: Math.round(Number(o.valuation_inr) || 0),
+                    purity: isSilver ? '999 Pure Silver' : 'BIS 916 Hallmarked'
+                  }
+                ]
+              }
+            })
+          setDeliveryOrdersList(validOrders)
+          try { localStorage.setItem('athirai_delivery_orders_history', JSON.stringify(validOrders)) } catch { }
+        }
+      } catch (delivErr) {
+        console.warn('Real delivery orders fetch notice:', delivErr)
+      }
     } catch (err) {
       console.warn('Dashboard parallel fetch error:', err)
     } finally {
@@ -719,7 +991,7 @@ export default function DigiGoldDashboard() {
       })
       const txnId = res.data?.transaction_id
       const invData = res.data?.investment || {}
-      
+
       // Close buy input modal & launch Success Popup Modal
       setShowBuyModal(false)
       setActionSuccessData({
@@ -868,7 +1140,7 @@ export default function DigiGoldDashboard() {
             setActiveAutoPayPlans(updatedPlans)
             try {
               localStorage.setItem('athirai_autopay_plans', JSON.stringify(updatedPlans))
-            } catch {}
+            } catch { }
 
             setShowAutoPayModal(false)
             setActionSuccessData({
@@ -1251,6 +1523,9 @@ export default function DigiGoldDashboard() {
 
   const availableGoldGm = Number(kpis?.total_gold_holding_gm ?? 0)
   const availableSilverGm = Number(kpis?.total_silver_holding_gm ?? 0)
+  const exceedsGoldBalance = totalCartGoldWeight > (availableGoldGm + 0.0001)
+  const exceedsSilverBalance = totalCartSilverWeight > (availableSilverGm + 0.0001)
+  const hasBalanceShortage = exceedsGoldBalance || exceedsSilverBalance
 
   const handleAddDeliveryCoin = (metal, coin) => {
     setDeliveryCart(prev => {
@@ -1268,7 +1543,7 @@ export default function DigiGoldDashboard() {
         }
         nextCart = [...prev, newItem]
       }
-      try { localStorage.setItem('athirai_delivery_cart', JSON.stringify(nextCart)) } catch {}
+      try { localStorage.setItem('athirai_delivery_cart', JSON.stringify(nextCart)) } catch { }
       return nextCart
     })
   }
@@ -1282,14 +1557,14 @@ export default function DigiGoldDashboard() {
         }
         return i
       }).filter(Boolean)
-      try { localStorage.setItem('athirai_delivery_cart', JSON.stringify(nextCart)) } catch {}
+      try { localStorage.setItem('athirai_delivery_cart', JSON.stringify(nextCart)) } catch { }
       return nextCart
     })
   }
 
   const handleClearDeliveryCart = () => {
     setDeliveryCart([])
-    try { localStorage.removeItem('athirai_delivery_cart') } catch {}
+    try { localStorage.removeItem('athirai_delivery_cart') } catch { }
   }
 
   const handleProceedDeliveryCheckout = async () => {
@@ -1298,6 +1573,24 @@ export default function DigiGoldDashboard() {
         type: 'error',
         title: 'Cart is Empty',
         detail: 'Please select at least one gold or silver coin for home delivery.'
+      })
+      return
+    }
+
+    if (exceedsGoldBalance) {
+      setDeliveryFeedback({
+        type: 'error',
+        title: 'Insufficient Gold in Vault Wallet',
+        detail: `You have ${availableGoldGm.toFixed(3)}g Gold in your vault, but your cart requires ${totalCartGoldWeight.toFixed(3)}g Gold. You can only order coins up to your available balance.`
+      })
+      return
+    }
+
+    if (exceedsSilverBalance) {
+      setDeliveryFeedback({
+        type: 'error',
+        title: 'Insufficient Silver in Vault Wallet',
+        detail: `You have ${availableSilverGm.toFixed(3)}g Silver in your vault, but your cart requires ${totalCartSilverWeight.toFixed(3)}g Silver. You can only order coins up to your available balance.`
       })
       return
     }
@@ -1322,20 +1615,60 @@ export default function DigiGoldDashboard() {
 
       const confirmed = res.data.order
       setLastConfirmedOrder(confirmed)
-      try { localStorage.setItem('athirai_last_delivery_order', JSON.stringify(confirmed)) } catch {}
+      try { localStorage.setItem('athirai_last_delivery_order', JSON.stringify(confirmed)) } catch { }
 
+      const newOrderRecord = {
+        order_id: confirmed.order_id || `DG-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+        date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+        status: 'confirmed',
+        status_label: 'Order Confirmed',
+        tracking_number: `ATH-SEC-${Math.floor(1000000 + Math.random() * 9000000)}`,
+        estimated_delivery: 'Within 7 business days',
+        address: deliveryAddress.formatted,
+        total_amount: confirmed.total_amount || Math.round(totalCartAmount),
+        total_weight_gm: confirmed.total_weight_gm || deliveryCart.reduce((s, i) => s + (i.weight_gm * i.qty), 0),
+        items: deliveryCart.map(i => ({
+          metal: i.metal,
+          label: i.label,
+          weight_gm: i.weight_gm,
+          qty: i.qty,
+          unit_price: i.metal === 'gold' ? deliveryGoldRate : deliverySilverRate,
+          total_price: i.weight_gm * i.qty * (i.metal === 'gold' ? deliveryGoldRate : deliverySilverRate),
+          purity: i.metal === 'gold' ? 'BIS 916 Hallmarked' : '999 Pure Silver'
+        }))
+      }
+      setDeliveryOrdersList(prev => {
+        const next = [newOrderRecord, ...prev]
+        try { localStorage.setItem('athirai_delivery_orders_history', JSON.stringify(next)) } catch { }
+        return next
+      })
+
+      handleClearDeliveryCart()
+      if (res.data?.remaining_gold_gm !== undefined || res.data?.remaining_silver_gm !== undefined) {
+        setData(prev => ({
+          ...prev,
+          kpis: {
+            ...prev?.kpis,
+            total_gold_holding_gm: typeof res.data.remaining_gold_gm === 'number' ? res.data.remaining_gold_gm : prev?.kpis?.total_gold_holding_gm,
+            total_silver_holding_gm: typeof res.data.remaining_silver_gm === 'number' ? res.data.remaining_silver_gm : prev?.kpis?.total_silver_holding_gm,
+          }
+        }))
+      }
       fetchDashboardData()
 
+      const destCity = deliveryAddress.city || (deliveryAddress.formatted ? deliveryAddress.formatted.split(',').slice(-2, -1)[0]?.trim() || deliveryAddress.formatted : 'your location')
+      const targetMetal = deliveryCart.some(i => i.metal === 'gold') ? 'gold_22k' : 'silver_999'
+
       setActionSuccessData({
-        actionType: 'buy',
-        metal: 'gold_22k',
-        metalLabel: 'Digi Gold Home Delivery',
+        actionType: 'delivery',
+        metal: targetMetal,
+        metalLabel: 'Digi Gold Bullion Delivery',
         title: 'Delivery Order Confirmed!',
-        message: `Order #${confirmed.order_id} has been placed successfully! Your coins will be securely packaged and delivered to ${deliveryAddress.city} within 7 days.`,
-        amountInr: confirmed.total_amount,
-        grams: confirmed.total_weight_gm,
-        coins: Math.round(confirmed.total_amount * 100),
-        transactionId: confirmed.transaction_id,
+        message: `Order #${newOrderRecord.order_id} has been placed successfully! Your coins will be securely packaged and delivered to ${destCity} within 7 days.`,
+        amountInr: newOrderRecord.total_amount,
+        grams: newOrderRecord.total_weight_gm,
+        coins: Math.round(newOrderRecord.total_amount * 100),
+        transactionId: confirmed.transaction_id || newOrderRecord.tracking_number,
         rate: deliveryGoldRate,
         dateTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
       })
@@ -1351,26 +1684,70 @@ export default function DigiGoldDashboard() {
     }
   }
 
-  const handleDownloadDeliveryReceipt = async () => {
-    const el = document.getElementById('dg-receipt-to-print')
-    if (!el) return
+  const handleDownloadDeliveryReceipt = async (targetOrder) => {
+    const orderToPrint = targetOrder || lastConfirmedOrder
+    if (!orderToPrint) return
     try {
-      const canvas = await html2canvas(el, {
-        scale: 2.5,
-        useCORS: true,
-        backgroundColor: '#FFFFFF',
-        logging: false
+      const doc = new jsPDF()
+      doc.setFillColor(0, 45, 36)
+      doc.rect(0, 0, 210, 40, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(20)
+      doc.setFont('helvetica', 'bold')
+      doc.text('ATHIRAI JEWELLERY - DIGI GOLD', 14, 20)
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'normal')
+      doc.text('Official Insured Bullion Delivery Tax Invoice / Receipt', 14, 28)
+      doc.text(`Invoice Date: ${orderToPrint.date || new Date().toLocaleDateString('en-IN')}`, 14, 34)
+
+      doc.setTextColor(0, 45, 36)
+      doc.setFontSize(14)
+      doc.setFont('helvetica', 'bold')
+      doc.text(`Order ID: #${orderToPrint.order_id}`, 14, 52)
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Tracking ID: ${orderToPrint.tracking_number || 'ATH-SEC-9921448'}`, 14, 58)
+      doc.text(`Delivery Address: ${orderToPrint.address || deliveryAddress.formatted}`, 14, 64)
+      doc.text(`Status: ${orderToPrint.status_label || 'Confirmed & Insured'}`, 14, 70)
+
+      doc.setDrawColor(200, 200, 200)
+      doc.line(14, 76, 196, 76)
+
+      let y = 86
+      doc.setFont('helvetica', 'bold')
+      doc.text('Item Description', 14, y)
+      doc.text('Purity', 80, y)
+      doc.text('Qty', 130, y)
+      doc.text('Amount (INR)', 165, y)
+      y += 8
+      doc.line(14, y - 2, 196, y - 2)
+
+      doc.setFont('helvetica', 'normal')
+      const items = orderToPrint.items || []
+      items.forEach(it => {
+        const name = `${it.metal === 'gold' ? '22K Gold' : '999 Silver'} Coin (${it.label || ''})`
+        doc.text(name, 14, y)
+        doc.text(it.purity || (it.metal === 'gold' ? 'BIS 916' : '999 Pure'), 80, y)
+        doc.text(String(it.qty || 1), 130, y)
+        doc.text(`Rs. ${Math.round(it.total_price || 0).toLocaleString('en-IN')}`, 165, y)
+        y += 8
       })
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
-      pdf.addImage(imgData, 'PNG', 0, 10, pdfWidth, pdfHeight)
-      const orderId = lastConfirmedOrder?.order_id || 'DG202510080001'
-      pdf.save(`Athirai_Digi_Gold_Receipt_${orderId}.pdf`)
-    } catch (err) {
-      console.error('Failed to download receipt', err)
-      window.print()
+
+      doc.line(14, y, 196, y)
+      y += 10
+      doc.setFont('helvetica', 'bold')
+      doc.text(`Total Bullion Weight: ${(orderToPrint.total_weight_gm || 0)}g`, 14, y)
+      doc.text(`Total Amount Paid: Rs. ${Math.round(orderToPrint.total_amount || 0).toLocaleString('en-IN')}`, 130, y)
+
+      y += 20
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'italic')
+      doc.setTextColor(100, 100, 100)
+      doc.text('100% Insured Transit. Sealed with Tamper-Evident Security Seal & BIS Purity Certificate.', 14, y)
+
+      doc.save(`DigiGold_Receipt_${orderToPrint.order_id}.pdf`)
+    } catch (e) {
+      console.warn('PDF Receipt Error:', e)
     }
   }
 
@@ -1382,12 +1759,32 @@ export default function DigiGoldDashboard() {
     setTimeout(() => {
       const panel = document.getElementById('dg-order-summary-panel')
       if (panel) {
-        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        panel.scrollIntoView({ behavior: 'smooth', block: 'center' })
         panel.classList.add('dg-summary-pulse-highlight')
         setTimeout(() => panel.classList.remove('dg-summary-pulse-highlight'), 2200)
       }
     }, 150)
   }
+
+  // ── FILTERED DELIVERY ORDERS (MODELED AFTER ORDERSUMMARY.JSX) ──
+  const filteredDeliveryOrders = useMemo(() => {
+    return deliveryOrdersList.filter(o => {
+      const matchesFilter = deliveryOrdersFilter === 'all'
+        ? true
+        : deliveryOrdersFilter === 'delivered'
+          ? o.status === 'delivered'
+          : o.status !== 'delivered' && o.status !== 'cancelled'
+      if (!matchesFilter) return false
+      if (!deliveryOrdersSearch.trim()) return true
+      const q = deliveryOrdersSearch.toLowerCase()
+      return (
+        (o.order_id || '').toLowerCase().includes(q) ||
+        (o.tracking_number || '').toLowerCase().includes(q) ||
+        (o.address || '').toLowerCase().includes(q) ||
+        (o.items || []).some(it => (it.label || '').toLowerCase().includes(q) || (it.metal || '').toLowerCase().includes(q))
+      )
+    })
+  }, [deliveryOrdersList, deliveryOrdersFilter, deliveryOrdersSearch])
 
   // ── FILTERED TRANSACTIONS & METRICS FOR VALUATION SHEET (GOLD & SILVER SUPPORT) ──
   const valuationTransactions = useMemo(() => {
@@ -1494,8 +1891,8 @@ export default function DigiGoldDashboard() {
       const liveRateInfo = valuationMetal === 'silver'
         ? `₹${Number(currentSilverRate).toFixed(2)}/g (Pure 999 Silver)`
         : valuationMetal === 'gold'
-        ? `₹${Number(currentLiveRate).toLocaleString('en-IN')}/g (22K Athirai 916)`
-        : `Gold: ₹${Number(currentLiveRate).toLocaleString('en-IN')}/g | Silver: ₹${Number(currentSilverRate).toFixed(2)}/g`
+          ? `₹${Number(currentLiveRate).toLocaleString('en-IN')}/g (22K Athirai 916)`
+          : `Gold: ₹${Number(currentLiveRate).toLocaleString('en-IN')}/g | Silver: ₹${Number(currentSilverRate).toFixed(2)}/g`
 
       let rowsHtml = ''
       let sumRecharge = 0
@@ -2179,29 +2576,20 @@ export default function DigiGoldDashboard() {
               <span>Transactions</span>
             </button>
             <button
-              className="dg-nav-btn"
+              className={`dg-nav-btn ${currentView === 'orders' ? 'active' : ''}`}
               type="button"
-              onClick={() => { navigate('/collection/all'); setSidebarOpen(false); }}
+              onClick={() => { setCurrentView('orders'); setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
             >
               <Package size={18} />
               <span>Orders</span>
             </button>
             <button
-              className={`dg-nav-btn ${currentView === 'offers' ? 'active' : ''}`}
-              type="button"
-              onClick={() => { setCurrentView('offers'); setSidebarOpen(false); }}
-            >
-              <BadgePercent size={18} />
-              <span>Offer</span>
-              <span className="dg-nav-offer-tag">₹50 Off</span>
-            </button>
-            <button
-              className={`dg-nav-btn ${currentView === 'delivery' ? 'active' : ''}`}
+              className={`dg-nav-btn ${['offers', 'delivery'].includes(currentView) ? 'active' : ''}`}
               type="button"
               onClick={() => { setCurrentView('delivery'); setSidebarOpen(false); }}
             >
               <Truck size={18} />
-              <span>Delivery</span>
+              <span>Offers and Delivery</span>
             </button>
             <button
               className="dg-nav-btn"
@@ -2282,14 +2670,11 @@ export default function DigiGoldDashboard() {
             <button
               className="dg-order-summary-shortcut-btn"
               type="button"
-              onClick={handleNavigateToOrderSummary}
-              title="Go to Delivery Order Summary"
+              onClick={() => { setCurrentView('orders'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              title="View Your Placed Bullion Orders & Delivery Tracking"
             >
-              <ShoppingCart size={15} />
-              <span>Order Summary</span>
-              {deliveryCart.length > 0 && (
-                <span className="dg-cart-count-pill">{deliveryCart.length}</span>
-              )}
+              <Package size={15} />
+              <span>Orders</span>
             </button>
 
             <button
@@ -2779,6 +3164,26 @@ export default function DigiGoldDashboard() {
                EXCLUSIVE OFFERS & AUTOPAY / AUTO-SAVINGS VIEW
                ══════════════════════════════════════════════════════════════ */
             <div className="dg-offers-shell">
+              {/* SUBTAB SWITCHER FOR OFFERS & DELIVERY */}
+              <div className="dg-offers-deliv-tabs-nav">
+                <button
+                  type="button"
+                  className={`dg-od-tab-btn ${currentView === 'delivery' ? 'active' : ''}`}
+                  onClick={() => setCurrentView('delivery')}
+                >
+                  <Truck size={15} />
+                  <span>Home Delivery</span>
+                </button>
+                <button
+                  type="button"
+                  className={`dg-od-tab-btn ${currentView === 'offers' ? 'active' : ''}`}
+                  onClick={() => setCurrentView('offers')}
+                >
+                  <BadgePercent size={15} />
+                  <span>AutoPay SIP Offers</span>
+                </button>
+              </div>
+
               {/* TOP HEADER */}
               <header className="dg-offers-header-card">
                 <div className="dg-offers-brand-wrap">
@@ -3352,6 +3757,26 @@ export default function DigiGoldDashboard() {
                EXACT REPLICA OF THE SECOND UPLOADED REFERENCE SCREENSHOT
                ══════════════════════════════════════════════════════════════ */
             <div className="dg-deliv-page-shell">
+              {/* SUBTAB SWITCHER FOR OFFERS & DELIVERY */}
+              <div className="dg-offers-deliv-tabs-nav">
+                <button
+                  type="button"
+                  className={`dg-od-tab-btn ${currentView === 'delivery' ? 'active' : ''}`}
+                  onClick={() => setCurrentView('delivery')}
+                >
+                  <Truck size={15} />
+                  <span>Home Delivery</span>
+                </button>
+                <button
+                  type="button"
+                  className={`dg-od-tab-btn ${currentView === 'offers' ? 'active' : ''}`}
+                  onClick={() => setCurrentView('offers')}
+                >
+                  <BadgePercent size={15} />
+                  <span>AutoPay SIP Offers</span>
+                </button>
+              </div>
+
               {/* 1. LARGE FULL-WIDTH HOME DELIVERY HERO BANNER */}
               <div className="dg-deliv-hero-card">
                 <div className="dg-deliv-hero-left">
@@ -3364,9 +3789,23 @@ export default function DigiGoldDashboard() {
                     Get Your Gold &amp; Silver Delivered to Your Home
                   </h1>
 
-                  <p className="dg-deliv-hero-sub">
-                    Choose your preferred coins, place your order and we'll deliver it safely to your doorstep. Fast. Secure. Trusted.
-                  </p>
+                  {/* PROFESSIONALLY STYLED HERO SUBTITLE WITH TRUST PILLS */}
+                  <div className="dg-deliv-hero-desc-block">
+                    <p className="dg-deliv-hero-lead-text">
+                      Choose your preferred coins, place your order and we'll deliver it safely to your doorstep.
+                    </p>
+                    <div className="dg-deliv-hero-trust-pills">
+                      <span className="dg-hero-pill-badge fast">
+                        <Zap size={12} /> Fast 7-Day Dispatch
+                      </span>
+                      <span className="dg-hero-pill-badge secure">
+                        <ShieldCheck size={12} /> 100% Insured Transit
+                      </span>
+                      <span className="dg-hero-pill-badge trusted">
+                        <Award size={12} /> BIS Hallmarked
+                      </span>
+                    </div>
+                  </div>
 
                   <div className="dg-deliv-hero-perks-row">
                     <div className="dg-deliv-hero-perk">
@@ -3407,8 +3846,9 @@ export default function DigiGoldDashboard() {
                       alt="Digi Gold Home Delivery"
                       className="dg-deliv-hero-photo"
                     />
+                    {/* POSITIONED AT BOTTOM-RIGHT TO PREVENT COVERING FACES ON ALL SCREENS */}
                     <div className="dg-deliv-floating-badge">
-                      <Truck size={24} />
+                      <Truck size={22} />
                       <span className="dg-dfb-title">DELIVERY WITHIN</span>
                       <span className="dg-dfb-days">7 DAYS</span>
                       <span className="dg-dfb-pill">T&amp;C Apply</span>
@@ -3417,16 +3857,18 @@ export default function DigiGoldDashboard() {
                 </div>
               </div>
 
-              {/* 2. TWO-COLUMN WORKSPACE: LEFT (COINS & BENEFITS) + RIGHT (WALLET, CART, SUMMARY) */}
+              {/* 2. TWO-COLUMN WORKSPACE: LEFT (COINS) + RIGHT (LIVE ORDER SUMMARY & WALLET) */}
               <div className="dg-deliv-workspace-grid">
-                {/* ── LEFT COLUMN: COIN SELECTIONS & WHY CHOOSE US ── */}
+                {/* ── LEFT COLUMN: COIN SELECTIONS ── */}
                 <div className="dg-deliv-left-col" id="dg-coins-selection-area">
-                  {/* Section Title */}
+                  {/* PROFESSIONALLY STYLED SECTION HEADING WITH CHIPS & LIVE TAG */}
                   <div className="dg-deliv-sec-heading">
-                    <h2 className="dg-deliv-sec-title">Select Your Coins</h2>
-                    <p className="dg-deliv-sec-subtitle">
-                      Choose from a wide range of gold and silver coins. You can buy coins based on your wallet balance and preferred weight.
-                    </p>
+                    <div className="dg-deliv-sec-title-row">
+                      <h2 className="dg-deliv-sec-title">Select Your Coins</h2>
+                      <span className="dg-deliv-live-rate-tag">
+                        <TrendingUp size={13} /> Live Vault Conversion
+                      </span>
+                    </div>
                   </div>
 
                   {/* LARGE GOLD COINS CARD */}
@@ -3518,82 +3960,35 @@ export default function DigiGoldDashboard() {
                       />
                     </div>
                   </div>
-
-                  {/* HORIZONTAL BENEFITS SECTION (WHY CHOOSE DIGI GOLD DELIVERY) */}
-                  <div className="dg-deliv-horizontal-benefits-card">
-                    <div className="dg-dhb-intro">
-                      <h4 className="dg-dhb-title">Why Choose Digi Gold Delivery?</h4>
-                      <p className="dg-dhb-sub">Premium coins, safe delivery, and complete peace of mind.</p>
-                    </div>
-
-                    <div className="dg-dhb-columns-wrap">
-                      <div className="dg-dhb-col">
-                        <div className="dg-dhb-icon-wrap"><ShieldCheck size={20} /></div>
-                        <div className="dg-dhb-text-wrap">
-                          <span className="dg-dhb-col-name">Secure Packaging</span>
-                          <span className="dg-dhb-col-desc">Tamper-proof &amp; sealed</span>
-                        </div>
-                      </div>
-
-                      <div className="dg-dhb-divider" />
-
-                      <div className="dg-dhb-col">
-                        <div className="dg-dhb-icon-wrap"><Truck size={20} /></div>
-                        <div className="dg-dhb-text-wrap">
-                          <span className="dg-dhb-col-name">Fast Delivery</span>
-                          <span className="dg-dhb-col-desc">Within 7 days (T&amp;C apply)</span>
-                        </div>
-                      </div>
-
-                      <div className="dg-dhb-divider" />
-
-                      <div className="dg-dhb-col">
-                        <div className="dg-dhb-icon-wrap"><Lock size={20} /></div>
-                        <div className="dg-dhb-text-wrap">
-                          <span className="dg-dhb-col-name">Insured Shipment</span>
-                          <span className="dg-dhb-col-desc">Full value insurance</span>
-                        </div>
-                      </div>
-
-                      <div className="dg-dhb-divider" />
-
-                      <div className="dg-dhb-col">
-                        <div className="dg-dhb-icon-wrap"><Headphones size={20} /></div>
-                        <div className="dg-dhb-text-wrap">
-                          <span className="dg-dhb-col-name">Dedicated Support</span>
-                          <span className="dg-dhb-col-desc">We're here to help</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
                 </div>
 
-                {/* ── RIGHT COLUMN: WALLET BALANCE, CART, ADDRESS, SUMMARY & CHECKOUT ── */}
+                {/* ── RIGHT COLUMN: COMPACT STICKY LIVE ORDER SUMMARY & WALLET PANEL ── */}
                 <div className="dg-deliv-right-col" id="dg-order-summary-panel">
                   <div className="dg-rpanel-card">
                     {/* 1. YOUR WALLET BALANCE */}
                     <div className="dg-rpanel-section-block">
                       <div className="dg-rpanel-head-row">
-                        <WalletCards size={16} color="#009B63" />
-                        <span className="dg-rpanel-head-title">Your Wallet Balance</span>
+                        <div className="dg-rpanel-head-title-wrap">
+                          <WalletCards size={16} color="#009B63" />
+                          <span className="dg-rpanel-head-title">Vault Balance</span>
+                        </div>
+                        <span className="dg-rpanel-live-badge">Live</span>
                       </div>
 
                       <div className="dg-rpanel-dual-wallets">
                         <div className="dg-rpanel-wallet-box gold">
                           <img src={goldCoinImg} alt="Gold" className="dg-rpw-coin" />
                           <div className="dg-rpw-info">
-                            <span className="dg-rpw-label">Gold</span>
-                            <span className="dg-rpw-amount">{availableGoldGm.toFixed(1)}g</span>
-                            <span className="dg-rpw-status">Available</span>
+                            <span className="dg-rpw-label">Gold (22K)</span>
+                            <span className="dg-rpw-amount">{availableGoldGm.toFixed(2)}g</span>
                           </div>
                         </div>
 
                         <div className="dg-rpanel-wallet-box silver">
                           <img src={silverCoinImg} alt="Silver" className="dg-rpw-coin" />
                           <div className="dg-rpw-info">
-                            <span className="dg-rpw-label">Silver</span>
-                            <span className="dg-rpw-amount">{availableSilverGm.toFixed(1)}g</span>
-                            <span className="dg-rpw-status">Available</span>
+                            <span className="dg-rpw-label">Silver (999)</span>
+                            <span className="dg-rpw-amount">{availableSilverGm.toFixed(2)}g</span>
                           </div>
                         </div>
                       </div>
@@ -3601,10 +3996,13 @@ export default function DigiGoldDashboard() {
 
                     <div className="dg-rpanel-separator" />
 
-                    {/* 2. YOUR SELECTED COINS */}
+                    {/* 2. YOUR SELECTED COINS (LIVE CART) */}
                     <div className="dg-rpanel-section-block">
                       <div className="dg-rpanel-head-row">
-                        <span className="dg-rpanel-head-title">Your Selected Coins</span>
+                        <div className="dg-rpanel-head-title-wrap">
+                          <ShoppingCart size={15} color="#009B63" />
+                          <span className="dg-rpanel-head-title">Selected Coins ({deliveryCart.reduce((s, i) => s + i.qty, 0)})</span>
+                        </div>
                         {deliveryCart.length > 0 && (
                           <button
                             type="button"
@@ -3619,8 +4017,8 @@ export default function DigiGoldDashboard() {
                       <div className="dg-rpanel-selected-list">
                         {deliveryCart.length === 0 ? (
                           <div className="dg-rpanel-empty-box">
-                            <ShoppingCart size={22} color="#8A9D98" />
-                            <span>No coins selected. Click any denomination on the left to add.</span>
+                            <PackageCheck size={20} color="#8A9D98" />
+                            <span>Select coins on the left to add them here</span>
                           </div>
                         ) : (
                           deliveryCart.map(item => {
@@ -3635,10 +4033,10 @@ export default function DigiGoldDashboard() {
                                 />
                                 <div className="dg-rpanel-item-info">
                                   <span className="dg-rpanel-item-name">
-                                    {isGold ? 'Gold (22K)' : 'Silver (999)'}
+                                    {isGold ? 'Gold 22K' : 'Silver 999'} • {item.label}
                                   </span>
                                   <span className="dg-rpanel-item-rate">
-                                    {item.label} (₹{rate.toLocaleString('en-IN')}/g)
+                                    ₹{rate.toLocaleString('en-IN')}/g
                                   </span>
                                 </div>
                                 <div className="dg-rpanel-qty-controls">
@@ -3658,7 +4056,6 @@ export default function DigiGoldDashboard() {
                                     +
                                   </button>
                                 </div>
-                                <span className="dg-rpanel-item-weight">{item.label}</span>
                               </div>
                             )
                           })
@@ -3678,67 +4075,117 @@ export default function DigiGoldDashboard() {
                         <button
                           type="button"
                           className="dg-rpanel-change-link"
-                          onClick={() => setIsEditingAddress(!isEditingAddress)}
+                          onClick={handleOpenAddressModal}
                         >
-                          {isEditingAddress ? 'Save' : 'Change'}
+                          {deliveryAddress.formatted ? 'Change' : '+ Add Address'}
                         </button>
                       </div>
 
-                      {isEditingAddress ? (
-                        <div className="dg-rpanel-addr-edit-box">
-                          <input
-                            type="text"
-                            className="dg-rpanel-addr-input"
-                            value={deliveryAddress.formatted}
-                            onChange={e => setDeliveryAddress({ ...deliveryAddress, formatted: e.target.value })}
-                            placeholder="Enter delivery address"
-                          />
-                        </div>
-                      ) : (
-                        <p className="dg-rpanel-addr-text">
-                          {deliveryAddress.formatted || 'No. 12, Green Park, Anna Nagar, Chennai - 600040, Tamil Nadu'}
-                        </p>
-                      )}
+                      <div
+                        className="dg-rpanel-addr-card"
+                        onClick={handleOpenAddressModal}
+                        role="button"
+                        tabIndex={0}
+                        title="Click to update delivery address"
+                      >
+                        {deliveryAddress.formatted ? (
+                          <div className="dg-rpanel-addr-content">
+                            {(deliveryAddress.name || deliveryAddress.phone) && (
+                              <div className="dg-rpanel-addr-recipient">
+                                <strong>{deliveryAddress.name || 'Recipient'}</strong>
+                                {deliveryAddress.phone && <span className="dg-rpanel-addr-phone"> • {deliveryAddress.phone}</span>}
+                              </div>
+                            )}
+                            <p className="dg-rpanel-addr-text">
+                              {deliveryAddress.formatted}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="dg-rpanel-addr-text empty">
+                            No address specified. Click Change above to set delivery address.
+                          </p>
+                        )}
+                      </div>
                     </div>
 
                     <div className="dg-rpanel-separator" />
 
-                    {/* 4. ORDER SUMMARY BREAKDOWN */}
+                    {/* 4. ORDER SUMMARY BREAKDOWN - NO ICONS, PROFESSIONAL TYPOGRAPHY */}
                     <div className="dg-rpanel-section-block">
-                      <span className="dg-rpanel-head-title">Order Summary</span>
-
-                      <div className="dg-rpanel-summary-rows">
-                        {deliveryCart.map(item => {
-                          const isGold = item.metal === 'gold'
-                          const rate = isGold ? deliveryGoldRate : deliverySilverRate
-                          const itemTotal = item.weight_gm * item.qty * rate
-                          return (
-                            <div key={item.id} className="dg-rpanel-summary-row">
-                              <div className="dg-rpanel-sum-left">
-                                <img
-                                  src={isGold ? goldCoinImg : silverCoinImg}
-                                  alt=""
-                                  className="dg-rpanel-sum-coin-mini"
-                                />
-                                <span>{isGold ? 'Gold (22K)' : 'Silver (999)'} {item.label}</span>
-                              </div>
-                              <span className="dg-rpanel-sum-right">
-                                ₹{Math.round(itemTotal).toLocaleString('en-IN')}
-                              </span>
-                            </div>
-                          )
-                        })}
-                      </div>
-
-                      <div className="dg-rpanel-total-divider" />
-
                       <div className="dg-rpanel-grand-total-row">
-                        <span className="dg-rpanel-grand-label">Total Amount</span>
-                        <span className="dg-rpanel-grand-val">
-                          ₹{Math.round(totalCartAmount).toLocaleString('en-IN')}
-                        </span>
+                        <div className="dg-rpanel-grand-info">
+                          <span className="dg-rpanel-grand-label">Total Order Value</span>
+                          <span className="dg-rpanel-grand-sub">100% Insured Delivery • Doorstep Transit</span>
+                        </div>
+                        <div className="dg-rpanel-grand-price-wrap">
+                          <span className="dg-rpanel-grand-val">
+                            ₹{Math.round(totalCartAmount).toLocaleString('en-IN')}
+                          </span>
+                        </div>
                       </div>
                     </div>
+
+                    {/* VAULT BALANCE VERIFICATION STATUS */}
+                    {deliveryCart.length > 0 && (
+                      <div className={`dg-rpanel-vault-check ${hasBalanceShortage ? 'is-shortage' : 'is-sufficient'}`}>
+                        <div className="dg-rpvc-header">
+                          <span className="dg-rpvc-title">Vault Balance Verification</span>
+                          <span className={`dg-rpvc-tag ${hasBalanceShortage ? 'shortage' : 'verified'}`}>
+                            {hasBalanceShortage ? 'Insufficient Balance' : 'Balance Verified'}
+                          </span>
+                        </div>
+
+                        {totalCartGoldWeight > 0 && (
+                          <div className={`dg-rpvc-row ${exceedsGoldBalance ? 'short' : ''}`}>
+                            <div className="dg-rpvc-row-left">
+                              <span className="dg-rpvc-metal-name">22K Gold Holding</span>
+                              <span className="dg-rpvc-metal-sub">
+                                Cart: <b>{totalCartGoldWeight.toFixed(3)}g</b> | Vault: <b>{availableGoldGm.toFixed(3)}g</b>
+                              </span>
+                            </div>
+                            <div className="dg-rpvc-row-right">
+                              {exceedsGoldBalance ? (
+                                <span className="dg-rpvc-diff danger">
+                                  Short by {(totalCartGoldWeight - availableGoldGm).toFixed(3)}g
+                                </span>
+                              ) : (
+                                <span className="dg-rpvc-diff success">
+                                  Remaining: {(availableGoldGm - totalCartGoldWeight).toFixed(3)}g
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {totalCartSilverWeight > 0 && (
+                          <div className={`dg-rpvc-row ${exceedsSilverBalance ? 'short' : ''}`}>
+                            <div className="dg-rpvc-row-left">
+                              <span className="dg-rpvc-metal-name">999 Silver Holding</span>
+                              <span className="dg-rpvc-metal-sub">
+                                Cart: <b>{totalCartSilverWeight.toFixed(3)}g</b> | Vault: <b>{availableSilverGm.toFixed(3)}g</b>
+                              </span>
+                            </div>
+                            <div className="dg-rpvc-row-right">
+                              {exceedsSilverBalance ? (
+                                <span className="dg-rpvc-diff danger">
+                                  Short by {(totalCartSilverWeight - availableSilverGm).toFixed(3)}g
+                                </span>
+                              ) : (
+                                <span className="dg-rpvc-diff success">
+                                  Remaining: {(availableSilverGm - totalCartSilverWeight).toFixed(3)}g
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {hasBalanceShortage && (
+                          <div className="dg-rpvc-alert-banner">
+                            You cannot order more coins than your vault balance. Please reduce quantity or purchase Digi Gold/Silver first.
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Feedback if any error */}
                     <ModalFeedbackNotice
@@ -3749,12 +4196,163 @@ export default function DigiGoldDashboard() {
                     {/* 5. PROCEED TO CHECKOUT BUTTON */}
                     <button
                       type="button"
-                      className="dg-rpanel-checkout-btn"
+                      className={`dg-rpanel-checkout-btn ${hasBalanceShortage ? 'btn-disabled-shortage' : ''}`}
                       onClick={handleProceedDeliveryCheckout}
-                      disabled={submittingDelivery || deliveryCart.length === 0}
+                      disabled={submittingDelivery || deliveryCart.length === 0 || hasBalanceShortage}
                     >
-                      <span>{submittingDelivery ? 'Processing Order…' : 'Proceed to Checkout →'}</span>
+                      <span>
+                        {submittingDelivery
+                          ? 'Processing Order…'
+                          : deliveryCart.length === 0
+                            ? 'Select Coins to Proceed'
+                            : hasBalanceShortage
+                              ? 'Insufficient Vault Balance'
+                              : 'Proceed to Doorstep Delivery →'}
+                      </span>
                     </button>
+
+                    {/* 6. COMPACT TRUST BADGE FOOTER STRIP */}
+                    <div className="dg-rpanel-trust-strip">
+                      <div className="dg-rts-item">
+                        <Award size={13} color="#D9A52E" />
+                        <span>BIS 916 &amp; 999</span>
+                      </div>
+                      <span className="dg-rts-dot">•</span>
+                      <div className="dg-rts-item">
+                        <Lock size={13} color="#009B63" />
+                        <span>100% Insured</span>
+                      </div>
+                      <span className="dg-rts-dot">•</span>
+                      <div className="dg-rts-item">
+                        <ShieldCheck size={13} color="#2B6CB0" />
+                        <span>Tamper Seal</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+
+
+
+
+              {/* 3. FULL-WIDTH HORIZONTAL BENEFITS SECTION (100% WIDTH - ZERO EMPTY SPACE) */}
+              <div className="dg-deliv-horizontal-benefits-card">
+                <div className="dg-dhb-intro">
+                  <h4 className="dg-dhb-title">Why Choose Digi Gold Delivery?</h4>
+                  <p className="dg-dhb-sub">Premium coins, safe delivery, and complete peace of mind.</p>
+                </div>
+
+                <div className="dg-dhb-columns-wrap">
+                  <div className="dg-dhb-col">
+                    <div className="dg-dhb-icon-wrap"><ShieldCheck size={20} /></div>
+                    <div className="dg-dhb-text-wrap">
+                      <span className="dg-dhb-col-name">Secure Packaging</span>
+                      <span className="dg-dhb-col-desc">Tamper-proof &amp; sealed</span>
+                    </div>
+                  </div>
+
+                  <div className="dg-dhb-divider" />
+
+                  <div className="dg-dhb-col">
+                    <div className="dg-dhb-icon-wrap"><Truck size={20} /></div>
+                    <div className="dg-dhb-text-wrap">
+                      <span className="dg-dhb-col-name">Fast Delivery</span>
+                      <span className="dg-dhb-col-desc">Within 7 days (T&amp;C apply)</span>
+                    </div>
+                  </div>
+
+                  <div className="dg-dhb-divider" />
+
+                  <div className="dg-dhb-col">
+                    <div className="dg-dhb-icon-wrap"><Lock size={20} /></div>
+                    <div className="dg-dhb-text-wrap">
+                      <span className="dg-dhb-col-name">Insured Shipment</span>
+                      <span className="dg-dhb-col-desc">Full value insurance</span>
+                    </div>
+                  </div>
+
+                  <div className="dg-dhb-divider" />
+
+                  <div className="dg-dhb-col">
+                    <div className="dg-dhb-icon-wrap"><Headphones size={20} /></div>
+                    <div className="dg-dhb-text-wrap">
+                      <span className="dg-dhb-col-name">Dedicated Support</span>
+                      <span className="dg-dhb-col-desc">We're here to help</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. FULL-WIDTH DELIVERY JOURNEY & BULLION CONCIERGE STRIP (100% WIDTH - ZERO EMPTY SPACE) */}
+              <div className="dg-deliv-full-journey-card">
+                <div className="dg-dfj-left-steps">
+                  <div className="dg-dfj-header">
+                    <div className="dg-dfj-title-wrap">
+                      <Clock size={17} color="#009B63" />
+                      <h4 className="dg-dfj-title">How Digi Gold Delivery Works</h4>
+                    </div>
+                    <span className="dg-dfj-pill">Guaranteed Within 7 Days</span>
+                  </div>
+
+                  <div className="dg-dfj-steps-grid">
+                    <div className="dg-dfj-step-item">
+                      <div className="dg-dfj-num">1</div>
+                      <div className="dg-dfj-text">
+                        <span className="dg-dfj-step-name">Vault Debit</span>
+                        <span className="dg-dfj-step-sub">Weight deducted from wallet with instant SMS receipt.</span>
+                      </div>
+                    </div>
+
+                    <div className="dg-dfj-step-item">
+                      <div className="dg-dfj-num">2</div>
+                      <div className="dg-dfj-text">
+                        <span className="dg-dfj-step-name">Security Pack</span>
+                        <span className="dg-dfj-step-sub">Coin sealed in tamper-evident protective case at Athirai vault.</span>
+                      </div>
+                    </div>
+
+                    <div className="dg-dfj-step-item">
+                      <div className="dg-dfj-num">3</div>
+                      <div className="dg-dfj-text">
+                        <span className="dg-dfj-step-name">Armoured Transit</span>
+                        <span className="dg-dfj-step-sub">Dispatched with live tracking link &amp; 100% transit insurance.</span>
+                      </div>
+                    </div>
+
+                    <div className="dg-dfj-step-item">
+                      <div className="dg-dfj-num">4</div>
+                      <div className="dg-dfj-text">
+                        <span className="dg-dfj-step-name">OTP Delivery</span>
+                        <span className="dg-dfj-step-sub">Handed to your doorstep verified with secure mobile OTP.</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="dg-dfj-right-support">
+                  <div className="dg-dfj-supp-icon">
+                    <PhoneCall size={20} />
+                  </div>
+                  <div className="dg-dfj-supp-content">
+                    <span className="dg-dfj-supp-title">Bullion Support Desk</span>
+                    <span className="dg-dfj-supp-sub">Mon–Sat, 9 AM – 7 PM</span>
+                    <div className="dg-dfj-supp-btns">
+                      <button
+                        type="button"
+                        className="dg-dfj-btn call"
+                        onClick={() => window.open('tel:18001234567')}
+                      >
+                        <PhoneCall size={12} /> Call Desk
+                      </button>
+                      <button
+                        type="button"
+                        className="dg-dfj-btn chat"
+                        onClick={() => setCurrentView('support')}
+                      >
+                        <MessageCircle size={12} /> Live Chat
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3786,6 +4384,443 @@ export default function DigiGoldDashboard() {
                   <span className="dg-dsb-headline-text">Secure Your Future</span>
                 </div>
               </div>
+            </div>
+          ) : currentView === 'orders' ? (
+            /* ══════════════════════════════════════════════════════════════
+               DEDICATED DIGI GOLD BULLION ORDERS & DELIVERY TRACKING VIEW
+               (MODELED AFTER ORDERSUMMARY.JSX WITH COIN IMAGES & 5-STEP TIMELINE)
+               ══════════════════════════════════════════════════════════════ */
+            <div className="dg-orders-page-shell">
+              {/* Header Navigation & Title Card */}
+              <div className="dg-orders-header-card">
+                <div className="dg-orders-header-top">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentView('dashboard')
+                      window.scrollTo({ top: 0, behavior: 'smooth' })
+                    }}
+                    className="dg-orders-back-btn"
+                  >
+                    <ArrowLeft size={16} /> Back to Dashboard
+                  </button>
+                  <span className="dg-orders-trust-badge">
+                    <ShieldCheck size={14} color="#009957" /> 100% Insured Bullion Transit • BIS 916 &amp; 999
+                  </span>
+                </div>
+                <div className="dg-orders-header-main">
+                  <div>
+                    <h1 className="dg-orders-header-title">Bullion Orders &amp; Delivery History</h1>
+                    <p className="dg-orders-header-subtitle">
+                      Track the delivery lifecycle of all your 22K gold &amp; 999 silver coins from vault dispatch to your doorstep
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="dg-orders-new-order-btn"
+                    onClick={() => {
+                      setCurrentView('delivery')
+                      window.scrollTo({ top: 0, behavior: 'smooth' })
+                    }}
+                  >
+                    <Coins size={16} />
+                    <span>+ Order More Coins</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 4 Overview Metric Stats Cards */}
+              <div className="dg-orders-stats-grid">
+                <div className="dg-os-stat-card">
+                  <div className="dg-os-stat-icon-wrap total"><Package size={22} color="#007B50" /></div>
+                  <div className="dg-os-stat-info">
+                    <span className="dg-os-stat-label">Total Orders Placed</span>
+                    <span className="dg-os-stat-val">{deliveryOrdersList.length}</span>
+                  </div>
+                </div>
+                <div className="dg-os-stat-card">
+                  <div className="dg-os-stat-icon-wrap processing"><Truck size={22} color="#2563EB" /></div>
+                  <div className="dg-os-stat-info">
+                    <span className="dg-os-stat-label">In Transit / Vault</span>
+                    <span className="dg-os-stat-val">{deliveryOrdersList.filter(o => o.status !== 'delivered').length}</span>
+                  </div>
+                </div>
+                <div className="dg-os-stat-card">
+                  <div className="dg-os-stat-icon-wrap delivered"><CheckCircle2 size={22} color="#15803D" /></div>
+                  <div className="dg-os-stat-info">
+                    <span className="dg-os-stat-label">Delivered Successfully</span>
+                    <span className="dg-os-stat-val">{deliveryOrdersList.filter(o => o.status === 'delivered').length}</span>
+                  </div>
+                </div>
+                <div className="dg-os-stat-card">
+                  <div className="dg-os-stat-icon-wrap weight"><Scale size={22} color="#D5A33A" /></div>
+                  <div className="dg-os-stat-info">
+                    <span className="dg-os-stat-label">Total Bullion Weight</span>
+                    <span className="dg-os-stat-val">
+                      {deliveryOrdersList.reduce((s, o) => s + (Number(o.total_weight_gm) || 0), 0).toFixed(2)}g
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filters & Search Toolbar */}
+              <div className="dg-orders-filter-row">
+                <div className="dg-orders-filter-pills">
+                  <button
+                    type="button"
+                    className={`dg-of-pill ${deliveryOrdersFilter === 'all' ? 'active' : ''}`}
+                    onClick={() => setDeliveryOrdersFilter('all')}
+                  >
+                    All Orders ({deliveryOrdersList.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={`dg-of-pill ${deliveryOrdersFilter === 'processing' ? 'active' : ''}`}
+                    onClick={() => setDeliveryOrdersFilter('processing')}
+                  >
+                    In Transit / Vault ({deliveryOrdersList.filter(o => o.status !== 'delivered').length})
+                  </button>
+                  <button
+                    type="button"
+                    className={`dg-of-pill ${deliveryOrdersFilter === 'delivered' ? 'active' : ''}`}
+                    onClick={() => setDeliveryOrdersFilter('delivered')}
+                  >
+                    Delivered ({deliveryOrdersList.filter(o => o.status === 'delivered').length})
+                  </button>
+                </div>
+                <div className="dg-orders-search-wrap">
+                  <Search size={15} color="#8A9D98" />
+                  <input
+                    type="text"
+                    className="dg-orders-search-input"
+                    placeholder="Search by Order ID, coin denomination or address…"
+                    value={deliveryOrdersSearch}
+                    onChange={e => setDeliveryOrdersSearch(e.target.value)}
+                  />
+                  {deliveryOrdersSearch && (
+                    <button
+                      type="button"
+                      className="dg-orders-search-clear"
+                      onClick={() => setDeliveryOrdersSearch('')}
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Orders List / Empty State */}
+              {filteredDeliveryOrders.length === 0 ? (
+                <div className="dg-orders-empty-card">
+                  <div className="dg-orders-empty-icon">
+                    <PackageCheck size={46} color="#8A9D98" />
+                  </div>
+                  <h3 className="dg-orders-empty-title">No Orders Found</h3>
+                  <p className="dg-orders-empty-desc">
+                    {deliveryOrdersSearch
+                      ? `No orders matching "${deliveryOrdersSearch}". Try clearing your search query.`
+                      : "You haven't placed any bullion delivery orders in this filter."}
+                  </p>
+                  <button
+                    type="button"
+                    className="dg-orders-empty-btn"
+                    onClick={() => {
+                      setCurrentView('delivery')
+                      window.scrollTo({ top: 0, behavior: 'smooth' })
+                    }}
+                  >
+                    <Coins size={16} />
+                    <span>Select &amp; Order Bullion Coins</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="dg-orders-list-col">
+                  {filteredDeliveryOrders.map(order => {
+                    // Compute timeline step (1 to 5)
+                    const statusKey = (order.status || 'confirmed').toLowerCase()
+                    const stepIndex = statusKey === 'placed' ? 1
+                      : statusKey === 'confirmed' ? 2
+                      : statusKey === 'processing' ? 3
+                      : statusKey === 'shipped' ? 4
+                      : 5 // delivered
+
+                    const TIMELINE_STAGES = [
+                      { label: 'Placed', step: 1 },
+                      { label: 'Confirmed', step: 2 },
+                      { label: 'Vault Processing', step: 3 },
+                      { label: 'Shipped & In Transit', step: 4 },
+                      { label: 'Delivered', step: 5 }
+                    ]
+
+                    return (
+                      <div key={order.order_id} className="dg-order-card">
+                        {/* Order Top Bar */}
+                        <div className="dg-oc-top-bar">
+                          <div className="dg-oc-top-left">
+                            <div className="dg-oc-id-row">
+                              <span className="dg-oc-id">#{order.order_id}</span>
+                              <span className={`dg-oc-status-pill ${statusKey}`}>
+                                <span className="dg-oc-status-dot" />
+                                {order.status_label || (statusKey === 'delivered' ? 'Delivered' : 'Processing')}
+                              </span>
+                            </div>
+                            <div className="dg-oc-meta-row">
+                              <span className="dg-oc-date">
+                                <Clock size={13} color="#8A9D98" /> {order.date}
+                              </span>
+                              <span className="dg-oc-dot">•</span>
+                              <span className="dg-oc-addr">
+                                <MapPin size={13} color="#8A9D98" /> {order.address}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="dg-oc-top-right">
+                            <span className="dg-oc-total-label">Total Bullion Value</span>
+                            <span className="dg-oc-total-val">
+                              ₹{Math.round(order.total_amount || 0).toLocaleString('en-IN')}
+                            </span>
+                            <span className="dg-oc-weight-badge">
+                              {order.total_weight_gm}g Total Metal
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 5-Step Visual Timeline (Modeled after Ordersummary.jsx) */}
+                        <div className="dg-oc-timeline-shell">
+                          <div className="dg-oc-timeline">
+                            {TIMELINE_STAGES.map((st, idx) => {
+                              const isDone = st.step <= stepIndex
+                              const isCurrent = st.step === stepIndex
+                              return (
+                                <div
+                                  key={st.label}
+                                  className={`dg-oc-step ${isDone ? 'done' : ''} ${isCurrent ? 'current' : ''}`}
+                                >
+                                  <div className="dg-oc-step-dot-wrap">
+                                    <div className="dg-oc-step-dot">
+                                      {isDone && !isCurrent ? (
+                                        <Check size={11} color="#FFFFFF" />
+                                      ) : (
+                                        <span>{st.step}</span>
+                                      )}
+                                    </div>
+                                    {idx < TIMELINE_STAGES.length - 1 && (
+                                      <div className={`dg-oc-step-line ${st.step < stepIndex ? 'active' : ''}`} />
+                                    )}
+                                  </div>
+                                  <span className="dg-oc-step-label">{st.label}</span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Items in this Order (with Coins Images) */}
+                        <div className="dg-oc-items-list">
+                          {(order.items || []).map((item, itemIdx) => {
+                            const isGold = item.metal === 'gold'
+                            const coinImg = isGold ? goldCoinImg : silverCoinImg
+                            return (
+                              <div key={item.id || itemIdx} className="dg-oc-item-row">
+                                <div className="dg-oc-item-thumb-wrap">
+                                  <img
+                                    src={coinImg}
+                                    alt={item.metal}
+                                    className="dg-oc-item-thumb"
+                                  />
+                                </div>
+                                <div className="dg-oc-item-info">
+                                  <div className="dg-oc-item-name-row">
+                                    <span className="dg-oc-item-name">
+                                      {isGold ? '22K (916) Pure Gold Coin' : '999 Fine Silver Coin'} • {item.label}
+                                    </span>
+                                    <span className="dg-oc-item-purity-pill">
+                                      {item.purity || (isGold ? 'BIS 916 Hallmarked' : '99.9% Pure Silver')}
+                                    </span>
+                                  </div>
+                                  <div className="dg-oc-item-specs-row">
+                                    <span>Weight: <b>{item.weight_gm}g</b></span>
+                                    <span className="dg-oc-spec-dot">•</span>
+                                    <span>Quantity: <b>{item.qty}</b></span>
+                                    <span className="dg-oc-spec-dot">•</span>
+                                    <span>Rate: ₹{Math.round(item.unit_price || 0).toLocaleString('en-IN')}/g</span>
+                                  </div>
+                                </div>
+                                <div className="dg-oc-item-amount-col">
+                                  <span className="dg-oc-item-subtotal">
+                                    ₹{Math.round(item.total_price || 0).toLocaleString('en-IN')}
+                                  </span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+
+                        {/* Order Card Footer & Actions */}
+                        <div className="dg-oc-footer-bar">
+                          <div className="dg-oc-footer-left">
+                            <span className="dg-oc-tracking-tag">
+                              <ShieldCheck size={14} color="#007B50" />
+                              <span>Tracking: <b>{order.tracking_number}</b> (BlueDart Secure)</span>
+                            </span>
+                            <span className="dg-oc-eta-tag">
+                              {order.status === 'delivered'
+                                ? `Delivered on ${order.delivered_date || order.date}`
+                                : `Estimated: ${order.estimated_delivery || '5–7 business days'}`}
+                            </span>
+                          </div>
+
+                          <div className="dg-oc-footer-actions">
+                            <button
+                              type="button"
+                              className="dg-oc-btn secondary"
+                              onClick={() => setTrackingModalOrder(order)}
+                            >
+                              <Truck size={14} />
+                              <span>Track Shipment</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="dg-oc-btn primary"
+                              onClick={() => handleDownloadDeliveryReceipt(order)}
+                            >
+                              <Download size={14} />
+                              <span>Download Invoice</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="dg-oc-btn ghost"
+                              onClick={() => {
+                                setCurrentView('delivery')
+                                window.scrollTo({ top: 0, behavior: 'smooth' })
+                              }}
+                            >
+                              <span>Reorder Coins →</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Shipment Tracking Modal */}
+              {trackingModalOrder && (
+                <div
+                  className="dg-tracking-modal-backdrop"
+                  onClick={() => setTrackingModalOrder(null)}
+                >
+                  <div
+                    className="dg-tracking-modal-card"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div className="dg-tm-head">
+                      <div>
+                        <span className="dg-tm-sub">Shipment Tracking</span>
+                        <h3 className="dg-tm-title">Order #{trackingModalOrder.order_id}</h3>
+                      </div>
+                      <button
+                        type="button"
+                        className="dg-tm-close-btn"
+                        onClick={() => setTrackingModalOrder(null)}
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    <div className="dg-tm-details-strip">
+                      <div>
+                        <span className="dg-tmd-lbl">Logistics Partner</span>
+                        <span className="dg-tmd-val">BlueDart Armored Express</span>
+                      </div>
+                      <div>
+                        <span className="dg-tmd-lbl">Waybill / AWB No.</span>
+                        <span className="dg-tmd-val">{trackingModalOrder.tracking_number}</span>
+                      </div>
+                      <div>
+                        <span className="dg-tmd-lbl">Transit Insurance</span>
+                        <span className="dg-tmd-val verified">100% Insured</span>
+                      </div>
+                    </div>
+
+                    <div className="dg-tm-checkpoints-list">
+                      <div className="dg-tm-cp done">
+                        <div className="dg-tm-dot-col">
+                          <span className="dg-tm-dot"><Check size={10} /></span>
+                          <span className="dg-tm-line" />
+                        </div>
+                        <div className="dg-tm-cp-content">
+                          <span className="dg-tm-cp-stage">Order Placed &amp; Direct Vault Deduction</span>
+                          <span className="dg-tm-cp-desc">Metal successfully allocated from Athirai Digi Gold secure vault</span>
+                          <span className="dg-tm-cp-time">{trackingModalOrder.date}</span>
+                        </div>
+                      </div>
+
+                      <div className="dg-tm-cp done">
+                        <div className="dg-tm-dot-col">
+                          <span className="dg-tm-dot"><Check size={10} /></span>
+                          <span className="dg-tm-line" />
+                        </div>
+                        <div className="dg-tm-cp-content">
+                          <span className="dg-tm-cp-stage">BIS Hallmarking &amp; Quality Inspection</span>
+                          <span className="dg-tm-cp-desc">Certified BIS 916 purity hallmarked with laser seal verification</span>
+                          <span className="dg-tm-cp-time">Vault Quality Hub, Chennai</span>
+                        </div>
+                      </div>
+
+                      <div className={`dg-tm-cp ${trackingModalOrder.status !== 'placed' ? 'done' : ''}`}>
+                        <div className="dg-tm-dot-col">
+                          <span className="dg-tm-dot"><Check size={10} /></span>
+                          <span className="dg-tm-line" />
+                        </div>
+                        <div className="dg-tm-cp-content">
+                          <span className="dg-tm-cp-stage">Tamper-Proof Armored Packing</span>
+                          <span className="dg-tm-cp-desc">Sealed in heavy-duty tamper-evident security capsule</span>
+                          <span className="dg-tm-cp-time">Secure Dispatch Center</span>
+                        </div>
+                      </div>
+
+                      <div className={`dg-tm-cp ${['shipped', 'delivered'].includes(trackingModalOrder.status) ? 'done' : ''}`}>
+                        <div className="dg-tm-dot-col">
+                          <span className="dg-tm-dot"><Check size={10} /></span>
+                          <span className="dg-tm-line" />
+                        </div>
+                        <div className="dg-tm-cp-content">
+                          <span className="dg-tm-cp-stage">In Transit via Armored Courier</span>
+                          <span className="dg-tm-cp-desc">En-route with live GPS tracking and armed transit guards</span>
+                          <span className="dg-tm-cp-time">BlueDart Security Hub</span>
+                        </div>
+                      </div>
+
+                      <div className={`dg-tm-cp ${trackingModalOrder.status === 'delivered' ? 'done current' : ''}`}>
+                        <div className="dg-tm-dot-col">
+                          <span className="dg-tm-dot"><Check size={10} /></span>
+                        </div>
+                        <div className="dg-tm-cp-content">
+                          <span className="dg-tm-cp-stage">Doorstep Delivery with OTP</span>
+                          <span className="dg-tm-cp-desc">
+                            {trackingModalOrder.status === 'delivered'
+                              ? `Successfully delivered and signed on ${trackingModalOrder.delivered_date || trackingModalOrder.date}`
+                              : `Scheduled for delivery to ${trackingModalOrder.address}`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="dg-tm-footer">
+                      <button
+                        type="button"
+                        className="dg-tm-done-btn"
+                        onClick={() => setTrackingModalOrder(null)}
+                      >
+                        Close Tracking Window
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : currentView === 'support' ? (
             /* ══════════════════════════════════════════════════════════════
@@ -4640,7 +5675,7 @@ export default function DigiGoldDashboard() {
                               </td>
                               <td className="dg-table-type" style={{ verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                                 <span style={{
-                                   color: (tx.type || '').toLowerCase().includes('sell') ? '#E45B5B' : '#009957',
+                                  color: (tx.type || '').toLowerCase().includes('sell') ? '#E45B5B' : '#009957',
                                   fontWeight: 800,
                                   fontSize: '13px'
                                 }}>
@@ -5254,10 +6289,10 @@ export default function DigiGoldDashboard() {
                 {submittingSell
                   ? 'Processing Sale…'
                   : hasNoHoldingsToSell
-                  ? 'No Holdings to Sell'
-                  : isOverSelling
-                  ? `Exceeds Available (${availableSellGm.toFixed(4)}g Max)`
-                  : `Sell ${parsedSellGm}g & Credit ₹${Math.round(previewSellPayout).toLocaleString('en-IN')}`}
+                    ? 'No Holdings to Sell'
+                    : isOverSelling
+                      ? `Exceeds Available (${availableSellGm.toFixed(4)}g Max)`
+                      : `Sell ${parsedSellGm}g & Credit ₹${Math.round(previewSellPayout).toLocaleString('en-IN')}`}
               </button>
             </form>
           </div>
@@ -5519,8 +6554,8 @@ export default function DigiGoldDashboard() {
                 {(autoPayFrequency === 'daily'
                   ? ['10', '50', '100', '200', '500']
                   : autoPayFrequency === 'weekly'
-                  ? ['100', '200', '500', '1000', '2000']
-                  : ['1000', '2000', '5000', '10000']
+                    ? ['100', '200', '500', '1000', '2000']
+                    : ['1000', '2000', '5000', '10000']
                 ).map(p => (
                   <button
                     key={p}
@@ -5596,6 +6631,223 @@ export default function DigiGoldDashboard() {
         </div>
       )}
 
+      {/* ── DELIVERY ADDRESS POPUP MODAL ── */}
+      {showAddressModal && (
+        <div className="dg-modal-overlay" onClick={() => setShowAddressModal(false)}>
+          <div className="dg-modal-box dg-address-modal-box" onClick={e => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="dg-modal-head">
+              <div className="dg-modal-title-wrap">
+                <div className="dg-modal-icon-badge">
+                  <MapPin size={22} color="#007B50" />
+                </div>
+                <div>
+                  <h3 className="dg-modal-title" style={{ margin: 0, fontSize: 18, color: '#002D24', fontWeight: 800 }}>
+                    Doorstep Delivery Address
+                  </h3>
+                  <p style={{ margin: '3px 0 0', fontSize: 12, color: '#647474' }}>
+                    100% Insured courier dispatch for bullion coins
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="dg-modal-close"
+                onClick={() => setShowAddressModal(false)}
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Quick Actions Bar */}
+            <div className="dg-addr-quick-actions">
+              <button
+                type="button"
+                className="dg-addr-fetch-btn"
+                onClick={handleAutoFetchProfileAddress}
+                disabled={profileFetching}
+                title="Fetch address from your logged-in profile"
+              >
+                <UserRound size={15} />
+                <span>{profileFetching ? 'Fetching Profile…' : 'Auto-Fetch from Profile'}</span>
+              </button>
+              <button
+                type="button"
+                className="dg-addr-reset-btn"
+                onClick={handleResetAddressForm}
+                title="Clear and enter fresh address"
+              >
+                + Clear / New Address
+              </button>
+            </div>
+
+            {/* Alerts */}
+            {addressFeedback && (
+              <div className={`dg-addr-alert ${addressFeedback.type}`}>
+                {addressFeedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                <span>{addressFeedback.text}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveDeliveryAddress} className="dg-addr-form">
+              {/* Recipient Contact */}
+              <div className="dg-addr-grid-2">
+                <div className="dg-addr-field">
+                  <label>Recipient Name *</label>
+                  <input
+                    type="text"
+                    value={addressForm.name}
+                    onChange={e => setAddressForm({ ...addressForm, name: e.target.value })}
+                    placeholder="Customer Name"
+                    required
+                  />
+                </div>
+                <div className="dg-addr-field">
+                  <label>Mobile Number *</label>
+                  <input
+                    type="tel"
+                    value={addressForm.phone}
+                    onChange={e => setAddressForm({ ...addressForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                    placeholder="10-digit mobile number"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* D/No & Address 1 */}
+              <div className="dg-addr-grid-dno">
+                <div className="dg-addr-field dno">
+                  <label>D/No (Door / Flat) *</label>
+                  <input
+                    type="text"
+                    value={addressForm.door_no}
+                    onChange={e => setAddressForm({ ...addressForm, door_no: e.target.value })}
+                    placeholder="e.g. 12 / 3B"
+                    required
+                  />
+                </div>
+                <div className="dg-addr-field">
+                  <label>Address 1 (Street / Road) *</label>
+                  <input
+                    type="text"
+                    value={addressForm.address_line1}
+                    onChange={e => setAddressForm({ ...addressForm, address_line1: e.target.value })}
+                    placeholder="e.g. Bharathi Street, Main Road"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Address 2 */}
+              <div className="dg-addr-field">
+                <label>Address 2 (Area / Locality / Landmark)</label>
+                <input
+                  type="text"
+                  value={addressForm.address_line2}
+                  onChange={e => setAddressForm({ ...addressForm, address_line2: e.target.value })}
+                  placeholder="e.g. Near Bus Stand / Temple, Anna Nagar"
+                />
+              </div>
+
+              {/* Pincode & District with auto-fetch */}
+              <div className="dg-addr-grid-2">
+                <div className="dg-addr-field">
+                  <div className="dg-addr-label-row">
+                    <label>Pincode *</label>
+                    {pincodeLoading && <span className="dg-addr-detecting">Auto-detecting…</span>}
+                  </div>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={addressForm.pincode}
+                    onChange={e => handlePincodeChange(e.target.value)}
+                    placeholder="6-digit PIN (e.g. 600040)"
+                    required
+                  />
+                </div>
+                <div className="dg-addr-field">
+                  <label>District / City *</label>
+                  <input
+                    type="text"
+                    value={addressForm.district}
+                    onChange={e => setAddressForm({ ...addressForm, district: e.target.value })}
+                    placeholder="Auto-filled from PIN"
+                    required
+                  />
+                </div>
+              </div>
+
+              {pincodeMsg && (
+                <div className={`dg-pincode-hint ${pincodeMsg.includes('Auto-detected') ? 'success' : ''}`}>
+                  {pincodeMsg.includes('Auto-detected') ? <Check size={14} color="#009957" /> : <AlertCircle size={14} color="#647474" />}
+                  <span>{pincodeMsg}</span>
+                </div>
+              )}
+
+              {/* State & Country */}
+              <div className="dg-addr-grid-2">
+                <div className="dg-addr-field">
+                  <label>State *</label>
+                  <input
+                    type="text"
+                    value={addressForm.state}
+                    onChange={e => setAddressForm({ ...addressForm, state: e.target.value })}
+                    placeholder="Auto-filled from PIN"
+                    required
+                  />
+                </div>
+                <div className="dg-addr-field">
+                  <label>Country *</label>
+                  <input
+                    type="text"
+                    value={addressForm.country}
+                    onChange={e => setAddressForm({ ...addressForm, country: e.target.value })}
+                    placeholder="India"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Formatted Address Preview */}
+              {(addressForm.door_no || addressForm.address_line1 || addressForm.pincode) && (
+                <div className="dg-addr-preview-box">
+                  <span className="dg-addr-preview-label">Live Address Preview:</span>
+                  <p className="dg-addr-preview-text">
+                    {[
+                      addressForm.name && `${addressForm.name} (Ph: ${addressForm.phone || '—'})`,
+                      addressForm.door_no && `D.No: ${addressForm.door_no}`,
+                      addressForm.address_line1,
+                      addressForm.address_line2,
+                      addressForm.district,
+                      addressForm.state ? `${addressForm.state} - ${addressForm.pincode}` : addressForm.pincode,
+                      addressForm.country || 'India'
+                    ].filter(Boolean).join(', ')}
+                  </p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="dg-addr-btn-row">
+                <button
+                  type="button"
+                  className="dg-addr-cancel-btn"
+                  onClick={() => setShowAddressModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="dg-addr-submit-btn"
+                >
+                  Save &amp; Confirm Address
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ── ULTRA-PREMIUM SUCCESS POPUP MODAL (FOR BUY, SELL, & CONVERT) ── */}
       {actionSuccessData && (
         <div className="dg-modal-overlay" onClick={() => setActionSuccessData(null)}>
@@ -5628,19 +6880,23 @@ export default function DigiGoldDashboard() {
               <span className="dg-success-hero-val">
                 {actionSuccessData.actionType === 'sell'
                   ? `₹ ${Number(actionSuccessData.amountInr).toLocaleString('en-IN')}`
-                  : `+ ${Number(actionSuccessData.grams).toFixed(4)} g`}
+                  : actionSuccessData.actionType === 'delivery'
+                    ? `₹ ${Number(actionSuccessData.amountInr).toLocaleString('en-IN')}`
+                    : `+ ${Number(actionSuccessData.grams).toFixed(4)} g`}
               </span>
               <span className="dg-success-hero-desc">
                 {actionSuccessData.actionType === 'sell'
                   ? `Credited to your wallet (${Number(actionSuccessData.coins).toLocaleString()} AUG Revive)`
-                  : `${actionSuccessData.metalLabel || '22K Digital Gold'} safely deposited in your digital vault`}
+                  : actionSuccessData.actionType === 'delivery'
+                    ? `${Number(actionSuccessData.grams).toFixed(2)}g Bullion Coins booked for Doorstep Delivery`
+                    : `${actionSuccessData.metalLabel || '22K Digital Gold'} safely deposited in your digital vault`}
               </span>
             </div>
 
             {/* Clean 2-Item Summary Badges (No Text Clutter) */}
             <div className="dg-success-summary-badges">
               <div className="dg-success-badge-item">
-                <span className="dg-sbi-label">Amount Paid</span>
+                <span className="dg-sbi-label">{actionSuccessData.actionType === 'delivery' ? 'Order Value' : 'Amount Paid'}</span>
                 <span className="dg-sbi-val">₹ {Number(actionSuccessData.amountInr).toLocaleString('en-IN')}</span>
               </div>
               {actionSuccessData.transactionId && (
@@ -5653,7 +6909,7 @@ export default function DigiGoldDashboard() {
                   }}
                   title="Click to copy Transaction ID"
                 >
-                  <span className="dg-sbi-label">Transaction Ref</span>
+                  <span className="dg-sbi-label">{actionSuccessData.actionType === 'delivery' ? 'Tracking / Order ID' : 'Transaction Ref'}</span>
                   <span className="dg-sbi-val txnid">
                     {actionSuccessData.transactionId}
                     {copiedTxn ? <Check size={12} color="#009957" /> : <Copy size={12} />}
@@ -5669,29 +6925,57 @@ export default function DigiGoldDashboard() {
 
             {/* Action Buttons */}
             <div className="dg-success-actions-row">
-              <button
-                type="button"
-                className="dg-success-btn-primary"
-                onClick={() => {
-                  setActionSuccessData(null)
-                  setCurrentView('transactions')
-                }}
-              >
-                <span>View in Transactions</span>
-                <ArrowRight size={16} />
-              </button>
-              <div style={{ display: 'flex', gap: 8 }}>
+              {actionSuccessData.actionType === 'delivery' ? (
                 <button
                   type="button"
-                  className="dg-success-btn-secondary"
+                  className="dg-success-btn-primary"
                   onClick={() => {
                     setActionSuccessData(null)
-                    setCurrentView('valuation')
+                    setCurrentView('orders')
                   }}
-                  style={{ flex: 1 }}
                 >
-                  Valuation Sheet
+                  <span>Track Bullion Delivery</span>
+                  <ArrowRight size={16} />
                 </button>
+              ) : (
+                <button
+                  type="button"
+                  className="dg-success-btn-primary"
+                  onClick={() => {
+                    setActionSuccessData(null)
+                    setCurrentView('transactions')
+                  }}
+                >
+                  <span>View in Transactions</span>
+                  <ArrowRight size={16} />
+                </button>
+              )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                {actionSuccessData.actionType === 'delivery' ? (
+                  <button
+                    type="button"
+                    className="dg-success-btn-secondary"
+                    onClick={() => {
+                      setActionSuccessData(null)
+                      setCurrentView('delivery')
+                    }}
+                    style={{ flex: 1 }}
+                  >
+                    Delivery Desk
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="dg-success-btn-secondary"
+                    onClick={() => {
+                      setActionSuccessData(null)
+                      setCurrentView('valuation')
+                    }}
+                    style={{ flex: 1 }}
+                  >
+                    Valuation Sheet
+                  </button>
+                )}
                 <button
                   type="button"
                   className="dg-success-btn-secondary"

@@ -27,7 +27,13 @@ import {
   BarChart3,
   Percent,
   Tag,
-  ArrowRight
+  ArrowRight,
+  Truck,
+  Package,
+  MapPin,
+  Phone,
+  Eye,
+  Check
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -123,6 +129,16 @@ export default function SuperAdminDigiGold() {
   const [loadingMoreTxns, setLoadingMoreTxns] = useState(false)
   const txnSentinelRef = useRef(null)
 
+  // ── BULLION DELIVERY ORDERS (SUPER ADMIN) ──
+  const [deliveryOrdersList, setDeliveryOrdersList] = useState([])
+  const [loadingDeliveryOrders, setLoadingDeliveryOrders] = useState(false)
+  const [orderSearch, setOrderSearch] = useState('')
+  const [orderStatusFilter, setOrderStatusFilter] = useState('all')
+  const [orderMetalFilter, setOrderMetalFilter] = useState('all')
+  const [selectedDeliveryOrder, setSelectedDeliveryOrder] = useState(null)
+  const [updatingOrderStatusId, setUpdatingOrderStatusId] = useState(null)
+  const [statusUpdateSuccess, setStatusUpdateSuccess] = useState('')
+
   // ── DATA STATE (ALWAYS FRESH FROM DB) ──
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -200,6 +216,87 @@ export default function SuperAdminDigiGold() {
     setTxnVisibleCount(35)
     fetchData()
   }
+
+  // ── BULLION DELIVERY ORDERS HANDLERS & AGGREGATIONS ──
+  const fetchDeliveryOrders = async () => {
+    setLoadingDeliveryOrders(true)
+    try {
+      const res = await api.get('/digi-gold/delivery/orders/?all=true')
+      setDeliveryOrdersList(res.data?.orders || [])
+    } catch (err) {
+      console.error('Failed to load delivery orders in superadmin:', err)
+    } finally {
+      setLoadingDeliveryOrders(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchDeliveryOrders()
+  }, [])
+
+  useEffect(() => {
+    if (activeSection === 'orders') {
+      fetchDeliveryOrders()
+    }
+  }, [activeSection])
+
+  const handleUpdateDeliveryStatus = async (order, newStatus) => {
+    const targetId = order.id || order.order_id
+    setUpdatingOrderStatusId(targetId)
+    setStatusUpdateSuccess('')
+    try {
+      await api.patch(`/orders/${targetId}/`, {
+        status: newStatus,
+        note: `Order status updated to ${newStatus} by Super Admin`
+      })
+      setDeliveryOrdersList((prev) =>
+        prev.map((o) => (o.id === targetId || o.order_id === targetId ? { ...o, status: newStatus } : o))
+      )
+      if (selectedDeliveryOrder && (selectedDeliveryOrder.id === targetId || selectedDeliveryOrder.order_id === targetId)) {
+        setSelectedDeliveryOrder((prev) => ({ ...prev, status: newStatus }))
+      }
+      setStatusUpdateSuccess(`Order #${order.order_id} successfully marked as ${newStatus.toUpperCase()}`)
+      setTimeout(() => setStatusUpdateSuccess(''), 4000)
+    } catch (err) {
+      console.error('Failed to update status', err)
+      alert('Could not update status: ' + (err.response?.data?.error || err.message))
+    } finally {
+      setUpdatingOrderStatusId(null)
+    }
+  }
+
+  const filteredDeliveryOrders = useMemo(() => {
+    return deliveryOrdersList.filter((o) => {
+      if (orderStatusFilter !== 'all' && (o.status || '').toLowerCase() !== orderStatusFilter.toLowerCase()) {
+        return false
+      }
+      if (orderMetalFilter !== 'all') {
+        const oMetal = (o.metal || '').toLowerCase()
+        if (orderMetalFilter === 'gold' && !oMetal.includes('gold')) return false
+        if (orderMetalFilter === 'silver' && !oMetal.includes('silver')) return false
+      }
+      if (orderSearch.trim()) {
+        const q = orderSearch.toLowerCase()
+        const matchId = (o.order_id || '').toLowerCase().includes(q)
+        const matchCust = (o.customer_name || '').toLowerCase().includes(q)
+        const matchPhone = (o.customer_phone || '').toLowerCase().includes(q)
+        const matchAddr = (o.address?.formatted || '').toLowerCase().includes(q)
+        const matchCity = (o.address?.city || '').toLowerCase().includes(q)
+        const matchNotes = (o.notes || '').toLowerCase().includes(q)
+        if (!matchId && !matchCust && !matchPhone && !matchAddr && !matchCity && !matchNotes) return false
+      }
+      return true
+    })
+  }, [deliveryOrdersList, orderStatusFilter, orderMetalFilter, orderSearch])
+
+  const orderStats = useMemo(() => {
+    const totalCount = deliveryOrdersList.length
+    const totalWeight = deliveryOrdersList.reduce((acc, o) => acc + (Number(o.weight_gm) || 0), 0)
+    const totalValuation = deliveryOrdersList.reduce((acc, o) => acc + (Number(o.valuation_inr) || 0), 0)
+    const activeCount = deliveryOrdersList.filter((o) => !['delivered', 'cancelled'].includes((o.status || '').toLowerCase())).length
+    const deliveredCount = deliveryOrdersList.filter((o) => (o.status || '').toLowerCase() === 'delivered').length
+    return { totalCount, totalWeight, totalValuation, activeCount, deliveredCount }
+  }, [deliveryOrdersList])
 
   // ── METRICS & AGGREGATIONS (HONEST DATA RESOLUTION) ──
   const kpis = data?.kpis || {}
@@ -334,6 +431,9 @@ export default function SuperAdminDigiGold() {
       } else if (activeSection === 'gold_rates') {
         reportTitle = 'Official 22K Gold & Pure 999 Silver Benchmark Rates Log'
         reportCategory = 'BENCHMARK RATES AUDIT'
+      } else if (activeSection === 'orders') {
+        reportTitle = 'Bullion Doorstep Delivery Orders Ledger'
+        reportCategory = 'DELIVERY DISPATCH AUDIT'
       }
 
       let rowsHtml = ''
@@ -341,7 +441,32 @@ export default function SuperAdminDigiGold() {
       let totalWeight = 0
       let totalValuation = 0
 
-      if (isRateReport) {
+      if (activeSection === 'orders') {
+        if (!filteredDeliveryOrders.length) {
+          rowsHtml = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No delivery orders found.</td></tr>'
+        } else {
+          filteredDeliveryOrders.forEach((o) => {
+            const w = Number(o.weight_gm || 0)
+            const v = Number(o.valuation_inr || 0)
+            totalWeight += w
+            totalAmount += v
+            const isGold = (o.metal || '').toLowerCase().includes('gold')
+            const metalBadgeClass = isGold ? 'metal-gold' : 'metal-silver'
+            const metalText = isGold ? '22K Gold' : 'Pure 999 Silver'
+            rowsHtml += `
+              <tr>
+                <td style="font-family: monospace; font-weight: 700; color: #0A3E42;">#${o.order_id}</td>
+                <td>${o.created_at || '-'}</td>
+                <td><strong>${o.customer_name || 'Customer'}</strong><div style="font-size: 8px; color: #647474;">${o.customer_phone || ''}</div></td>
+                <td style="text-align: center;"><span class="badge ${metalBadgeClass}">${metalText}</span></td>
+                <td style="text-align: right; font-weight: 700;">${w.toFixed(3)} g</td>
+                <td style="text-align: right; font-weight: 800; color: #073E40;">₹ ${v.toLocaleString('en-IN')}</td>
+                <td style="text-align: center;"><span class="badge status-completed" style="text-transform: capitalize;">${o.status}</span></td>
+              </tr>
+            `
+          })
+        }
+      } else if (isRateReport) {
         if (!rateHistory.length) {
           rowsHtml = '<tr><td colspan="4" style="text-align: center; padding: 20px;">No benchmark rate history recorded yet.</td></tr>'
         } else {
@@ -892,6 +1017,7 @@ export default function SuperAdminDigiGold() {
   // ── SIDEBAR NAVIGATION ITEMS (EXACT ORDER PER SPEC) ──
   const navItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+    { id: 'orders', label: 'Delivery Orders', icon: Truck },
     { id: 'transactions', label: 'Transactions', icon: ArrowLeftRight },
     { id: 'gold_mgmt', label: 'Gold Management', icon: Coins },
     { id: 'silver_mgmt', label: 'Silver Management', icon: Layers },
@@ -988,6 +1114,7 @@ export default function SuperAdminDigiGold() {
 
             <div className="sadg-header-icon-badge">
               {activeSection === 'overview' && <Sparkles size={22} />}
+              {activeSection === 'orders' && <Truck size={22} />}
               {activeSection === 'transactions' && <ReceiptText size={22} />}
               {activeSection === 'gold_mgmt' && <Coins size={22} />}
               {activeSection === 'silver_mgmt' && <Layers size={22} />}
@@ -997,6 +1124,7 @@ export default function SuperAdminDigiGold() {
             <div>
               <h1 className="sadg-title">
                 {activeSection === 'overview' && 'Digi Gold & Silver Management'}
+                {activeSection === 'orders' && 'Bullion Delivery Orders'}
                 {activeSection === 'transactions' && 'Transaction History'}
                 {activeSection === 'gold_mgmt' && 'Gold Management'}
                 {activeSection === 'silver_mgmt' && 'Silver Management'}
@@ -1005,6 +1133,7 @@ export default function SuperAdminDigiGold() {
               </h1>
               <p className="sadg-subtitle">
                 {activeSection === 'overview' && 'Sales, holdings, transaction history and user-wise investment analytics.'}
+                {activeSection === 'orders' && 'Doorstep bullion coin delivery orders, recipient address verification, and dispatch management.'}
                 {activeSection === 'transactions' && 'Complete company-wide investor audit trail, verified buy/sell ledgers, and settlement records.'}
                 {activeSection === 'gold_mgmt' && 'Detailed 22K Digi Gold sales analytics, vault weight accumulation, and investor ledgers.'}
                 {activeSection === 'silver_mgmt' && 'Detailed Digi Silver sales analytics, purity metrics, and settlement ledgers.'}
@@ -2519,6 +2648,461 @@ export default function SuperAdminDigiGold() {
             </div>
           </div>
         )}
+
+        {/* ══════════════════════════════════════════════════════════════
+            VIEW 7: BULLION DELIVERY ORDERS (SUPER ADMIN)
+            ══════════════════════════════════════════════════════════════ */}
+        {activeSection === 'orders' && (
+          <div className="sadg-section-body">
+
+            {/* STATUS UPDATE SUCCESS TOAST */}
+            {statusUpdateSuccess && (
+              <div style={{
+                background: 'linear-gradient(135deg, #0E8548 0%, #0A6B3A 100%)',
+                color: '#FFFFFF', borderRadius: 12, padding: '12px 18px',
+                display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
+                fontSize: 13, fontWeight: 700, boxShadow: '0 4px 16px rgba(14,133,72,0.3)',
+                animation: 'sadgFadeIn 0.3s ease'
+              }}>
+                <Check size={16} />
+                {statusUpdateSuccess}
+              </div>
+            )}
+
+            {/* STAT CARDS ROW */}
+            <div className="sadg-orders-stats-grid">
+              <div className="sadg-order-stat-card">
+                <div className="sadg-order-stat-info">
+                  <span className="sadg-order-stat-label">Total Orders</span>
+                  <span className="sadg-order-stat-val">{orderStats.totalCount}</span>
+                </div>
+                <div className="sadg-order-stat-icon-wrap">
+                  <Package size={20} />
+                </div>
+              </div>
+              <div className="sadg-order-stat-card">
+                <div className="sadg-order-stat-info">
+                  <span className="sadg-order-stat-label">Active Orders</span>
+                  <span className="sadg-order-stat-val" style={{ color: '#D49A38' }}>{orderStats.activeCount}</span>
+                </div>
+                <div className="sadg-order-stat-icon-wrap gold">
+                  <Truck size={20} />
+                </div>
+              </div>
+              <div className="sadg-order-stat-card">
+                <div className="sadg-order-stat-info">
+                  <span className="sadg-order-stat-label">Delivered</span>
+                  <span className="sadg-order-stat-val" style={{ color: '#0E8548' }}>{orderStats.deliveredCount}</span>
+                </div>
+                <div className="sadg-order-stat-icon-wrap success">
+                  <CheckCircle2 size={20} />
+                </div>
+              </div>
+              <div className="sadg-order-stat-card">
+                <div className="sadg-order-stat-info">
+                  <span className="sadg-order-stat-label">Total Weight</span>
+                  <span className="sadg-order-stat-val">{orderStats.totalWeight.toFixed(3)}<small style={{ fontSize: 13, fontWeight: 600 }}> g</small></span>
+                </div>
+                <div className="sadg-order-stat-icon-wrap silver">
+                  <Layers size={20} />
+                </div>
+              </div>
+              <div className="sadg-order-stat-card">
+                <div className="sadg-order-stat-info">
+                  <span className="sadg-order-stat-label">Total Valuation</span>
+                  <span className="sadg-order-stat-val" style={{ fontSize: 18 }}>₹ {orderStats.totalValuation.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="sadg-order-stat-icon-wrap gold">
+                  <Wallet size={20} />
+                </div>
+              </div>
+            </div>
+
+            {/* FILTER BAR */}
+            <div className="sadg-orders-filter-bar">
+              <div className="sadg-orders-search-box">
+                <Search size={14} color="#6A7D7C" />
+                <input
+                  type="text"
+                  placeholder="Search by order ID, customer, phone, city…"
+                  value={orderSearch}
+                  onChange={(e) => setOrderSearch(e.target.value)}
+                />
+              </div>
+              <div className="sadg-orders-filter-pills">
+                {['all', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className={`sadg-order-pill ${orderStatusFilter === s ? 'active' : ''}`}
+                    onClick={() => setOrderStatusFilter(s)}
+                  >
+                    {s === 'all' ? 'All Status' : s.charAt(0).toUpperCase() + s.slice(1)}
+                  </button>
+                ))}
+                <div style={{ width: 1, height: 20, background: '#E2ECE7', margin: '0 4px' }} />
+                {['all', 'gold', 'silver'].map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className={`sadg-order-pill ${orderMetalFilter === m ? 'active' : ''}`}
+                    onClick={() => setOrderMetalFilter(m)}
+                  >
+                    {m === 'all' ? 'All Metal' : m.charAt(0).toUpperCase() + m.slice(1)}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="sadg-order-pill"
+                  onClick={fetchDeliveryOrders}
+                  style={{ marginLeft: 4 }}
+                >
+                  <RefreshCw size={12} style={{ marginRight: 4 }} />
+                  Refresh
+                </button>
+              </div>
+            </div>
+
+            {/* ORDERS TABLE */}
+            <div style={{ background: '#FFFFFF', border: '1px solid #E2ECE7', borderRadius: 16, overflow: 'hidden' }}>
+              <div style={{ padding: '14px 20px', borderBottom: '1px solid #E2ECE7', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontWeight: 800, fontSize: 15, color: '#103F42' }}>
+                  Delivery Orders
+                  <span style={{ marginLeft: 10, fontSize: 12, fontWeight: 600, color: '#6A7D7C', background: '#F0F6F4', padding: '3px 10px', borderRadius: 20 }}>
+                    {filteredDeliveryOrders.length} orders
+                  </span>
+                </span>
+              </div>
+
+              {loadingDeliveryOrders ? (
+                <div style={{ padding: 40, textAlign: 'center', color: '#6A7D7C', fontSize: 14 }}>
+                  <RefreshCw size={22} className="sadg-spin" style={{ marginBottom: 10 }} />
+                  <div>Loading delivery orders…</div>
+                </div>
+              ) : filteredDeliveryOrders.length === 0 ? (
+                <div style={{ padding: 50, textAlign: 'center', color: '#6A7D7C' }}>
+                  <Truck size={40} color="#D5E2DC" style={{ marginBottom: 12 }} />
+                  <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>No orders found</div>
+                  <div style={{ fontSize: 13 }}>
+                    {deliveryOrdersList.length === 0
+                      ? 'No delivery orders have been placed yet.'
+                      : 'No orders match the current filters.'}
+                  </div>
+                </div>
+              ) : (
+                <div className="sadg-table-wrap">
+                  <table className="sadg-table">
+                    <thead>
+                      <tr>
+                        <th>Order ID</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Address</th>
+                        <th>Metal</th>
+                        <th style={{ textAlign: 'right' }}>Weight</th>
+                        <th style={{ textAlign: 'right' }}>Valuation</th>
+                        <th style={{ textAlign: 'center' }}>Status</th>
+                        <th style={{ textAlign: 'center' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDeliveryOrders.map((order) => {
+                        const oid = order.id || order.order_id
+                        const isGold = (order.metal || '').toLowerCase().includes('gold')
+                        const statusClass = (order.status || 'confirmed').toLowerCase().replace(/\s+/, '_')
+                        const isUpdating = updatingOrderStatusId === oid
+                        const addr = order.address
+                        const addrLine = addr
+                          ? (addr.formatted || [addr.line1, addr.city, addr.state].filter(Boolean).join(', '))
+                          : (order.delivery_address || '—')
+                        return (
+                          <tr key={oid} style={{ cursor: 'pointer' }} onClick={() => setSelectedDeliveryOrder(order)}>
+                            <td>
+                              <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#073E40', fontSize: 12 }}>
+                                #{order.order_id || oid}
+                              </span>
+                            </td>
+                            <td style={{ fontSize: 12, color: '#6A7D7C', whiteSpace: 'nowrap' }}>
+                              {order.created_at || '—'}
+                            </td>
+                            <td>
+                              <div style={{ fontWeight: 700, color: '#103F42', fontSize: 13 }}>
+                                {order.customer_name || 'Customer'}
+                              </div>
+                              {order.customer_phone && (
+                                <div style={{ fontSize: 11, color: '#6A7D7C', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                                  <Phone size={10} />
+                                  {order.customer_phone}
+                                </div>
+                              )}
+                            </td>
+                            <td style={{ maxWidth: 180 }}>
+                              <div style={{ fontSize: 12, color: '#556B69', display: 'flex', alignItems: 'flex-start', gap: 4 }}>
+                                <MapPin size={11} style={{ marginTop: 2, flexShrink: 0 }} />
+                                <span style={{ lineHeight: 1.4 }}>{addrLine}</span>
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`sadg-metal-badge ${isGold ? 'gold' : 'silver'}`}>
+                                {isGold ? '22K Gold' : 'Silver 999'}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 13 }}>
+                              {Number(order.weight_gm || 0).toFixed(3)} g
+                            </td>
+                            <td style={{ textAlign: 'right', fontWeight: 800, color: '#073E40', fontSize: 13 }}>
+                              ₹ {Number(order.valuation_inr || 0).toLocaleString('en-IN')}
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <span className={`sadg-order-status-badge ${statusClass}`}>
+                                {order.status || 'confirmed'}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                                <select
+                                  className="sadg-order-status-select"
+                                  value={order.status || 'confirmed'}
+                                  disabled={isUpdating}
+                                  onChange={(e) => {
+                                    e.stopPropagation()
+                                    handleUpdateDeliveryStatus(order, e.target.value)
+                                  }}
+                                >
+                                  {['confirmed', 'processing', 'shipped', 'delivered', 'cancelled'].map((s) => (
+                                    <option key={s} value={s}>
+                                      {s.charAt(0).toUpperCase() + s.slice(1)}
+                                    </option>
+                                  ))}
+                                </select>
+                                {isUpdating && <RefreshCw size={12} className="sadg-spin" color="#073E40" />}
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setSelectedDeliveryOrder(order) }}
+                                  style={{ background: '#F0F6F4', border: 'none', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', color: '#073E40', display: 'flex', alignItems: 'center' }}
+                                  title="View details"
+                                >
+                                  <Eye size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════
+            DELIVERY ORDER DETAIL MODAL
+            ══════════════════════════════════════════════════════════════ */}
+        {selectedDeliveryOrder && (
+          <div
+            className="sadg-order-modal-backdrop"
+            onClick={() => setSelectedDeliveryOrder(null)}
+          >
+            <div
+              className="sadg-order-modal-card"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="sadg-order-modal-header">
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 16, color: '#103F42' }}>
+                    Order #{selectedDeliveryOrder.order_id || selectedDeliveryOrder.id}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#6A7D7C', marginTop: 2 }}>
+                    Placed on {selectedDeliveryOrder.created_at || '—'}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span className={`sadg-order-status-badge ${(selectedDeliveryOrder.status || 'confirmed').toLowerCase()}`}>
+                    {selectedDeliveryOrder.status || 'confirmed'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDeliveryOrder(null)}
+                    style={{ background: '#F0F6F4', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: '#073E40' }}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body */}
+              <div className="sadg-order-modal-body">
+
+                {/* Customer Info */}
+                <div>
+                  <div className="sadg-order-modal-section-title">
+                    <Users size={14} /> Customer Details
+                  </div>
+                  <div className="sadg-order-info-box">
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: '#6A7D7C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Name</div>
+                        <div style={{ fontWeight: 700 }}>{selectedDeliveryOrder.customer_name || '—'}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: '#6A7D7C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Phone</div>
+                        <div style={{ fontWeight: 700 }}>{selectedDeliveryOrder.customer_phone || '—'}</div>
+                      </div>
+                      {selectedDeliveryOrder.customer_email && (
+                        <div style={{ gridColumn: '1 / -1' }}>
+                          <div style={{ fontSize: 11, color: '#6A7D7C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Email</div>
+                          <div>{selectedDeliveryOrder.customer_email}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Delivery Address */}
+                <div>
+                  <div className="sadg-order-modal-section-title">
+                    <MapPin size={14} /> Delivery Address
+                  </div>
+                  <div className="sadg-order-info-box" style={{ lineHeight: 1.8 }}>
+                    {(() => {
+                      const addr = selectedDeliveryOrder.address
+                      if (!addr) return selectedDeliveryOrder.delivery_address || '—'
+                      return (
+                        <div>
+                          {addr.line1 && <div>{addr.line1}</div>}
+                          {addr.line2 && <div>{addr.line2}</div>}
+                          {(addr.city || addr.state || addr.pincode) && (
+                            <div>{[addr.city, addr.state, addr.pincode].filter(Boolean).join(', ')}</div>
+                          )}
+                          {addr.country && <div style={{ color: '#6A7D7C', fontSize: 12 }}>{addr.country}</div>}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                </div>
+
+                {/* Order Details */}
+                <div>
+                  <div className="sadg-order-modal-section-title">
+                    <Package size={14} /> Order Details
+                  </div>
+                  <div className="sadg-order-info-box">
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: '#6A7D7C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Metal</div>
+                        <div style={{ fontWeight: 700 }}>
+                          {(() => {
+                            const m = (selectedDeliveryOrder.metal || '').toLowerCase()
+                            return m.includes('gold') ? '22K Digi Gold' : m.includes('silver') ? 'Pure 999 Silver' : selectedDeliveryOrder.metal || '—'
+                          })()}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: '#6A7D7C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Weight</div>
+                        <div style={{ fontWeight: 700 }}>{Number(selectedDeliveryOrder.weight_gm || 0).toFixed(3)} g</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: '#6A7D7C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Valuation</div>
+                        <div style={{ fontWeight: 800, color: '#073E40', fontSize: 15 }}>
+                          ₹ {Number(selectedDeliveryOrder.valuation_inr || 0).toLocaleString('en-IN')}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: '#6A7D7C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Rate at Time</div>
+                        <div style={{ fontWeight: 700 }}>
+                          {selectedDeliveryOrder.rate_at_order
+                            ? `₹ ${Number(selectedDeliveryOrder.rate_at_order).toLocaleString('en-IN')} /g`
+                            : '—'}
+                        </div>
+                      </div>
+                      {selectedDeliveryOrder.coin_type && (
+                        <div>
+                          <div style={{ fontSize: 11, color: '#6A7D7C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Coin Type</div>
+                          <div style={{ fontWeight: 700 }}>{selectedDeliveryOrder.coin_type}</div>
+                        </div>
+                      )}
+                      {selectedDeliveryOrder.quantity && (
+                        <div>
+                          <div style={{ fontSize: 11, color: '#6A7D7C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Quantity</div>
+                          <div style={{ fontWeight: 700 }}>{selectedDeliveryOrder.quantity} coins</div>
+                        </div>
+                      )}
+                    </div>
+                    {selectedDeliveryOrder.notes && (
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #E2ECE7' }}>
+                        <div style={{ fontSize: 11, color: '#6A7D7C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Notes</div>
+                        <div style={{ fontSize: 13, color: '#556B69', lineHeight: 1.5 }}>{selectedDeliveryOrder.notes}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Order Timeline */}
+                <div>
+                  <div className="sadg-order-modal-section-title">
+                    <Clock size={14} /> Order Timeline
+                  </div>
+                  <div className="sadg-order-timeline">
+                    {['confirmed', 'processing', 'shipped', 'delivered'].map((stage, idx) => {
+                      const statusOrder = ['confirmed', 'processing', 'shipped', 'delivered']
+                      const currentIdx = statusOrder.indexOf((selectedDeliveryOrder.status || 'confirmed').toLowerCase())
+                      const isDone = idx <= currentIdx
+                      const isActive = idx === currentIdx
+                      return (
+                        <div key={stage} className={`sadg-timeline-item ${isActive ? 'active' : ''}`}>
+                          <div style={{ fontWeight: isActive ? 800 : 600, color: isDone ? '#103F42' : '#9BB0AE', fontSize: 13 }}>
+                            {stage.charAt(0).toUpperCase() + stage.slice(1)}
+                          </div>
+                          {isActive && (
+                            <div style={{ fontSize: 11, color: '#10B981', fontWeight: 700, marginTop: 2 }}>
+                              ← Current Status
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Modal Footer — Status Update */}
+              <div className="sadg-order-modal-footer">
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#103F42' }}>Update Status:</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {['confirmed', 'processing', 'shipped', 'delivered', 'cancelled'].map((s) => {
+                    const isCurrent = (selectedDeliveryOrder.status || '').toLowerCase() === s
+                    const isUpdating = updatingOrderStatusId === (selectedDeliveryOrder.id || selectedDeliveryOrder.order_id)
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        disabled={isCurrent || isUpdating}
+                        onClick={() => handleUpdateDeliveryStatus(selectedDeliveryOrder, s)}
+                        style={{
+                          padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                          border: isCurrent ? '2px solid #073E40' : '1px solid #D5E2DC',
+                          background: isCurrent ? '#073E40' : '#FFFFFF',
+                          color: isCurrent ? '#FFFFFF' : '#556B69',
+                          cursor: isCurrent || isUpdating ? 'not-allowed' : 'pointer',
+                          opacity: isUpdating && !isCurrent ? 0.6 : 1,
+                          transition: 'all 0.15s ease',
+                          textTransform: 'capitalize'
+                        }}
+                      >
+                        {s}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
       </main>
     </div>
   )

@@ -13342,6 +13342,21 @@ class DigiGoldConvertFromRechargeView(APIView):
 
 
 
+def _digi_gold_customer_contact(user):
+    """Return customer name and phone without assuming fields on the auth User."""
+    if not user:
+        return 'Customer', ''
+
+    profile = getattr(user, 'customer_profile', None)
+    profile_name = ' '.join(filter(None, [
+        getattr(profile, 'first_name', ''),
+        getattr(profile, 'last_name', ''),
+    ])).strip()
+    name = profile_name or (getattr(user, 'email', '').partition('@')[0]) or 'Customer'
+    phone = getattr(profile, 'mobile_number', '') or getattr(user, 'mobile_number', '') or ''
+    return name, phone
+
+
 class DigiGoldDeliveryOrderView(APIView):
     """
     Handle physical Gold & Silver coin home delivery requests funded by digital wallet balance.
@@ -13464,8 +13479,9 @@ class DigiGoldDeliveryOrderView(APIView):
             all_items_desc = ", ".join([f"{it.get('metal', 'gold').upper()} {it.get('denomination', '')} x {it.get('quantity', 1)}" for it in items])
             primary_metal = 'gold' if total_gold_gm > 0 else 'silver'
 
-            cust_name = address.get('name') or user.first_name or user.username or 'Customer'
-            cust_phone = address.get('phone') or getattr(user, 'phone', '') or ''
+            profile_name, profile_phone = _digi_gold_customer_contact(user)
+            cust_name = address.get('name') or profile_name
+            cust_phone = address.get('phone') or profile_phone
             d_no = address.get('door_no', '')
             line1 = address.get('address_line1') or address.get('formatted') or 'Doorstep Delivery'
             if d_no and not line1.startswith(str(d_no)):
@@ -13562,8 +13578,8 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
                 'id': o.id,
                 'order_id': o.order_id,
                 'transaction_ref': o.order_id,
-                'customer_name': o.customer_name or (o.user.first_name or o.user.username if o.user else 'Customer'),
-                'customer_phone': o.customer_phone or (getattr(o.user, 'phone', '') if o.user else ''),
+                'customer_name': o.customer_name or _digi_gold_customer_contact(o.user)[0],
+                'customer_phone': o.customer_phone or _digi_gold_customer_contact(o.user)[1],
                 'customer_email': getattr(o.user, 'email', '') if o.user else '',
                 'weight_gm': float(o.product_net_weight or 0),
                 'valuation_inr': float(o.total_price),
@@ -13580,8 +13596,9 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
                 'tracking': tracking
             })
 
-        # Fallback to DigiGoldInvestment if no JewelryOrder exists yet or supplementary records
-        if not records or is_admin:
+        # Older installs may have wallet deduction history without a JewelryOrder.
+        # Once proper orders exist, do not append those same deliveries a second time.
+        if not records:
             existing_ids = set(o.order_id for o in orders)
             inv_filter = {'transaction_type': 'delivery'} if is_admin else {'user': user, 'transaction_type': 'delivery'}
             inv_orders = DigiGoldInvestment.objects.filter(**inv_filter).select_related('user').order_by('-created_at')
@@ -13593,8 +13610,8 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
                     'id': o.id,
                     'order_id': order_id,
                     'transaction_ref': o.transaction_ref,
-                    'customer_name': o.user.first_name or o.user.username if o.user else 'Customer',
-                    'customer_phone': getattr(o.user, 'phone', '') if o.user else '',
+                    'customer_name': _digi_gold_customer_contact(o.user)[0],
+                    'customer_phone': _digi_gold_customer_contact(o.user)[1],
                     'customer_email': getattr(o.user, 'email', '') if o.user else '',
                     'weight_gm': float(o.hold_gold_gm),
                     'valuation_inr': float(o.recharge_amount),

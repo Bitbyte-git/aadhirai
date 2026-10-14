@@ -1736,61 +1736,155 @@ export default function DigiGoldDashboard() {
     if (!orderToPrint) return
     try {
       const doc = new jsPDF()
-      doc.setFillColor(0, 45, 36)
-      doc.rect(0, 0, 210, 40, 'F')
-      doc.setTextColor(255, 255, 255)
-      doc.setFontSize(20)
-      doc.setFont('helvetica', 'bold')
-      doc.text('ATHIRAI JEWELLERY - DIGI GOLD', 14, 20)
-      doc.setFontSize(11)
-      doc.setFont('helvetica', 'normal')
-      doc.text('Official Insured Bullion Delivery Tax Invoice / Receipt', 14, 28)
-      doc.text(`Invoice Date: ${orderToPrint.date || new Date().toLocaleDateString('en-IN')}`, 14, 34)
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const margin = 14
+      const contentWidth = pageWidth - margin * 2
+      const money = value => `Rs. ${Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+      const address = typeof orderToPrint.address === 'object'
+        ? orderToPrint.address?.formatted || ''
+        : orderToPrint.address || deliveryAddress?.formatted || ''
+      const customerName = orderToPrint.customer_name || orderToPrint.address?.name || 'Customer'
+      const customerPhone = orderToPrint.customer_phone || orderToPrint.address?.phone || ''
+      const orderId = orderToPrint.order_id || orderToPrint.id || '—'
+      let items = Array.isArray(orderToPrint.items) ? orderToPrint.items : []
+      if (!items.length) {
+        items = [{
+          metal: orderToPrint.metal,
+          label: orderToPrint.notes || orderToPrint.product_name || 'Bullion delivery',
+          weight_gm: orderToPrint.weight_gm || orderToPrint.total_weight_gm || 0,
+          qty: 1,
+          total_price: orderToPrint.valuation_inr || orderToPrint.total_amount || 0,
+        }]
+      }
+      const totalWeight = Number(orderToPrint.total_weight_gm || orderToPrint.weight_gm || items.reduce((sum, item) => sum + Number(item.weight_gm || 0) * Number(item.qty || item.quantity || 1), 0))
+      const totalAmount = Number(orderToPrint.total_amount || orderToPrint.valuation_inr || items.reduce((sum, item) => sum + Number(item.total_price || 0), 0))
 
-      doc.setTextColor(0, 45, 36)
-      doc.setFontSize(14)
+      // Branded header and compact two-card layout, matching the order receipt style.
+      doc.setFillColor(7, 59, 63)
+      doc.rect(0, 0, pageWidth, 42, 'F')
+      doc.setFillColor(218, 164, 65)
+      doc.circle(margin + 5, 20, 5, 'F')
+      doc.setTextColor(7, 59, 63)
       doc.setFont('helvetica', 'bold')
-      doc.text(`Order ID: #${orderToPrint.order_id}`, 14, 52)
       doc.setFontSize(10)
+      doc.text('A', margin + 5, 23, { align: 'center' })
+      doc.setTextColor(232, 177, 91)
+      doc.setFontSize(19)
+      doc.text('ATHIRAI', pageWidth / 2, 19, { align: 'center' })
+      doc.setTextColor(255, 255, 255)
       doc.setFont('helvetica', 'normal')
-      doc.text(`Tracking ID: ${orderToPrint.tracking_number || 'ATH-SEC-9921448'}`, 14, 58)
-      doc.text(`Delivery Address: ${orderToPrint.address || deliveryAddress.formatted}`, 14, 64)
-      doc.text(`Status: ${orderToPrint.status_label || 'Confirmed & Insured'}`, 14, 70)
+      doc.setFontSize(9)
+      doc.text('DIGI GOLD & SILVER  |  ORDER RECEIPT', pageWidth / 2, 27, { align: 'center' })
+      doc.setFontSize(8)
+      doc.text('Insured Bullion Delivery', pageWidth / 2, 34, { align: 'center' })
 
-      doc.setDrawColor(200, 200, 200)
-      doc.line(14, 76, 196, 76)
+      const cardY = 50
+      const cardGap = 5
+      const cardWidth = (contentWidth - cardGap) / 2
+      const drawCard = (x, title) => {
+        doc.setFillColor(245, 248, 247)
+        doc.setDrawColor(214, 228, 224)
+        doc.roundedRect(x, cardY, cardWidth, 42, 2, 2, 'FD')
+        doc.setTextColor(7, 59, 63)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(8)
+        doc.text(title, x + 4, cardY + 7)
+      }
+      drawCard(margin, 'ORDER INFORMATION')
+      drawCard(margin + cardWidth + cardGap, 'DELIVERED TO')
 
-      let y = 86
+      doc.setFontSize(7)
+      doc.setTextColor(102, 122, 122)
+      doc.setFont('helvetica', 'normal')
+      doc.text('ORDER ID', margin + 4, cardY + 15)
+      doc.text('ORDER DATE', margin + 4, cardY + 24)
+      doc.text('STATUS', margin + 4, cardY + 33)
+      doc.setTextColor(20, 46, 48)
       doc.setFont('helvetica', 'bold')
-      doc.text('Item Description', 14, y)
-      doc.text('Purity', 80, y)
-      doc.text('Qty', 130, y)
-      doc.text('Amount (INR)', 165, y)
-      y += 8
-      doc.line(14, y - 2, 196, y - 2)
-
+      doc.setFontSize(8)
+      doc.text(String(orderId), margin + 25, cardY + 15)
       doc.setFont('helvetica', 'normal')
-      const items = orderToPrint.items || []
-      items.forEach(it => {
-        const name = `${it.metal === 'gold' ? '22K Gold' : '999 Silver'} Coin (${it.label || ''})`
-        doc.text(name, 14, y)
-        doc.text(it.purity || (it.metal === 'gold' ? 'BIS 916' : '999 Pure'), 80, y)
-        doc.text(String(it.qty || 1), 130, y)
-        doc.text(`Rs. ${Math.round(it.total_price || 0).toLocaleString('en-IN')}`, 165, y)
-        y += 8
+      doc.text(String(orderToPrint.date || orderToPrint.created_at || new Date().toLocaleDateString('en-IN')), margin + 25, cardY + 24)
+      doc.setTextColor(0, 140, 82)
+      doc.setFont('helvetica', 'bold')
+      doc.text(String(orderToPrint.status_label || orderToPrint.status || 'Confirmed'), margin + 25, cardY + 33)
+
+      const receiverX = margin + cardWidth + cardGap + 4
+      doc.setTextColor(20, 46, 48)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9)
+      doc.text(String(customerName).slice(0, 44), receiverX, cardY + 15)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      if (customerPhone) doc.text(String(customerPhone), receiverX, cardY + 22)
+      doc.setTextColor(80, 98, 98)
+      const addressLines = doc.splitTextToSize(address || 'Delivery address not provided', cardWidth - 8).slice(0, 2)
+      doc.text(addressLines, receiverX, cardY + (customerPhone ? 29 : 23))
+
+      const tableY = 103
+      const columns = [
+        { label: 'PRODUCT', x: margin, width: 69, align: 'left' },
+        { label: 'METAL / PURITY', x: margin + 69, width: 39, align: 'left' },
+        { label: 'NET WT.', x: margin + 108, width: 27, align: 'right' },
+        { label: 'QTY', x: margin + 135, width: 12, align: 'right' },
+        { label: 'AMOUNT', x: margin + 147, width: contentWidth - 147, align: 'right' },
+      ]
+      doc.setFillColor(7, 59, 63)
+      doc.rect(margin, tableY, contentWidth, 10, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(7)
+      columns.forEach(column => {
+        const x = column.align === 'right' ? column.x + column.width - 2 : column.x + 2
+        doc.text(column.label, x, tableY + 6.5, { align: column.align })
       })
 
-      doc.line(14, y, 196, y)
-      y += 10
-      doc.setFont('helvetica', 'bold')
-      doc.text(`Total Bullion Weight: ${(orderToPrint.total_weight_gm || 0)}g`, 14, y)
-      doc.text(`Total Amount Paid: Rs. ${Math.round(orderToPrint.total_amount || 0).toLocaleString('en-IN')}`, 130, y)
+      let rowY = tableY + 10
+      items.forEach((item, index) => {
+        const rowHeight = 12
+        const shade = index % 2 === 0 ? 255 : 247
+        doc.setFillColor(shade, shade, shade)
+        doc.rect(margin, rowY, contentWidth, rowHeight, 'F')
+        doc.setDrawColor(222, 232, 229)
+        doc.line(margin, rowY + rowHeight, margin + contentWidth, rowY + rowHeight)
+        const isGold = String(item.metal || orderToPrint.metal || '').toLowerCase().includes('gold')
+        const metalPurity = isGold ? 'Gold 22K / 916' : 'Silver 999'
+        const label = String(item.label || item.denomination || (isGold ? '22K Gold coin' : '999 Silver coin'))
+        const quantity = Number(item.qty || item.quantity || 1)
+        const weight = Number(item.weight_gm || 0) * quantity || totalWeight
+        const amount = item.total_price || (item.unit_price ? Number(item.unit_price) * quantity : totalAmount)
+        doc.setTextColor(20, 46, 48)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(7.5)
+        doc.text(doc.splitTextToSize(label, columns[0].width - 4).slice(0, 2), columns[0].x + 2, rowY + 5)
+        doc.text(item.purity || metalPurity, columns[1].x + 2, rowY + 7)
+        doc.text(`${weight.toFixed(3)} g`, columns[2].x + columns[2].width - 2, rowY + 7, { align: 'right' })
+        doc.text(String(quantity), columns[3].x + columns[3].width - 2, rowY + 7, { align: 'right' })
+        doc.text(money(amount), columns[4].x + columns[4].width - 2, rowY + 7, { align: 'right' })
+        rowY += rowHeight
+      })
 
-      y += 20
+      rowY += 7
+      doc.setFillColor(245, 248, 247)
+      doc.rect(margin, rowY, contentWidth, 14, 'F')
+      doc.setTextColor(7, 59, 63)
+      doc.setFont('helvetica', 'bold')
       doc.setFontSize(9)
+      doc.text(`TOTAL BULLION WEIGHT: ${totalWeight.toFixed(3)} g`, margin + 4, rowY + 9)
+      doc.text(`TOTAL PAID: ${money(totalAmount)}`, margin + contentWidth - 4, rowY + 9, { align: 'right' })
+
+      const footerY = Math.min(rowY + 22, 275)
+      doc.setDrawColor(220, 231, 228)
+      doc.line(margin, footerY - 6, margin + contentWidth, footerY - 6)
+      doc.setTextColor(178, 124, 57)
+      doc.setFontSize(8)
+      doc.text('BIS Hallmarked', margin + 2, footerY)
+      doc.text('Insured Delivery', pageWidth / 2, footerY, { align: 'center' })
+      doc.text('Thank you for choosing Athirai', margin + contentWidth - 2, footerY, { align: 'right' })
+      doc.setTextColor(105, 120, 120)
       doc.setFont('helvetica', 'italic')
-      doc.setTextColor(100, 100, 100)
-      doc.text('100% Insured Transit. Sealed with Tamper-Evident Security Seal & BIS Purity Certificate.', 14, y)
+      doc.setFontSize(7)
+      doc.text('Please keep this receipt for your order and delivery records.', pageWidth / 2, footerY + 8, { align: 'center' })
 
       doc.save(`DigiGold_Receipt_${orderToPrint.order_id}.pdf`)
     } catch (e) {
@@ -6368,7 +6462,7 @@ export default function DigiGoldDashboard() {
                 <span className="dg-calc-label">You Will Receive:</span>
                 <span className="dg-calc-val">
                   {buyMetal === 'gold_22k'
-                    ? `${previewGoldGm.toFixed(4)} g (${previewGoldMg.toFixed(2)} mg) of 22K pure gold`
+                    ? `${previewGoldGm.toFixed(4)} g of 22K pure gold`
                     : `${previewGoldGm.toFixed(3)} g of Pure 999 silver`}
                   <small style={{ display: 'block', fontSize: 12, marginTop: 4 }}>GST (3%) - &#8377;{buyCharges.gst.toFixed(2)}</small>
                 </span>

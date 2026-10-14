@@ -1335,3 +1335,36 @@ class DigiGoldWallet(models.Model):
     def __str__(self):
         return f"{self.user.email} - {self.total_gold_gm}g ({self.total_gold_mg}mg) Digi Gold"
 
+
+class DigiGoldLedgerRollup(models.Model):
+    """Compact, incrementally maintained daily totals for the admin ledger."""
+    SOURCE_CHOICES = [('investment', 'DigiGold investment'), ('metal_order', 'Metal order')]
+    METAL_CHOICES = [('gold', 'Gold'), ('silver', 'Silver')]
+
+    day = models.DateField()
+    hour = models.PositiveSmallIntegerField()
+    source = models.CharField(max_length=16, choices=SOURCE_CHOICES)
+    status = models.CharField(max_length=20)
+    transaction_type = models.CharField(max_length=20)
+    metal = models.CharField(max_length=8, choices=METAL_CHOICES)
+    user_category = models.CharField(max_length=24)
+    transaction_count = models.PositiveBigIntegerField(default=0)
+    amount_inr = models.DecimalField(max_digits=24, decimal_places=2, default=0)
+    weight_grams = models.DecimalField(max_digits=24, decimal_places=6, default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['day', 'hour', 'source', 'status', 'transaction_type', 'metal', 'user_category'],
+                name='digi_gold_rollup_unique',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['day', 'metal', 'status'], name='dglr_date_metal'),
+            models.Index(fields=['day', 'user_category', 'status'], name='dglr_date_category'),
+        ]
+
+    def __str__(self):
+        return f"{self.day} {self.metal} {self.transaction_type}: {self.transaction_count} transactions"
+

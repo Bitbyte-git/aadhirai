@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from rest_framework.decorators import api_view, permission_classes
-from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink, EmailOTP, Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent, StockSale, StockNotifyRequest, DigiGoldInvestment, DigiGoldWallet
+from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink, EmailOTP, Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent, StockSale, StockNotifyRequest, DigiGoldInvestment, DigiGoldWallet, DigiGoldLedgerRollup
 from django.db.models import Prefetch, Count, Q, Sum, Max, Min, F, Value, Case, When, DecimalField
 from django.db import transaction
 from django.core import signing
@@ -14176,6 +14176,38 @@ class DigiGoldSuperAdminView(APIView):
             inv_qs = search_terms(inv_qs, ('transaction_ref', 'notes'))
             mo_qs = search_terms(mo_qs, ('weight_label',))
 
+        # Read the compact daily/hourly ledger for dashboard summaries and exact
+        # counts. Search still falls back to the source tables because matching
+        # arbitrary customer text is not represented in aggregate rows.
+        rollup_qs = None
+        # Gold 24K orders share a gold bucket with 22K in the existing rollup
+        # schema. Use source aggregates when present to preserve 22K metrics.
+        if not search_q and not mo_qs.filter(metal_type='gold_24k').exists():
+            rollup_qs = DigiGoldLedgerRollup.objects.all()
+            if start_dt:
+                rollup_qs = rollup_qs.filter(day__gte=timezone.localtime(start_dt).date())
+            if end_dt:
+                rollup_qs = rollup_qs.filter(day__lte=timezone.localtime(end_dt).date())
+            if status_filter == 'completed':
+                rollup_qs = rollup_qs.filter(
+                    Q(source='investment', status='completed') |
+                    Q(source='metal_order', status__in=['approved', 'completed'])
+                )
+            elif status_filter == 'approved':
+                rollup_qs = rollup_qs.filter(source='metal_order', status='approved')
+            elif status_filter == 'rejected':
+                rollup_qs = rollup_qs.filter(source='metal_order', status='rejected')
+            elif status_filter == 'failed':
+                rollup_qs = rollup_qs.filter(
+                    Q(source='investment', status='failed') |
+                    Q(source='metal_order', status='rejected')
+                )
+            else:
+                if status_filter != 'all':
+                    rollup_qs = rollup_qs.filter(status=status_filter)
+            if txn_type_filter != 'all':
+                rollup_qs = rollup_qs.filter(transaction_type=txn_type_filter)
+
         # ── 4. AGGREGATIONS FOR METRICS (HIGH-SPEED IN-MEMORY EVALUATION) ──
         # Keyset-page the combined ledger. Full totals/charts/categories are
         # computed by DB aggregates; only the visible transaction page reaches
@@ -14209,8 +14241,25 @@ class DigiGoldSuperAdminView(APIView):
         elif metal_filter == 'silver':
             row_inv_qs, row_mo_qs = row_inv_qs.filter(notes__icontains='silver'), row_mo_qs.filter(metal_type__icontains='silver')
 
-        page_total_records = row_inv_qs.count() + row_mo_qs.count()
         cursor_token = request.query_params.get('cursor')
+        # Exact full counts are only sent with the first page. Scroll requests
+        # need just their bounded rows and cursor, never another ledger count.
+        page_total_records = None
+        if not cursor_token:
+            if rollup_qs is not None:
+                page_rollups = rollup_qs
+                category_values = {
+                    'super_stockist': 'super_stockist', 'distributor': 'distributor',
+                    'wholesale_dealer': 'wholesale_dealer', 'retailer': 'retailer',
+                    'customer': 'customer', 'general_customer': 'general_customer',
+                }
+                if cat_filter != 'all':
+                    page_rollups = page_rollups.filter(user_category=category_values[cat_filter])
+                if metal_filter != 'all':
+                    page_rollups = page_rollups.filter(metal=metal_filter)
+                page_total_records = page_rollups.aggregate(total=Sum('transaction_count'))['total'] or 0
+            else:
+                page_total_records = row_inv_qs.count() + row_mo_qs.count()
         cursor_binding = {
             'date_filter': date_filter, 'start': start_date_param, 'end': end_date_param,
             'status': status_filter, 'metal': metal_filter, 'type': txn_type_filter,
@@ -14279,6 +14328,88 @@ class DigiGoldSuperAdminView(APIView):
             meta = user_meta_cache.get(u.id)
             return meta['cat_key'] == cat if meta else False
 
+        if cursor_token:
+            # Fast path for infinite-scroll requests: serialize the bounded
+            # page and return before KPI, chart, and category aggregations.
+            page_items = []
+            for inv in inv_list:
+                user = inv.user
+                if not user_matches_cat(user, cat_filter):
+                    continue
+                is_silver = 'silver' in (inv.notes or '').lower()
+                quantity_g = float(inv.hold_gold_gm) if inv.hold_gold_gm else float(inv.hold_gold_mg) / 1000.0
+                live_rate = live_silver_999 if is_silver else live_gold_22k
+                current_value = round(quantity_g * live_rate, 2)
+                local_date = timezone.localtime(inv.created_at)
+                meta = user_meta_cache.get(user.id, {})
+                page_items.append({
+                    'id': f'dg_{inv.id}', 'raw_id': inv.id, 'model_type': 'digi_gold',
+                    'date': local_date.strftime('%d.%m.%Y'),
+                    'datetime_str': local_date.strftime('%d.%m.%Y, %I:%M %p'),
+                    'created_at_iso': local_date.isoformat(),
+                    'transaction_id': inv.transaction_ref or f'DG-{inv.id:05d}',
+                    'user_id': user.id,
+                    'customer_id': meta.get('id_str') or f'ATH-{user.id:04d}',
+                    'investor_name': meta.get('disp_name') or user.email,
+                    'user_email': user.email,
+                    'user_category': meta.get('cat_label', 'Customer'),
+                    'user_role': user.role,
+                    'metal': 'silver' if is_silver else 'gold',
+                    'metal_label': 'Silver 999' if is_silver else 'Gold 22K',
+                    'transaction_type': inv.transaction_type,
+                    'quantity_gm': quantity_g,
+                    'quantity_label': f'{quantity_g:.3f} g',
+                    'hold_gold_mg': float(inv.hold_gold_mg),
+                    'rate': float(inv.gold_price_per_gram),
+                    'amount': float(inv.recharge_amount),
+                    'metal_value': float(inv.recharge_amount),
+                    'current_valuation': current_value,
+                    'profit': round(current_value - float(inv.recharge_amount), 2),
+                    'payment_method': inv.payment_method or 'UPI',
+                    'status': inv.status,
+                })
+            for order in mo_list:
+                user = order.user
+                if not user_matches_cat(user, cat_filter):
+                    continue
+                is_silver = 'silver' in (order.metal_type or '').lower()
+                quantity_g = float(order.weight_grams)
+                live_rate = live_silver_999 if is_silver else live_gold_22k
+                current_value = round(quantity_g * live_rate, 2)
+                local_date = timezone.localtime(order.created_at)
+                meta = user_meta_cache.get(user.id, {})
+                page_items.append({
+                    'id': f'mo_{order.id}', 'raw_id': order.id, 'model_type': 'metal_order',
+                    'date': local_date.strftime('%d.%m.%Y'),
+                    'datetime_str': local_date.strftime('%d.%m.%Y, %I:%M %p'),
+                    'created_at_iso': local_date.isoformat(),
+                    'transaction_id': f'MO-{order.id:05d}',
+                    'user_id': user.id,
+                    'customer_id': meta.get('id_str') or f'ATH-{user.id:04d}',
+                    'investor_name': meta.get('disp_name') or user.email,
+                    'user_email': user.email,
+                    'user_category': meta.get('cat_label', 'Customer'),
+                    'user_role': user.role,
+                    'metal': 'silver' if is_silver else 'gold',
+                    'metal_label': 'Silver 999' if is_silver else 'Gold 22K',
+                    'transaction_type': 'buy',
+                    'quantity_gm': quantity_g,
+                    'quantity_label': f'{quantity_g:.3f} g',
+                    'hold_gold_mg': quantity_g * 1000.0,
+                    'rate': float(order.rate_per_gram),
+                    'amount': float(order.total_amount),
+                    'current_valuation': current_value,
+                    'profit': round(current_value - float(order.total_amount), 2),
+                    'payment_method': 'Bank Transfer / Order',
+                    'status': {'approved': 'completed', 'pending': 'pending', 'rejected': 'failed'}.get(order.status, order.status),
+                })
+            page_items.sort(key=lambda item: item['created_at_iso'], reverse=True)
+            return Response({
+                'items': page_items,
+                'has_more': page_has_more,
+                'next_cursor': next_cursor,
+            })
+
         completed_gold_buys = [inv for inv in inv_list if inv.status == 'completed' and inv.transaction_type in ['buy', 'convert'] and 'silver' not in (inv.notes or '').lower()]
         completed_gold_sells = [inv for inv in inv_list if inv.status == 'completed' and inv.transaction_type == 'sell' and 'silver' not in (inv.notes or '').lower()]
         gold_mo = [mo for mo in mo_list if mo.status in ['approved', 'completed'] and mo.metal_type == 'gold_22k']
@@ -14318,32 +14449,65 @@ class DigiGoldSuperAdminView(APIView):
         mo_users = set(mo.user_id for mo in mo_list)
         all_active_investors = len(inv_users.union(mo_users))
         total_transactions_all = len(inv_list) + len(mo_list)
-        investment_totals = inv_qs.aggregate(
-            transaction_count=Count('id'),
-            gold_buy_amount=Sum('recharge_amount', filter=Q(status='completed', transaction_type__in=['buy', 'convert']) & ~Q(notes__icontains='silver')),
-            gold_buy_mg=Sum('hold_gold_mg', filter=Q(status='completed', transaction_type__in=['buy', 'convert']) & ~Q(notes__icontains='silver')),
-            gold_sell_mg=Sum('hold_gold_mg', filter=Q(status='completed', transaction_type='sell') & ~Q(notes__icontains='silver')),
-            gold_transaction_count=Count('id', filter=~Q(notes__icontains='silver')),
-            gold_buy_count=Count('id', filter=Q(status='completed', transaction_type__in=['buy', 'convert']) & ~Q(notes__icontains='silver')),
-            gold_sell_count=Count('id', filter=Q(status='completed', transaction_type='sell') & ~Q(notes__icontains='silver')),
-            silver_buy_amount=Sum('recharge_amount', filter=Q(status='completed', notes__icontains='silver')),
-            silver_buy_grams=Sum('hold_gold_gm', filter=Q(status='completed', notes__icontains='silver')),
-            silver_transaction_count=Count('id', filter=Q(notes__icontains='silver')),
-            silver_buy_count=Count('id', filter=Q(status='completed', notes__icontains='silver')),
+        using_rollups = rollup_qs is not None
+        investment_weight = Case(
+            When(hold_gold_gm__gt=0, then=F('hold_gold_gm')),
+            default=F('hold_gold_mg') * Value(Decimal('0.001')),
+            output_field=DecimalField(max_digits=24, decimal_places=6),
         )
-        order_totals = mo_qs.aggregate(
-            transaction_count=Count('id'),
-            gold_amount=Sum('total_amount', filter=Q(status__in=['approved', 'completed'], metal_type='gold_22k')),
-            gold_grams=Sum('weight_grams', filter=Q(status__in=['approved', 'completed'], metal_type='gold_22k')),
-            gold_buy_count=Count('id', filter=Q(status__in=['approved', 'completed'], metal_type='gold_22k')),
-            gold_transaction_count=Count('id', filter=Q(metal_type='gold_22k')),
-            silver_amount=Sum('total_amount', filter=Q(metal_type__icontains='silver')),
-            silver_grams=Sum('weight_grams', filter=Q(metal_type__icontains='silver')),
-            silver_count=Count('id', filter=Q(metal_type__icontains='silver')),
-        )
+        if using_rollups:
+            investment_rollups = rollup_qs.filter(source='investment')
+            order_rollups = rollup_qs.filter(source='metal_order')
+            investment_totals = investment_rollups.aggregate(
+                total_count=Sum('transaction_count'),
+                gold_buy_amount=Sum('amount_inr', filter=Q(metal='gold', status='completed', transaction_type__in=['buy', 'convert'])),
+                gold_buy_weight=Sum('weight_grams', filter=Q(metal='gold', status='completed', transaction_type__in=['buy', 'convert'])),
+                gold_sell_weight=Sum('weight_grams', filter=Q(metal='gold', status='completed', transaction_type='sell')),
+                gold_transaction_count=Sum('transaction_count', filter=Q(metal='gold')),
+                gold_buy_count=Sum('transaction_count', filter=Q(metal='gold', status='completed', transaction_type__in=['buy', 'convert'])),
+                gold_sell_count=Sum('transaction_count', filter=Q(metal='gold', status='completed', transaction_type='sell')),
+                silver_buy_amount=Sum('amount_inr', filter=Q(metal='silver', status='completed')),
+                silver_buy_grams=Sum('weight_grams', filter=Q(metal='silver', status='completed')),
+                silver_transaction_count=Sum('transaction_count', filter=Q(metal='silver')),
+                silver_buy_count=Sum('transaction_count', filter=Q(metal='silver', status='completed')),
+            )
+            order_totals = order_rollups.aggregate(
+                total_count=Sum('transaction_count'),
+                gold_amount=Sum('amount_inr', filter=Q(status__in=['approved', 'completed'], metal='gold')),
+                gold_grams=Sum('weight_grams', filter=Q(status__in=['approved', 'completed'], metal='gold')),
+                gold_buy_count=Sum('transaction_count', filter=Q(status__in=['approved', 'completed'], metal='gold')),
+                gold_transaction_count=Sum('transaction_count', filter=Q(metal='gold')),
+                silver_amount=Sum('amount_inr', filter=Q(metal='silver')),
+                silver_grams=Sum('weight_grams', filter=Q(metal='silver')),
+                silver_count=Sum('transaction_count', filter=Q(metal='silver')),
+            )
+        else:
+            investment_totals = inv_qs.aggregate(
+                total_count=Count('id'),
+                gold_buy_amount=Sum('recharge_amount', filter=Q(status='completed', transaction_type__in=['buy', 'convert']) & ~Q(notes__icontains='silver')),
+                gold_buy_mg=Sum('hold_gold_mg', filter=Q(status='completed', transaction_type__in=['buy', 'convert']) & ~Q(notes__icontains='silver')),
+                gold_sell_mg=Sum('hold_gold_mg', filter=Q(status='completed', transaction_type='sell') & ~Q(notes__icontains='silver')),
+                gold_transaction_count=Count('id', filter=~Q(notes__icontains='silver')),
+                gold_buy_count=Count('id', filter=Q(status='completed', transaction_type__in=['buy', 'convert']) & ~Q(notes__icontains='silver')),
+                gold_sell_count=Count('id', filter=Q(status='completed', transaction_type='sell') & ~Q(notes__icontains='silver')),
+                silver_buy_amount=Sum('recharge_amount', filter=Q(status='completed', notes__icontains='silver')),
+                silver_buy_grams=Sum(investment_weight, filter=Q(status='completed', notes__icontains='silver')),
+                silver_transaction_count=Count('id', filter=Q(notes__icontains='silver')),
+                silver_buy_count=Count('id', filter=Q(status='completed', notes__icontains='silver')),
+            )
+            order_totals = mo_qs.aggregate(
+                total_count=Count('id'),
+                gold_amount=Sum('total_amount', filter=Q(status__in=['approved', 'completed'], metal_type='gold_22k')),
+                gold_grams=Sum('weight_grams', filter=Q(status__in=['approved', 'completed'], metal_type='gold_22k')),
+                gold_buy_count=Count('id', filter=Q(status__in=['approved', 'completed'], metal_type='gold_22k')),
+                gold_transaction_count=Count('id', filter=Q(metal_type='gold_22k')),
+                silver_amount=Sum('total_amount', filter=Q(metal_type__icontains='silver')),
+                silver_grams=Sum('weight_grams', filter=Q(metal_type__icontains='silver')),
+                silver_count=Count('id', filter=Q(metal_type__icontains='silver')),
+            )
         gold_inflow_inr = float(investment_totals['gold_buy_amount'] or 0)
-        gold_bought_gm = float(investment_totals['gold_buy_mg'] or 0) / 1000.0
-        gold_sold_gm = float(investment_totals['gold_sell_mg'] or 0) / 1000.0
+        gold_bought_gm = float(investment_totals['gold_buy_weight'] or 0) if using_rollups else float(investment_totals['gold_buy_mg'] or 0) / 1000.0
+        gold_sold_gm = float(investment_totals['gold_sell_weight'] or 0) if using_rollups else float(investment_totals['gold_sell_mg'] or 0) / 1000.0
         gold_mo_inr = float(order_totals['gold_amount'] or 0)
         gold_mo_gm = float(order_totals['gold_grams'] or 0)
         total_gold_sales_inr = round(gold_inflow_inr + gold_mo_inr, 2)
@@ -14358,7 +14522,7 @@ class DigiGoldSuperAdminView(APIView):
         silver_sell_txns = 0
         total_silver_txns = int(investment_totals['silver_transaction_count'] or 0) + int(order_totals['silver_count'] or 0)
         avg_silver_rate = round(silver_inr / silver_gm, 2) if silver_gm > 0 else live_silver_999
-        total_transactions_all = int(investment_totals['transaction_count'] or 0) + int(order_totals['transaction_count'] or 0)
+        total_transactions_all = int(investment_totals['total_count'] or 0) + int(order_totals['total_count'] or 0)
         all_active_investors = User.objects.filter(
             Q(id__in=inv_qs.values('user_id')) | Q(id__in=mo_qs.values('user_id'))
         ).count()
@@ -14442,28 +14606,46 @@ class DigiGoldSuperAdminView(APIView):
         silver_chart = []
 
         if date_filter == 'today':
-            bucket_expr = TruncHour('created_at', tzinfo=timezone.get_current_timezone())
-            gold_dg_qs = inv_qs.filter(status='completed', transaction_type__in=['buy', 'convert']).exclude(notes__icontains='silver')
-            silver_dg_qs = inv_qs.filter(status='completed', notes__icontains='silver')
-            gold_order_qs = mo_qs.filter(status__in=['approved', 'completed'], metal_type='gold_22k')
-            silver_order_qs = mo_qs.filter(metal_type__icontains='silver')
+            if using_rollups:
+                def rollup_chart_by_hour(queryset, metal, completed_only=False, types=None):
+                    filtered = queryset.filter(metal=metal)
+                    if completed_only:
+                        filtered = filtered.filter(status__in=['completed', 'approved'])
+                    if types:
+                        filtered = filtered.filter(transaction_type__in=types)
+                    return {
+                        row['hour']: (float(row['amount_total'] or 0), float(row['weight_total'] or 0))
+                        for row in filtered.values('hour').annotate(
+                            amount_total=Sum('amount_inr'), weight_total=Sum('weight_grams'),
+                        )
+                    }
+                gold_dg = rollup_chart_by_hour(investment_rollups, 'gold', True, ['buy', 'convert'])
+                gold_orders = rollup_chart_by_hour(order_rollups, 'gold', True)
+                silver_dg = rollup_chart_by_hour(investment_rollups, 'silver', True)
+                silver_orders = rollup_chart_by_hour(order_rollups, 'silver')
+            else:
+                bucket_expr = TruncHour('created_at', tzinfo=timezone.get_current_timezone())
+                gold_dg_qs = inv_qs.filter(status='completed', transaction_type__in=['buy', 'convert']).exclude(notes__icontains='silver')
+                silver_dg_qs = inv_qs.filter(status='completed', notes__icontains='silver')
+                gold_order_qs = mo_qs.filter(status__in=['approved', 'completed'], metal_type='gold_22k')
+                silver_order_qs = mo_qs.filter(metal_type__icontains='silver')
 
-            def chart_by_bucket(queryset, amount_field, weight_field, weight_divisor=1):
-                values = queryset.annotate(chart_bucket=bucket_expr).values('chart_bucket').annotate(
-                    amount_total=Sum(amount_field), weight_total=Sum(weight_field),
-                )
-                return {
-                    row['chart_bucket'].hour: (
-                        float(row['amount_total'] or 0),
-                        float(row['weight_total'] or 0) / weight_divisor,
+                def chart_by_bucket(queryset, amount_field, weight_field, weight_divisor=1):
+                    values = queryset.annotate(chart_bucket=bucket_expr).values('chart_bucket').annotate(
+                        amount_total=Sum(amount_field), weight_total=Sum(weight_field),
                     )
-                    for row in values if row['chart_bucket'] is not None
-                }
+                    return {
+                        row['chart_bucket'].hour: (
+                            float(row['amount_total'] or 0),
+                            float(row['weight_total'] or 0) / weight_divisor,
+                        )
+                        for row in values if row['chart_bucket'] is not None
+                    }
 
-            gold_dg = chart_by_bucket(gold_dg_qs, 'recharge_amount', 'hold_gold_mg', 1000)
-            gold_orders = chart_by_bucket(gold_order_qs, 'total_amount', 'weight_grams')
-            silver_dg = chart_by_bucket(silver_dg_qs, 'recharge_amount', 'hold_gold_gm')
-            silver_orders = chart_by_bucket(silver_order_qs, 'total_amount', 'weight_grams')
+                gold_dg = chart_by_bucket(gold_dg_qs, 'recharge_amount', 'hold_gold_mg', 1000)
+                gold_orders = chart_by_bucket(gold_order_qs, 'total_amount', 'weight_grams')
+                silver_dg = chart_by_bucket(silver_dg_qs, 'recharge_amount', investment_weight)
+                silver_orders = chart_by_bucket(silver_order_qs, 'total_amount', 'weight_grams')
             time_slots = [
                 ('12:00 AM', 0, 6), ('06:00 AM', 6, 9), ('09:00 AM', 9, 12),
                 ('12:00 PM', 12, 15), ('03:00 PM', 15, 18), ('06:00 PM', 18, 21),
@@ -14511,10 +14693,28 @@ class DigiGoldSuperAdminView(APIView):
                     for row in values if row['chart_day'] is not None
                 }
 
-            gold_dg = chart_by_day(inv_qs.filter(status='completed', transaction_type__in=['buy', 'convert']).exclude(notes__icontains='silver'), 'recharge_amount', 'hold_gold_mg', 1000)
-            gold_orders = chart_by_day(mo_qs.filter(status__in=['approved', 'completed'], metal_type='gold_22k'), 'total_amount', 'weight_grams')
-            silver_dg = chart_by_day(inv_qs.filter(status='completed', notes__icontains='silver'), 'recharge_amount', 'hold_gold_gm')
-            silver_orders = chart_by_day(mo_qs.filter(metal_type__icontains='silver'), 'total_amount', 'weight_grams')
+            if using_rollups:
+                def rollup_chart_by_day(queryset, metal, completed_only=False, types=None):
+                    filtered = queryset.filter(metal=metal)
+                    if completed_only:
+                        filtered = filtered.filter(status__in=['completed', 'approved'])
+                    if types:
+                        filtered = filtered.filter(transaction_type__in=types)
+                    return {
+                        row['day']: (float(row['amount_total'] or 0), float(row['weight_total'] or 0))
+                        for row in filtered.values('day').annotate(
+                            amount_total=Sum('amount_inr'), weight_total=Sum('weight_grams'),
+                        )
+                    }
+                gold_dg = rollup_chart_by_day(investment_rollups, 'gold', True, ['buy', 'convert'])
+                gold_orders = rollup_chart_by_day(order_rollups, 'gold', True)
+                silver_dg = rollup_chart_by_day(investment_rollups, 'silver', True)
+                silver_orders = rollup_chart_by_day(order_rollups, 'silver')
+            else:
+                gold_dg = chart_by_day(inv_qs.filter(status='completed', transaction_type__in=['buy', 'convert']).exclude(notes__icontains='silver'), 'recharge_amount', 'hold_gold_mg', 1000)
+                gold_orders = chart_by_day(mo_qs.filter(status__in=['approved', 'completed'], metal_type='gold_22k'), 'total_amount', 'weight_grams')
+                silver_dg = chart_by_day(inv_qs.filter(status='completed', notes__icontains='silver'), 'recharge_amount', investment_weight)
+                silver_orders = chart_by_day(mo_qs.filter(metal_type__icontains='silver'), 'total_amount', 'weight_grams')
 
             for index in range(chart_days):
                 bucket_start = chart_start + timedelta(days=index * step_days)
@@ -14546,49 +14746,94 @@ class DigiGoldSuperAdminView(APIView):
         ]
 
         cached_role_counts = _get_cached_user_role_counts()
-        category_summaries = {}
+        category_filters = {}
         for tier_name, tier_key, role_code in tiers:
-            u_count = cached_role_counts.get(tier_key, 0)
-
             if tier_key == 'general_customer':
-                tier_users = Q(user__role='customer', user__customer_profile__created_by__isnull=True) | ~Q(
+                category_filters[tier_key] = Q(user__role='customer', user__customer_profile__created_by__isnull=True) | ~Q(
                     user__role__in=['admin', 'dealer', 'sub_dealer', 'promotor', 'customer']
                 )
             elif tier_key == 'customer':
-                tier_users = Q(user__role='customer', user__customer_profile__created_by__isnull=False)
+                category_filters[tier_key] = Q(user__role='customer', user__customer_profile__created_by__isnull=False)
             else:
-                tier_users = Q(user__role=role_code)
+                category_filters[tier_key] = Q(user__role=role_code)
 
-            tier_inv = inv_qs.filter(tier_users)
-            tier_orders = mo_qs.filter(tier_users)
-            tier_inv_totals = tier_inv.aggregate(
-                gold_amount=Sum('recharge_amount', filter=Q(status='completed', transaction_type__in=['buy', 'convert']) & ~Q(notes__icontains='silver')),
-                gold_grams=Sum('hold_gold_gm', filter=Q(status='completed', transaction_type__in=['buy', 'convert']) & ~Q(notes__icontains='silver')),
-                silver_amount=Sum('recharge_amount', filter=Q(status='completed', notes__icontains='silver')),
-                silver_grams=Sum('hold_gold_gm', filter=Q(status='completed', notes__icontains='silver')),
-                purchase_count=Count('id', filter=Q(status='completed', transaction_type__in=['buy', 'convert'])),
-            )
-            tier_order_totals = tier_orders.aggregate(
-                gold_amount=Sum('total_amount', filter=Q(status__in=['approved', 'completed'], metal_type='gold_22k')),
-                gold_grams=Sum('weight_grams', filter=Q(status__in=['approved', 'completed'], metal_type='gold_22k')),
-                silver_amount=Sum('total_amount', filter=Q(metal_type__icontains='silver')),
-                silver_grams=Sum('weight_grams', filter=Q(metal_type__icontains='silver')),
-                purchase_count=Count('id', filter=Q(status__in=['approved', 'completed'])),
-            )
+        # Run one grouped aggregate per ledger instead of two queries for each
+        # of the six categories. This cuts database round trips on the first load.
+        inv_category_aggregates = {}
+        order_category_aggregates = {}
+        for tier_key, tier_filter in category_filters.items():
+            inv_category_aggregates.update({
+                f'{tier_key}_gold_amount': Sum(
+                    'recharge_amount', filter=tier_filter & Q(status='completed', transaction_type__in=['buy', 'convert']) & ~Q(notes__icontains='silver')
+                ),
+                f'{tier_key}_gold_grams': Sum(
+                    investment_weight, filter=tier_filter & Q(status='completed', transaction_type__in=['buy', 'convert']) & ~Q(notes__icontains='silver')
+                ),
+                f'{tier_key}_silver_amount': Sum(
+                    'recharge_amount', filter=tier_filter & Q(status='completed', notes__icontains='silver')
+                ),
+                f'{tier_key}_silver_grams': Sum(
+                    investment_weight, filter=tier_filter & Q(status='completed', notes__icontains='silver')
+                ),
+                f'{tier_key}_purchases': Count(
+                    'id', filter=tier_filter & Q(status='completed', transaction_type__in=['buy', 'convert'])
+                ),
+            })
+            order_category_aggregates.update({
+                f'{tier_key}_gold_amount': Sum(
+                    'total_amount', filter=tier_filter & Q(status__in=['approved', 'completed'], metal_type='gold_22k')
+                ),
+                f'{tier_key}_gold_grams': Sum(
+                    'weight_grams', filter=tier_filter & Q(status__in=['approved', 'completed'], metal_type='gold_22k')
+                ),
+                f'{tier_key}_silver_amount': Sum(
+                    'total_amount', filter=tier_filter & Q(metal_type__icontains='silver')
+                ),
+                f'{tier_key}_silver_grams': Sum(
+                    'weight_grams', filter=tier_filter & Q(metal_type__icontains='silver')
+                ),
+                f'{tier_key}_purchases': Count(
+                    'id', filter=tier_filter & Q(status__in=['approved', 'completed'])
+                ),
+            })
 
-            g_inr = float(tier_inv_totals['gold_amount'] or 0) + float(tier_order_totals['gold_amount'] or 0)
-            g_gm = float(tier_inv_totals['gold_grams'] or 0) + float(tier_order_totals['gold_grams'] or 0)
-            s_inr = float(tier_order_totals['silver_amount'] or 0) + float(tier_inv_totals['silver_amount'] or 0)
-            s_gm = float(tier_order_totals['silver_grams'] or 0) + float(tier_inv_totals['silver_grams'] or 0)
-            
+        if using_rollups:
+            inv_category_aggregates = {}
+            order_category_aggregates = {}
+            for _tier_name, tier_key, _role_code in tiers:
+                inv_category_aggregates.update({
+                    f'{tier_key}_gold_amount': Sum('amount_inr', filter=Q(user_category=tier_key, metal='gold', status='completed', transaction_type__in=['buy', 'convert'])),
+                    f'{tier_key}_gold_grams': Sum('weight_grams', filter=Q(user_category=tier_key, metal='gold', status='completed', transaction_type__in=['buy', 'convert'])),
+                    f'{tier_key}_silver_amount': Sum('amount_inr', filter=Q(user_category=tier_key, metal='silver', status='completed')),
+                    f'{tier_key}_silver_grams': Sum('weight_grams', filter=Q(user_category=tier_key, metal='silver', status='completed')),
+                    f'{tier_key}_purchases': Sum('transaction_count', filter=Q(user_category=tier_key, status='completed', transaction_type__in=['buy', 'convert'])),
+                })
+                order_category_aggregates.update({
+                    f'{tier_key}_gold_amount': Sum('amount_inr', filter=Q(user_category=tier_key, metal='gold', status__in=['approved', 'completed'])),
+                    f'{tier_key}_gold_grams': Sum('weight_grams', filter=Q(user_category=tier_key, metal='gold', status__in=['approved', 'completed'])),
+                    f'{tier_key}_silver_amount': Sum('amount_inr', filter=Q(user_category=tier_key, metal='silver')),
+                    f'{tier_key}_silver_grams': Sum('weight_grams', filter=Q(user_category=tier_key, metal='silver')),
+                    f'{tier_key}_purchases': Sum('transaction_count', filter=Q(user_category=tier_key, status__in=['approved', 'completed'])),
+                })
+            inv_category_totals = investment_rollups.aggregate(**inv_category_aggregates)
+            order_category_totals = order_rollups.aggregate(**order_category_aggregates)
+        else:
+            inv_category_totals = inv_qs.aggregate(**inv_category_aggregates)
+            order_category_totals = mo_qs.aggregate(**order_category_aggregates)
+        category_summaries = {}
+        for tier_name, tier_key, _role_code in tiers:
+            g_inr = float(inv_category_totals[f'{tier_key}_gold_amount'] or 0) + float(order_category_totals[f'{tier_key}_gold_amount'] or 0)
+            g_gm = float(inv_category_totals[f'{tier_key}_gold_grams'] or 0) + float(order_category_totals[f'{tier_key}_gold_grams'] or 0)
+            s_inr = float(inv_category_totals[f'{tier_key}_silver_amount'] or 0) + float(order_category_totals[f'{tier_key}_silver_amount'] or 0)
+            s_gm = float(inv_category_totals[f'{tier_key}_silver_grams'] or 0) + float(order_category_totals[f'{tier_key}_silver_grams'] or 0)
             category_summaries[tier_key] = {
                 'name': tier_name,
                 'key': tier_key,
-                'user_count': u_count,
+                'user_count': cached_role_counts.get(tier_key, 0),
                 'gold_gm': round(g_gm, 3),
                 'silver_gm': round(s_gm, 3),
                 'total_purchase_inr': round(g_inr + s_inr, 2),
-                'completed_purchases': int(tier_inv_totals['purchase_count'] or 0) + int(tier_order_totals['purchase_count'] or 0)
+                'completed_purchases': int(inv_category_totals[f'{tier_key}_purchases'] or 0) + int(order_category_totals[f'{tier_key}_purchases'] or 0)
             }
 
         # ── 7. UNIFIED TRANSACTION ITEMS ──

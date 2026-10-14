@@ -91,6 +91,17 @@ function CustomChartTooltip({ active, payload, label, isSilver = false }) {
   )
 }
 
+const pendingSuperAdminRequests = new Map()
+
+function requestSuperAdminOnce(key, request) {
+  if (pendingSuperAdminRequests.has(key)) return pendingSuperAdminRequests.get(key)
+  const pending = Promise.resolve().then(request).finally(() => {
+    if (pendingSuperAdminRequests.get(key) === pending) pendingSuperAdminRequests.delete(key)
+  })
+  pendingSuperAdminRequests.set(key, pending)
+  return pending
+}
+
 function DigiGoldSectionSkeleton({ rows = 7 }) {
   return (
     <section className="sadg-section-skeleton" role="status" aria-label="Loading DigiGold section">
@@ -197,8 +208,14 @@ export default function SuperAdminDigiGold() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const dataRequestRef = useRef(0)
+  const lastDashboardQueryKeyRef = useRef(null)
   const cachedRatesHistoryRef = useRef(null)
   const dateCacheRef = useRef({})
+
+  const getDashboardQueryKey = () => JSON.stringify([
+    dateFilter, statusFilter, metalFilter, txnTypeFilter, selectedUserCategory,
+    customStartDate, customEndDate, search.trim(),
+  ])
 
   // ── FETCH DATA DIRECTLY FROM DB (LIGHTNING FAST WITH IN-MEMORY CACHE) ──
   const fetchData = async ({ append = false } = {}) => {
@@ -207,6 +224,7 @@ export default function SuperAdminDigiGold() {
       txnAppendLockRef.current = true
       setLoadingMoreTxns(true)
     } else {
+      lastDashboardQueryKeyRef.current = getDashboardQueryKey()
       txnCursorRef.current = null
       txnAppendLockRef.current = false
       setTxnHasMore(false)
@@ -242,9 +260,10 @@ export default function SuperAdminDigiGold() {
       }
 
       // Fetch superadmin analytics + direct DB metal rates (only on initial load)
-      const reqs = [api.get('/digi-gold/superadmin/', { params })]
+      const requestKey = JSON.stringify(Object.entries(params).sort(([left], [right]) => left.localeCompare(right)))
+      const reqs = [requestSuperAdminOnce(`ledger:${requestKey}`, () => api.get('/digi-gold/superadmin/', { params }))]
       if (!cachedRatesHistoryRef.current) {
-        reqs.push(api.get('/metal-rates/?all=true').catch(() => null))
+        reqs.push(requestSuperAdminOnce('rates:all', () => api.get('/metal-rates/?all=true').catch(() => null)))
       }
 
       const [res, ratesRes] = await Promise.all(reqs)
@@ -270,6 +289,7 @@ export default function SuperAdminDigiGold() {
       setTxnHasMore(Boolean(res.data?.has_more))
       if (append) {
         setData((previous) => previous ? {
+          ...previous,
           ...finalData,
           items: [...(previous.items || []), ...(res.data?.items || [])],
           rate_history: cachedRatesHistoryRef.current || previous.rate_history,
@@ -301,9 +321,13 @@ export default function SuperAdminDigiGold() {
 
   // Refetch when filters or custom dates change
   useEffect(() => {
-    if (activeSection !== 'orders') fetchData()
+    if (activeSection === 'orders') return
+    const queryKey = getDashboardQueryKey()
+    if (lastDashboardQueryKeyRef.current === queryKey) return
+    lastDashboardQueryKeyRef.current = queryKey
+    fetchData()
     setTxnVisibleCount(35)
-  }, [activeSection, dateFilter, customStartDate, customEndDate, statusFilter, metalFilter, txnTypeFilter, selectedUserCategory])
+  }, [activeSection, dateFilter, customStartDate, customEndDate, statusFilter, metalFilter, txnTypeFilter, selectedUserCategory, data])
 
   const handleSearchSubmit = (e) => {
     e.preventDefault()

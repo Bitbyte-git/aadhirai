@@ -29,7 +29,7 @@ INSTALLED_APPS = [
     'django_filters',
     'corsheaders',
     'accounts',
-    'cloudinary',           # இதை add பண்ணு
+    'cloudinary',          
     'cloudinary_storage',   
 ]
 

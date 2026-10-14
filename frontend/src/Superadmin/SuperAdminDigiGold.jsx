@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   LayoutDashboard,
   ReceiptText,
@@ -91,6 +91,40 @@ function CustomChartTooltip({ active, payload, label, isSilver = false }) {
   )
 }
 
+function DigiGoldSectionSkeleton({ rows = 7 }) {
+  return (
+    <section className="sadg-section-skeleton" role="status" aria-label="Loading DigiGold section">
+      <span className="sadg-sr-only">Loading DigiGold data</span>
+      <div className="sadg-section-skeleton-kpis">
+        {[0, 1, 2, 3].map((item) => (
+          <div className="sadg-skeleton-kpi" key={`section-kpi-${item}`}>
+            <div className="sadg-skeleton-line" style={{ width: '48%', height: 12 }} />
+            <div className="sadg-skeleton-line" style={{ width: '72%', height: 25 }} />
+            <div className="sadg-skeleton-line" style={{ width: '38%', height: 10 }} />
+          </div>
+        ))}
+      </div>
+      <div className="sadg-section-skeleton-panels">
+        <div className="sadg-skeleton-chart" />
+        <div className="sadg-skeleton-chart" />
+      </div>
+      <div className="sadg-section-skeleton-table">
+        <div className="sadg-section-skeleton-heading">
+          <div className="sadg-skeleton-line" style={{ width: 190, height: 18 }} />
+          <div className="sadg-skeleton-line" style={{ width: 120, height: 30, borderRadius: 9 }} />
+        </div>
+        {Array.from({ length: rows }, (_, item) => (
+          <div className="sadg-section-skeleton-row" key={`section-row-${item}`}>
+            {[0, 1, 2, 3, 4, 5].map((cell) => (
+              <div className="sadg-skeleton-line" key={`section-cell-${item}-${cell}`} style={{ width: `${55 + ((item + cell) % 4) * 10}%`, height: 12 }} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export default function SuperAdminDigiGold() {
   // ── NAVIGATION & VIEW STATE ──
   // 'overview' | 'transactions' | 'gold_mgmt' | 'silver_mgmt' | 'user_buy' | 'gold_rates' | 'silver_rates'
@@ -127,31 +161,65 @@ export default function SuperAdminDigiGold() {
   // Starts with 35 items (instant 0-lag DOM render), loads next batch smoothly
   const [txnVisibleCount, setTxnVisibleCount] = useState(35)
   const [loadingMoreTxns, setLoadingMoreTxns] = useState(false)
+  const [txnHasMore, setTxnHasMore] = useState(false)
+  const txnCursorRef = useRef(null)
+  const txnAppendLockRef = useRef(false)
   const txnSentinelRef = useRef(null)
 
   // ── BULLION DELIVERY ORDERS (SUPER ADMIN) ──
   const [deliveryOrdersList, setDeliveryOrdersList] = useState([])
   const [loadingDeliveryOrders, setLoadingDeliveryOrders] = useState(false)
+  const [loadingMoreDeliveryOrders, setLoadingMoreDeliveryOrders] = useState(false)
+  const [deliveryOrdersTotal, setDeliveryOrdersTotal] = useState(0)
+  const [deliveryOrdersError, setDeliveryOrdersError] = useState('')
+  const [deliveryOrdersFilteredTotal, setDeliveryOrdersFilteredTotal] = useState(0)
+  const [deliveryOrderSummary, setDeliveryOrderSummary] = useState({ total_count: 0, total_weight: 0, total_valuation: 0, active_count: 0, delivered_count: 0 })
+  const [deliveryOrdersHasMore, setDeliveryOrdersHasMore] = useState(false)
+  const deliveryOrderCursorRef = useRef(null)
+  const deliveryOrderRequestRef = useRef(0)
+  const deliveryOrderSentinelRef = useRef(null)
   const [orderSearch, setOrderSearch] = useState('')
+  const [debouncedOrderSearch, setDebouncedOrderSearch] = useState('')
   const [orderStatusFilter, setOrderStatusFilter] = useState('all')
   const [orderMetalFilter, setOrderMetalFilter] = useState('all')
+  const [orderCardFilter, setOrderCardFilter] = useState('all')
   const [selectedDeliveryOrder, setSelectedDeliveryOrder] = useState(null)
   const [updatingOrderStatusId, setUpdatingOrderStatusId] = useState(null)
   const [statusUpdateSuccess, setStatusUpdateSuccess] = useState('')
 
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedOrderSearch(orderSearch), 250)
+    return () => clearTimeout(timer)
+  }, [orderSearch])
+
   // ── DATA STATE (ALWAYS FRESH FROM DB) ──
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const dataRequestRef = useRef(0)
   const cachedRatesHistoryRef = useRef(null)
   const dateCacheRef = useRef({})
 
   // ── FETCH DATA DIRECTLY FROM DB (LIGHTNING FAST WITH IN-MEMORY CACHE) ──
-  const fetchData = async () => {
+  const fetchData = async ({ append = false } = {}) => {
+    if (append && (txnAppendLockRef.current || !txnCursorRef.current)) return
+    if (append) {
+      txnAppendLockRef.current = true
+      setLoadingMoreTxns(true)
+    } else {
+      txnCursorRef.current = null
+      txnAppendLockRef.current = false
+      setTxnHasMore(false)
+      setLoadingMoreTxns(false)
+      setTxnVisibleCount(35)
+    }
+    const requestId = ++dataRequestRef.current
+    setLoadError('')
     try {
       const cacheKey = `${dateFilter}_${statusFilter}_${metalFilter}_${txnTypeFilter}_${selectedUserCategory}_${customStartDate}_${customEndDate}_${search}`
-      if (dateCacheRef.current[cacheKey]) {
+      if (!append && dateCacheRef.current[cacheKey]) {
         setData(dateCacheRef.current[cacheKey])
-      } else {
+      } else if (!append) {
         setData(null)
         setLoading(true)
       }
@@ -162,7 +230,9 @@ export default function SuperAdminDigiGold() {
         metal: metalFilter,
         transaction_type: txnTypeFilter,
         user_category: selectedUserCategory,
+        limit: 35,
       }
+      if (append && txnCursorRef.current) params.cursor = txnCursorRef.current
       if (dateFilter === 'custom') {
         params.start_date = customStartDate
         params.end_date = customEndDate
@@ -178,6 +248,7 @@ export default function SuperAdminDigiGold() {
       }
 
       const [res, ratesRes] = await Promise.all(reqs)
+      if (requestId !== dataRequestRef.current) return
 
       if (ratesRes?.data && Array.isArray(ratesRes.data) && ratesRes.data.length > 0) {
         cachedRatesHistoryRef.current = ratesRes.data.map(r => ({
@@ -195,20 +266,44 @@ export default function SuperAdminDigiGold() {
           rate_history: cachedRatesHistoryRef.current
         }
       }
-      dateCacheRef.current[cacheKey] = finalData
-      setData(finalData)
+      txnCursorRef.current = res.data?.next_cursor || null
+      setTxnHasMore(Boolean(res.data?.has_more))
+      if (append) {
+        setData((previous) => previous ? {
+          ...finalData,
+          items: [...(previous.items || []), ...(res.data?.items || [])],
+          rate_history: cachedRatesHistoryRef.current || previous.rate_history,
+        } : finalData)
+        setTxnVisibleCount((previous) => previous + (res.data?.items?.length || 0))
+      } else {
+        dateCacheRef.current[cacheKey] = finalData
+        const cacheKeys = Object.keys(dateCacheRef.current)
+        if (cacheKeys.length > 5) {
+          cacheKeys.slice(0, cacheKeys.length - 5).forEach((key) => delete dateCacheRef.current[key])
+        }
+        setData(finalData)
+      }
     } catch (err) {
-      console.error('Failed to load SuperAdmin Digi Gold & Silver data:', err)
+      if (requestId === dataRequestRef.current) {
+        console.error('Failed to load SuperAdmin Digi Gold & Silver data:', err)
+        setLoadError(err.response?.data?.error || 'Could not load DigiGold data. Check your connection and retry.')
+      }
     } finally {
-      setLoading(false)
+      if (requestId === dataRequestRef.current) {
+        setLoading(false)
+        if (append) {
+          txnAppendLockRef.current = false
+          setLoadingMoreTxns(false)
+        }
+      }
     }
   }
 
   // Refetch when filters or custom dates change
   useEffect(() => {
-    fetchData()
+    if (activeSection !== 'orders') fetchData()
     setTxnVisibleCount(35)
-  }, [dateFilter, customStartDate, customEndDate, statusFilter, metalFilter, txnTypeFilter, selectedUserCategory])
+  }, [activeSection, dateFilter, customStartDate, customEndDate, statusFilter, metalFilter, txnTypeFilter, selectedUserCategory])
 
   const handleSearchSubmit = (e) => {
     e.preventDefault()
@@ -218,27 +313,59 @@ export default function SuperAdminDigiGold() {
   }
 
   // ── BULLION DELIVERY ORDERS HANDLERS & AGGREGATIONS ──
-  const fetchDeliveryOrders = async () => {
-    setLoadingDeliveryOrders(true)
-    try {
-      const res = await api.get('/digi-gold/delivery/orders/?all=true')
-      setDeliveryOrdersList(res.data?.orders || [])
-    } catch (err) {
-      console.error('Failed to load delivery orders in superadmin:', err)
-    } finally {
-      setLoadingDeliveryOrders(false)
+  const fetchDeliveryOrders = useCallback(async ({ append = false } = {}) => {
+    const requestId = append ? deliveryOrderRequestRef.current : ++deliveryOrderRequestRef.current
+    if (append) setLoadingMoreDeliveryOrders(true)
+    else {
+      setDeliveryOrdersError('')
+      setLoadingDeliveryOrders(true)
+      setLoadingMoreDeliveryOrders(false)
+      setDeliveryOrdersList([])
+      deliveryOrderCursorRef.current = null
+      setDeliveryOrdersHasMore(false)
     }
-  }
-
-  useEffect(() => {
-    fetchDeliveryOrders()
-  }, [])
+    try {
+      const params = { limit: 30, status: orderStatusFilter, metal: orderMetalFilter, card: orderCardFilter, search: debouncedOrderSearch.trim() }
+      if (append && deliveryOrderCursorRef.current) params.cursor = deliveryOrderCursorRef.current
+      const res = await api.get('/digi-gold/delivery/orders/', { params })
+      if (requestId !== deliveryOrderRequestRef.current) return
+      const rows = Array.isArray(res.data?.orders) ? res.data.orders : []
+      setDeliveryOrdersList((previous) => append ? [...previous, ...rows] : rows)
+      setDeliveryOrdersTotal(Number(res.data?.total_count || 0))
+      if (res.data?.filtered_count != null) {
+        setDeliveryOrdersFilteredTotal(Number(res.data.filtered_count))
+      }
+      setDeliveryOrderSummary(res.data?.summary || { total_count: 0, total_weight: 0, total_valuation: 0, active_count: 0, delivered_count: 0 })
+      deliveryOrderCursorRef.current = res.data?.next_cursor || null
+      setDeliveryOrdersHasMore(Boolean(res.data?.has_more))
+    } catch (err) {
+      if (requestId !== deliveryOrderRequestRef.current) return
+      console.error('Failed to load delivery orders in superadmin:', err)
+      setDeliveryOrdersError(err.response?.data?.error || 'Could not load delivery orders. Please retry.')
+    } finally {
+      if (requestId === deliveryOrderRequestRef.current) {
+        setLoadingDeliveryOrders(false)
+        setLoadingMoreDeliveryOrders(false)
+      }
+    }
+  }, [orderStatusFilter, orderMetalFilter, orderCardFilter, debouncedOrderSearch])
 
   useEffect(() => {
     if (activeSection === 'orders') {
       fetchDeliveryOrders()
     }
-  }, [activeSection])
+  }, [activeSection, orderStatusFilter, orderMetalFilter, orderCardFilter, debouncedOrderSearch])
+
+  useEffect(() => {
+    if (activeSection !== 'orders' || !deliveryOrdersHasMore || loadingDeliveryOrders || loadingMoreDeliveryOrders) return undefined
+    const target = deliveryOrderSentinelRef.current
+    if (!target || typeof IntersectionObserver === 'undefined') return undefined
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) fetchDeliveryOrders({ append: true })
+    }, { rootMargin: '200px 0px' })
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [activeSection, deliveryOrdersHasMore, loadingDeliveryOrders, loadingMoreDeliveryOrders, fetchDeliveryOrders])
 
   const handleUpdateDeliveryStatus = async (order, newStatus) => {
     const targetId = order.id || order.order_id
@@ -252,6 +379,7 @@ export default function SuperAdminDigiGold() {
       setDeliveryOrdersList((prev) =>
         prev.map((o) => (o.id === targetId || o.order_id === targetId ? { ...o, status: newStatus } : o))
       )
+      if (activeSection === 'orders') fetchDeliveryOrders()
       if (selectedDeliveryOrder && (selectedDeliveryOrder.id === targetId || selectedDeliveryOrder.order_id === targetId)) {
         setSelectedDeliveryOrder((prev) => ({ ...prev, status: newStatus }))
       }
@@ -267,6 +395,11 @@ export default function SuperAdminDigiGold() {
 
   const filteredDeliveryOrders = useMemo(() => {
     return deliveryOrdersList.filter((o) => {
+      const normalizedStatus = (o.status || '').toLowerCase()
+      if (orderCardFilter === 'active' && ['delivered', 'cancelled'].includes(normalizedStatus)) return false
+      if (orderCardFilter === 'delivered' && normalizedStatus !== 'delivered') return false
+      if (orderCardFilter === 'weight' && !(Number(o.weight_gm) > 0)) return false
+      if (orderCardFilter === 'valuation' && !(Number(o.valuation_inr) > 0)) return false
       if (orderStatusFilter !== 'all' && (o.status || '').toLowerCase() !== orderStatusFilter.toLowerCase()) {
         return false
       }
@@ -287,16 +420,17 @@ export default function SuperAdminDigiGold() {
       }
       return true
     })
-  }, [deliveryOrdersList, orderStatusFilter, orderMetalFilter, orderSearch])
+  }, [deliveryOrdersList, orderStatusFilter, orderMetalFilter, orderSearch, orderCardFilter])
 
   const orderStats = useMemo(() => {
-    const totalCount = deliveryOrdersList.length
-    const totalWeight = deliveryOrdersList.reduce((acc, o) => acc + (Number(o.weight_gm) || 0), 0)
-    const totalValuation = deliveryOrdersList.reduce((acc, o) => acc + (Number(o.valuation_inr) || 0), 0)
-    const activeCount = deliveryOrdersList.filter((o) => !['delivered', 'cancelled'].includes((o.status || '').toLowerCase())).length
-    const deliveredCount = deliveryOrdersList.filter((o) => (o.status || '').toLowerCase() === 'delivered').length
-    return { totalCount, totalWeight, totalValuation, activeCount, deliveredCount }
-  }, [deliveryOrdersList])
+    return {
+      totalCount: Number(deliveryOrderSummary.total_count || 0),
+      totalWeight: Number(deliveryOrderSummary.total_weight || 0),
+      totalValuation: Number(deliveryOrderSummary.total_valuation || 0),
+      activeCount: Number(deliveryOrderSummary.active_count || 0),
+      deliveredCount: Number(deliveryOrderSummary.delivered_count || 0),
+    }
+  }, [deliveryOrderSummary])
 
   // ── METRICS & AGGREGATIONS (HONEST DATA RESOLUTION) ──
   const kpis = data?.kpis || {}
@@ -367,23 +501,18 @@ export default function SuperAdminDigiGold() {
     if (activeSection !== 'transactions') return
     const el = txnSentinelRef.current
     if (!el) return
-    const totalCount = filteredItems.length
-    if (totalCount === 0 || txnVisibleCount >= totalCount) return
+    if (!txnHasMore || loadingMoreTxns) return
 
     const observer = new IntersectionObserver((entries) => {
       const first = entries[0]
       if (first.isIntersecting && !loadingMoreTxns) {
-        setLoadingMoreTxns(true)
-        setTimeout(() => {
-          setTxnVisibleCount(prev => Math.min(prev + 35, totalCount))
-          setLoadingMoreTxns(false)
-        }, 150)
+        fetchData({ append: true })
       }
     }, { threshold: 0.1, rootMargin: '150px' })
 
     observer.observe(el)
     return () => observer.disconnect()
-  }, [activeSection, loadingMoreTxns, txnVisibleCount, filteredItems.length])
+  }, [activeSection, loadingMoreTxns, txnHasMore, txnVisibleCount, filteredItems.length])
 
   // Paginated items
   const paginatedItems = useMemo(() => {
@@ -1028,6 +1157,9 @@ export default function SuperAdminDigiGold() {
   const handleNavClick = (id) => {
     setActiveSection(id)
     setCurrentPage(1)
+    if (id === 'gold_mgmt') setMetalFilter('gold')
+    else if (id === 'silver_mgmt') setMetalFilter('silver')
+    else setMetalFilter('all')
     setMobileSidebarOpen(false)
   }
 
@@ -1184,6 +1316,15 @@ export default function SuperAdminDigiGold() {
         </div>
 
         {/* ── DATE FILTER BAR (TODAY, WEEK, MONTH, YEAR, CUSTOM) ── */}
+        {loadError && activeSection !== 'orders' && (
+          <div className="sadg-load-error" role="alert">
+            <span>{loadError}</span>
+            <button type="button" onClick={fetchData} disabled={loading}>
+              <RefreshCw size={14} className={loading ? 'sadg-spin' : ''} /> Retry
+            </button>
+          </div>
+        )}
+
         <div className="sadg-filter-bar">
           <div className="sadg-date-pills">
             {['today', 'week', 'month', 'year', 'custom'].map((f) => (
@@ -1817,6 +1958,10 @@ export default function SuperAdminDigiGold() {
         {/* ══════════════════════════════════════════════════════════════
            VIEW 2: TRANSACTIONS (FULL AUDIT HISTORY)
            ══════════════════════════════════════════════════════════════ */}
+        {loading && !data && ['gold_mgmt', 'silver_mgmt', 'user_buy', 'gold_rates'].includes(activeSection) && (
+          <DigiGoldSectionSkeleton rows={activeSection === 'gold_rates' ? 5 : 7} />
+        )}
+
         {activeSection === 'transactions' && (
           <div className="sadg-full-section">
             {/* Search & Filter Bar */}
@@ -2000,7 +2145,7 @@ export default function SuperAdminDigiGold() {
               {/* Infinite Scroll Live Audit Bar */}
               <div className="sadg-pagination-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 13, color: '#4E615F', fontWeight: 600 }}>
-                  Showing <b>1 to {Math.min(txnVisibleCount, filteredItems.length)}</b> of <b>{filteredItems.length}</b> verified records
+                  Showing <b>{Math.min(txnVisibleCount, filteredItems.length)}</b> of <b>{Number(data?.total_records || 0).toLocaleString('en-IN')}</b> matching records
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {loadingMoreTxns ? (
@@ -2008,14 +2153,14 @@ export default function SuperAdminDigiGold() {
                       <RefreshCw size={13} className="sadg-spin" />
                       Loading more records…
                     </span>
-                  ) : txnVisibleCount < filteredItems.length ? (
+                  ) : txnHasMore ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontSize: 12, color: '#6A7D7C', fontWeight: 600 }}>
                         ↓ Scroll down or
                       </span>
                       <button
                         type="button"
-                        onClick={() => setTxnVisibleCount(prev => Math.min(prev + 35, filteredItems.length))}
+                        onClick={() => fetchData({ append: true })}
                         style={{
                           background: '#E9F7F0',
                           border: '1px solid #B8E4D0',
@@ -2032,7 +2177,7 @@ export default function SuperAdminDigiGold() {
                     </div>
                   ) : (
                     <span style={{ fontSize: 12, color: '#073E40', fontWeight: 700 }}>
-                      ✓ All {filteredItems.length} records loaded
+                      ✓ All {Number(data?.total_records || filteredItems.length).toLocaleString('en-IN')} records loaded
                     </span>
                   )}
                 </div>
@@ -2044,7 +2189,7 @@ export default function SuperAdminDigiGold() {
         {/* ══════════════════════════════════════════════════════════════
            VIEW 3: GOLD MANAGEMENT (DETAILED GOLD SALES)
            ══════════════════════════════════════════════════════════════ */}
-        {activeSection === 'gold_mgmt' && (
+        {activeSection === 'gold_mgmt' && !(loading && !data) && (
           <div className="sadg-full-section">
             {/* 6 Gold Specific KPI Cards (AnimatedNumbers, Never Dash) */}
             <div className="sadg-kpi-grid">
@@ -2232,7 +2377,7 @@ export default function SuperAdminDigiGold() {
         {/* ══════════════════════════════════════════════════════════════
            VIEW 4: SILVER MANAGEMENT (DETAILED SILVER SALES)
            ══════════════════════════════════════════════════════════════ */}
-        {activeSection === 'silver_mgmt' && (
+        {activeSection === 'silver_mgmt' && !(loading && !data) && (
           <div className="sadg-full-section">
             {/* 6 Silver Specific KPI Cards (AnimatedNumbers, Never Dash) */}
             <div className="sadg-kpi-grid">
@@ -2422,7 +2567,7 @@ export default function SuperAdminDigiGold() {
         {/* ══════════════════════════════════════════════════════════════
            VIEW 5: USER BUY GOLD (CATEGORY-WISE PURCHASE HISTORY)
            ══════════════════════════════════════════════════════════════ */}
-        {activeSection === 'user_buy' && (
+        {activeSection === 'user_buy' && !(loading && !data) && (
           <div className="sadg-full-section">
             {/* Category Dropdown & Summary */}
             <div className="sadg-filters-card">
@@ -2553,7 +2698,7 @@ export default function SuperAdminDigiGold() {
         {/* ══════════════════════════════════════════════════════════════
            VIEW 6: GOLD RATES (DEDICATED SECTION)
            ══════════════════════════════════════════════════════════════ */}
-        {activeSection === 'gold_rates' && (
+        {activeSection === 'gold_rates' && !(loading && !data) && (
           <div className="sadg-full-section">
             {/* Live Benchmark Rates Cards (22K Gold & Pure 999 Silver Only) */}
             <div className="sadg-rates-display-grid">
@@ -2671,7 +2816,7 @@ export default function SuperAdminDigiGold() {
 
             {/* STAT CARDS ROW */}
             <div className="sadg-orders-stats-grid">
-              <div className="sadg-order-stat-card">
+              <button type="button" className={`sadg-order-stat-card ${orderCardFilter === 'all' ? 'selected' : ''}`} onClick={() => setOrderCardFilter('all')} aria-pressed={orderCardFilter === 'all'}>
                 <div className="sadg-order-stat-info">
                   <span className="sadg-order-stat-label">Total Orders</span>
                   <span className="sadg-order-stat-val">{orderStats.totalCount}</span>
@@ -2679,8 +2824,8 @@ export default function SuperAdminDigiGold() {
                 <div className="sadg-order-stat-icon-wrap">
                   <Package size={20} />
                 </div>
-              </div>
-              <div className="sadg-order-stat-card">
+              </button>
+              <button type="button" className={`sadg-order-stat-card ${orderCardFilter === 'active' ? 'selected' : ''}`} onClick={() => setOrderCardFilter('active')} aria-pressed={orderCardFilter === 'active'}>
                 <div className="sadg-order-stat-info">
                   <span className="sadg-order-stat-label">Active Orders</span>
                   <span className="sadg-order-stat-val" style={{ color: '#D49A38' }}>{orderStats.activeCount}</span>
@@ -2688,8 +2833,8 @@ export default function SuperAdminDigiGold() {
                 <div className="sadg-order-stat-icon-wrap gold">
                   <Truck size={20} />
                 </div>
-              </div>
-              <div className="sadg-order-stat-card">
+              </button>
+              <button type="button" className={`sadg-order-stat-card ${orderCardFilter === 'delivered' ? 'selected' : ''}`} onClick={() => setOrderCardFilter('delivered')} aria-pressed={orderCardFilter === 'delivered'}>
                 <div className="sadg-order-stat-info">
                   <span className="sadg-order-stat-label">Delivered</span>
                   <span className="sadg-order-stat-val" style={{ color: '#0E8548' }}>{orderStats.deliveredCount}</span>
@@ -2697,8 +2842,8 @@ export default function SuperAdminDigiGold() {
                 <div className="sadg-order-stat-icon-wrap success">
                   <CheckCircle2 size={20} />
                 </div>
-              </div>
-              <div className="sadg-order-stat-card">
+              </button>
+              <button type="button" className={`sadg-order-stat-card ${orderCardFilter === 'weight' ? 'selected' : ''}`} onClick={() => setOrderCardFilter('weight')} aria-pressed={orderCardFilter === 'weight'}>
                 <div className="sadg-order-stat-info">
                   <span className="sadg-order-stat-label">Total Weight</span>
                   <span className="sadg-order-stat-val">{orderStats.totalWeight.toFixed(3)}<small style={{ fontSize: 13, fontWeight: 600 }}> g</small></span>
@@ -2706,8 +2851,8 @@ export default function SuperAdminDigiGold() {
                 <div className="sadg-order-stat-icon-wrap silver">
                   <Layers size={20} />
                 </div>
-              </div>
-              <div className="sadg-order-stat-card">
+              </button>
+              <button type="button" className={`sadg-order-stat-card ${orderCardFilter === 'valuation' ? 'selected' : ''}`} onClick={() => setOrderCardFilter('valuation')} aria-pressed={orderCardFilter === 'valuation'}>
                 <div className="sadg-order-stat-info">
                   <span className="sadg-order-stat-label">Total Valuation</span>
                   <span className="sadg-order-stat-val" style={{ fontSize: 18 }}>₹ {orderStats.totalValuation.toLocaleString('en-IN')}</span>
@@ -2715,7 +2860,7 @@ export default function SuperAdminDigiGold() {
                 <div className="sadg-order-stat-icon-wrap gold">
                   <Wallet size={20} />
                 </div>
-              </div>
+              </button>
             </div>
 
             {/* FILTER BAR */}
@@ -2766,21 +2911,49 @@ export default function SuperAdminDigiGold() {
               </div>
             </div>
 
+            {deliveryOrdersError && (
+              <div className="sadg-load-error" role="alert">
+                <span>{deliveryOrdersError}</span>
+                <button type="button" onClick={fetchDeliveryOrders} disabled={loadingDeliveryOrders}>
+                  <RefreshCw size={14} className={loadingDeliveryOrders ? 'sadg-spin' : ''} /> Retry
+                </button>
+              </div>
+            )}
+
             {/* ORDERS TABLE */}
             <div style={{ background: '#FFFFFF', border: '1px solid #E2ECE7', borderRadius: 16, overflow: 'hidden' }}>
               <div style={{ padding: '14px 20px', borderBottom: '1px solid #E2ECE7', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontWeight: 800, fontSize: 15, color: '#103F42' }}>
                   Delivery Orders
                   <span style={{ marginLeft: 10, fontSize: 12, fontWeight: 600, color: '#6A7D7C', background: '#F0F6F4', padding: '3px 10px', borderRadius: 20 }}>
-                    {filteredDeliveryOrders.length} orders
+                    {deliveryOrdersFilteredTotal.toLocaleString('en-IN')} orders
                   </span>
                 </span>
               </div>
 
               {loadingDeliveryOrders ? (
-                <div style={{ padding: 40, textAlign: 'center', color: '#6A7D7C', fontSize: 14 }}>
-                  <RefreshCw size={22} className="sadg-spin" style={{ marginBottom: 10 }} />
-                  <div>Loading delivery orders…</div>
+                <div className="sadg-orders-skeleton-wrap" role="status" aria-label="Loading delivery orders">
+                  <span className="sadg-sr-only">Loading delivery orders</span>
+                  <div className="sadg-orders-skeleton-table">
+                    <div className="sadg-orders-skeleton-row header">
+                      {['Order ID', 'Date', 'Customer', 'Address', 'Metal', 'Weight', 'Valuation', 'Status', 'Actions'].map((heading) => (
+                        <span key={heading}>{heading}</span>
+                      ))}
+                    </div>
+                    {Array.from({ length: 5 }, (_, row) => (
+                      <div className="sadg-orders-skeleton-row" key={row}>
+                        <span><i className="sadg-skeleton-line" style={{ width: '88%' }} /></span>
+                        <span><i className="sadg-skeleton-line" style={{ width: '78%' }} /></span>
+                        <span className="customer"><i className="sadg-skeleton-line" style={{ width: '82%' }} /><i className="sadg-skeleton-line short" style={{ width: '58%' }} /></span>
+                        <span><i className="sadg-skeleton-line" style={{ width: '94%' }} /></span>
+                        <span><i className="sadg-skeleton-line pill" style={{ width: '68%' }} /></span>
+                        <span><i className="sadg-skeleton-line" style={{ width: '62%' }} /></span>
+                        <span><i className="sadg-skeleton-line" style={{ width: '70%' }} /></span>
+                        <span><i className="sadg-skeleton-line pill" style={{ width: '76%' }} /></span>
+                        <span><i className="sadg-skeleton-line action" /></span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : filteredDeliveryOrders.length === 0 ? (
                 <div style={{ padding: 50, textAlign: 'center', color: '#6A7D7C' }}>
@@ -2793,8 +2966,9 @@ export default function SuperAdminDigiGold() {
                   </div>
                 </div>
               ) : (
-                <div className="sadg-table-wrap">
-                  <table className="sadg-table">
+                <>
+                <div className="sadg-table-wrap sadg-orders-table-wrap">
+                  <table className="sadg-table sadg-delivery-orders-table">
                     <thead>
                       <tr>
                         <th>Order ID</th>
@@ -2815,8 +2989,8 @@ export default function SuperAdminDigiGold() {
                         const statusClass = (order.status || 'confirmed').toLowerCase().replace(/\s+/, '_')
                         const isUpdating = updatingOrderStatusId === oid
                         const addr = order.address
-                        const addrLine = addr
-                          ? (addr.formatted || [addr.line1, addr.city, addr.state].filter(Boolean).join(', '))
+                      const addrLine = addr
+                          ? (typeof addr === 'string' ? addr : (addr.formatted || [addr.line1, addr.line2, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ')))
                           : (order.delivery_address || '—')
                         return (
                           <tr key={oid} style={{ cursor: 'pointer' }} onClick={() => setSelectedDeliveryOrder(order)}>
@@ -2895,7 +3069,53 @@ export default function SuperAdminDigiGold() {
                     </tbody>
                   </table>
                 </div>
+                <div className="sadg-orders-mobile-list">
+                  {filteredDeliveryOrders.map((order) => {
+                    const oid = order.id || order.order_id
+                    const isGold = (order.metal || '').toLowerCase().includes('gold')
+                    const status = (order.status || 'confirmed').toLowerCase()
+                    const addr = order.address
+                    const addrLine = addr
+                      ? (typeof addr === 'string' ? addr : (addr.formatted || [addr.line1, addr.line2, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ')))
+                      : (order.delivery_address || 'Address unavailable')
+                    return (
+                      <article className="sadg-orders-mobile-card" key={oid} onClick={() => setSelectedDeliveryOrder(order)}>
+                        <div className="sadg-orders-mobile-card-head">
+                          <div><b>#{order.order_id || oid}</b><time>{order.created_at || 'Date unavailable'}</time></div>
+                          <span className={`sadg-order-status-badge ${status}`}>{order.status || 'confirmed'}</span>
+                        </div>
+                        <div className="sadg-orders-mobile-customer">
+                          <b>{order.customer_name || 'Customer'}</b>
+                          {order.customer_phone && <span><Phone size={12} />{order.customer_phone}</span>}
+                        </div>
+                        <div className="sadg-orders-mobile-address"><MapPin size={13} /><span>{addrLine}</span></div>
+                        <div className="sadg-orders-mobile-facts">
+                          <div><small>Metal</small><span className={`sadg-metal-badge ${isGold ? 'gold' : 'silver'}`}>{isGold ? '22K Gold' : 'Silver 999'}</span></div>
+                          <div><small>Weight</small><b>{Number(order.weight_gm || 0).toFixed(3)} g</b></div>
+                          <div><small>Valuation</small><b>₹ {Number(order.valuation_inr || 0).toLocaleString('en-IN')}</b></div>
+                        </div>
+                        <div className="sadg-orders-mobile-actions" onClick={(event) => event.stopPropagation()}>
+                          <label htmlFor={`mobile-order-status-${oid}`}>Update status</label>
+                          <select id={`mobile-order-status-${oid}`} className="sadg-order-status-select" value={order.status || 'confirmed'} disabled={updatingOrderStatusId === oid} onChange={(event) => handleUpdateDeliveryStatus(order, event.target.value)}>
+                            {['confirmed', 'processing', 'shipped', 'delivered', 'cancelled'].map((value) => <option key={value} value={value}>{value.charAt(0).toUpperCase() + value.slice(1)}</option>)}
+                          </select>
+                          <button type="button" onClick={() => setSelectedDeliveryOrder(order)}><Eye size={15} />View</button>
+                        </div>
+                      </article>
+                    )
+                  })}
+                </div>
+                </>
               )}
+            </div>
+            {deliveryOrdersHasMore && <div ref={deliveryOrderSentinelRef} style={{ height: 1 }} aria-hidden="true" />}
+            {loadingMoreDeliveryOrders && (
+              <div className="sadg-orders-skeleton-wrap" role="status" aria-label="Loading more delivery orders">
+                {[1, 2, 3].map((row) => <div className="sadg-orders-skeleton-row" key={`orders-more-${row}`}><span><i className="sadg-skeleton-line" style={{ width: '95%' }} /></span><span><i className="sadg-skeleton-line" style={{ width: '70%' }} /></span><span><i className="sadg-skeleton-line" style={{ width: '80%' }} /></span></div>)}
+              </div>
+            )}
+            <div className="sadg-pagination-bar" style={{ fontSize: 12, color: '#6A7D7C' }}>
+              Showing {deliveryOrdersList.length.toLocaleString('en-IN')} of {deliveryOrdersFilteredTotal.toLocaleString('en-IN')} matching orders ({deliveryOrdersTotal.toLocaleString('en-IN')} total)
             </div>
           </div>
         )}
@@ -2973,6 +3193,11 @@ export default function SuperAdminDigiGold() {
                     {(() => {
                       const addr = selectedDeliveryOrder.address
                       if (!addr) return selectedDeliveryOrder.delivery_address || '—'
+                      if (typeof addr === 'string') return addr
+                      if (addr.formatted) return addr.formatted
+                      if (![addr.line1, addr.line2, addr.city, addr.state, addr.pincode, addr.country].some(Boolean)) {
+                        return selectedDeliveryOrder.delivery_address || '—'
+                      }
                       return (
                         <div>
                           {addr.line1 && <div>{addr.line1}</div>}
@@ -3016,9 +3241,17 @@ export default function SuperAdminDigiGold() {
                       <div>
                         <div style={{ fontSize: 11, color: '#6A7D7C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Rate at Time</div>
                         <div style={{ fontWeight: 700 }}>
-                          {selectedDeliveryOrder.rate_at_order
-                            ? `₹ ${Number(selectedDeliveryOrder.rate_at_order).toLocaleString('en-IN')} /g`
-                            : '—'}
+                          {(() => {
+                            const storedRate = selectedDeliveryOrder.rate_at_order ?? selectedDeliveryOrder.unit_price
+                            const rate = storedRate != null
+                              ? Number(storedRate)
+                              : (Number(selectedDeliveryOrder.weight_gm) > 0
+                                ? Number(selectedDeliveryOrder.valuation_inr) / Number(selectedDeliveryOrder.weight_gm)
+                                : null)
+                            return Number.isFinite(rate) && rate > 0
+                              ? `₹ ${rate.toLocaleString('en-IN', { maximumFractionDigits: 2 })} /g`
+                              : '—'
+                          })()}
                         </div>
                       </div>
                       {selectedDeliveryOrder.coin_type && (

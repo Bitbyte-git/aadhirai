@@ -7,10 +7,12 @@ from rest_framework.decorators import api_view, permission_classes
 from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink, EmailOTP, Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent, StockSale, StockNotifyRequest, DigiGoldInvestment, DigiGoldWallet
 from django.db.models import Prefetch, Count, Q, Sum, Max, Min, F, Value, Case, When, DecimalField
 from django.db import transaction
+from django.core import signing
 from django.core.cache import cache   # ── NEW: for month_rollup/status caching ──
 from django.db.models.functions import TruncHour, TruncDate, TruncWeek, TruncMonth
 from .serializers import *
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from datetime import timedelta
 from decimal import Decimal
 # pyrefly: ignore [missing-import]
@@ -12371,9 +12373,9 @@ class DigiGoldDashboardView(APIView):
         # Get or create DigiGoldWallet
         dg_wallet, _ = DigiGoldWallet.objects.get_or_create(user=user)
 
-        # Get investments in a single query (no multiple round-trips!)
-        investments_qs = list(DigiGoldInvestment.objects.filter(user=user, status='completed').order_by('-created_at')[:200])
-        inv_count = len(investments_qs)
+        # Keep the dashboard's visible transaction list bounded; ledger totals are aggregated separately.
+        investments_base = DigiGoldInvestment.objects.filter(user=user, status='completed')
+        investments_qs = list(investments_base.order_by('-created_at', '-id')[:200])
 
         # AUG Wallet balance — single authoritative source of truth
         aug_wallet, _ = Wallet.objects.get_or_create(user=user)
@@ -12389,7 +12391,7 @@ class DigiGoldDashboardView(APIView):
 
         excel_rows = []
         for inv in investments_qs:
-            is_silver = 'Silver' in (inv.notes or '')
+            is_silver = 'silver' in (inv.notes or '').lower()
             investment_cost = float(inv.recharge_amount)
             item_live_price = float(rates.get('silver_999', 275.0)) if is_silver else live_gold_22k
             item_live_mg_price = live_silver_mg_price if is_silver else live_mg_price
@@ -12480,6 +12482,31 @@ class DigiGoldDashboardView(APIView):
                     'profit': profit,
                     'status': inv.status.capitalize(),
                 })
+
+        # Keep dashboard history bounded, but calculate holdings from the full ledger.
+        # This prevents older purchases disappearing from valuation after 200 records.
+        gold_in = Q(transaction_type__in=['buy', 'convert']) & ~Q(notes__icontains='silver')
+        gold_out = Q(transaction_type__in=['sell', 'delivery']) & ~Q(notes__icontains='silver')
+        silver_in = Q(transaction_type__in=['buy', 'convert'], notes__icontains='silver')
+        silver_out = Q(transaction_type__in=['sell', 'delivery'], notes__icontains='silver')
+        ledger_totals = investments_base.aggregate(
+            investment_count=Count('id'),
+            gold_buy_mg=Sum('hold_gold_mg', filter=gold_in),
+            gold_out_mg=Sum('hold_gold_mg', filter=gold_out),
+            gold_buy_inr=Sum('recharge_amount', filter=gold_in),
+            gold_delivery_inr=Sum('recharge_amount', filter=Q(transaction_type='delivery') & ~Q(notes__icontains='silver')),
+            silver_buy_mg=Sum('hold_gold_mg', filter=silver_in),
+            silver_out_mg=Sum('hold_gold_mg', filter=silver_out),
+            silver_buy_inr=Sum('recharge_amount', filter=silver_in),
+            silver_delivery_inr=Sum('recharge_amount', filter=Q(transaction_type='delivery', notes__icontains='silver')),
+        )
+        inv_count = ledger_totals['investment_count'] or 0
+        actual_gold_buy_mg = ledger_totals['gold_buy_mg'] or Decimal('0')
+        actual_gold_sell_mg = ledger_totals['gold_out_mg'] or Decimal('0')
+        actual_gold_invested = (ledger_totals['gold_buy_inr'] or Decimal('0')) - (ledger_totals['gold_delivery_inr'] or Decimal('0'))
+        actual_silver_buy_mg = ledger_totals['silver_buy_mg'] or Decimal('0')
+        actual_silver_sell_mg = ledger_totals['silver_out_mg'] or Decimal('0')
+        actual_silver_invested = (ledger_totals['silver_buy_inr'] or Decimal('0')) - (ledger_totals['silver_delivery_inr'] or Decimal('0'))
 
         # Net Gold calculations
         actual_gold_net_mg = max(Decimal('0'), actual_gold_buy_mg - actual_gold_sell_mg)
@@ -12791,13 +12818,14 @@ class DigiGoldDashboardView(APIView):
         # Build dated vault-value snapshots from actual completed ledger events and
         # the daily metal-rate history. This powers the Valuation Sheet graph.
         history_events = list(
-            DigiGoldInvestment.objects.filter(
-                user=user,
-                status='completed',
+            investments_base.filter(
                 transaction_type__in=['buy', 'convert', 'sell', 'delivery'],
-            ).order_by('created_at').values(
-                'transaction_type', 'hold_gold_mg', 'notes', 'created_at'
-            )
+            ).annotate(event_date=TruncDate('created_at')).values('event_date').annotate(
+                gold_in_mg=Sum('hold_gold_mg', filter=gold_in),
+                gold_out_mg=Sum('hold_gold_mg', filter=gold_out),
+                silver_in_mg=Sum('hold_gold_mg', filter=silver_in),
+                silver_out_mg=Sum('hold_gold_mg', filter=silver_out),
+            ).order_by('event_date')
         )
         graph_gold_mg = Decimal('0')
         graph_silver_mg = Decimal('0')
@@ -12808,14 +12836,16 @@ class DigiGoldDashboardView(APIView):
         def apply_graph_event(event):
             nonlocal graph_gold_mg, graph_silver_mg, has_graph_activity
             has_graph_activity = True
-            event_type = event['transaction_type']
-            is_silver_event = 'silver' in (event.get('notes') or '').lower()
-            event_mg = Decimal(str(event.get('hold_gold_mg') or 0))
-            sign = Decimal('-1') if event_type in ['sell', 'delivery'] else Decimal('1')
-            if is_silver_event:
-                graph_silver_mg = max(Decimal('0'), graph_silver_mg + sign * event_mg)
-            else:
-                graph_gold_mg = max(Decimal('0'), graph_gold_mg + sign * event_mg)
+            graph_gold_mg = max(
+                Decimal('0'), graph_gold_mg
+                + Decimal(str(event.get('gold_in_mg') or 0))
+                - Decimal(str(event.get('gold_out_mg') or 0))
+            )
+            graph_silver_mg = max(
+                Decimal('0'), graph_silver_mg
+                + Decimal(str(event.get('silver_in_mg') or 0))
+                - Decimal(str(event.get('silver_out_mg') or 0))
+            )
 
         def append_vault_value_point(point_date, label, gold_rate, silver_rate):
             gold_value = float(graph_gold_mg / Decimal('1000')) * float(gold_rate)
@@ -12837,7 +12867,7 @@ class DigiGoldDashboardView(APIView):
             if rate_row.date >= today:
                 continue
             while event_index < len(history_events):
-                event_local_date = timezone.localtime(history_events[event_index]['created_at']).date()
+                event_local_date = history_events[event_index]['event_date']
                 if event_local_date > rate_row.date:
                     break
                 apply_graph_event(history_events[event_index])
@@ -12857,7 +12887,7 @@ class DigiGoldDashboardView(APIView):
         # Fold any older ledger events that have no matching daily rate row into
         # today's opening balance, then add today's order-by-order vault changes.
         while event_index < len(history_events):
-            event_date = timezone.localtime(history_events[event_index]['created_at']).date()
+            event_date = history_events[event_index]['event_date']
             if event_date >= today:
                 break
             apply_graph_event(history_events[event_index])
@@ -12865,13 +12895,12 @@ class DigiGoldDashboardView(APIView):
         append_vault_value_point(today, 'Today opening', live_gold_22k, float(rates.get('silver_999', 0) or 0))
         while event_index < len(history_events):
             event = history_events[event_index]
-            event_date = timezone.localtime(event['created_at']).date()
+            event_date = event['event_date']
             if event_date > today:
                 break
             apply_graph_event(event)
             if event_date == today:
-                event_time = timezone.localtime(event['created_at']).strftime('%I:%M %p')
-                append_vault_value_point(today, event_time, live_gold_22k, float(rates.get('silver_999', 0) or 0))
+                append_vault_value_point(today, 'Today', live_gold_22k, float(rates.get('silver_999', 0) or 0))
             event_index += 1
         # Use the exact dashboard balances for the final live point.
         graph_gold_mg = actual_gold_net_mg
@@ -12919,6 +12948,152 @@ class DigiGoldDashboardView(APIView):
                 'total_profit': returns_val,
                 'profit_percentage': returns_pct_val,
             }
+        })
+
+
+class DigiGoldTransactionHistoryView(APIView):
+    """Return a customer's complete DigiGold ledger in bounded cursor pages."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        page_size_raw = request.query_params.get('limit', '30')
+        try:
+            page_size = min(max(int(page_size_raw), 1), 50)
+        except (TypeError, ValueError):
+            return Response({'error': 'limit must be a number between 1 and 50.'}, status=400)
+
+        transaction_filter = request.query_params.get('type', 'all').lower()
+        metal_filter = request.query_params.get('metal', 'all').lower()
+        if transaction_filter not in {'all', 'buy', 'sell'} or metal_filter not in {'all', 'gold', 'silver'}:
+            return Response({'error': 'Invalid transaction or metal filter.'}, status=400)
+
+        queryset = DigiGoldInvestment.objects.filter(
+            user=request.user,
+            status='completed',
+            transaction_type__in=['buy', 'convert', 'sell', 'delivery'],
+        )
+        if metal_filter == 'silver':
+            queryset = queryset.filter(notes__icontains='silver')
+        elif metal_filter == 'gold':
+            queryset = queryset.exclude(notes__icontains='silver')
+
+        cursor_token = request.query_params.get('cursor')
+        total_count = None
+        all_count = None
+        if cursor_token:
+            if transaction_filter == 'buy':
+                queryset = queryset.filter(transaction_type__in=['buy', 'convert'])
+            elif transaction_filter == 'sell':
+                queryset = queryset.filter(transaction_type__in=['sell', 'delivery'])
+            try:
+                cursor = signing.loads(cursor_token, salt='digi-gold-transaction-cursor', max_age=86400)
+                if cursor.get('type') != transaction_filter or cursor.get('metal') != metal_filter:
+                    return Response({'error': 'This history cursor does not match the selected filters.'}, status=400)
+                cursor_date = parse_datetime(cursor.get('created_at', ''))
+                cursor_id = int(cursor.get('id'))
+                if not cursor_date or cursor_id <= 0:
+                    raise ValueError('Invalid cursor position')
+                queryset = queryset.filter(
+                    Q(created_at__lt=cursor_date) |
+                    Q(created_at=cursor_date, id__lt=cursor_id)
+                )
+            except (signing.BadSignature, TypeError, ValueError, AttributeError):
+                return Response({'error': 'Invalid or expired transaction cursor. Refresh history and try again.'}, status=400)
+        else:
+            counts = queryset.aggregate(
+                all_count=Count('id'),
+                buy_count=Count('id', filter=Q(transaction_type__in=['buy', 'convert'])),
+                sell_count=Count('id', filter=Q(transaction_type__in=['sell', 'delivery'])),
+            )
+            total_count = counts['buy_count'] if transaction_filter == 'buy' else (
+                counts['sell_count'] if transaction_filter == 'sell' else counts['all_count']
+            )
+            all_count = counts['all_count']
+            if transaction_filter == 'buy':
+                queryset = queryset.filter(transaction_type__in=['buy', 'convert'])
+            elif transaction_filter == 'sell':
+                queryset = queryset.filter(transaction_type__in=['sell', 'delivery'])
+
+        page_rows = list(queryset.order_by('-created_at', '-id')[:page_size + 1])
+        has_more = len(page_rows) > page_size
+        page_rows = page_rows[:page_size]
+        rates = _get_live_gold_rates()
+        gold_rate = Decimal(str(rates.get('gold_22k', 0) or 0))
+        silver_rate = Decimal(str(rates.get('silver_999', 0) or 0))
+        transactions = []
+
+        for inv in page_rows:
+            is_silver = 'silver' in (inv.notes or '').lower()
+            live_rate = silver_rate if is_silver else gold_rate
+            live_mg_rate = live_rate / Decimal('1000')
+            amount = float(inv.recharge_amount)
+            current_value = round(float(inv.hold_gold_mg * live_mg_rate), 2)
+            payment_method = (inv.payment_method or '').lower().strip()
+            if 'upi' in payment_method:
+                payment_label = 'UPI'
+            elif 'bank' in payment_method:
+                payment_label = 'Vault Delivery'
+            elif payment_method == 'wallet':
+                payment_label = 'AUG Revive'
+            elif payment_method == 'recharge_conversion' or inv.transaction_type == 'convert':
+                payment_label = 'Recharge Convert'
+            elif inv.transaction_type == 'sell':
+                payment_label = 'Wallet Return'
+            else:
+                payment_label = 'UPI / Netbanking'
+
+            metal_label = 'Silver' if is_silver else 'Gold'
+            if inv.transaction_type == 'buy':
+                type_label = f'Buy {metal_label} ({payment_label})'
+            elif inv.transaction_type == 'convert':
+                type_label = 'AUG Revive Convert (999 Silver)' if is_silver else 'Recharge Convert (22K)'
+            elif inv.transaction_type == 'delivery':
+                type_label = f'Physical {metal_label} Delivery (Vault)'
+            else:
+                type_label = 'Sell Silver (Pure 999)' if is_silver else 'Sell Gold (22K)'
+
+            created_at = timezone.localtime(inv.created_at)
+            transactions.append({
+                'id': inv.id,
+                'transaction_id': inv.transaction_ref or f"BB{inv.created_at.strftime('%y%m%d')}{str(inv.id).zfill(6)}",
+                'date': created_at.strftime('%d %b %Y'),
+                'date_excel': created_at.strftime('%d.%m.%Y'),
+                'time': created_at.strftime('%I:%M %p'),
+                'type': type_label,
+                'payment_method': payment_label,
+                'metal': 'silver_999' if is_silver else 'gold_22k',
+                'amount_str': f'{float(inv.hold_gold_gm):.3f} g',
+                'recharge': amount,
+                'metal_value': amount,
+                'total_paid': amount,
+                'gold_price': float(inv.gold_price_per_gram),
+                'mg_price': float(inv.mg_price),
+                'hold_gold_mg': float(inv.hold_gold_mg),
+                'gm': float(inv.hold_gold_gm),
+                'current_price': float(live_rate),
+                'current_mg_price': float(live_mg_rate),
+                'current_growth': current_value,
+                'profit': round(current_value - amount, 2),
+                'status': inv.status.capitalize(),
+                'created_at': inv.created_at.isoformat(),
+            })
+
+        next_cursor = None
+        if has_more and page_rows:
+            last_row = page_rows[-1]
+            next_cursor = signing.dumps({
+                'created_at': last_row.created_at.isoformat(),
+                'id': last_row.id,
+                'type': transaction_filter,
+                'metal': metal_filter,
+            }, salt='digi-gold-transaction-cursor', compress=True)
+
+        return Response({
+            'transactions': transactions,
+            'total_count': total_count,
+            'all_count': all_count,
+            'has_more': has_more,
+            'next_cursor': next_cursor,
         })
 
 
@@ -13125,6 +13300,7 @@ class DigiGoldSellView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
         user = request.user
         grams = request.data.get('grams')
@@ -13137,6 +13313,12 @@ class DigiGoldSellView(APIView):
                 'detail': 'Please specify either grams or milligrams to sell.',
                 'code': 'missing_params'
             }, status=400)
+
+        # Use the same lock order as buy/convert (AUG wallet, then DigiGold wallet).
+        # This serializes concurrent sells and avoids overspending the same holding.
+        aug_wallet, _ = Wallet.objects.select_for_update().get_or_create(user=user)
+        dg_wallet, _ = DigiGoldWallet.objects.get_or_create(user=user)
+        dg_wallet = DigiGoldWallet.objects.select_for_update().get(pk=dg_wallet.pk)
 
         rates = _get_live_gold_rates()
         if metal == 'silver_999':
@@ -13198,13 +13380,11 @@ class DigiGoldSellView(APIView):
             notes=f"Sold {round(sell_gm, 4)}g {metal_label} at ₹{metal_price}/g"
         )
 
-        dg_wallet, _ = DigiGoldWallet.objects.get_or_create(user=user)
         if metal == 'gold_22k':
             dg_wallet.total_gold_mg = max(Decimal('0'), dg_wallet.total_gold_mg - round(sell_mg, 4))
             dg_wallet.total_gold_gm = max(Decimal('0'), dg_wallet.total_gold_gm - round(sell_gm, 6))
             dg_wallet.save()
 
-        aug_wallet, _ = Wallet.objects.get_or_create(user=user)
         credit_coins = int(payout_inr * 100)
         aug_wallet.balance_coins += credit_coins
         aug_wallet.save()
@@ -13560,10 +13740,191 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
         # The query parameter is only a view preference; it must never grant
         # access to other customers' delivery orders on its own.
         is_admin = getattr(user, 'role', '') == 'super_admin'
-        if is_admin:
-            orders = JewelryOrder.objects.filter(product_category='bullion').select_related('user').prefetch_related('tracking_events').order_by('-created_at')
+        paginate = is_admin and 'limit' in request.query_params
+        limit = 30
+        if paginate:
+            try:
+                limit = min(max(int(request.query_params.get('limit', 30)), 1), 50)
+            except (TypeError, ValueError):
+                return Response({'error': 'limit must be between 1 and 50.'}, status=400)
+
+        base_orders = JewelryOrder.objects.filter(product_category='bullion')
+        if not is_admin:
+            base_orders = base_orders.filter(user=user)
+        status_filter = request.query_params.get('status', 'all').lower()
+        metal_filter = request.query_params.get('metal', 'all').lower()
+        card_filter = request.query_params.get('card', 'all').lower()
+        if paginate and card_filter not in {'all', 'active', 'delivered', 'weight', 'valuation'}:
+            return Response({'error': 'Invalid delivery order card filter.'}, status=400)
+        search_q = request.query_params.get('search', '').strip()
+
+        # Stats are database aggregates over the complete admin ledger, never the loaded page.
+        summary = None
+        if paginate:
+            summary = base_orders.aggregate(
+                total_count=Count('id'),
+                total_weight=Sum('product_net_weight'),
+                total_valuation=Sum('total_price'),
+                active_count=Count('id', filter=~Q(status__in=['delivered', 'cancelled'])),
+                delivered_count=Count('id', filter=Q(status='delivered')),
+            )
+
+            # Retain and page legacy vault-delivery rows for older orders that predate JewelryOrder.
+            if not summary['total_count']:
+                legacy = DigiGoldInvestment.objects.filter(transaction_type='delivery').select_related('user')
+                legacy_summary = legacy.aggregate(
+                    total_count=Count('id'),
+                    total_weight=Sum('hold_gold_gm'),
+                    total_valuation=Sum('recharge_amount'),
+                    active_count=Count('id', filter=~Q(status__in=['delivered', 'cancelled'])),
+                    delivered_count=Count('id', filter=Q(status='delivered')),
+                )
+                legacy_filtered = legacy
+                if status_filter != 'all':
+                    legacy_filtered = legacy_filtered.filter(status=status_filter)
+                if metal_filter == 'silver':
+                    legacy_filtered = legacy_filtered.filter(notes__icontains='silver')
+                elif metal_filter == 'gold':
+                    legacy_filtered = legacy_filtered.exclude(notes__icontains='silver')
+                if card_filter == 'active':
+                    legacy_filtered = legacy_filtered.exclude(status__in=['delivered', 'cancelled'])
+                elif card_filter == 'delivered':
+                    legacy_filtered = legacy_filtered.filter(status='delivered')
+                elif card_filter == 'weight':
+                    legacy_filtered = legacy_filtered.filter(hold_gold_gm__gt=0)
+                elif card_filter == 'valuation':
+                    legacy_filtered = legacy_filtered.filter(recharge_amount__gt=0)
+                if search_q:
+                    legacy_filtered = legacy_filtered.filter(
+                        Q(transaction_ref__icontains=search_q) |
+                        Q(notes__icontains=search_q) |
+                        Q(user__email__icontains=search_q)
+                    )
+                filtered_count = legacy_filtered.count() if not request.query_params.get('cursor') else None
+                legacy_cursor = request.query_params.get('cursor')
+                if legacy_cursor:
+                    try:
+                        cursor = signing.loads(legacy_cursor, salt='digi-gold-delivery-orders-cursor', max_age=86400)
+                        if (cursor.get('source') != 'legacy' or cursor.get('status') != status_filter or
+                                cursor.get('metal') != metal_filter or cursor.get('card') != card_filter or
+                                cursor.get('search') != search_q):
+                            return Response({'error': 'Order cursor does not match the active filters.'}, status=400)
+                        cursor_date = parse_datetime(cursor.get('created_at', ''))
+                        cursor_id = int(cursor.get('id'))
+                        if not cursor_date or cursor_id <= 0:
+                            raise ValueError('Invalid cursor position')
+                        legacy_filtered = legacy_filtered.filter(
+                            Q(created_at__lt=cursor_date) | Q(created_at=cursor_date, id__lt=cursor_id)
+                        )
+                    except (signing.BadSignature, TypeError, ValueError, AttributeError):
+                        return Response({'error': 'Invalid or expired order cursor. Refresh the list.'}, status=400)
+                legacy_page = list(legacy_filtered.order_by('-created_at', '-id')[:limit + 1])
+                legacy_has_more = len(legacy_page) > limit
+                legacy_page = legacy_page[:limit]
+                legacy_next_cursor = None
+                if legacy_has_more and legacy_page:
+                    last_legacy = legacy_page[-1]
+                    legacy_next_cursor = signing.dumps({
+                        'source': 'legacy', 'created_at': last_legacy.created_at.isoformat(), 'id': last_legacy.id,
+                        'status': status_filter, 'metal': metal_filter, 'card': card_filter, 'search': search_q,
+                    }, salt='digi-gold-delivery-orders-cursor', compress=True)
+                legacy_records = [{
+                    'id': row.id,
+                    'order_id': row.transaction_ref or f'DLV-{row.id}',
+                    'transaction_ref': row.transaction_ref,
+                    'customer_name': _digi_gold_customer_contact(row.user)[0],
+                    'customer_phone': _digi_gold_customer_contact(row.user)[1],
+                    'customer_email': getattr(row.user, 'email', '') if row.user else '',
+                    'weight_gm': float(row.hold_gold_gm or 0),
+                    'valuation_inr': float(row.recharge_amount or 0),
+                    'rate_at_order': float(row.gold_price_per_gram or 0),
+                    'metal': 'silver' if 'silver' in (row.notes or '').lower() else 'gold',
+                    'status': row.status,
+                    'notes': row.notes,
+                    'created_at': timezone.localtime(row.created_at).strftime('%d %b %Y, %I:%M %p'),
+                    'date': timezone.localtime(row.created_at).strftime('%d %b %Y, %I:%M %p'),
+                    'address': {'formatted': row.notes},
+                    'tracking': [],
+                } for row in legacy_page]
+                return Response({
+                    'orders': legacy_records,
+                    'total_count': legacy_summary['total_count'] or 0,
+                    'filtered_count': filtered_count,
+                    'summary': {
+                        'total_count': legacy_summary['total_count'] or 0,
+                        'total_weight': float(legacy_summary['total_weight'] or 0),
+                        'total_valuation': float(legacy_summary['total_valuation'] or 0),
+                        'active_count': legacy_summary['active_count'] or 0,
+                        'delivered_count': legacy_summary['delivered_count'] or 0,
+                    },
+                    'has_more': legacy_has_more,
+                    'next_cursor': legacy_next_cursor,
+                })
+
+        orders = base_orders
+        if paginate and status_filter != 'all':
+            orders = orders.filter(status=status_filter)
+        if paginate and metal_filter in {'gold', 'silver'}:
+            orders = orders.filter(product_metal__icontains=metal_filter)
+        if paginate and card_filter == 'active':
+            orders = orders.exclude(status__in=['delivered', 'cancelled'])
+        elif paginate and card_filter == 'delivered':
+            orders = orders.filter(status='delivered')
+        elif paginate and card_filter == 'weight':
+            orders = orders.filter(product_net_weight__gt=0)
+        elif paginate and card_filter == 'valuation':
+            orders = orders.filter(total_price__gt=0)
+        if paginate and search_q:
+            orders = orders.filter(
+                Q(order_id__icontains=search_q) |
+                Q(customer_name__icontains=search_q) |
+                Q(customer_phone__icontains=search_q) |
+                Q(product_name__icontains=search_q) |
+                Q(city__icontains=search_q) |
+                Q(state__icontains=search_q) |
+                Q(pincode__icontains=search_q)
+            )
+
+        cursor_token = request.query_params.get('cursor') if paginate else None
+        if cursor_token:
+            try:
+                cursor = signing.loads(cursor_token, salt='digi-gold-delivery-orders-cursor', max_age=86400)
+                if cursor.get('source') != 'jewelry' or cursor.get('status') != status_filter or cursor.get('metal') != metal_filter or cursor.get('card') != card_filter or cursor.get('search') != search_q:
+                    return Response({'error': 'Order cursor does not match the active filters.'}, status=400)
+                cursor_date = parse_datetime(cursor.get('created_at', ''))
+                cursor_id = int(cursor.get('id'))
+                if not cursor_date or cursor_id <= 0:
+                    raise ValueError('Invalid cursor position')
+                orders = orders.filter(Q(created_at__lt=cursor_date) | Q(created_at=cursor_date, id__lt=cursor_id))
+            except (signing.BadSignature, TypeError, ValueError, AttributeError):
+                return Response({'error': 'Invalid or expired order cursor. Refresh the list.'}, status=400)
+
+        orders = orders.order_by('-created_at', '-id')
+        tracking_prefetch = Prefetch(
+            'tracking_events',
+            queryset=OrderTrackingEvent.objects.order_by('created_at'),
+        )
+        if paginate:
+            page_rows = list(orders.select_related('user').prefetch_related(tracking_prefetch)[:limit + 1])
+            has_more = len(page_rows) > limit
+            page_rows = page_rows[:limit]
+            next_cursor = None
+            if has_more and page_rows:
+                last_order = page_rows[-1]
+                next_cursor = signing.dumps({
+                    'created_at': last_order.created_at.isoformat(),
+                    'id': last_order.id,
+                    'source': 'jewelry',
+                    'status': status_filter,
+                    'metal': metal_filter,
+                    'card': card_filter,
+                    'search': search_q,
+                }, salt='digi-gold-delivery-orders-cursor', compress=True)
+            orders = page_rows
         else:
-            orders = JewelryOrder.objects.filter(user=user, product_category='bullion').select_related('user').prefetch_related('tracking_events').order_by('-created_at')
+            orders = orders.select_related('user').prefetch_related(tracking_prefetch)
+            has_more = False
+            next_cursor = None
 
         records = []
         for o in orders:
@@ -13572,7 +13933,7 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
                 'location': t.location,
                 'note': t.note,
                 'created_at': t.created_at.strftime('%d %b %Y, %I:%M %p')
-            } for t in o.tracking_events.all().order_by('created_at')]
+            } for t in o.tracking_events.all()]
 
             records.append({
                 'id': o.id,
@@ -13583,6 +13944,7 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
                 'customer_email': getattr(o.user, 'email', '') if o.user else '',
                 'weight_gm': float(o.product_net_weight or 0),
                 'valuation_inr': float(o.total_price),
+            'rate_at_order': float(o.unit_price or 0),
                 'metal': o.product_metal,
                 'status': o.status,
                 'notes': o.product_name,
@@ -13615,6 +13977,7 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
                     'customer_email': getattr(o.user, 'email', '') if o.user else '',
                     'weight_gm': float(o.hold_gold_gm),
                     'valuation_inr': float(o.recharge_amount),
+                    'rate_at_order': float(o.gold_price_per_gram or 0),
                     'metal': 'silver' if 'Silver' in o.notes else 'gold',
                     'status': o.status,
                     'notes': o.notes,
@@ -13622,6 +13985,42 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
                     'date': o.created_at.strftime('%d %b %Y, %I:%M %p'),
                     'address': {'formatted': o.notes}
                 })
+
+        if paginate:
+            # Count the filtered queryset without the keyset cursor for the visible result total.
+            filtered_orders = base_orders
+            if status_filter != 'all':
+                filtered_orders = filtered_orders.filter(status=status_filter)
+            if metal_filter in {'gold', 'silver'}:
+                filtered_orders = filtered_orders.filter(product_metal__icontains=metal_filter)
+            if card_filter == 'active':
+                filtered_orders = filtered_orders.exclude(status__in=['delivered', 'cancelled'])
+            elif card_filter == 'delivered':
+                filtered_orders = filtered_orders.filter(status='delivered')
+            elif card_filter == 'weight':
+                filtered_orders = filtered_orders.filter(product_net_weight__gt=0)
+            elif card_filter == 'valuation':
+                filtered_orders = filtered_orders.filter(total_price__gt=0)
+            if search_q:
+                filtered_orders = filtered_orders.filter(
+                    Q(order_id__icontains=search_q) | Q(customer_name__icontains=search_q) |
+                    Q(customer_phone__icontains=search_q) | Q(product_name__icontains=search_q) |
+                    Q(city__icontains=search_q) | Q(state__icontains=search_q) | Q(pincode__icontains=search_q)
+                )
+            return Response({
+                'orders': records,
+                'total_count': summary['total_count'] or 0,
+                'filtered_count': None if cursor_token else filtered_orders.count(),
+                'summary': {
+                    'total_count': summary['total_count'] or 0,
+                    'total_weight': float(summary['total_weight'] or 0),
+                    'total_valuation': float(summary['total_valuation'] or 0),
+                    'active_count': summary['active_count'] or 0,
+                    'delivered_count': summary['delivered_count'] or 0,
+                },
+                'has_more': has_more,
+                'next_cursor': next_cursor,
+            })
 
         return Response({'orders': records})
 
@@ -13656,13 +14055,24 @@ class DigiGoldSuperAdminView(APIView):
         cat_filter = request.query_params.get('user_category', 'all').lower()
         search_q = request.query_params.get('search', '').strip()
 
-        # Cache check (15 seconds lightning-fast response)
-        cache_key = f"{date_filter}_{status_filter}_{metal_filter}_{txn_type_filter}_{cat_filter}_{search_q}_{start_date_param}_{end_date_param}"
-        now_ts = _pytime.time()
-        if cache_key in _CACHED_SUPERADMIN_RESPONSES:
-            c_time, c_data = _CACHED_SUPERADMIN_RESPONSES[cache_key]
-            if now_ts - c_time < 15:
-                return Response(c_data)
+        allowed_date_filters = {'today', 'week', 'month', 'year', 'custom'}
+        allowed_statuses = {'all', 'completed', 'pending', 'cancelled', 'approved', 'rejected', 'failed'}
+        allowed_metals = {'all', 'gold', 'silver'}
+        allowed_transaction_types = {'all', 'buy', 'sell', 'convert'}
+        allowed_categories = {
+            'all', 'super_stockist', 'distributor', 'wholesale_dealer',
+            'retailer', 'customer', 'general_customer',
+        }
+        if date_filter not in allowed_date_filters:
+            return Response({'error': 'Invalid date filter.'}, status=400)
+        if status_filter not in allowed_statuses or metal_filter not in allowed_metals:
+            return Response({'error': 'Invalid status or metal filter.'}, status=400)
+        if txn_type_filter not in allowed_transaction_types or cat_filter not in allowed_categories:
+            return Response({'error': 'Invalid transaction or investor category filter.'}, status=400)
+        if len(search_q) > 120:
+            return Response({'error': 'Search text must be 120 characters or fewer.'}, status=400)
+        if date_filter == 'custom' and (not start_date_param or not end_date_param):
+            return Response({'error': 'Custom date range requires both start_date and end_date.'}, status=400)
 
         start_dt = None
         end_dt = now
@@ -13678,12 +14088,13 @@ class DigiGoldSuperAdminView(APIView):
         elif date_filter == 'custom' and start_date_param:
             try:
                 s_date = datetime.strptime(start_date_param, '%Y-%m-%d').date()
+                e_date = datetime.strptime(end_date_param, '%Y-%m-%d').date()
+                if e_date < s_date:
+                    return Response({'error': 'end_date must be on or after start_date.'}, status=400)
                 start_dt = timezone.make_aware(datetime.combine(s_date, datetime.min.time()))
-                if end_date_param:
-                    e_date = datetime.strptime(end_date_param, '%Y-%m-%d').date()
-                    end_dt = timezone.make_aware(datetime.combine(e_date, datetime.max.time()))
-            except Exception:
-                start_dt = None
+                end_dt = timezone.make_aware(datetime.combine(e_date, datetime.max.time()))
+            except (TypeError, ValueError):
+                return Response({'error': 'Dates must use YYYY-MM-DD format.'}, status=400)
 
         # ── 2. LIVE RATES DIRECTLY FROM DB (MetalRate Model) ──
         today_db_rate = MetalRate.objects.filter(date=today).first() or MetalRate.objects.order_by('-date').first()
@@ -13726,7 +14137,18 @@ class DigiGoldSuperAdminView(APIView):
         # Filters
         if status_filter != 'all':
             inv_qs = inv_qs.filter(status=status_filter)
-            mo_qs = mo_qs.filter(status=status_filter)
+            if status_filter == 'completed':
+                # MetalOrder calls a fulfilled/confirmed order "approved";
+                # the unified DigiGold ledger presents that state as completed.
+                mo_qs = mo_qs.filter(status__in=['approved', 'completed'])
+            elif status_filter == 'approved':
+                inv_qs = inv_qs.none()
+                mo_qs = mo_qs.filter(status='approved')
+            elif status_filter in {'rejected', 'failed'}:
+                inv_qs = inv_qs.filter(status=status_filter)
+                mo_qs = mo_qs.filter(status='rejected')
+            else:
+                mo_qs = mo_qs.filter(status=status_filter)
 
         if txn_type_filter != 'all':
             inv_qs = inv_qs.filter(transaction_type=txn_type_filter)
@@ -13734,22 +14156,106 @@ class DigiGoldSuperAdminView(APIView):
                 mo_qs = mo_qs.none()
 
         if search_q:
-            inv_qs = inv_qs.filter(
-                Q(user__email__icontains=search_q) |
-                Q(user__role__icontains=search_q) |
-                Q(transaction_ref__icontains=search_q) |
-                Q(notes__icontains=search_q)
-            )
-            mo_qs = mo_qs.filter(
-                Q(user__email__icontains=search_q) |
-                Q(user__role__icontains=search_q) |
-                Q(weight_label__icontains=search_q)
-            )
+            def search_terms(queryset, extra_fields=()):
+                for token in search_q.split():
+                    token_query = (
+                        Q(user__email__icontains=token) |
+                        Q(user__role__icontains=token) |
+                        Q(user__customer_profile__first_name__icontains=token) |
+                        Q(user__customer_profile__last_name__icontains=token) |
+                        Q(user__customer_profile__mobile_number__icontains=token) |
+                        Q(user__customer_profile__city_name__icontains=token) |
+                        Q(user__customer_profile__district__icontains=token) |
+                        Q(user__customer_profile__pincode__icontains=token)
+                    )
+                    for field in extra_fields:
+                        token_query |= Q(**{f'{field}__icontains': token})
+                    queryset = queryset.filter(token_query)
+                return queryset
+
+            inv_qs = search_terms(inv_qs, ('transaction_ref', 'notes'))
+            mo_qs = search_terms(mo_qs, ('weight_label',))
 
         # ── 4. AGGREGATIONS FOR METRICS (HIGH-SPEED IN-MEMORY EVALUATION) ──
-        # Single-pass batch query with lightweight user relation
-        inv_list = list(inv_qs.select_related('user')[:1000])
-        mo_list = list(mo_qs.select_related('user')[:1000])
+        # Keyset-page the combined ledger. Full totals/charts/categories are
+        # computed by DB aggregates; only the visible transaction page reaches
+        # Python/JSON, regardless of ledger size.
+        try:
+            page_size = min(max(int(request.query_params.get('limit', 35)), 1), 50)
+        except (TypeError, ValueError):
+            return Response({'error': 'limit must be between 1 and 50.'}, status=400)
+
+        row_inv_qs = inv_qs
+        row_mo_qs = mo_qs
+        if cat_filter == 'super_stockist':
+            row_inv_qs, row_mo_qs = row_inv_qs.filter(user__role='admin'), row_mo_qs.filter(user__role='admin')
+        elif cat_filter == 'distributor':
+            row_inv_qs, row_mo_qs = row_inv_qs.filter(user__role='dealer'), row_mo_qs.filter(user__role='dealer')
+        elif cat_filter == 'wholesale_dealer':
+            row_inv_qs, row_mo_qs = row_inv_qs.filter(user__role='sub_dealer'), row_mo_qs.filter(user__role='sub_dealer')
+        elif cat_filter == 'retailer':
+            row_inv_qs, row_mo_qs = row_inv_qs.filter(user__role='promotor'), row_mo_qs.filter(user__role='promotor')
+        elif cat_filter == 'customer':
+            category_query = Q(user__role='customer', user__customer_profile__created_by__isnull=False)
+            row_inv_qs, row_mo_qs = row_inv_qs.filter(category_query), row_mo_qs.filter(category_query)
+        elif cat_filter == 'general_customer':
+            category_query = Q(user__role='customer', user__customer_profile__created_by__isnull=True) | ~Q(
+                user__role__in=['admin', 'dealer', 'sub_dealer', 'promotor', 'customer']
+            )
+            row_inv_qs, row_mo_qs = row_inv_qs.filter(category_query), row_mo_qs.filter(category_query)
+
+        if metal_filter == 'gold':
+            row_inv_qs, row_mo_qs = row_inv_qs.exclude(notes__icontains='silver'), row_mo_qs.filter(metal_type='gold_22k')
+        elif metal_filter == 'silver':
+            row_inv_qs, row_mo_qs = row_inv_qs.filter(notes__icontains='silver'), row_mo_qs.filter(metal_type__icontains='silver')
+
+        page_total_records = row_inv_qs.count() + row_mo_qs.count()
+        cursor_token = request.query_params.get('cursor')
+        cursor_binding = {
+            'date_filter': date_filter, 'start': start_date_param, 'end': end_date_param,
+            'status': status_filter, 'metal': metal_filter, 'type': txn_type_filter,
+            'category': cat_filter, 'search': search_q,
+        }
+        cursor_state = None
+        if cursor_token:
+            try:
+                cursor_state = signing.loads(cursor_token, salt='digi-gold-superadmin-ledger', max_age=86400)
+                if cursor_state.get('filters') != cursor_binding:
+                    return Response({'error': 'Ledger cursor does not match the current filters.'}, status=400)
+                cursor_date = parse_datetime(cursor_state.get('created_at', ''))
+                cursor_id = int(cursor_state.get('id', 0))
+                cursor_rank = int(cursor_state.get('rank', -1))
+                if not cursor_date or cursor_id < 1 or cursor_rank not in {0, 1}:
+                    raise ValueError('Invalid cursor position')
+            except (signing.BadSignature, TypeError, ValueError, AttributeError):
+                return Response({'error': 'Invalid or expired ledger cursor. Refresh and try again.'}, status=400)
+
+            before_cursor = Q(created_at__lt=cursor_date)
+            if cursor_rank == 1:
+                row_inv_qs = row_inv_qs.filter(before_cursor | Q(created_at=cursor_date, id__lt=cursor_id))
+                # MetalOrder rows use rank 0 and therefore follow DigiGold
+                # rows (rank 1) at the same timestamp in descending order.
+                row_mo_qs = row_mo_qs.filter(before_cursor | Q(created_at=cursor_date))
+            else:
+                row_inv_qs = row_inv_qs.filter(before_cursor)
+                row_mo_qs = row_mo_qs.filter(before_cursor | Q(created_at=cursor_date, id__lt=cursor_id))
+
+        page_inv = list(row_inv_qs.select_related('user').order_by('-created_at', '-id')[:page_size + 1])
+        page_mo = list(row_mo_qs.select_related('user').order_by('-created_at', '-id')[:page_size + 1])
+        combined_page = [(row.created_at, 1, row.id, 'digi_gold', row) for row in page_inv]
+        combined_page += [(row.created_at, 0, row.id, 'metal_order', row) for row in page_mo]
+        combined_page.sort(key=lambda entry: (entry[0], entry[1], entry[2]), reverse=True)
+        page_has_more = len(combined_page) > page_size
+        combined_page = combined_page[:page_size]
+        inv_list = [entry[4] for entry in combined_page if entry[3] == 'digi_gold']
+        mo_list = [entry[4] for entry in combined_page if entry[3] == 'metal_order']
+        next_cursor = None
+        if page_has_more and combined_page:
+            last_entry = combined_page[-1]
+            next_cursor = signing.dumps({
+                'created_at': last_entry[0].isoformat(), 'rank': last_entry[1],
+                'id': last_entry[2], 'filters': cursor_binding,
+            }, salt='digi-gold-superadmin-ledger')
 
         # Bulk load user profiles for involved users in a single shot (NO N+1 queries)
         all_uids = list(set([inv.user_id for inv in inv_list] + [mo.user_id for mo in mo_list]))
@@ -13812,6 +14318,50 @@ class DigiGoldSuperAdminView(APIView):
         mo_users = set(mo.user_id for mo in mo_list)
         all_active_investors = len(inv_users.union(mo_users))
         total_transactions_all = len(inv_list) + len(mo_list)
+        investment_totals = inv_qs.aggregate(
+            transaction_count=Count('id'),
+            gold_buy_amount=Sum('recharge_amount', filter=Q(status='completed', transaction_type__in=['buy', 'convert']) & ~Q(notes__icontains='silver')),
+            gold_buy_mg=Sum('hold_gold_mg', filter=Q(status='completed', transaction_type__in=['buy', 'convert']) & ~Q(notes__icontains='silver')),
+            gold_sell_mg=Sum('hold_gold_mg', filter=Q(status='completed', transaction_type='sell') & ~Q(notes__icontains='silver')),
+            gold_transaction_count=Count('id', filter=~Q(notes__icontains='silver')),
+            gold_buy_count=Count('id', filter=Q(status='completed', transaction_type__in=['buy', 'convert']) & ~Q(notes__icontains='silver')),
+            gold_sell_count=Count('id', filter=Q(status='completed', transaction_type='sell') & ~Q(notes__icontains='silver')),
+            silver_buy_amount=Sum('recharge_amount', filter=Q(status='completed', notes__icontains='silver')),
+            silver_buy_grams=Sum('hold_gold_gm', filter=Q(status='completed', notes__icontains='silver')),
+            silver_transaction_count=Count('id', filter=Q(notes__icontains='silver')),
+            silver_buy_count=Count('id', filter=Q(status='completed', notes__icontains='silver')),
+        )
+        order_totals = mo_qs.aggregate(
+            transaction_count=Count('id'),
+            gold_amount=Sum('total_amount', filter=Q(status__in=['approved', 'completed'], metal_type='gold_22k')),
+            gold_grams=Sum('weight_grams', filter=Q(status__in=['approved', 'completed'], metal_type='gold_22k')),
+            gold_buy_count=Count('id', filter=Q(status__in=['approved', 'completed'], metal_type='gold_22k')),
+            gold_transaction_count=Count('id', filter=Q(metal_type='gold_22k')),
+            silver_amount=Sum('total_amount', filter=Q(metal_type__icontains='silver')),
+            silver_grams=Sum('weight_grams', filter=Q(metal_type__icontains='silver')),
+            silver_count=Count('id', filter=Q(metal_type__icontains='silver')),
+        )
+        gold_inflow_inr = float(investment_totals['gold_buy_amount'] or 0)
+        gold_bought_gm = float(investment_totals['gold_buy_mg'] or 0) / 1000.0
+        gold_sold_gm = float(investment_totals['gold_sell_mg'] or 0) / 1000.0
+        gold_mo_inr = float(order_totals['gold_amount'] or 0)
+        gold_mo_gm = float(order_totals['gold_grams'] or 0)
+        total_gold_sales_inr = round(gold_inflow_inr + gold_mo_inr, 2)
+        total_gold_sold_gm = round(gold_bought_gm + gold_mo_gm, 4)
+        gold_buy_txns = int(investment_totals['gold_buy_count'] or 0) + int(order_totals['gold_buy_count'] or 0)
+        gold_sell_txns = int(investment_totals['gold_sell_count'] or 0)
+        total_gold_txns = int(investment_totals['gold_transaction_count'] or 0) + int(order_totals['gold_transaction_count'] or 0)
+        avg_gold_rate = round(total_gold_sales_inr / total_gold_sold_gm, 2) if total_gold_sold_gm > 0 else live_gold_22k
+        silver_inr = float(investment_totals['silver_buy_amount'] or 0) + float(order_totals['silver_amount'] or 0)
+        silver_gm = round(float(investment_totals['silver_buy_grams'] or 0) + float(order_totals['silver_grams'] or 0), 4)
+        silver_buy_txns = int(investment_totals['silver_buy_count'] or 0) + int(order_totals['silver_count'] or 0)
+        silver_sell_txns = 0
+        total_silver_txns = int(investment_totals['silver_transaction_count'] or 0) + int(order_totals['silver_count'] or 0)
+        avg_silver_rate = round(silver_inr / silver_gm, 2) if silver_gm > 0 else live_silver_999
+        total_transactions_all = int(investment_totals['transaction_count'] or 0) + int(order_totals['transaction_count'] or 0)
+        all_active_investors = User.objects.filter(
+            Q(id__in=inv_qs.values('user_id')) | Q(id__in=mo_qs.values('user_id'))
+        ).count()
 
         # ── 5. TIMELINE CHARTS GENERATION (IN-MEMORY 0ms SLICING) ──
         gold_chart = []
@@ -13886,6 +14436,105 @@ class DigiGoldSuperAdminView(APIView):
                 gold_chart.append({'date': label, 'grams': round(g_gm, 3), 'revenue': round(g_amt, 2)})
                 silver_chart.append({'date': label, 'grams': round(s_gm, 3), 'revenue': round(s_amt, 2)})
 
+        # Rebuild chart series from grouped database queries. Chart points now
+        # include every matching ledger row, while the UI table stays bounded.
+        gold_chart = []
+        silver_chart = []
+
+        if date_filter == 'today':
+            bucket_expr = TruncHour('created_at', tzinfo=timezone.get_current_timezone())
+            gold_dg_qs = inv_qs.filter(status='completed', transaction_type__in=['buy', 'convert']).exclude(notes__icontains='silver')
+            silver_dg_qs = inv_qs.filter(status='completed', notes__icontains='silver')
+            gold_order_qs = mo_qs.filter(status__in=['approved', 'completed'], metal_type='gold_22k')
+            silver_order_qs = mo_qs.filter(metal_type__icontains='silver')
+
+            def chart_by_bucket(queryset, amount_field, weight_field, weight_divisor=1):
+                values = queryset.annotate(chart_bucket=bucket_expr).values('chart_bucket').annotate(
+                    amount_total=Sum(amount_field), weight_total=Sum(weight_field),
+                )
+                return {
+                    row['chart_bucket'].hour: (
+                        float(row['amount_total'] or 0),
+                        float(row['weight_total'] or 0) / weight_divisor,
+                    )
+                    for row in values if row['chart_bucket'] is not None
+                }
+
+            gold_dg = chart_by_bucket(gold_dg_qs, 'recharge_amount', 'hold_gold_mg', 1000)
+            gold_orders = chart_by_bucket(gold_order_qs, 'total_amount', 'weight_grams')
+            silver_dg = chart_by_bucket(silver_dg_qs, 'recharge_amount', 'hold_gold_gm')
+            silver_orders = chart_by_bucket(silver_order_qs, 'total_amount', 'weight_grams')
+            time_slots = [
+                ('12:00 AM', 0, 6), ('06:00 AM', 6, 9), ('09:00 AM', 9, 12),
+                ('12:00 PM', 12, 15), ('03:00 PM', 15, 18), ('06:00 PM', 18, 21),
+                ('09:00 PM', 21, 24),
+            ]
+            for label, hour_start, hour_end in time_slots:
+                def slot_totals(*series):
+                    rows = [
+                        entry
+                        for series_map in series
+                        for hour, entry in series_map.items()
+                        if hour_start <= hour < hour_end
+                    ]
+                    return round(sum(item[1] for item in rows), 3), round(sum(item[0] for item in rows), 2)
+                grams, revenue = slot_totals(gold_dg, gold_orders)
+                gold_chart.append({'date': label, 'grams': grams, 'revenue': revenue})
+                grams, revenue = slot_totals(silver_dg, silver_orders)
+                silver_chart.append({'date': label, 'grams': grams, 'revenue': revenue})
+        else:
+            if date_filter == 'week':
+                chart_days, step_days, chart_start = 7, 1, today - timedelta(days=6)
+            elif date_filter == 'month':
+                chart_days, step_days, chart_start = 6, 5, today - timedelta(days=29)
+            elif date_filter == 'year':
+                chart_days, step_days, chart_start = 12, 30, today - timedelta(days=359)
+            else:
+                range_start = datetime.strptime(start_date_param, '%Y-%m-%d').date()
+                range_end = datetime.strptime(end_date_param, '%Y-%m-%d').date()
+                day_count = max(1, (range_end - range_start).days + 1)
+                chart_days = min(7, day_count)
+                step_days = max(1, (day_count + chart_days - 1) // chart_days)
+                chart_start = range_start
+
+            day_expr = TruncDate('created_at', tzinfo=timezone.get_current_timezone())
+
+            def chart_by_day(queryset, amount_field, weight_field, weight_divisor=1):
+                values = queryset.annotate(chart_day=day_expr).values('chart_day').annotate(
+                    amount_total=Sum(amount_field), weight_total=Sum(weight_field),
+                )
+                return {
+                    row['chart_day']: (
+                        float(row['amount_total'] or 0),
+                        float(row['weight_total'] or 0) / weight_divisor,
+                    )
+                    for row in values if row['chart_day'] is not None
+                }
+
+            gold_dg = chart_by_day(inv_qs.filter(status='completed', transaction_type__in=['buy', 'convert']).exclude(notes__icontains='silver'), 'recharge_amount', 'hold_gold_mg', 1000)
+            gold_orders = chart_by_day(mo_qs.filter(status__in=['approved', 'completed'], metal_type='gold_22k'), 'total_amount', 'weight_grams')
+            silver_dg = chart_by_day(inv_qs.filter(status='completed', notes__icontains='silver'), 'recharge_amount', 'hold_gold_gm')
+            silver_orders = chart_by_day(mo_qs.filter(metal_type__icontains='silver'), 'total_amount', 'weight_grams')
+
+            for index in range(chart_days):
+                bucket_start = chart_start + timedelta(days=index * step_days)
+                bucket_end = bucket_start + timedelta(days=step_days - 1)
+
+                def date_totals(*series):
+                    rows = [
+                        value
+                        for series_map in series
+                        for day, value in series_map.items()
+                        if bucket_start <= day <= bucket_end
+                    ]
+                    return round(sum(value[1] for value in rows), 3), round(sum(value[0] for value in rows), 2)
+
+                label = bucket_start.strftime('%b %y' if date_filter == 'year' else '%d %b')
+                grams, revenue = date_totals(gold_dg, gold_orders)
+                gold_chart.append({'date': label, 'grams': grams, 'revenue': revenue})
+                grams, revenue = date_totals(silver_dg, silver_orders)
+                silver_chart.append({'date': label, 'grams': grams, 'revenue': revenue})
+
         # ── 6. ROLE-WISE CATEGORY BREAKDOWN (CACHED USER COUNTS + IN-MEMORY SLICES) ──
         tiers = [
             ('Super Stockist', 'super_stockist', 'admin'),
@@ -13900,17 +14549,37 @@ class DigiGoldSuperAdminView(APIView):
         category_summaries = {}
         for tier_name, tier_key, role_code in tiers:
             u_count = cached_role_counts.get(tier_key, 0)
-            
-            t_gold = [x for x in completed_gold_buys if user_matches_cat(x.user, tier_key)]
-            t_gold_mo = [x for x in gold_mo if user_matches_cat(x.user, tier_key)]
-            t_silver_mo = [x for x in silver_mo if user_matches_cat(x.user, tier_key)]
-            t_silver_dg = [x for x in silver_dg_buys if user_matches_cat(x.user, tier_key)]
 
-            g_inr = sum(float(x.recharge_amount) for x in t_gold) + sum(float(x.total_amount) for x in t_gold_mo)
-            g_gm = sum(float(x.hold_gold_gm) if x.hold_gold_gm else round(float(x.hold_gold_mg) / 1000.0, 3) for x in t_gold) + sum(float(x.weight_grams) for x in t_gold_mo)
-            
-            s_inr = sum(float(x.total_amount) for x in t_silver_mo) + sum(float(x.recharge_amount) for x in t_silver_dg)
-            s_gm = sum(float(x.weight_grams) for x in t_silver_mo) + sum(float(x.hold_gold_gm) if x.hold_gold_gm else round(float(x.hold_gold_mg) / 1000.0, 3) for x in t_silver_dg)
+            if tier_key == 'general_customer':
+                tier_users = Q(user__role='customer', user__customer_profile__created_by__isnull=True) | ~Q(
+                    user__role__in=['admin', 'dealer', 'sub_dealer', 'promotor', 'customer']
+                )
+            elif tier_key == 'customer':
+                tier_users = Q(user__role='customer', user__customer_profile__created_by__isnull=False)
+            else:
+                tier_users = Q(user__role=role_code)
+
+            tier_inv = inv_qs.filter(tier_users)
+            tier_orders = mo_qs.filter(tier_users)
+            tier_inv_totals = tier_inv.aggregate(
+                gold_amount=Sum('recharge_amount', filter=Q(status='completed', transaction_type__in=['buy', 'convert']) & ~Q(notes__icontains='silver')),
+                gold_grams=Sum('hold_gold_gm', filter=Q(status='completed', transaction_type__in=['buy', 'convert']) & ~Q(notes__icontains='silver')),
+                silver_amount=Sum('recharge_amount', filter=Q(status='completed', notes__icontains='silver')),
+                silver_grams=Sum('hold_gold_gm', filter=Q(status='completed', notes__icontains='silver')),
+                purchase_count=Count('id', filter=Q(status='completed', transaction_type__in=['buy', 'convert'])),
+            )
+            tier_order_totals = tier_orders.aggregate(
+                gold_amount=Sum('total_amount', filter=Q(status__in=['approved', 'completed'], metal_type='gold_22k')),
+                gold_grams=Sum('weight_grams', filter=Q(status__in=['approved', 'completed'], metal_type='gold_22k')),
+                silver_amount=Sum('total_amount', filter=Q(metal_type__icontains='silver')),
+                silver_grams=Sum('weight_grams', filter=Q(metal_type__icontains='silver')),
+                purchase_count=Count('id', filter=Q(status__in=['approved', 'completed'])),
+            )
+
+            g_inr = float(tier_inv_totals['gold_amount'] or 0) + float(tier_order_totals['gold_amount'] or 0)
+            g_gm = float(tier_inv_totals['gold_grams'] or 0) + float(tier_order_totals['gold_grams'] or 0)
+            s_inr = float(tier_order_totals['silver_amount'] or 0) + float(tier_inv_totals['silver_amount'] or 0)
+            s_gm = float(tier_order_totals['silver_grams'] or 0) + float(tier_inv_totals['silver_grams'] or 0)
             
             category_summaries[tier_key] = {
                 'name': tier_name,
@@ -13919,7 +14588,7 @@ class DigiGoldSuperAdminView(APIView):
                 'gold_gm': round(g_gm, 3),
                 'silver_gm': round(s_gm, 3),
                 'total_purchase_inr': round(g_inr + s_inr, 2),
-                'completed_purchases': len(t_gold) + len(t_gold_mo) + len(t_silver_mo) + len(t_silver_dg)
+                'completed_purchases': int(tier_inv_totals['purchase_count'] or 0) + int(tier_order_totals['purchase_count'] or 0)
             }
 
         # ── 7. UNIFIED TRANSACTION ITEMS ──
@@ -14077,14 +14746,15 @@ class DigiGoldSuperAdminView(APIView):
             'silver_chart': silver_chart,
             'category_summaries': category_summaries,
             'items': unified_items,
-            'total_records': len(unified_items),
+            'total_records': page_total_records,
+            'has_more': page_has_more,
+            'next_cursor': next_cursor,
             'date_range': {
                 'filter': date_filter,
                 'start_date': start_dt.strftime('%d-%m-%Y') if start_dt else (today - timedelta(days=7)).strftime('%d-%m-%Y'),
                 'end_date': end_dt.strftime('%d-%m-%Y') if end_dt else today.strftime('%d-%m-%Y'),
             }
         }
-        _CACHED_SUPERADMIN_RESPONSES[cache_key] = (now_ts, resp_payload)
         return Response(resp_payload)
 
 

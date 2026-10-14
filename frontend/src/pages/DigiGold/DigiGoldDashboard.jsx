@@ -311,6 +311,17 @@ export default function DigiGoldDashboard() {
   const [activeTab, setActiveTab] = useState('1D')
   const [currentView, setCurrentView] = useState('dashboard') // 'dashboard' | 'transactions' | 'valuation' | 'offers' | 'support'
   const [txFilter, setTxFilter] = useState('all') // 'all' | 'buy' | 'sell'
+  const [txHistory, setTxHistory] = useState([])
+  const [txHistoryCount, setTxHistoryCount] = useState(0)
+  const [txHistoryAllCount, setTxHistoryAllCount] = useState(0)
+  const [txHistoryCursor, setTxHistoryCursor] = useState(null)
+  const [txHistoryHasMore, setTxHistoryHasMore] = useState(false)
+  const [txHistoryLoading, setTxHistoryLoading] = useState(false)
+  const [txHistoryLoadingMore, setTxHistoryLoadingMore] = useState(false)
+  const [txHistoryError, setTxHistoryError] = useState('')
+  const [txHistoryRetry, setTxHistoryRetry] = useState(0)
+  const txHistorySentinelRef = useRef(null)
+  const txHistoryRequestRef = useRef(0)
   const [valuationMetal, setValuationMetal] = useState('all') // 'all' | 'gold' | 'silver'
   const [valuationGraphRange, setValuationGraphRange] = useState('month')
   const [valuationGraphStart, setValuationGraphStart] = useState(() => {
@@ -331,6 +342,76 @@ export default function DigiGoldDashboard() {
   const [supportSubmitted, setSupportSubmitted] = useState(false)
   const [supportTicketId, setSupportTicketId] = useState('')
   const [openFaqIndex, setOpenFaqIndex] = useState(null)
+
+  useEffect(() => {
+    if (currentView !== 'transactions') return undefined
+    const requestId = ++txHistoryRequestRef.current
+    setTxHistory([])
+    setTxHistoryCount(0)
+    setTxHistoryAllCount(0)
+    setTxHistoryCursor(null)
+    setTxHistoryHasMore(false)
+    setTxHistoryError('')
+    setTxHistoryLoading(true)
+    setTxHistoryLoadingMore(false)
+
+    api.get('/digi-gold/transactions/', { params: { limit: 30, type: txFilter } })
+      .then(({ data: result }) => {
+        if (txHistoryRequestRef.current !== requestId) return
+        setTxHistory(Array.isArray(result?.transactions) ? result.transactions : [])
+        setTxHistoryCount(Number(result?.total_count || 0))
+        setTxHistoryAllCount(Number(result?.all_count ?? result?.total_count ?? 0))
+        setTxHistoryCursor(result?.next_cursor || null)
+        setTxHistoryHasMore(Boolean(result?.has_more))
+      })
+      .catch((error) => {
+        if (txHistoryRequestRef.current !== requestId) return
+        setTxHistoryError(error?.response?.data?.error || 'Could not load transactions. Please refresh and try again.')
+      })
+      .finally(() => {
+        if (txHistoryRequestRef.current === requestId) setTxHistoryLoading(false)
+      })
+
+    return () => {
+      if (txHistoryRequestRef.current === requestId) txHistoryRequestRef.current += 1
+    }
+  }, [currentView, txFilter, txHistoryRetry])
+
+  const loadMoreTransactionHistory = async () => {
+    if (txHistoryLoading || txHistoryLoadingMore || !txHistoryHasMore || !txHistoryCursor) return
+    const requestId = txHistoryRequestRef.current
+    const cursorAtRequest = txHistoryCursor
+    setTxHistoryLoadingMore(true)
+    setTxHistoryError('')
+    try {
+      const { data: result } = await api.get('/digi-gold/transactions/', {
+        params: { limit: 30, type: txFilter, cursor: cursorAtRequest },
+      })
+      if (txHistoryRequestRef.current !== requestId) return
+      setTxHistory((previous) => {
+        const seen = new Set(previous.map((item) => item.id))
+        return [...previous, ...(result?.transactions || []).filter((item) => !seen.has(item.id))]
+      })
+      setTxHistoryCursor(result?.next_cursor || null)
+      setTxHistoryHasMore(Boolean(result?.has_more))
+    } catch (error) {
+      if (txHistoryRequestRef.current !== requestId) return
+      setTxHistoryError(error?.response?.data?.error || 'Could not load more transactions. Scroll or retry.')
+    } finally {
+      if (txHistoryRequestRef.current === requestId) setTxHistoryLoadingMore(false)
+    }
+  }
+
+  useEffect(() => {
+    if (currentView !== 'transactions' || !txHistoryHasMore || txHistoryLoading || txHistoryLoadingMore) return undefined
+    const target = txHistorySentinelRef.current
+    if (!target || typeof IntersectionObserver === 'undefined') return undefined
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) loadMoreTransactionHistory()
+    }, { rootMargin: '180px 0px' })
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [currentView, txHistoryHasMore, txHistoryLoading, txHistoryLoadingMore, txHistoryCursor, txFilter])
 
   // Modals
   const [showBuyModal, setShowBuyModal] = useState(false)
@@ -2717,15 +2798,8 @@ export default function DigiGoldDashboard() {
     }
   }
 
-  // Filtered transactions for Transactions View
-  const filteredTransactions = transactions.filter(tx => {
-    if (txFilter === 'all') return true
-    const typeStr = (tx.type || '').toLowerCase()
-    if (txFilter === 'buy') return typeStr.includes('buy') || typeStr.includes('convert') || typeStr.includes('recharge')
-    // Sales also includes physical delivery orders because the metal leaves the vault.
-    if (txFilter === 'sell') return typeStr.includes('sell') || typeStr.includes('delivery')
-    return true
-  })
+  // Transaction history is loaded independently in bounded cursor pages.
+  const filteredTransactions = txHistory
 
   const customerName = data?.customer?.name || currentUser.name
   const customerRole = data?.customer?.role || currentUser.role
@@ -3107,7 +3181,7 @@ export default function DigiGoldDashboard() {
                 {/* Filters */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    {[{ id: 'all', label: `All Transactions (${transactions.length})` }, { id: 'buy', label: 'Purchases & Converts' }, { id: 'sell', label: 'Sales' }].map(tab => (
+                    {[{ id: 'all', label: `All Transactions (${txHistoryAllCount.toLocaleString('en-IN')})` }, { id: 'buy', label: 'Purchases & Converts' }, { id: 'sell', label: 'Sales' }].map(tab => (
                       <button
                         key={tab.id}
                         type="button"
@@ -3141,7 +3215,22 @@ export default function DigiGoldDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredTransactions.length === 0 ? (
+                      {txHistoryLoading && filteredTransactions.length === 0 ? (
+                        Array.from({ length: 7 }, (_, rowIndex) => (
+                          <tr key={`tx-skeleton-${rowIndex}`} aria-hidden="true">
+                            <td colSpan={9} style={{ padding: '12px 16px' }}>
+                              <div className="dg-skel dg-tx-skeleton-row" />
+                            </td>
+                          </tr>
+                        ))
+                      ) : txHistoryError && filteredTransactions.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} style={{ textAlign: 'center', padding: '40px 16px', color: '#647474' }}>
+                            <div style={{ fontWeight: 800, color: '#0A3E42', marginBottom: 10 }}>{txHistoryError}</div>
+                            <button type="button" onClick={() => setTxHistoryRetry((value) => value + 1)} className="dg-tx-retry-btn">Retry</button>
+                          </td>
+                        </tr>
+                      ) : filteredTransactions.length === 0 ? (
                         <tr>
                           <td colSpan={9} style={{ textAlign: 'center', padding: '40px 16px', color: '#647474' }}>
                             <div style={{ fontSize: 16, fontWeight: 800, color: '#0A3E42', marginBottom: 6 }}>
@@ -3229,9 +3318,24 @@ export default function DigiGoldDashboard() {
                           )
                         })
                       )}
+                      {txHistoryLoadingMore && Array.from({ length: 3 }, (_, rowIndex) => (
+                        <tr key={`tx-more-skeleton-${rowIndex}`} aria-hidden="true">
+                          <td colSpan={9} style={{ padding: '8px 16px' }}><div className="dg-skel dg-tx-skeleton-row" /></td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
+                {txHistoryHasMore && <div ref={txHistorySentinelRef} className="dg-tx-history-sentinel" aria-hidden="true" />}
+                {txHistoryError && filteredTransactions.length > 0 && (
+                  <div className="dg-tx-load-error" role="status">
+                    <span>{txHistoryError}</span>
+                    <button type="button" onClick={loadMoreTransactionHistory} className="dg-tx-retry-btn">Retry</button>
+                  </div>
+                )}
+                {!txHistoryHasMore && filteredTransactions.length > 0 && !txHistoryLoading && (
+                  <div className="dg-tx-history-end">All {txHistoryCount.toLocaleString('en-IN')} transactions loaded</div>
+                )}
               </div>
             </div>
           ) : currentView === 'valuation' ? (

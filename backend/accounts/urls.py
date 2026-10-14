@@ -15,7 +15,7 @@ HierarchySubtreeOrdersView, HierarchyAdminsView, HierarchyChildrenView, SalesRep
  JewelryRequestForwardView, JewelryBuyCatalogView, CoinRequestForwardView, CoinBuyCatalogView, StockSaleView, StockSaleCancelView, StockSaleReceiptPDFView,
  MemberHoldingsDetailView, JewelryStockDetailView, OrderReceiptPDFView, GenericTablePDFView, AdminOrdersListView, OrderTrackingView,
  HierarchyTierDirectoryView,
- DigiGoldDashboardView, DigiGoldBuyView, DigiGoldSellView, DigiGoldConvertFromRechargeView, DigiGoldSuperAdminView,
+ DigiGoldDashboardView, DigiGoldTransactionHistoryView, DigiGoldBuyView, DigiGoldSellView, DigiGoldConvertFromRechargeView, DigiGoldSuperAdminView,
  DigiGoldDeliveryOrderView, DigiGoldDeliveryOrderHistoryView,
 )
 
@@ -147,6 +147,7 @@ urlpatterns = [
     path('sales-report/trend/', SalesTrendView.as_view()),
     # ── Digi Gold Engine ──
     path('digi-gold/dashboard/', DigiGoldDashboardView.as_view()),
+    path('digi-gold/transactions/', DigiGoldTransactionHistoryView.as_view()),
     path('digi-gold/buy/', DigiGoldBuyView.as_view()),
     path('digi-gold/sell/', DigiGoldSellView.as_view()),
     path('digi-gold/convert-from-recharge/', DigiGoldConvertFromRechargeView.as_view()),

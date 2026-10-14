@@ -133,7 +133,8 @@ function ProtectedRoute({ children, role }) {
 
 function RouteLoader() {
   return (
-    <div style={{ minHeight: '100vh', background: '#FDFDFC', padding: '36px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div role="status" aria-label="Loading page" style={{ minHeight: '100vh', background: '#F6F9F7', padding: '20px clamp(14px, 3vw, 40px)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <span style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>Loading page</span>
       <style>{`
         @keyframes routeShimmer {
           0% { background-position: -200% 0; }
@@ -145,12 +146,35 @@ function RouteLoader() {
           animation: routeShimmer 1.5s infinite ease-in-out;
           border-radius: 12px;
         }
+        @media (prefers-reduced-motion: reduce) {
+          .route-skel { animation: none; }
+        }
       `}</style>
-      <div style={{ width: 'min(1280px, 100%)', display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <div className="route-skel" style={{ height: 110, borderRadius: 20 }} />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="route-skel" style={{ height: 260, borderRadius: 16 }} />
+      <div style={{ width: 'min(1440px, 100%)', display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div className="route-skel" style={{ height: 54, borderRadius: 14 }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: '8px 2px' }}>
+          <div className="route-skel" style={{ width: 'min(360px, 70%)', height: 27 }} />
+          <div className="route-skel" style={{ width: 'min(520px, 88%)', height: 13 }} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))', gap: 14 }}>
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="route-skel" style={{ height: 116, borderRadius: 16 }} />
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(380px, 100%), 1fr))', gap: 16 }}>
+          {[1, 2].map(i => (
+            <div key={i} className="route-skel" style={{ height: 280, borderRadius: 18 }} />
+          ))}
+        </div>
+        <div style={{ border: '1px solid #E2ECE7', background: '#fff', borderRadius: 16, padding: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 12 }}>
+            <div className="route-skel" style={{ width: 190, height: 18 }} />
+            <div className="route-skel" style={{ width: 150, height: 32 }} />
+          </div>
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 14, alignItems: 'center', minHeight: 46, borderTop: '1px solid #EDF2EF' }}>
+              {[1, 2, 3, 4, 5].map(j => <div key={j} className="route-skel" style={{ width: `${52 + ((i + j) % 4) * 10}%`, height: 11 }} />)}
+            </div>
           ))}
         </div>
       </div>

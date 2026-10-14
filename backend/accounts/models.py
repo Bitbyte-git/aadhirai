@@ -613,6 +613,12 @@ class MetalOrder(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['status', '-created_at', '-id'], name='metal_order_recent'),
+            models.Index(fields=['metal_type', 'status', '-created_at', '-id'], name='metal_order_metal_recent'),
+        ]
+
     def __str__(self):
         return f"{self.user.email} - {self.metal_type} - {self.weight_label} × {self.count}"  
 
@@ -882,6 +888,7 @@ class JewelryOrder(models.Model):
         indexes = [
             models.Index(fields=['user_id', 'created_at']),
             models.Index(fields=['created_at']),
+            models.Index(fields=['product_category', '-created_at', '-id'], name='jwl_bullion_recent'),
         ]
     
     def save(self, *args, **kwargs):
@@ -1302,6 +1309,16 @@ class DigiGoldInvestment(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(
+                fields=['user', 'status', '-created_at', '-id'],
+                name='dg_inv_user_status_recent',
+            ),
+            models.Index(
+                fields=['status', '-created_at', '-id'],
+                name='dg_inv_status_recent',
+            ),
+        ]
 
     def __str__(self):
         return f"{self.user.email} - ₹{self.recharge_amount} -> {self.hold_gold_gm}g ({self.status})"

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -385,8 +385,17 @@ function DigiGoldHeaderActions({ customerName, customerRole }) {
   )
 }
 
+const DIGI_GOLD_VIEWS = new Set(['transactions', 'valuation', 'offers', 'delivery', 'orders', 'support'])
+
 export default function DigiGoldDashboard() {
   const navigate = useNavigate()
+  const { section } = useParams()
+  const currentView = DIGI_GOLD_VIEWS.has(section) ? section : 'dashboard'
+  const navigateToView = view => navigate(DIGI_GOLD_VIEWS.has(view) ? `/digi-gold/${view}` : '/digi-gold')
+
+  useEffect(() => {
+    if (section && !DIGI_GOLD_VIEWS.has(section)) navigate('/digi-gold', { replace: true })
+  }, [section, navigate])
 
   // ── USER INFO ──
   const getLoggedInUser = () => {
@@ -462,7 +471,6 @@ export default function DigiGoldDashboard() {
     }
   })
   const [activeTab, setActiveTab] = useState('1D')
-  const [currentView, setCurrentView] = useState('dashboard') // 'dashboard' | 'transactions' | 'valuation' | 'offers' | 'support'
   const [txFilter, setTxFilter] = useState('all') // 'all' | 'buy' | 'sell'
   const [txHistory, setTxHistory] = useState([])
   const [txHistoryCount, setTxHistoryCount] = useState(0)
@@ -2128,7 +2136,7 @@ export default function DigiGoldDashboard() {
 
   const handleNavigateToOrderSummary = () => {
     if (currentView !== 'delivery') {
-      setCurrentView('delivery')
+      navigateToView('delivery')
     }
     setSidebarOpen(false)
     setTimeout(() => {
@@ -2973,7 +2981,7 @@ export default function DigiGoldDashboard() {
           <div className="dg-brand-row">
             <div
               style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, cursor: 'pointer' }}
-              onClick={() => { setCurrentView('dashboard'); navigate('/digi-gold'); setSidebarOpen(false); }}
+              onClick={() => { navigateToView('dashboard'); setSidebarOpen(false); }}
             >
               <img
                 src="/Aadhirai-Logo.png"
@@ -3034,7 +3042,7 @@ export default function DigiGoldDashboard() {
             <button
               className={`dg-nav-btn ${currentView === 'dashboard' ? 'active' : ''}`}
               type="button"
-              onClick={() => { setCurrentView('dashboard'); setSidebarOpen(false); }}
+              onClick={() => { navigateToView('dashboard'); setSidebarOpen(false); }}
             >
               <LayoutDashboard size={18} />
               <span>Dashboard</span>
@@ -3066,7 +3074,7 @@ export default function DigiGoldDashboard() {
             <button
               className={`dg-nav-btn ${currentView === 'valuation' ? 'active' : ''}`}
               type="button"
-              onClick={() => { setCurrentView('valuation'); setSidebarOpen(false); }}
+              onClick={() => { navigateToView('valuation'); setSidebarOpen(false); }}
             >
               <WalletCards size={18} />
               <span>Valuation Sheet</span>
@@ -3074,7 +3082,7 @@ export default function DigiGoldDashboard() {
             <button
               className={`dg-nav-btn ${currentView === 'transactions' ? 'active' : ''}`}
               type="button"
-              onClick={() => { setCurrentView('transactions'); setSidebarOpen(false); }}
+              onClick={() => { navigateToView('transactions'); setSidebarOpen(false); }}
             >
               <History size={18} />
               <span>Transactions</span>
@@ -3083,7 +3091,7 @@ export default function DigiGoldDashboard() {
             <button
               className={`dg-nav-btn ${currentView === 'offers' ? 'active' : ''}`}
               type="button"
-              onClick={() => { setCurrentView('offers'); setSidebarOpen(false); }}
+              onClick={() => { navigateToView('offers'); setSidebarOpen(false); }}
             >
               <BadgePercent size={18} />
               <span>Offers</span>
@@ -3091,7 +3099,7 @@ export default function DigiGoldDashboard() {
             <button
               className={`dg-nav-btn ${currentView === 'delivery' ? 'active' : ''}`}
               type="button"
-              onClick={() => { setCurrentView('delivery'); setSidebarOpen(false); }}
+              onClick={() => { navigateToView('delivery'); setSidebarOpen(false); }}
             >
               <Truck size={18} />
               <span>Delivery</span>
@@ -3100,7 +3108,7 @@ export default function DigiGoldDashboard() {
             <button
               className={`dg-nav-btn ${currentView === 'orders' ? 'active' : ''}`}
               type="button"
-              onClick={() => { setCurrentView('orders'); setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              onClick={() => { navigateToView('orders'); setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
             >
               <Package size={18} />
               <span>Orders</span>
@@ -3117,7 +3125,7 @@ export default function DigiGoldDashboard() {
             <button
               className={`dg-nav-btn ${currentView === 'support' ? 'active' : ''}`}
               type="button"
-              onClick={() => { setCurrentView('support'); setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              onClick={() => { navigateToView('support'); setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
             >
               <Headphones size={18} />
               <span>Support</span>
@@ -3166,7 +3174,7 @@ export default function DigiGoldDashboard() {
 
             <div
               className="dg-header-mobile-brand"
-              onClick={() => { setCurrentView('dashboard'); navigate('/digi-gold'); }}
+              onClick={() => { navigateToView('dashboard'); }}
             >
               <img
                 src="/Aadhirai-Logo.png"
@@ -3185,7 +3193,7 @@ export default function DigiGoldDashboard() {
             <button
               className="dg-order-summary-shortcut-btn"
               type="button"
-              onClick={() => { setCurrentView('orders'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              onClick={() => { navigateToView('orders'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
               title="View Your Placed Bullion Orders & Delivery Tracking"
             >
               <Package size={15} />
@@ -3218,7 +3226,7 @@ export default function DigiGoldDashboard() {
                 <div>
                   <button
                     type="button"
-                    onClick={() => setCurrentView('dashboard')}
+                    onClick={() => navigateToView('dashboard')}
                     style={{
                       background: 'none', border: 'none', color: '#009957', fontWeight: 800,
                       fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 6
@@ -3257,7 +3265,7 @@ export default function DigiGoldDashboard() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowExcelModal(true)}
+                    onClick={() => navigateToView('valuation')}
                     style={{
                       padding: '10px 18px', borderRadius: 12, background: '#0A3E42', color: '#C6924B',
                       border: '1px solid #C6924B', fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6
@@ -3477,7 +3485,7 @@ export default function DigiGoldDashboard() {
                 <div className="dg-valuation-title-wrap">
                   <button
                     type="button"
-                    onClick={() => setCurrentView('dashboard')}
+                    onClick={() => navigateToView('dashboard')}
                     style={{
                       background: 'none', border: 'none', color: '#009957', fontWeight: 800,
                       fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 6
@@ -3791,7 +3799,7 @@ export default function DigiGoldDashboard() {
                 <button
                   type="button"
                   className={`dg-od-tab-btn ${currentView === 'delivery' ? 'active' : ''}`}
-                  onClick={() => setCurrentView('delivery')}
+                  onClick={() => navigateToView('delivery')}
                 >
                   <Truck size={15} />
                   <span>Home Delivery</span>
@@ -3799,7 +3807,7 @@ export default function DigiGoldDashboard() {
                 <button
                   type="button"
                   className={`dg-od-tab-btn ${currentView === 'offers' ? 'active' : ''}`}
-                  onClick={() => setCurrentView('offers')}
+                  onClick={() => navigateToView('offers')}
                 >
                   <BadgePercent size={15} />
                   <span>AutoPay SIP Offers</span>
@@ -3812,7 +3820,7 @@ export default function DigiGoldDashboard() {
                   {/* Subtle Back Link */}
                   <button
                     type="button"
-                    onClick={() => setCurrentView('dashboard')}
+                    onClick={() => navigateToView('dashboard')}
                     className="dg-offers-back-pill"
                     title="Return to Dashboard"
                   >
@@ -4384,7 +4392,7 @@ export default function DigiGoldDashboard() {
                 <button
                   type="button"
                   className={`dg-od-tab-btn ${currentView === 'delivery' ? 'active' : ''}`}
-                  onClick={() => setCurrentView('delivery')}
+                  onClick={() => navigateToView('delivery')}
                 >
                   <Truck size={15} />
                   <span>Home Delivery</span>
@@ -4392,7 +4400,7 @@ export default function DigiGoldDashboard() {
                 <button
                   type="button"
                   className={`dg-od-tab-btn ${currentView === 'offers' ? 'active' : ''}`}
-                  onClick={() => setCurrentView('offers')}
+                  onClick={() => navigateToView('offers')}
                 >
                   <BadgePercent size={15} />
                   <span>AutoPay SIP Offers</span>
@@ -4970,7 +4978,7 @@ export default function DigiGoldDashboard() {
                       <button
                         type="button"
                         className="dg-dfj-btn chat"
-                        onClick={() => setCurrentView('support')}
+                        onClick={() => navigateToView('support')}
                       >
                         <MessageCircle size={12} /> Live Chat
                       </button>
@@ -5019,7 +5027,7 @@ export default function DigiGoldDashboard() {
                   <button
                     type="button"
                     onClick={() => {
-                      setCurrentView('dashboard')
+                      navigateToView('dashboard')
                       window.scrollTo({ top: 0, behavior: 'smooth' })
                     }}
                     className="dg-orders-back-btn"
@@ -5041,7 +5049,7 @@ export default function DigiGoldDashboard() {
                     type="button"
                     className="dg-orders-new-order-btn"
                     onClick={() => {
-                      setCurrentView('delivery')
+                      navigateToView('delivery')
                       window.scrollTo({ top: 0, behavior: 'smooth' })
                     }}
                   >
@@ -5147,7 +5155,7 @@ export default function DigiGoldDashboard() {
                     type="button"
                     className="dg-orders-empty-btn"
                     onClick={() => {
-                      setCurrentView('delivery')
+                      navigateToView('delivery')
                       window.scrollTo({ top: 0, behavior: 'smooth' })
                     }}
                   >
@@ -5314,7 +5322,7 @@ export default function DigiGoldDashboard() {
                               type="button"
                               className="dg-oc-btn ghost"
                               onClick={() => {
-                                setCurrentView('delivery')
+                                navigateToView('delivery')
                                 window.scrollTo({ top: 0, behavior: 'smooth' })
                               }}
                             >
@@ -5454,7 +5462,7 @@ export default function DigiGoldDashboard() {
                 <div className="dg-support-header-top">
                   <button
                     type="button"
-                    onClick={() => setCurrentView('dashboard')}
+                    onClick={() => navigateToView('dashboard')}
                     className="dg-support-back-btn"
                   >
                     <ArrowLeft size={16} /> Back to Dashboard
@@ -5860,7 +5868,7 @@ export default function DigiGoldDashboard() {
               {/* 5 KPI CARDS (Real Values from DB) */}
               <section className="dg-kpi-grid">
                 {/* 1. Total Gold Holding */}
-                <div className="dg-kpi-card" onClick={() => setCurrentView('transactions')}>
+                <div className="dg-kpi-card" onClick={() => navigateToView('transactions')}>
                   <div className="dg-kpi-icon-wrap gold">
                     <Coins size={22} />
                   </div>
@@ -5881,7 +5889,7 @@ export default function DigiGoldDashboard() {
                 </div>
 
                 {/* 2. Digi Gold Vault Valuation */}
-                <div className="dg-kpi-card" onClick={() => setCurrentView('valuation')}>
+                <div className="dg-kpi-card" onClick={() => navigateToView('valuation')}>
                   <div className="dg-kpi-icon-wrap wallet">
                     <Wallet size={22} />
                   </div>
@@ -5903,7 +5911,7 @@ export default function DigiGoldDashboard() {
                 </div>
 
                 {/* 3. Digi Silver Vault Valuation — DEDICATED SILVER CARD */}
-                <div className="dg-kpi-card silver" onClick={() => setCurrentView('valuation')}>
+                <div className="dg-kpi-card silver" onClick={() => navigateToView('valuation')}>
                   <div className="dg-kpi-icon-wrap silver">
                     <ShieldCheck size={22} />
                   </div>
@@ -5925,7 +5933,7 @@ export default function DigiGoldDashboard() {
                 </div>
 
                 {/* 4. Total Invested */}
-                <div className="dg-kpi-card" onClick={() => setCurrentView('transactions')}>
+                <div className="dg-kpi-card" onClick={() => navigateToView('transactions')}>
                   <div className="dg-kpi-icon-wrap invested">
                     <TrendingUp size={22} />
                   </div>
@@ -5941,7 +5949,7 @@ export default function DigiGoldDashboard() {
                 </div>
 
                 {/* 5. Total Returns */}
-                <div className="dg-kpi-card" onClick={() => setCurrentView('transactions')}>
+                <div className="dg-kpi-card" onClick={() => navigateToView('transactions')}>
                   <div className={`dg-kpi-icon-wrap returns ${isNegativeReturn ? 'negative' : ''}`}>
                     <BarChart3 size={22} />
                   </div>
@@ -6143,7 +6151,7 @@ export default function DigiGoldDashboard() {
                     <button
                       className="dg-qa-btn"
                       type="button"
-                      onClick={() => setCurrentView('valuation')}
+                      onClick={() => navigateToView('valuation')}
                     >
                       <div className="dg-qa-icon transfer">
                         <ArrowLeftRight size={20} />
@@ -6157,7 +6165,7 @@ export default function DigiGoldDashboard() {
                 <div className="dg-card dg-market-rates-card">
                   <div className="dg-card-head">
                     <h3 className="dg-card-title">Market Rates</h3>
-                    <span className="dg-link-more" onClick={() => setCurrentView('valuation')}>
+                    <span className="dg-link-more" onClick={() => navigateToView('valuation')}>
                       View All →
                     </span>
                   </div>
@@ -6225,7 +6233,7 @@ export default function DigiGoldDashboard() {
                 <div className="dg-card">
                   <div className="dg-card-head">
                     <h3 className="dg-card-title">Recent Transactions</h3>
-                    <span className="dg-link-more" onClick={() => setCurrentView('transactions')}>
+                    <span className="dg-link-more" onClick={() => navigateToView('transactions')}>
                       View All →
                     </span>
                   </div>
@@ -6461,7 +6469,7 @@ export default function DigiGoldDashboard() {
                     <button
                       className="dg-rewards-cta"
                       type="button"
-                      onClick={() => setCurrentView('offers')}
+                      onClick={() => navigateToView('offers')}
                     >
                       <span>Explore Offers</span>
                       <ArrowRight size={14} />
@@ -6498,7 +6506,7 @@ export default function DigiGoldDashboard() {
 
                     <div
                       className="dg-info-item"
-                      onClick={() => { setCurrentView('support'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      onClick={() => { navigateToView('support'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                     >
                       <div className="dg-info-left">
                         <div className="dg-info-icon">
@@ -6514,7 +6522,7 @@ export default function DigiGoldDashboard() {
 
                     <div
                       className="dg-info-item"
-                      onClick={() => { setCurrentView('support'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      onClick={() => { navigateToView('support'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                     >
                       <div className="dg-info-left">
                         <div className="dg-info-icon">
@@ -6528,7 +6536,7 @@ export default function DigiGoldDashboard() {
                       <ChevronRight size={15} className="dg-info-chevron" />
                     </div>
 
-                    <div className="dg-info-item" onClick={() => setCurrentView('valuation')}>
+                    <div className="dg-info-item" onClick={() => navigateToView('valuation')}>
                       <div className="dg-info-left">
                         <div className="dg-info-icon">
                           <CircleHelp size={15} />
@@ -6553,7 +6561,7 @@ export default function DigiGoldDashboard() {
         <button
           type="button"
           className={`dg-mbn-item ${currentView === 'dashboard' && !sidebarOpen ? 'active' : ''}`}
-          onClick={() => { setCurrentView('dashboard'); setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+          onClick={() => { navigateToView('dashboard'); setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
         >
           <div className="dg-mbn-icon-wrap">
             <LayoutDashboard size={20} />
@@ -6564,7 +6572,7 @@ export default function DigiGoldDashboard() {
         <button
           type="button"
           className={`dg-mbn-item ${currentView === 'valuation' && !sidebarOpen ? 'active' : ''}`}
-          onClick={() => { setCurrentView('valuation'); setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+          onClick={() => { navigateToView('valuation'); setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
         >
           <div className="dg-mbn-icon-wrap">
             <WalletCards size={20} />
@@ -6588,7 +6596,7 @@ export default function DigiGoldDashboard() {
         <button
           type="button"
           className={`dg-mbn-item ${currentView === 'transactions' && !sidebarOpen ? 'active' : ''}`}
-          onClick={() => { setCurrentView('transactions'); setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+          onClick={() => { navigateToView('transactions'); setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
         >
           <div className="dg-mbn-icon-wrap">
             <History size={20} />
@@ -7566,7 +7574,7 @@ export default function DigiGoldDashboard() {
                   className="dg-success-btn-primary"
                   onClick={() => {
                     setActionSuccessData(null)
-                    setCurrentView('orders')
+                    navigateToView('orders')
                   }}
                 >
                   <span>Track Bullion Delivery</span>
@@ -7578,7 +7586,7 @@ export default function DigiGoldDashboard() {
                   className="dg-success-btn-primary"
                   onClick={() => {
                     setActionSuccessData(null)
-                    setCurrentView('transactions')
+                    navigateToView('transactions')
                   }}
                 >
                   <span>View in Transactions</span>
@@ -7592,7 +7600,7 @@ export default function DigiGoldDashboard() {
                     className="dg-success-btn-secondary"
                     onClick={() => {
                       setActionSuccessData(null)
-                      setCurrentView('delivery')
+                      navigateToView('delivery')
                     }}
                     style={{ flex: 1 }}
                   >
@@ -7604,7 +7612,7 @@ export default function DigiGoldDashboard() {
                     className="dg-success-btn-secondary"
                     onClick={() => {
                       setActionSuccessData(null)
-                      setCurrentView('valuation')
+                      navigateToView('valuation')
                     }}
                     style={{ flex: 1 }}
                   >

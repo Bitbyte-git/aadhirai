@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   LayoutDashboard,
   ReceiptText,
@@ -156,10 +157,31 @@ function DigiGoldSectionSkeleton({ rows = 7 }) {
   )
 }
 
+const SUPERADMIN_DIGI_GOLD_PATHS = {
+  overview: '',
+  orders: 'orders',
+  transactions: 'transactions',
+  gold_mgmt: 'gold-management',
+  silver_mgmt: 'silver-management',
+  user_buy: 'user-buy',
+  gold_rates: 'rates',
+}
+
 export default function SuperAdminDigiGold() {
+  const navigate = useNavigate()
+  const { section } = useParams()
+  const activeSection = Object.entries(SUPERADMIN_DIGI_GOLD_PATHS).find(([, path]) => path === (section || ''))?.[0] || 'overview'
+  const navigateToSection = id => {
+    const path = SUPERADMIN_DIGI_GOLD_PATHS[id]
+    navigate(path ? `/superadmin-digi-gold/${path}` : '/superadmin-digi-gold')
+  }
+  useEffect(() => {
+    if (section && !Object.values(SUPERADMIN_DIGI_GOLD_PATHS).includes(section)) {
+      navigate('/superadmin-digi-gold', { replace: true })
+    }
+  }, [section, navigate])
   // ── NAVIGATION & VIEW STATE ──
   // 'overview' | 'transactions' | 'gold_mgmt' | 'silver_mgmt' | 'user_buy' | 'gold_rates' | 'silver_rates'
-  const [activeSection, setActiveSection] = useState('overview')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   // Chart Metric Toggles: 'grams' | 'revenue'
@@ -181,6 +203,7 @@ export default function SuperAdminDigiGold() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'completed' | 'pending' | 'cancelled'
   const [metalFilter, setMetalFilter] = useState('all') // 'all' | 'gold' | 'silver'
+  const ledgerMetalFilter = activeSection === 'gold_mgmt' ? 'gold' : activeSection === 'silver_mgmt' ? 'silver' : metalFilter
   const [txnTypeFilter, setTxnTypeFilter] = useState('all') // 'all' | 'buy' | 'sell' | 'convert'
   const [selectedUserCategory, setSelectedUserCategory] = useState('all') // 'all' | 'super_stockist' | 'distributor' | 'wholesale_dealer' | 'retailer' | 'customer' | 'general_customer'
 
@@ -234,7 +257,7 @@ export default function SuperAdminDigiGold() {
   const dateCacheRef = useRef({})
 
   const getDashboardQueryKey = () => JSON.stringify([
-    dateFilter, statusFilter, metalFilter, txnTypeFilter, selectedUserCategory,
+    dateFilter, statusFilter, ledgerMetalFilter, txnTypeFilter, selectedUserCategory,
     customStartDate, customEndDate, search.trim(),
   ])
 
@@ -255,7 +278,7 @@ export default function SuperAdminDigiGold() {
     const requestId = ++dataRequestRef.current
     setLoadError('')
     try {
-      const cacheKey = `${dateFilter}_${statusFilter}_${metalFilter}_${txnTypeFilter}_${selectedUserCategory}_${customStartDate}_${customEndDate}_${search}`
+      const cacheKey = `${dateFilter}_${statusFilter}_${ledgerMetalFilter}_${txnTypeFilter}_${selectedUserCategory}_${customStartDate}_${customEndDate}_${search}`
       if (!append) {
         setData(null)
         setLoading(true)
@@ -264,7 +287,7 @@ export default function SuperAdminDigiGold() {
       const params = {
         date_filter: dateFilter,
         status: statusFilter,
-        metal: metalFilter,
+        metal: ledgerMetalFilter,
         transaction_type: txnTypeFilter,
         user_category: selectedUserCategory,
         limit: 35,
@@ -1204,7 +1227,7 @@ export default function SuperAdminDigiGold() {
   ]
 
   const handleNavClick = (id) => {
-    setActiveSection(id)
+    navigateToSection(id)
     setCurrentPage(1)
     if (id === 'gold_mgmt') setMetalFilter('gold')
     else if (id === 'silver_mgmt') setMetalFilter('silver')
@@ -1446,7 +1469,7 @@ export default function SuperAdminDigiGold() {
                     className="sadg-kpi-card sadg-clickable-card"
                     onClick={() => {
                       setMetalFilter('gold')
-                      setActiveSection('transactions')
+                      navigateToSection('transactions')
                     }}
                     title="Click to view Gold Transactions"
                   >
@@ -1465,7 +1488,7 @@ export default function SuperAdminDigiGold() {
                     className="sadg-kpi-card sadg-clickable-card"
                     onClick={() => {
                       setMetalFilter('gold')
-                      setActiveSection('transactions')
+                      navigateToSection('transactions')
                     }}
                     title="Click to view Gold Transactions"
                   >
@@ -1484,7 +1507,7 @@ export default function SuperAdminDigiGold() {
                     className="sadg-kpi-card sadg-clickable-card"
                     onClick={() => {
                       setMetalFilter('silver')
-                      setActiveSection('transactions')
+                      navigateToSection('transactions')
                     }}
                     title="Click to view Silver Transactions"
                   >
@@ -1505,7 +1528,7 @@ export default function SuperAdminDigiGold() {
                     className="sadg-kpi-card sadg-clickable-card"
                     onClick={() => {
                       setMetalFilter('silver')
-                      setActiveSection('transactions')
+                      navigateToSection('transactions')
                     }}
                     title="Click to view Silver Transactions"
                   >
@@ -1527,7 +1550,7 @@ export default function SuperAdminDigiGold() {
                     onClick={() => {
                       setMetalFilter('all')
                       setStatusFilter('all')
-                      setActiveSection('transactions')
+                      navigateToSection('transactions')
                     }}
                     title="Click to view All Transactions"
                   >
@@ -1545,7 +1568,7 @@ export default function SuperAdminDigiGold() {
                   <div
                     className="sadg-kpi-card sadg-clickable-card"
                     onClick={() => {
-                      setActiveSection('user_buy')
+                      navigateToSection('user_buy')
                     }}
                     title="Click to view User Buy Gold breakdown"
                   >
@@ -1716,7 +1739,7 @@ export default function SuperAdminDigiGold() {
                       <button
                         type="button"
                         className="sadg-view-all-link"
-                        onClick={() => setActiveSection('gold_rates')}
+                        onClick={() => navigateToSection('gold_rates')}
                       >
                         <span>View All</span>
                         <ArrowRight size={13} />
@@ -1798,7 +1821,7 @@ export default function SuperAdminDigiGold() {
                       <button
                         type="button"
                         className="sadg-view-all-link"
-                        onClick={() => setActiveSection('transactions')}
+                        onClick={() => navigateToSection('transactions')}
                       >
                         <span>View All</span>
                         <ArrowRight size={13} />
@@ -1865,7 +1888,7 @@ export default function SuperAdminDigiGold() {
                       <button
                         type="button"
                         className="sadg-view-all-link"
-                        onClick={() => setActiveSection('user_buy')}
+                        onClick={() => navigateToSection('user_buy')}
                       >
                         <span>View All</span>
                         <ArrowRight size={13} />
@@ -1922,7 +1945,7 @@ export default function SuperAdminDigiGold() {
                       <button
                         type="button"
                         className="sadg-view-all-link"
-                        onClick={() => setActiveSection('user_buy')}
+                        onClick={() => navigateToSection('user_buy')}
                       >
                         <span>View All</span>
                         <ArrowRight size={13} />
@@ -1934,7 +1957,7 @@ export default function SuperAdminDigiGold() {
                         className="sadg-role-card sadg-clickable-card"
                         onClick={() => {
                           setSelectedUserCategory('super_stockist')
-                          setActiveSection('transactions')
+                          navigateToSection('transactions')
                         }}
                         title="Click to filter by Super Stockist"
                       >
@@ -1951,7 +1974,7 @@ export default function SuperAdminDigiGold() {
                         className="sadg-role-card sadg-clickable-card"
                         onClick={() => {
                           setSelectedUserCategory('distributor')
-                          setActiveSection('transactions')
+                          navigateToSection('transactions')
                         }}
                         title="Click to filter by Distributor"
                       >
@@ -1968,7 +1991,7 @@ export default function SuperAdminDigiGold() {
                         className="sadg-role-card sadg-clickable-card"
                         onClick={() => {
                           setSelectedUserCategory('wholesale_dealer')
-                          setActiveSection('transactions')
+                          navigateToSection('transactions')
                         }}
                         title="Click to filter by Wholesale Dealer"
                       >
@@ -1985,7 +2008,7 @@ export default function SuperAdminDigiGold() {
                         className="sadg-role-card sadg-clickable-card"
                         onClick={() => {
                           setSelectedUserCategory('retailer')
-                          setActiveSection('transactions')
+                          navigateToSection('transactions')
                         }}
                         title="Click to filter by Retailer"
                       >

@@ -2522,3 +2522,6 @@
     justify-content: center;
   }
 }
+.sadg-number-skeleton { display: inline-block; width: 4.5em; max-width: 100%; height: .85em; min-height: 12px; border-radius: 6px; vertical-align: middle; }
+.sadg-pending-scope { margin: 0 0 12px; font-size: 12px; color: #6a7d7c; }
+.sadg-order-stat-label small { display: block; margin-top: 3px; font-size: 10px; text-transform: none; color: #74847f; }

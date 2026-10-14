@@ -11,7 +11,6 @@ import {
   UserRound,
   Headphones,
   Search,
-  Bell,
   ChevronDown,
   ChevronRight,
   TrendingUp,
@@ -70,6 +69,7 @@ import {
 import * as XLSX from 'xlsx'
 import api from '../../api'
 import './DigiGoldDashboard.css'
+import DigiGoldHeaderActions from './DigiGoldHeaderActions'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 import goldCoinImg from '../../assets/gold-coin-transparent.png'
@@ -3049,31 +3049,7 @@ export default function DigiGoldDashboard() {
               <span>Store</span>
             </button>
 
-            <button
-              className="dg-bell-btn"
-              type="button"
-              aria-label="Notifications"
-              onClick={() => alert('No new notifications')}
-            >
-              <Bell size={18} />
-              <span className="dg-red-dot" />
-            </button>
-
-            {/* Profile Chip (Navigates to /profile on click) */}
-            <div
-              className="dg-profile-chip"
-              onClick={() => navigate('/profile')}
-              title="View Profile Details"
-            >
-              <div className="dg-avatar">
-                {customerName ? customerName.charAt(0).toUpperCase() : 'U'}
-              </div>
-              <div className="dg-profile-info">
-                <span className="dg-profile-name">{customerName}</span>
-                <span className="dg-profile-role">{customerRole}</span>
-              </div>
-              <ChevronDown size={14} color="#647474" />
-            </div>
+            <DigiGoldHeaderActions customerName={customerName} customerRole={customerRole} />
           </div>
         </header>
 

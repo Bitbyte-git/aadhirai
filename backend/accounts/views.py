@@ -13754,31 +13754,68 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
         status_filter = request.query_params.get('status', 'all').lower()
         metal_filter = request.query_params.get('metal', 'all').lower()
         card_filter = request.query_params.get('card', 'all').lower()
-        if paginate and card_filter not in {'all', 'active', 'delivered', 'weight', 'valuation'}:
+        if paginate and card_filter not in {'all', 'active', 'pending', 'delivered', 'weight', 'valuation'}:
             return Response({'error': 'Invalid delivery order card filter.'}, status=400)
         search_q = request.query_params.get('search', '').strip()
+
+        date_filter = request.query_params.get('date_filter', 'all').lower() if paginate else 'all'
+        start_param = request.query_params.get('start_date') if paginate else None
+        end_param = request.query_params.get('end_date') if paginate else None
+        from datetime import datetime, timedelta
+        start_dt = end_dt = None
+        today = timezone.localdate()
+        if date_filter not in {'all', 'today', 'week', 'month', 'year', 'custom'}:
+            return Response({'error': 'Invalid date filter.'}, status=400)
+        if date_filter == 'custom':
+            try:
+                start_day = datetime.strptime(start_param or '', '%Y-%m-%d').date()
+                end_day = datetime.strptime(end_param or '', '%Y-%m-%d').date()
+                if end_day < start_day:
+                    raise ValueError('Invalid range')
+            except ValueError:
+                return Response({'error': 'Provide a valid start_date and end_date in YYYY-MM-DD format.'}, status=400)
+        elif date_filter != 'all':
+            start_day = today - timedelta(days={'today': 0, 'week': 7, 'month': 30, 'year': 365}[date_filter])
+            end_day = today
+        if date_filter != 'all':
+            start_dt = timezone.make_aware(datetime.combine(start_day, datetime.min.time()))
+            end_dt = timezone.make_aware(datetime.combine(end_day + timedelta(days=1), datetime.min.time()))
+
+        def in_period(queryset):
+            return queryset.filter(created_at__gte=start_dt, created_at__lt=end_dt) if start_dt else queryset
+
+        date_binding = {'date_filter': date_filter, 'start_date': start_param, 'end_date': end_param}
+        pending_card = card_filter in {'active', 'pending'}
+        all_orders = base_orders
+        period_orders = in_period(all_orders)
+        base_orders = all_orders if pending_card else period_orders
 
         # Stats are database aggregates over the complete admin ledger, never the loaded page.
         summary = None
         if paginate:
-            summary = base_orders.aggregate(
+            summary = period_orders.aggregate(
                 total_count=Count('id'),
                 total_weight=Sum('product_net_weight'),
                 total_valuation=Sum('total_price'),
                 active_count=Count('id', filter=~Q(status__in=['delivered', 'cancelled'])),
                 delivered_count=Count('id', filter=Q(status='delivered')),
             )
+            summary['pending_count'] = all_orders.exclude(status='delivered').count()
+            summary['active_count'] = summary['pending_count']
 
             # Retain and page legacy vault-delivery rows for older orders that predate JewelryOrder.
-            if not summary['total_count']:
-                legacy = DigiGoldInvestment.objects.filter(transaction_type='delivery').select_related('user')
-                legacy_summary = legacy.aggregate(
+            if not all_orders.exists():
+                all_legacy = DigiGoldInvestment.objects.filter(transaction_type='delivery').select_related('user')
+                legacy = all_legacy if pending_card else in_period(all_legacy)
+                legacy_summary = in_period(all_legacy).aggregate(
                     total_count=Count('id'),
                     total_weight=Sum('hold_gold_gm'),
                     total_valuation=Sum('recharge_amount'),
                     active_count=Count('id', filter=~Q(status__in=['delivered', 'cancelled'])),
                     delivered_count=Count('id', filter=Q(status='delivered')),
                 )
+                legacy_summary['pending_count'] = all_legacy.exclude(status='delivered').count()
+                legacy_summary['active_count'] = legacy_summary['pending_count']
                 legacy_filtered = legacy
                 if status_filter != 'all':
                     legacy_filtered = legacy_filtered.filter(status=status_filter)
@@ -13786,8 +13823,8 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
                     legacy_filtered = legacy_filtered.filter(notes__icontains='silver')
                 elif metal_filter == 'gold':
                     legacy_filtered = legacy_filtered.exclude(notes__icontains='silver')
-                if card_filter == 'active':
-                    legacy_filtered = legacy_filtered.exclude(status__in=['delivered', 'cancelled'])
+                if pending_card:
+                    legacy_filtered = legacy_filtered.exclude(status='delivered')
                 elif card_filter == 'delivered':
                     legacy_filtered = legacy_filtered.filter(status='delivered')
                 elif card_filter == 'weight':
@@ -13807,7 +13844,7 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
                         cursor = signing.loads(legacy_cursor, salt='digi-gold-delivery-orders-cursor', max_age=86400)
                         if (cursor.get('source') != 'legacy' or cursor.get('status') != status_filter or
                                 cursor.get('metal') != metal_filter or cursor.get('card') != card_filter or
-                                cursor.get('search') != search_q):
+                                cursor.get('search') != search_q or cursor.get('dates') != date_binding):
                             return Response({'error': 'Order cursor does not match the active filters.'}, status=400)
                         cursor_date = parse_datetime(cursor.get('created_at', ''))
                         cursor_id = int(cursor.get('id'))
@@ -13826,7 +13863,7 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
                     last_legacy = legacy_page[-1]
                     legacy_next_cursor = signing.dumps({
                         'source': 'legacy', 'created_at': last_legacy.created_at.isoformat(), 'id': last_legacy.id,
-                        'status': status_filter, 'metal': metal_filter, 'card': card_filter, 'search': search_q,
+                        'status': status_filter, 'metal': metal_filter, 'card': card_filter, 'search': search_q, 'dates': date_binding,
                     }, salt='digi-gold-delivery-orders-cursor', compress=True)
                 legacy_records = [{
                     'id': row.id,
@@ -13855,6 +13892,7 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
                         'total_weight': float(legacy_summary['total_weight'] or 0),
                         'total_valuation': float(legacy_summary['total_valuation'] or 0),
                         'active_count': legacy_summary['active_count'] or 0,
+                        'pending_count': legacy_summary['pending_count'] or 0,
                         'delivered_count': legacy_summary['delivered_count'] or 0,
                     },
                     'has_more': legacy_has_more,
@@ -13866,8 +13904,8 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
             orders = orders.filter(status=status_filter)
         if paginate and metal_filter in {'gold', 'silver'}:
             orders = orders.filter(product_metal__icontains=metal_filter)
-        if paginate and card_filter == 'active':
-            orders = orders.exclude(status__in=['delivered', 'cancelled'])
+        if paginate and pending_card:
+            orders = orders.exclude(status='delivered')
         elif paginate and card_filter == 'delivered':
             orders = orders.filter(status='delivered')
         elif paginate and card_filter == 'weight':
@@ -13889,7 +13927,7 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
         if cursor_token:
             try:
                 cursor = signing.loads(cursor_token, salt='digi-gold-delivery-orders-cursor', max_age=86400)
-                if cursor.get('source') != 'jewelry' or cursor.get('status') != status_filter or cursor.get('metal') != metal_filter or cursor.get('card') != card_filter or cursor.get('search') != search_q:
+                if cursor.get('source') != 'jewelry' or cursor.get('status') != status_filter or cursor.get('metal') != metal_filter or cursor.get('card') != card_filter or cursor.get('search') != search_q or cursor.get('dates') != date_binding:
                     return Response({'error': 'Order cursor does not match the active filters.'}, status=400)
                 cursor_date = parse_datetime(cursor.get('created_at', ''))
                 cursor_id = int(cursor.get('id'))
@@ -13919,6 +13957,7 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
                     'metal': metal_filter,
                     'card': card_filter,
                     'search': search_q,
+                    'dates': date_binding,
                 }, salt='digi-gold-delivery-orders-cursor', compress=True)
             orders = page_rows
         else:
@@ -13993,8 +14032,8 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
                 filtered_orders = filtered_orders.filter(status=status_filter)
             if metal_filter in {'gold', 'silver'}:
                 filtered_orders = filtered_orders.filter(product_metal__icontains=metal_filter)
-            if card_filter == 'active':
-                filtered_orders = filtered_orders.exclude(status__in=['delivered', 'cancelled'])
+            if pending_card:
+                filtered_orders = filtered_orders.exclude(status='delivered')
             elif card_filter == 'delivered':
                 filtered_orders = filtered_orders.filter(status='delivered')
             elif card_filter == 'weight':
@@ -14016,6 +14055,7 @@ class DigiGoldDeliveryOrderHistoryView(APIView):
                     'total_weight': float(summary['total_weight'] or 0),
                     'total_valuation': float(summary['total_valuation'] or 0),
                     'active_count': summary['active_count'] or 0,
+                    'pending_count': summary['pending_count'] or 0,
                     'delivered_count': summary['delivered_count'] or 0,
                 },
                 'has_more': has_more,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   LayoutDashboard,
   ReceiptText,
@@ -54,13 +54,33 @@ import silverCoinImg from '../assets/silver-coin-transparent.png'
 import './SuperAdminDigiGold.css'
 
 // ── HIGH-PERFORMANCE TABULAR NUMBER COMPONENT (ZERO DOM JANK) ──
-function AnimatedNumber({ value, prefix = '', suffix = '', decimals = 0 }) {
-  const numVal = Number(value) || 0
-  const formatted = decimals > 0
-    ? numVal.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-    : Math.round(numVal).toLocaleString('en-IN')
+const NumberLoadingContext = createContext(false)
 
-  return <span style={{ fontVariantNumeric: 'tabular-nums lining-nums' }}>{prefix}{formatted}{suffix}</span>
+function AnimatedNumber({ value, prefix = '', suffix = '', decimals = 0, duration = 650 }) {
+  const isLoading = useContext(NumberLoadingContext)
+  const target = Number.isFinite(Number(value)) ? Number(value) : 0
+  const [displayValue, setDisplayValue] = useState(0)
+  const previousRef = useRef(0)
+  useEffect(() => {
+    if (isLoading) return undefined
+    const start = previousRef.current
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    let startedAt = null
+    let frameId
+    const step = timestamp => {
+      if (startedAt === null) startedAt = timestamp
+      const progress = reducedMotion || duration <= 0 ? 1 : Math.min((timestamp - startedAt) / duration, 1)
+      const next = start + (target - start) * (1 - Math.pow(1 - progress, 3))
+      previousRef.current = next
+      setDisplayValue(next)
+      if (progress < 1) frameId = requestAnimationFrame(step)
+    }
+    frameId = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(frameId)
+  }, [target, duration, isLoading])
+  if (isLoading) return <span className="sadg-number-skeleton sadg-skeleton-line" aria-label="Loading value" />
+  const formatted = displayValue.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+  return <span style={{ display: 'inline-block', fontVariantNumeric: 'tabular-nums lining-nums' }}>{prefix}{formatted}{suffix}</span>
 }
 
 // ── CUSTOM LUXURY CHART TOOLTIP COMPONENT ──
@@ -185,6 +205,7 @@ export default function SuperAdminDigiGold() {
   const [deliveryOrdersError, setDeliveryOrdersError] = useState('')
   const [deliveryOrdersFilteredTotal, setDeliveryOrdersFilteredTotal] = useState(0)
   const [deliveryOrderSummary, setDeliveryOrderSummary] = useState({ total_count: 0, total_weight: 0, total_valuation: 0, active_count: 0, delivered_count: 0 })
+  const [deliveryOrdersReady, setDeliveryOrdersReady] = useState(false)
   const [deliveryOrdersHasMore, setDeliveryOrdersHasMore] = useState(false)
   const deliveryOrderCursorRef = useRef(null)
   const deliveryOrderRequestRef = useRef(0)
@@ -235,9 +256,7 @@ export default function SuperAdminDigiGold() {
     setLoadError('')
     try {
       const cacheKey = `${dateFilter}_${statusFilter}_${metalFilter}_${txnTypeFilter}_${selectedUserCategory}_${customStartDate}_${customEndDate}_${search}`
-      if (!append && dateCacheRef.current[cacheKey]) {
-        setData(dateCacheRef.current[cacheKey])
-      } else if (!append) {
+      if (!append) {
         setData(null)
         setLoading(true)
       }
@@ -343,13 +362,18 @@ export default function SuperAdminDigiGold() {
     else {
       setDeliveryOrdersError('')
       setLoadingDeliveryOrders(true)
+      setDeliveryOrdersReady(false)
       setLoadingMoreDeliveryOrders(false)
       setDeliveryOrdersList([])
       deliveryOrderCursorRef.current = null
       setDeliveryOrdersHasMore(false)
     }
     try {
-      const params = { limit: 30, status: orderStatusFilter, metal: orderMetalFilter, card: orderCardFilter, search: debouncedOrderSearch.trim() }
+      const params = { limit: 30, status: orderStatusFilter, metal: orderMetalFilter, card: orderCardFilter, search: debouncedOrderSearch.trim(), date_filter: dateFilter }
+      if (dateFilter === 'custom') {
+        params.start_date = customStartDate
+        params.end_date = customEndDate
+      }
       if (append && deliveryOrderCursorRef.current) params.cursor = deliveryOrderCursorRef.current
       const res = await api.get('/digi-gold/delivery/orders/', { params })
       if (requestId !== deliveryOrderRequestRef.current) return
@@ -360,6 +384,7 @@ export default function SuperAdminDigiGold() {
         setDeliveryOrdersFilteredTotal(Number(res.data.filtered_count))
       }
       setDeliveryOrderSummary(res.data?.summary || { total_count: 0, total_weight: 0, total_valuation: 0, active_count: 0, delivered_count: 0 })
+      setDeliveryOrdersReady(true)
       deliveryOrderCursorRef.current = res.data?.next_cursor || null
       setDeliveryOrdersHasMore(Boolean(res.data?.has_more))
     } catch (err) {
@@ -372,13 +397,13 @@ export default function SuperAdminDigiGold() {
         setLoadingMoreDeliveryOrders(false)
       }
     }
-  }, [orderStatusFilter, orderMetalFilter, orderCardFilter, debouncedOrderSearch])
+  }, [orderStatusFilter, orderMetalFilter, orderCardFilter, debouncedOrderSearch, dateFilter, customStartDate, customEndDate])
 
   useEffect(() => {
     if (activeSection === 'orders') {
       fetchDeliveryOrders()
     }
-  }, [activeSection, orderStatusFilter, orderMetalFilter, orderCardFilter, debouncedOrderSearch])
+  }, [activeSection, fetchDeliveryOrders])
 
   useEffect(() => {
     if (activeSection !== 'orders' || !deliveryOrdersHasMore || loadingDeliveryOrders || loadingMoreDeliveryOrders) return undefined
@@ -420,7 +445,7 @@ export default function SuperAdminDigiGold() {
   const filteredDeliveryOrders = useMemo(() => {
     return deliveryOrdersList.filter((o) => {
       const normalizedStatus = (o.status || '').toLowerCase()
-      if (orderCardFilter === 'active' && ['delivered', 'cancelled'].includes(normalizedStatus)) return false
+      if (orderCardFilter === 'pending' && normalizedStatus === 'delivered') return false
       if (orderCardFilter === 'delivered' && normalizedStatus !== 'delivered') return false
       if (orderCardFilter === 'weight' && !(Number(o.weight_gm) > 0)) return false
       if (orderCardFilter === 'valuation' && !(Number(o.valuation_inr) > 0)) return false
@@ -451,7 +476,7 @@ export default function SuperAdminDigiGold() {
       totalCount: Number(deliveryOrderSummary.total_count || 0),
       totalWeight: Number(deliveryOrderSummary.total_weight || 0),
       totalValuation: Number(deliveryOrderSummary.total_valuation || 0),
-      activeCount: Number(deliveryOrderSummary.active_count || 0),
+      pendingCount: Number(deliveryOrderSummary.pending_count ?? deliveryOrderSummary.active_count ?? 0),
       deliveredCount: Number(deliveryOrderSummary.delivered_count || 0),
     }
   }, [deliveryOrderSummary])
@@ -1188,6 +1213,7 @@ export default function SuperAdminDigiGold() {
   }
 
   return (
+    <NumberLoadingContext.Provider value={activeSection === 'orders' ? loadingDeliveryOrders || !deliveryOrdersReady : loading || !data}>
     <div className="sadg-layout">
       {/* ── MOBILE BACKDROP OVERLAY (SMOOTH BLUR DISMISS) ── */}
       {mobileSidebarOpen && (
@@ -1303,10 +1329,10 @@ export default function SuperAdminDigiGold() {
             <button
               type="button"
               className="sadg-btn-refresh"
-              onClick={fetchData}
-              disabled={loading}
+              onClick={() => activeSection === 'orders' ? fetchDeliveryOrders() : fetchData()}
+              disabled={activeSection === 'orders' ? loadingDeliveryOrders : loading}
             >
-              <RefreshCw size={15} className={loading ? 'sadg-spin' : ''} />
+              <RefreshCw size={15} className={(activeSection === 'orders' ? loadingDeliveryOrders : loading) ? 'sadg-spin' : ''} />
               <span>Refresh</span>
             </button>
             <button
@@ -1393,7 +1419,7 @@ export default function SuperAdminDigiGold() {
         {activeSection === 'overview' && (
           <>
             {/* SKELETON LOADING STATE WHEN DATA IS NOT READY */}
-            {loading && !data ? (
+            {loading || !data ? (
               <>
                 <div className="sadg-kpi-grid">
                   {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -1470,7 +1496,7 @@ export default function SuperAdminDigiGold() {
                       <AnimatedNumber value={kpis.total_silver_sales_inr || 0} prefix="₹ " />
                     </b>
                     <span className="sadg-kpi-sub">
-                      Gross volume • ₹{Number(rates.silver_999 || 275).toFixed(2)}/g
+                      Gross volume • ₹<AnimatedNumber value={rates.silver_999} decimals={2} />/g
                     </span>
                   </div>
 
@@ -1718,7 +1744,7 @@ export default function SuperAdminDigiGold() {
                           </td>
                           <td>
                             <span style={{ color: rates.diff_22k >= 0 ? '#073E40' : '#DC5353', fontWeight: 700 }}>
-                              {rates.diff_22k >= 0 ? '+' : ''}{rates.diff_22k || 0} ({rates.pct_22k || 0}%)
+                              {rates.diff_22k >= 0 ? '+' : ''}<AnimatedNumber value={rates.diff_22k} decimals={2} /> (<AnimatedNumber value={rates.pct_22k} decimals={2} />%)
                             </span>
                           </td>
                         </tr>
@@ -1734,7 +1760,7 @@ export default function SuperAdminDigiGold() {
                           </td>
                           <td>
                             <span style={{ color: rates.diff_silver >= 0 ? '#073E40' : '#DC5353', fontWeight: 700 }}>
-                              {rates.diff_silver >= 0 ? '+' : ''}{rates.diff_silver || 0} ({rates.pct_silver || 0}%)
+                              {rates.diff_silver >= 0 ? '+' : ''}<AnimatedNumber value={rates.diff_silver} decimals={2} /> (<AnimatedNumber value={rates.pct_silver} decimals={2} />%)
                             </span>
                           </td>
                         </tr>
@@ -1808,8 +1834,8 @@ export default function SuperAdminDigiGold() {
                                 </td>
                                 <td>{row.metal_label}</td>
                                 <td style={{ textTransform: 'capitalize' }}>{row.transaction_type}</td>
-                                <td><b>{row.quantity_label}</b></td>
-                                <td>₹ {row.amount?.toLocaleString('en-IN')}</td>
+                                <td><b><AnimatedNumber value={row.quantity_gm} decimals={3} suffix=" g" /></b></td>
+                                <td>₹ <AnimatedNumber value={row.amount} decimals={2} /></td>
                                 <td>
                                   <span className={`sadg-status-badge ${row.status}`}>
                                     {row.status}
@@ -1982,11 +2008,11 @@ export default function SuperAdminDigiGold() {
         {/* ══════════════════════════════════════════════════════════════
            VIEW 2: TRANSACTIONS (FULL AUDIT HISTORY)
            ══════════════════════════════════════════════════════════════ */}
-        {loading && !data && ['gold_mgmt', 'silver_mgmt', 'user_buy', 'gold_rates'].includes(activeSection) && (
+        {(loading || !data) && ['transactions', 'gold_mgmt', 'silver_mgmt', 'user_buy', 'gold_rates'].includes(activeSection) && (
           <DigiGoldSectionSkeleton rows={activeSection === 'gold_rates' ? 5 : 7} />
         )}
 
-        {activeSection === 'transactions' && (
+        {activeSection === 'transactions' && !loading && data && (
           <div className="sadg-full-section">
             {/* Search & Filter Bar */}
             <div className="sadg-filters-card">
@@ -2125,9 +2151,9 @@ export default function SuperAdminDigiGold() {
                               </span>
                             </td>
                             <td style={{ textTransform: 'capitalize', fontWeight: 600 }}>{row.transaction_type}</td>
-                            <td><b>{row.quantity_label}</b></td>
-                            <td>₹ {Number(row.rate).toLocaleString('en-IN')}</td>
-                            <td><b>₹ {Number(row.amount).toLocaleString('en-IN')}</b></td>
+                            <td><b><AnimatedNumber value={row.quantity_gm} decimals={3} suffix=" g" /></b></td>
+                            <td>₹ <AnimatedNumber value={row.rate} decimals={2} /></td>
+                            <td><b>₹ <AnimatedNumber value={row.amount} decimals={2} /></b></td>
                             <td>
                               <span className={`sadg-status-badge ${row.status}`}>
                                 {row.status}
@@ -2169,7 +2195,7 @@ export default function SuperAdminDigiGold() {
               {/* Infinite Scroll Live Audit Bar */}
               <div className="sadg-pagination-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 13, color: '#4E615F', fontWeight: 600 }}>
-                  Showing <b>{Math.min(txnVisibleCount, filteredItems.length)}</b> of <b>{Number(data?.total_records || 0).toLocaleString('en-IN')}</b> matching records
+                  Showing <b><AnimatedNumber value={Math.min(txnVisibleCount, filteredItems.length)} /></b> of <b><AnimatedNumber value={data?.total_records} /></b> matching records
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {loadingMoreTxns ? (
@@ -2201,7 +2227,7 @@ export default function SuperAdminDigiGold() {
                     </div>
                   ) : (
                     <span style={{ fontSize: 12, color: '#073E40', fontWeight: 700 }}>
-                      ✓ All {Number(data?.total_records || filteredItems.length).toLocaleString('en-IN')} records loaded
+                      ✓ All <AnimatedNumber value={data?.total_records ?? filteredItems.length} /> records loaded
                     </span>
                   )}
                 </div>
@@ -2213,7 +2239,7 @@ export default function SuperAdminDigiGold() {
         {/* ══════════════════════════════════════════════════════════════
            VIEW 3: GOLD MANAGEMENT (DETAILED GOLD SALES)
            ══════════════════════════════════════════════════════════════ */}
-        {activeSection === 'gold_mgmt' && !(loading && !data) && (
+        {activeSection === 'gold_mgmt' && !loading && data && (
           <div className="sadg-full-section">
             {/* 6 Gold Specific KPI Cards (AnimatedNumbers, Never Dash) */}
             <div className="sadg-kpi-grid">
@@ -2381,9 +2407,9 @@ export default function SuperAdminDigiGold() {
                             <div style={{ fontSize: 10.5, color: '#6A7D7C' }}>{row.user_email}</div>
                           </td>
                           <td>{row.user_category}</td>
-                          <td><b style={{ color: '#0A3E42' }}>{row.quantity_label}</b></td>
-                          <td>₹ {Number(row.rate).toLocaleString('en-IN')}</td>
-                          <td><b>₹ {Number(row.amount).toLocaleString('en-IN')}</b></td>
+                          <td><b style={{ color: '#0A3E42' }}><AnimatedNumber value={row.quantity_gm} decimals={3} suffix=" g" /></b></td>
+                          <td>₹ <AnimatedNumber value={row.rate} decimals={2} /></td>
+                          <td><b>₹ <AnimatedNumber value={row.amount} decimals={2} /></b></td>
                           <td style={{ textTransform: 'capitalize' }}>{row.transaction_type}</td>
                           <td>
                             <span className={`sadg-status-badge ${row.status}`}>{row.status}</span>
@@ -2401,7 +2427,7 @@ export default function SuperAdminDigiGold() {
         {/* ══════════════════════════════════════════════════════════════
            VIEW 4: SILVER MANAGEMENT (DETAILED SILVER SALES)
            ══════════════════════════════════════════════════════════════ */}
-        {activeSection === 'silver_mgmt' && !(loading && !data) && (
+        {activeSection === 'silver_mgmt' && !loading && data && (
           <div className="sadg-full-section">
             {/* 6 Silver Specific KPI Cards (AnimatedNumbers, Never Dash) */}
             <div className="sadg-kpi-grid">
@@ -2425,7 +2451,7 @@ export default function SuperAdminDigiGold() {
                   <AnimatedNumber value={kpis.total_silver_sold_gm || 0} decimals={3} suffix=" g" />
                 </b>
                 <span className="sadg-kpi-sub">
-                  {kpis.total_silver_sold_gm > 0 ? `${(kpis.total_silver_sold_gm / 1000).toFixed(4)} kg` : 'Net silver weight'}
+                  {kpis.total_silver_sold_gm > 0 ? <AnimatedNumber value={kpis.total_silver_sold_gm / 1000} decimals={4} suffix=" kg" /> : 'Net silver weight'}
                 </span>
               </div>
 
@@ -2571,9 +2597,9 @@ export default function SuperAdminDigiGold() {
                             <div style={{ fontSize: 10.5, color: '#6A7D7C' }}>{row.user_email}</div>
                           </td>
                           <td>{row.user_category}</td>
-                          <td><b style={{ color: '#0A3E42' }}>{row.quantity_label}</b></td>
-                          <td>₹ {Number(row.rate).toFixed(2)}</td>
-                          <td><b>₹ {Number(row.amount).toLocaleString('en-IN')}</b></td>
+                          <td><b style={{ color: '#0A3E42' }}><AnimatedNumber value={row.quantity_gm} decimals={3} suffix=" g" /></b></td>
+                          <td>₹ <AnimatedNumber value={row.rate} decimals={2} /></td>
+                          <td><b>₹ <AnimatedNumber value={row.amount} decimals={2} /></b></td>
                           <td style={{ textTransform: 'capitalize' }}>{row.transaction_type}</td>
                           <td>
                             <span className={`sadg-status-badge ${row.status}`}>{row.status}</span>
@@ -2591,7 +2617,7 @@ export default function SuperAdminDigiGold() {
         {/* ══════════════════════════════════════════════════════════════
            VIEW 5: USER BUY GOLD (CATEGORY-WISE PURCHASE HISTORY)
            ══════════════════════════════════════════════════════════════ */}
-        {activeSection === 'user_buy' && !(loading && !data) && (
+        {activeSection === 'user_buy' && !loading && data && (
           <div className="sadg-full-section">
             {/* Category Dropdown & Summary */}
             <div className="sadg-filters-card">
@@ -2702,9 +2728,9 @@ export default function SuperAdminDigiGold() {
                               {row.metal_label}
                             </span>
                           </td>
-                          <td><b>{row.quantity_label}</b></td>
-                          <td>₹ {Number(row.rate).toLocaleString('en-IN')}</td>
-                          <td><b>₹ {Number(row.amount).toLocaleString('en-IN')}</b></td>
+                          <td><b><AnimatedNumber value={row.quantity_gm} decimals={3} suffix=" g" /></b></td>
+                          <td>₹ <AnimatedNumber value={row.rate} decimals={2} /></td>
+                          <td><b>₹ <AnimatedNumber value={row.amount} decimals={2} /></b></td>
                           <td><code>{row.transaction_id}</code></td>
                           <td>
                             <span className={`sadg-status-badge ${row.status}`}>{row.status}</span>
@@ -2722,7 +2748,7 @@ export default function SuperAdminDigiGold() {
         {/* ══════════════════════════════════════════════════════════════
            VIEW 6: GOLD RATES (DEDICATED SECTION)
            ══════════════════════════════════════════════════════════════ */}
-        {activeSection === 'gold_rates' && !(loading && !data) && (
+        {activeSection === 'gold_rates' && !loading && data && (
           <div className="sadg-full-section">
             {/* Live Benchmark Rates Cards (22K Gold & Pure 999 Silver Only) */}
             <div className="sadg-rates-display-grid">
@@ -2735,7 +2761,7 @@ export default function SuperAdminDigiGold() {
                     ₹ <AnimatedNumber value={rates.gold_22k || 13200} /> <small style={{ fontSize: 14 }}>/ g</small>
                   </div>
                   <div style={{ fontSize: 12, opacity: 0.9 }}>
-                    Movement: {rates.diff_22k >= 0 ? '+' : ''}{rates.diff_22k || 0} ({rates.pct_22k || 0}%)
+                    Movement: {rates.diff_22k >= 0 ? '+' : ''}<AnimatedNumber value={rates.diff_22k} decimals={2} /> (<AnimatedNumber value={rates.pct_22k} decimals={2} />%)
                   </div>
                 </div>
                 <Coins size={38} color="#FDE68A" />
@@ -2750,7 +2776,7 @@ export default function SuperAdminDigiGold() {
                     ₹ <AnimatedNumber value={rates.silver_999 || 275} decimals={2} /> <small style={{ fontSize: 14 }}>/ g</small>
                   </div>
                   <div style={{ fontSize: 12, opacity: 0.9 }}>
-                    Per Kilogram: ₹ {((rates.silver_999 || 275) * 1000).toLocaleString('en-IN')} | Movement: {rates.diff_silver >= 0 ? '+' : ''}{rates.diff_silver || 0} ({rates.pct_silver || 0}%)
+                    Per Kilogram: ₹ <AnimatedNumber value={Number(rates.silver_999 || 0) * 1000} /> | Movement: {rates.diff_silver >= 0 ? '+' : ''}<AnimatedNumber value={rates.diff_silver} decimals={2} /> (<AnimatedNumber value={rates.pct_silver} decimals={2} />%)
                   </div>
                 </div>
                 <Layers size={38} color="#E2E8F0" />
@@ -2803,8 +2829,8 @@ export default function SuperAdminDigiGold() {
                       rateHistory.map((r, idx) => (
                         <tr key={r.date_iso || idx}>
                           <td><b>{r.date}</b></td>
-                          <td>₹ {Number(r.gold_22k).toLocaleString('en-IN')}</td>
-                          <td>₹ {Number(r.silver_999).toFixed(2)}</td>
+                          <td>₹ <AnimatedNumber value={r.gold_22k} decimals={2} /></td>
+                          <td>₹ <AnimatedNumber value={r.silver_999} decimals={2} /></td>
                           <td>
                             <span className="sadg-status-badge completed">Verified Athirai Rate</span>
                           </td>
@@ -2843,16 +2869,16 @@ export default function SuperAdminDigiGold() {
               <button type="button" className={`sadg-order-stat-card ${orderCardFilter === 'all' ? 'selected' : ''}`} onClick={() => setOrderCardFilter('all')} aria-pressed={orderCardFilter === 'all'}>
                 <div className="sadg-order-stat-info">
                   <span className="sadg-order-stat-label">Total Orders</span>
-                  <span className="sadg-order-stat-val">{orderStats.totalCount}</span>
+                  <span className="sadg-order-stat-val"><AnimatedNumber value={orderStats.totalCount} /></span>
                 </div>
                 <div className="sadg-order-stat-icon-wrap">
                   <Package size={20} />
                 </div>
               </button>
-              <button type="button" className={`sadg-order-stat-card ${orderCardFilter === 'active' ? 'selected' : ''}`} onClick={() => setOrderCardFilter('active')} aria-pressed={orderCardFilter === 'active'}>
+              <button type="button" className={`sadg-order-stat-card ${orderCardFilter === 'pending' ? 'selected' : ''}`} onClick={() => { setOrderCardFilter('pending'); setOrderStatusFilter('all'); setOrderMetalFilter('all'); setOrderSearch('') }} aria-pressed={orderCardFilter === 'pending'} title="All orders awaiting delivery, across all dates">
                 <div className="sadg-order-stat-info">
-                  <span className="sadg-order-stat-label">Active Orders</span>
-                  <span className="sadg-order-stat-val" style={{ color: '#D49A38' }}>{orderStats.activeCount}</span>
+                  <span className="sadg-order-stat-label">Pending Orders <small>All time</small></span>
+                  <span className="sadg-order-stat-val" style={{ color: '#D49A38' }}><AnimatedNumber value={orderStats.pendingCount} /></span>
                 </div>
                 <div className="sadg-order-stat-icon-wrap gold">
                   <Truck size={20} />
@@ -2861,7 +2887,7 @@ export default function SuperAdminDigiGold() {
               <button type="button" className={`sadg-order-stat-card ${orderCardFilter === 'delivered' ? 'selected' : ''}`} onClick={() => setOrderCardFilter('delivered')} aria-pressed={orderCardFilter === 'delivered'}>
                 <div className="sadg-order-stat-info">
                   <span className="sadg-order-stat-label">Delivered</span>
-                  <span className="sadg-order-stat-val" style={{ color: '#0E8548' }}>{orderStats.deliveredCount}</span>
+                  <span className="sadg-order-stat-val" style={{ color: '#0E8548' }}><AnimatedNumber value={orderStats.deliveredCount} /></span>
                 </div>
                 <div className="sadg-order-stat-icon-wrap success">
                   <CheckCircle2 size={20} />
@@ -2870,7 +2896,7 @@ export default function SuperAdminDigiGold() {
               <button type="button" className={`sadg-order-stat-card ${orderCardFilter === 'weight' ? 'selected' : ''}`} onClick={() => setOrderCardFilter('weight')} aria-pressed={orderCardFilter === 'weight'}>
                 <div className="sadg-order-stat-info">
                   <span className="sadg-order-stat-label">Total Weight</span>
-                  <span className="sadg-order-stat-val">{orderStats.totalWeight.toFixed(3)}<small style={{ fontSize: 13, fontWeight: 600 }}> g</small></span>
+                  <span className="sadg-order-stat-val"><AnimatedNumber value={orderStats.totalWeight} decimals={3} suffix=" g" /></span>
                 </div>
                 <div className="sadg-order-stat-icon-wrap silver">
                   <Layers size={20} />
@@ -2879,7 +2905,7 @@ export default function SuperAdminDigiGold() {
               <button type="button" className={`sadg-order-stat-card ${orderCardFilter === 'valuation' ? 'selected' : ''}`} onClick={() => setOrderCardFilter('valuation')} aria-pressed={orderCardFilter === 'valuation'}>
                 <div className="sadg-order-stat-info">
                   <span className="sadg-order-stat-label">Total Valuation</span>
-                  <span className="sadg-order-stat-val" style={{ fontSize: 18 }}>₹ {orderStats.totalValuation.toLocaleString('en-IN')}</span>
+                  <span className="sadg-order-stat-val" style={{ fontSize: 18 }}><AnimatedNumber value={orderStats.totalValuation} prefix="₹ " /></span>
                 </div>
                 <div className="sadg-order-stat-icon-wrap gold">
                   <Wallet size={20} />
@@ -2888,6 +2914,7 @@ export default function SuperAdminDigiGold() {
             </div>
 
             {/* FILTER BAR */}
+            {orderCardFilter === 'pending' && <p className="sadg-pending-scope">Showing orders awaiting delivery across all dates.</p>}
             <div className="sadg-orders-filter-bar">
               <div className="sadg-orders-search-box">
                 <Search size={14} color="#6A7D7C" />
@@ -2950,12 +2977,12 @@ export default function SuperAdminDigiGold() {
                 <span style={{ fontWeight: 800, fontSize: 15, color: '#103F42' }}>
                   Delivery Orders
                   <span style={{ marginLeft: 10, fontSize: 12, fontWeight: 600, color: '#6A7D7C', background: '#F0F6F4', padding: '3px 10px', borderRadius: 20 }}>
-                    {deliveryOrdersFilteredTotal.toLocaleString('en-IN')} orders
+                    <AnimatedNumber value={deliveryOrdersFilteredTotal} /> orders
                   </span>
                 </span>
               </div>
 
-              {loadingDeliveryOrders ? (
+              {loadingDeliveryOrders || (!deliveryOrdersReady && !deliveryOrdersError) ? (
                 <div className="sadg-orders-skeleton-wrap" role="status" aria-label="Loading delivery orders">
                   <span className="sadg-sr-only">Loading delivery orders</span>
                   <div className="sadg-orders-skeleton-table">
@@ -3049,10 +3076,10 @@ export default function SuperAdminDigiGold() {
                               </span>
                             </td>
                             <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 13 }}>
-                              {Number(order.weight_gm || 0).toFixed(3)} g
+                              <AnimatedNumber value={order.weight_gm} decimals={3} /> g
                             </td>
                             <td style={{ textAlign: 'right', fontWeight: 800, color: '#073E40', fontSize: 13 }}>
-                              ₹ {Number(order.valuation_inr || 0).toLocaleString('en-IN')}
+                              ₹ <AnimatedNumber value={order.valuation_inr} decimals={2} />
                             </td>
                             <td style={{ textAlign: 'center' }}>
                               <span className={`sadg-order-status-badge ${statusClass}`}>
@@ -3115,8 +3142,8 @@ export default function SuperAdminDigiGold() {
                         <div className="sadg-orders-mobile-address"><MapPin size={13} /><span>{addrLine}</span></div>
                         <div className="sadg-orders-mobile-facts">
                           <div><small>Metal</small><span className={`sadg-metal-badge ${isGold ? 'gold' : 'silver'}`}>{isGold ? '22K Gold' : 'Silver 999'}</span></div>
-                          <div><small>Weight</small><b>{Number(order.weight_gm || 0).toFixed(3)} g</b></div>
-                          <div><small>Valuation</small><b>₹ {Number(order.valuation_inr || 0).toLocaleString('en-IN')}</b></div>
+                          <div><small>Weight</small><b><AnimatedNumber value={order.weight_gm} decimals={3} /> g</b></div>
+                          <div><small>Valuation</small><b>₹ <AnimatedNumber value={order.valuation_inr} decimals={2} /></b></div>
                         </div>
                         <div className="sadg-orders-mobile-actions" onClick={(event) => event.stopPropagation()}>
                           <label htmlFor={`mobile-order-status-${oid}`}>Update status</label>
@@ -3139,7 +3166,7 @@ export default function SuperAdminDigiGold() {
               </div>
             )}
             <div className="sadg-pagination-bar" style={{ fontSize: 12, color: '#6A7D7C' }}>
-              Showing {deliveryOrdersList.length.toLocaleString('en-IN')} of {deliveryOrdersFilteredTotal.toLocaleString('en-IN')} matching orders ({deliveryOrdersTotal.toLocaleString('en-IN')} total)
+              Showing <AnimatedNumber value={deliveryOrdersList.length} /> of <AnimatedNumber value={deliveryOrdersFilteredTotal} /> matching orders (<AnimatedNumber value={deliveryOrdersTotal} /> total)
             </div>
           </div>
         )}
@@ -3254,12 +3281,12 @@ export default function SuperAdminDigiGold() {
                       </div>
                       <div>
                         <div style={{ fontSize: 11, color: '#6A7D7C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Weight</div>
-                        <div style={{ fontWeight: 700 }}>{Number(selectedDeliveryOrder.weight_gm || 0).toFixed(3)} g</div>
+                        <div style={{ fontWeight: 700 }}><AnimatedNumber value={selectedDeliveryOrder.weight_gm} decimals={3} /> g</div>
                       </div>
                       <div>
                         <div style={{ fontSize: 11, color: '#6A7D7C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Valuation</div>
                         <div style={{ fontWeight: 800, color: '#073E40', fontSize: 15 }}>
-                          ₹ {Number(selectedDeliveryOrder.valuation_inr || 0).toLocaleString('en-IN')}
+                          ₹ <AnimatedNumber value={selectedDeliveryOrder.valuation_inr} decimals={2} />
                         </div>
                       </div>
                       <div>
@@ -3287,7 +3314,7 @@ export default function SuperAdminDigiGold() {
                       {selectedDeliveryOrder.quantity && (
                         <div>
                           <div style={{ fontSize: 11, color: '#6A7D7C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Quantity</div>
-                          <div style={{ fontWeight: 700 }}>{selectedDeliveryOrder.quantity} coins</div>
+                          <div style={{ fontWeight: 700 }}><AnimatedNumber value={selectedDeliveryOrder.quantity} /> coins</div>
                         </div>
                       )}
                     </div>
@@ -3365,5 +3392,6 @@ export default function SuperAdminDigiGold() {
 
       </main>
     </div>
+    </NumberLoadingContext.Provider>
   )
 }

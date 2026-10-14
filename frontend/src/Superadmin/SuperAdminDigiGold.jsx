@@ -2730,36 +2730,39 @@ export default function SuperAdminDigiGold() {
                 />
               </div>
               <div className="sadg-orders-filter-pills">
-                {['all', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'].map((s) => (
+                <div className="sadg-order-filter-group status">
+                  {['all', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`sadg-order-pill ${orderStatusFilter === s ? 'active' : ''}`}
+                      onClick={() => setOrderStatusFilter(s)}
+                    >
+                      {s === 'all' ? 'All Status' : s.charAt(0).toUpperCase() + s.slice(1)}
+                    </button>
+                  ))}
+                </div>
+                <div className="sadg-order-filter-divider" />
+                <div className="sadg-order-filter-group metal">
+                  {['all', 'gold', 'silver'].map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      className={`sadg-order-pill ${orderMetalFilter === m ? 'active' : ''}`}
+                      onClick={() => setOrderMetalFilter(m)}
+                    >
+                      {m === 'all' ? 'All Metal' : m.charAt(0).toUpperCase() + m.slice(1)}
+                    </button>
+                  ))}
                   <button
-                    key={s}
                     type="button"
-                    className={`sadg-order-pill ${orderStatusFilter === s ? 'active' : ''}`}
-                    onClick={() => setOrderStatusFilter(s)}
+                    className="sadg-order-pill refresh"
+                    onClick={fetchDeliveryOrders}
                   >
-                    {s === 'all' ? 'All Status' : s.charAt(0).toUpperCase() + s.slice(1)}
+                    <RefreshCw size={12} />
+                    Refresh
                   </button>
-                ))}
-                <div style={{ width: 1, height: 20, background: '#E2ECE7', margin: '0 4px' }} />
-                {['all', 'gold', 'silver'].map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    className={`sadg-order-pill ${orderMetalFilter === m ? 'active' : ''}`}
-                    onClick={() => setOrderMetalFilter(m)}
-                  >
-                    {m === 'all' ? 'All Metal' : m.charAt(0).toUpperCase() + m.slice(1)}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  className="sadg-order-pill"
-                  onClick={fetchDeliveryOrders}
-                  style={{ marginLeft: 4 }}
-                >
-                  <RefreshCw size={12} style={{ marginRight: 4 }} />
-                  Refresh
-                </button>
+                </div>
               </div>
             </div>
 

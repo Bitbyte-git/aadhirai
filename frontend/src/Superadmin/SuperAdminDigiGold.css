@@ -2028,3 +2028,193 @@
   from { opacity: 0; transform: translateY(-6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* Mobile alignment for Super Admin delivery orders and rate cards. */
+.sadg-order-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sadg-order-filter-divider {
+  width: 1px;
+  height: 20px;
+  background: #E2ECE7;
+  margin: 0 4px;
+  flex: 0 0 1px;
+}
+
+@media (max-width: 768px) {
+  .sadg-quick-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+    gap: 8px;
+    padding: 4px 0 12px;
+  }
+
+  .sadg-quick-nav-pill {
+    min-width: 0;
+    justify-content: center;
+    padding: 8px 9px;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .sadg-rate-banner-box {
+    min-width: 0;
+    gap: 12px;
+    padding: 18px 16px;
+    box-sizing: border-box;
+  }
+
+  .sadg-rate-banner-box > div {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .sadg-rate-banner-price {
+    font-size: 24px;
+    line-height: 1.15;
+  }
+}
+
+@media (max-width: 480px) {
+  .sadg-orders-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .sadg-order-stat-card {
+    min-width: 0;
+    padding: 12px 10px;
+    gap: 8px;
+    border-radius: 14px;
+    box-sizing: border-box;
+  }
+
+  .sadg-order-stat-info {
+    min-width: 0;
+  }
+
+  .sadg-order-stat-label {
+    font-size: 9px;
+    line-height: 1.25;
+    letter-spacing: 0.02em;
+  }
+
+  .sadg-order-stat-val {
+    font-size: 19px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  .sadg-order-stat-icon-wrap {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+
+  .sadg-orders-filter-bar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .sadg-orders-search-box {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .sadg-orders-filter-pills {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .sadg-order-filter-group.status {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .sadg-order-filter-group.metal {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .sadg-order-filter-divider {
+    display: none;
+  }
+
+  .sadg-order-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 0;
+    padding: 8px 5px;
+    font-size: 10.5px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .sadg-order-pill.refresh {
+    margin: 0;
+  }
+
+  .sadg-rates-display-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .sadg-rate-banner-box {
+    padding: 16px 14px;
+    border-radius: 15px;
+  }
+
+  .sadg-rate-banner-box > svg {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+  }
+
+  .sadg-rate-banner-price {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 360px) {
+  .sadg-order-stat-card {
+    padding: 10px 8px;
+    gap: 6px;
+  }
+
+  .sadg-order-stat-label {
+    font-size: 8px;
+  }
+
+  .sadg-order-stat-val {
+    font-size: 17px;
+  }
+
+  .sadg-order-stat-icon-wrap {
+    width: 30px;
+    height: 30px;
+  }
+
+  .sadg-order-filter-group.status {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sadg-order-filter-group.metal {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -3203,16 +3203,20 @@ export default function SuperAdminDigiGold() {
             onClick={() => setSelectedDeliveryOrder(null)}
           >
             <div
-              className="sadg-order-modal-card"
+              className="sadg-order-modal-card sadg-detail-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="sadg-detail-title"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
               <div className="sadg-order-modal-header">
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: 16, color: '#103F42' }}>
+                  <span className="sadg-detail-eyebrow"><Truck size={13} /> Bullion delivery</span>
+                  <div id="sadg-detail-title" className="sadg-detail-title">
                     Order #{selectedDeliveryOrder.order_id || selectedDeliveryOrder.id}
                   </div>
-                  <div style={{ fontSize: 12, color: '#6A7D7C', marginTop: 2 }}>
+                  <div className="sadg-detail-date">
                     Placed on {selectedDeliveryOrder.created_at || '—'}
                   </div>
                 </div>
@@ -3223,7 +3227,8 @@ export default function SuperAdminDigiGold() {
                   <button
                     type="button"
                     onClick={() => setSelectedDeliveryOrder(null)}
-                    style={{ background: '#F0F6F4', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: '#073E40' }}
+                    className="sadg-detail-close"
+                    aria-label="Close order details"
                   >
                     <X size={16} />
                   </button>
@@ -3233,8 +3238,18 @@ export default function SuperAdminDigiGold() {
               {/* Modal Body */}
               <div className="sadg-order-modal-body">
 
+                <div className={`sadg-detail-hero ${(selectedDeliveryOrder.metal || '').toLowerCase().includes('silver') ? 'silver' : 'gold'}`}>
+                  <div className="sadg-detail-coin"><img src={(selectedDeliveryOrder.metal || '').toLowerCase().includes('silver') ? silverCoinImg : goldCoinImg} alt="" /></div>
+                  <div className="sadg-detail-hero-copy">
+                    <span>YOUR BULLION ORDER</span>
+                    <h3>{(selectedDeliveryOrder.metal || '').toLowerCase().includes('silver') ? 'Pure 999 Silver' : '22K Digi Gold'}</h3>
+                    <p><ShieldCheck size={14} /> {(selectedDeliveryOrder.metal || '').toLowerCase().includes('silver') ? '999 purity' : '916 purity'} <i /> Doorstep delivery</p>
+                  </div>
+                  <div className="sadg-detail-hero-amount"><small>Order valuation</small><strong><AnimatedNumber value={selectedDeliveryOrder.valuation_inr} prefix="₹ " decimals={2} /></strong><span><AnimatedNumber value={selectedDeliveryOrder.weight_gm} decimals={3} suffix=" g" /> of precious metal</span></div>
+                </div>
+
                 {/* Customer Info */}
-                <div>
+                <div className="sadg-detail-section">
                   <div className="sadg-order-modal-section-title">
                     <Users size={14} /> Customer Details
                   </div>
@@ -3259,7 +3274,7 @@ export default function SuperAdminDigiGold() {
                 </div>
 
                 {/* Delivery Address */}
-                <div>
+                <div className="sadg-detail-section">
                   <div className="sadg-order-modal-section-title">
                     <MapPin size={14} /> Delivery Address
                   </div>
@@ -3287,12 +3302,12 @@ export default function SuperAdminDigiGold() {
                 </div>
 
                 {/* Order Details */}
-                <div>
+                <div className="sadg-detail-section sadg-detail-wide">
                   <div className="sadg-order-modal-section-title">
                     <Package size={14} /> Order Details
                   </div>
                   <div className="sadg-order-info-box">
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div className="sadg-detail-metrics">
                       <div>
                         <div style={{ fontSize: 11, color: '#6A7D7C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>Metal</div>
                         <div style={{ fontWeight: 700 }}>
@@ -3351,26 +3366,23 @@ export default function SuperAdminDigiGold() {
                 </div>
 
                 {/* Order Timeline */}
-                <div>
+                <div className="sadg-detail-section sadg-detail-wide">
                   <div className="sadg-order-modal-section-title">
                     <Clock size={14} /> Order Timeline
                   </div>
-                  <div className="sadg-order-timeline">
+                  {selectedDeliveryOrder.status === 'cancelled' && <div className="sadg-detail-cancelled"><AlertCircle size={16} /> This order has been cancelled.</div>}
+                  <div className="sadg-detail-timeline">
                     {['confirmed', 'processing', 'shipped', 'delivered'].map((stage, idx) => {
                       const statusOrder = ['confirmed', 'processing', 'shipped', 'delivered']
                       const currentIdx = statusOrder.indexOf((selectedDeliveryOrder.status || 'confirmed').toLowerCase())
                       const isDone = idx <= currentIdx
                       const isActive = idx === currentIdx
+                      const StageIcon = [CheckCircle2, Clock, Truck, Package][idx]
                       return (
-                        <div key={stage} className={`sadg-timeline-item ${isActive ? 'active' : ''}`}>
-                          <div style={{ fontWeight: isActive ? 800 : 600, color: isDone ? '#103F42' : '#9BB0AE', fontSize: 13 }}>
-                            {stage.charAt(0).toUpperCase() + stage.slice(1)}
-                          </div>
-                          {isActive && (
-                            <div style={{ fontSize: 11, color: '#10B981', fontWeight: 700, marginTop: 2 }}>
-                              ← Current Status
-                            </div>
-                          )}
+                        <div key={stage} className={`sadg-detail-stage ${isDone ? 'done' : ''} ${isActive ? 'active' : ''}`}>
+                          <span className="sadg-detail-stage-icon"><StageIcon size={19} /></span>
+                          <strong>{stage.charAt(0).toUpperCase() + stage.slice(1)}</strong>
+                          <small>{isActive ? 'Current status' : isDone ? 'Completed' : 'Upcoming'}</small>
                         </div>
                       )
                     })}
@@ -3381,8 +3393,8 @@ export default function SuperAdminDigiGold() {
 
               {/* Modal Footer — Status Update */}
               <div className="sadg-order-modal-footer">
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#103F42' }}>Update Status:</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div className="sadg-detail-footer-heading"><strong>Update delivery status</strong><span>Select the next stage for this order</span></div>
+                <div className="sadg-detail-status-actions">
                   {['confirmed', 'processing', 'shipped', 'delivered', 'cancelled'].map((s) => {
                     const isCurrent = (selectedDeliveryOrder.status || '').toLowerCase() === s
                     const isUpdating = updatingOrderStatusId === (selectedDeliveryOrder.id || selectedDeliveryOrder.order_id)
@@ -3392,18 +3404,10 @@ export default function SuperAdminDigiGold() {
                         type="button"
                         disabled={isCurrent || isUpdating}
                         onClick={() => handleUpdateDeliveryStatus(selectedDeliveryOrder, s)}
-                        style={{
-                          padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                          border: isCurrent ? '2px solid #073E40' : '1px solid #D5E2DC',
-                          background: isCurrent ? '#073E40' : '#FFFFFF',
-                          color: isCurrent ? '#FFFFFF' : '#556B69',
-                          cursor: isCurrent || isUpdating ? 'not-allowed' : 'pointer',
-                          opacity: isUpdating && !isCurrent ? 0.6 : 1,
-                          transition: 'all 0.15s ease',
-                          textTransform: 'capitalize'
-                        }}
+                        className={`sadg-detail-status-btn ${isCurrent ? 'selected' : ''} ${s === 'cancelled' ? 'cancel' : ''}`}
+                        aria-pressed={isCurrent}
                       >
-                        {s}
+                        {isCurrent && <Check size={13} />}{s}
                       </button>
                     )
                   })}

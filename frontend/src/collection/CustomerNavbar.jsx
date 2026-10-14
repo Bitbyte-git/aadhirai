@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import api from "../api";
 import { getCartCountDB } from "../collection/card_section";
 import { getSubcategories } from "../config/categoryConfig";
+import digiGoldCoinsIcon from "../assets/digi-gold-icon.png";
 
 const API_ORIGIN = (api.defaults.baseURL || "").replace(/\/api\/?$/, "");
 
@@ -1566,49 +1567,68 @@ export default function CustomerNavbar() {
         .exact-digi-gold-btn {
           display: inline-flex;
           align-items: center;
-          gap: 7px;
-          height: 38px;
-          padding: 0 13px;
-          border-radius: 9px;
-          background: linear-gradient(135deg, #073E40 0%, #0C4E52 100%);
-          border: 1px solid rgba(198, 146, 75, 0.45);
+          gap: 11px;
+          height: 46px;
+          padding: 0 9px 0 7px;
+          border-radius: 999px;
+          background: radial-gradient(ellipse at 20% 0%, #216960 0%, transparent 65%), linear-gradient(120deg, #0A4545, #062F34);
+          border: 1px solid #2C6A60;
           color: #FFFFFF;
           font-family: inherit;
           font-size: 13px;
           font-weight: 700;
           cursor: pointer;
           white-space: nowrap;
-          box-shadow: 0 3px 10px rgba(7, 62, 64, 0.16);
-          transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+          box-shadow: 0 4px 12px rgba(7,62,64,.18), inset 0 1px 0 rgba(255,255,255,.14);
+          transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+          position: relative;
+          overflow: hidden;
+          flex-shrink: 0;
         }
 
         .exact-digi-gold-btn:hover {
-          transform: translateY(-1.5px);
-          border-color: #C6924B;
-          box-shadow: 0 6px 16px rgba(198, 146, 75, 0.28);
-          background: linear-gradient(135deg, #0A494B 0%, #0F5B60 100%);
+          transform: translateY(-2px);
+          border-color: #C5A567;
+          box-shadow: 0 7px 20px rgba(7,62,64,.24), 0 0 0 3px rgba(198,146,75,.1);
         }
+        .exact-digi-gold-btn:active { transform: translateY(0); }
+        .exact-digi-gold-btn:focus-visible { outline: 3px solid #073E40; outline-offset: 3px; }
+        .exact-digi-gold-btn::before { content: ''; position: absolute; inset: -30% auto -30% -60%; width: 35%; background: linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent); transform: skewX(-20deg); transition: left 550ms ease; pointer-events: none; }
+        .exact-digi-gold-btn:hover::before { left: 130%; }
 
         .exact-digi-gold-coin {
-          font-size: 15px;
-          line-height: 1;
+          width: 39px;
+          height: 39px;
+          flex-shrink: 0;
+          border-radius: 50%;
+          background: radial-gradient(circle at 30% 25%,#FFF0B9,#E4BA69 58%,#B88535);
+          color: #72501B;
+          border: 1px solid #F1D494;
+          box-shadow: 0 2px 5px rgba(0,0,0,.14), inset 0 0 0 3px rgba(255,246,205,.38);
           display: flex;
           align-items: center;
+          justify-content: center;
         }
 
         .exact-digi-gold-label {
-          letter-spacing: 0.02em;
+          letter-spacing: .01em;
+          font-size: 14px;
+          font-weight: 800;
         }
-
-        .exact-digi-gold-badge {
-          background: #C6924B;
-          color: #073E40;
-          font-size: 9.5px;
-          font-weight: 900;
-          padding: 2px 5px;
-          border-radius: 4px;
-          letter-spacing: 0.04em;
-        }
+        .exact-digi-gold-coin,
+        .mobile-digi-gold .mobile-service-icon { overflow: hidden; background: transparent; border: 0; box-shadow: none; }
+        .exact-digi-gold-coin img,
+        .mobile-digi-gold .mobile-service-icon img { width: 100%; height: 100%; object-fit: contain; display: block; transform: scale(1.28); filter: drop-shadow(0 2px 2px rgba(0,0,0,.18)); }
+        .exact-digi-gold-mobile { display: none; }
+        .exact-digi-gold-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; line-height: 1; }
+        .exact-digi-gold-subtitle { font-size: 10px; color: #BCD4C9; font-weight: 500; letter-spacing: .03em; }
+        .exact-digi-gold-arrow { display: grid; place-items: center; width: 25px; height: 25px; color: #E9C887; background: rgba(255,255,255,.06); border: 1px solid rgba(233,200,135,.22); border-radius: 50%; margin-left: 2px; }
+        .exact-digi-gold-arrow svg { transition: transform 180ms ease; }
+        .exact-digi-gold-btn:hover .exact-digi-gold-arrow svg { transform: translateX(2px); }
+        .mobile-service-item.mobile-digi-gold { background: linear-gradient(110deg,#14564F,#07383D); border: 1px solid #2C6A60; border-radius: 16px; margin: 8px 0; padding: 13px 14px; box-shadow: 0 4px 12px rgba(7,62,64,.12); }
+        .mobile-digi-gold .mobile-service-label { color: #fff; }
+        .mobile-digi-gold .mobile-service-icon { background: transparent; border: 0; border-radius: 50%; }
+        @media (prefers-reduced-motion: reduce) { .exact-digi-gold-btn, .exact-digi-gold-btn::before { transition: none; } .exact-digi-gold-btn:hover { transform: none; } }
 
         .exact-search {
           height: 46px;
@@ -3801,6 +3821,34 @@ export default function CustomerNavbar() {
             margin-top: 2px;
           }
         }
+        @media (max-width: 1180px) {
+          .exact-actions .exact-digi-gold-mobile,
+          .cn-compact-bar .exact-digi-gold-mobile { display: inline-flex; height: 34px; gap: 5px; padding: 0 8px 0 4px; border-radius: 999px; box-shadow: 0 3px 9px rgba(7,62,64,.14); }
+          .exact-digi-gold-mobile .exact-digi-gold-coin { width: 27px; height: 27px; }
+          .exact-digi-gold-mobile .exact-digi-gold-label { font-size: 10.5px; letter-spacing: 0; }
+          .exact-actions .exact-coin-icon-btn,
+          .cn-compact-bar .cn-compact-aug-shop { display: none; }
+        }
+        @media (max-width: 640px) {
+          .exact-actions { gap: 4px; }
+          .exact-actions .summary-pill { width: auto; height: 34px; padding: 0 7px; gap: 4px; font-size: 10px; flex-shrink: 0; }
+          .exact-actions .summary-pill .summary-text { display: inline; }
+          .exact-actions .summary-pill > svg { width: 12px; height: 12px; }
+          .cn-compact-bar { gap: 4px; padding: 10px 8px; }
+          .cn-compact-aug-pill { height: 32px; padding: 0 5px; font-size: 9.5px; }
+          .cn-compact-spacer { min-width: 0; }
+        }
+        @media (max-width: 360px) {
+          .exact-main .exact-inner { padding-left: 8px; padding-right: 8px; column-gap: 5px; }
+          .exact-actions .exact-icon { width: 26px; height: 28px; }
+          .exact-actions .summary-pill .summary-text,
+          .cn-compact-aug-pill > span { max-width: 34px; white-space: normal; text-align: left; line-height: 10px; }
+          .exact-digi-gold-mobile .exact-digi-gold-label { font-size: 10px; }
+          .exact-digi-gold-mobile .exact-digi-gold-coin { width: 25px; height: 25px; }
+          .cn-compact-back { width: 22px; }
+          .cn-compact-icon { width: 24px; }
+          .cn-compact-logo img { height: 26px; }
+        }
       `}</style>
 
       <header className="exact-nav">
@@ -3825,7 +3873,11 @@ export default function CustomerNavbar() {
                   <Icon name="star" size={12} />
                   <span>AUG Revive</span>
                 </button>
-                <button type="button" className="cn-compact-icon" onClick={() => requireLogin("/aug-products")} aria-label="AUG Revive" title="Shop with Revive">
+                <button type="button" className="exact-digi-gold-btn exact-digi-gold-mobile" onClick={() => requireLogin('/digi-gold')} aria-label="Open Digi Gold">
+                  <span className="exact-digi-gold-coin" aria-hidden="true"><img src={digiGoldCoinsIcon} alt="" /></span>
+                  <span className="exact-digi-gold-label">Digi Gold</span>
+                </button>
+                <button type="button" className="cn-compact-icon cn-compact-aug-shop" onClick={() => requireLogin("/aug-products")} aria-label="AUG Revive" title="Shop with Revive">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                     <circle cx="12" cy="12" r="10" fill="url(#cnCompactGoldGrad)" stroke="#B5842F" strokeWidth="1.2"/>
                     <circle cx="12" cy="12" r="7.5" stroke="#FDE08D" strokeWidth="0.8" strokeDasharray="2 1.5"/>
@@ -3842,7 +3894,13 @@ export default function CustomerNavbar() {
                 </button>
               </>
             )}
-            <button type="button" className="cn-compact-icon" onClick={() => requireLogin("/cart")} aria-label="Cart">
+            {!isLoggedIn && (
+                <button type="button" className="exact-digi-gold-btn exact-digi-gold-mobile" onClick={() => requireLogin('/digi-gold')} aria-label="Open Digi Gold">
+                  <span className="exact-digi-gold-coin" aria-hidden="true"><img src={digiGoldCoinsIcon} alt="" /></span>
+                  <span className="exact-digi-gold-label">Digi Gold</span>
+                </button>
+              )}
+              <button type="button" className="cn-compact-icon" onClick={() => requireLogin("/cart")} aria-label="Cart">
               <Icon name="cart" />
               {cartCount > 0 && <span className="cn-compact-badge">{cartCount}</span>}
             </button>
@@ -4108,18 +4166,17 @@ export default function CustomerNavbar() {
               )}
             </div>
 
-            {isLoggedIn && (
-              <button
+            <button
                 type="button"
                 className="exact-digi-gold-btn"
-                onClick={() => navigate("/digi-gold")}
-                title="Athirai 22K Digital Gold & Silver Vault"
+                onClick={() => requireLogin("/digi-gold")}
+                title="Explore Athirai Digi Gold"
+                aria-label="Open Digi Gold"
               >
-                <span className="exact-digi-gold-coin">🪙</span>
+                <span className="exact-digi-gold-coin" aria-hidden="true"><img src={digiGoldCoinsIcon} alt="" /></span>
                 <span className="exact-digi-gold-label">Digi Gold</span>
-                <span className="exact-digi-gold-badge">22K</span>
+                <span className="exact-digi-gold-arrow" aria-hidden="true"><Icon name="chevronRight" size={13} /></span>
               </button>
-            )}
 
             <div
               className="rate-dropdown"
@@ -4183,6 +4240,11 @@ export default function CustomerNavbar() {
                     <span className="summary-text">AUG Revive</span>
                   </button>
 
+                  <button type="button" className="exact-digi-gold-btn exact-digi-gold-mobile" onClick={() => requireLogin('/digi-gold')} aria-label="Open Digi Gold">
+                    <span className="exact-digi-gold-coin" aria-hidden="true"><img src={digiGoldCoinsIcon} alt="" /></span>
+                    <span className="exact-digi-gold-label">Digi Gold</span>
+                  </button>
+
                   <button
                     className="exact-coin-icon-btn"
                     type="button"
@@ -4209,6 +4271,12 @@ export default function CustomerNavbar() {
                 </>
               )}
 
+              {!isLoggedIn && (
+                <button type="button" className="exact-digi-gold-btn exact-digi-gold-mobile" onClick={() => requireLogin('/digi-gold')} aria-label="Open Digi Gold">
+                  <span className="exact-digi-gold-coin" aria-hidden="true"><img src={digiGoldCoinsIcon} alt="" /></span>
+                  <span className="exact-digi-gold-label">Digi Gold</span>
+                </button>
+              )}
               <button
                 className="exact-icon"
                 type="button"
@@ -4498,24 +4566,22 @@ export default function CustomerNavbar() {
               </button>
             )}
 
-            {isLoggedIn && (
-              <button
+            <button
                 type="button"
-                className="mobile-service-item"
+                className="mobile-service-item mobile-digi-gold"
                 onClick={() => {
                   setMobileOpen(false);
-                  navigate("/digi-gold");
+                  requireLogin("/digi-gold");
                 }}
               >
                 <div className="mobile-service-left">
-                  <span className="mobile-service-icon" style={{ background: '#FFF8F0', color: '#C6924B' }}>
-                    <Icon name="coin" size={17} />
+                  <span className="mobile-service-icon">
+                    <img src={digiGoldCoinsIcon} alt="" />
                   </span>
-                  <span className="mobile-service-label">Digi Gold</span>
+                  <span className="exact-digi-gold-copy"><span className="mobile-service-label">Digi Gold</span><span className="exact-digi-gold-subtitle">Gold &amp; Silver</span></span>
                 </div>
-                <span className="mobile-service-tag" style={{ background: '#E8F7F0', color: '#009957' }}>22K Gold</span>
+                <span className="exact-digi-gold-arrow" aria-hidden="true"><Icon name="chevronRight" size={15} /></span>
               </button>
-            )}
 
             <button
               type="button"

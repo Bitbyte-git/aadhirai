@@ -2525,3 +2525,81 @@
 .sadg-number-skeleton { display: inline-block; width: 4.5em; max-width: 100%; height: .85em; min-height: 12px; border-radius: 6px; vertical-align: middle; }
 .sadg-pending-scope { margin: 0 0 12px; font-size: 12px; color: #6a7d7c; }
 .sadg-order-stat-label small { display: block; margin-top: 3px; font-size: 10px; text-transform: none; color: #74847f; }
+
+/* Bullion order detail popup */
+.sadg-order-modal-card.sadg-detail-modal { max-width: 780px; max-height: calc(100dvh - 40px); overflow: hidden; border-radius: 24px; border: 1px solid rgba(255,255,255,.5); box-shadow: 0 30px 100px rgba(2,30,31,.35); }
+.sadg-detail-modal .sadg-order-modal-header { padding: 23px 26px; gap: 16px; background: linear-gradient(120deg,#073e40,#145952); border: 0; border-radius: 0; color: #fff; }
+.sadg-detail-eyebrow { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; font-size: 10px; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; color: #e6bf80; }
+.sadg-detail-title { font-size: 20px; font-weight: 800; letter-spacing: -.4px; line-height: 1.35; overflow-wrap: anywhere; }
+.sadg-detail-date { margin-top: 6px; color: #c2d8d2; font-size: 12px; }
+.sadg-detail-close { display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0; background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.15); border-radius: 10px; cursor: pointer; }
+.sadg-detail-close:hover { background: rgba(255,255,255,.22); }
+.sadg-detail-modal .sadg-order-modal-body { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 20px; padding: 22px 26px; background: #f5f8f6; overflow-y: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: #c0d5cb transparent; }
+.sadg-detail-hero { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; padding: 20px; border-radius: 17px; background: linear-gradient(115deg,#fff7e5,#fffdfa); border: 1px solid #eedbb6; }
+.sadg-detail-hero.silver { background: linear-gradient(115deg,#eaf0f5,#fbfcfd); border-color: #d5e0e8; }
+.sadg-detail-coin { width: 78px; height: 78px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.75); box-shadow: inset 0 0 0 1px rgba(185,137,65,.15); }
+.sadg-detail-coin img { width: 70px; height: 70px; object-fit: contain; filter: drop-shadow(0 5px 5px rgba(102,78,39,.15)); }
+.sadg-detail-hero-copy { min-width: 0; }
+.sadg-detail-hero-copy > span { font-size: 9px; font-weight: 800; letter-spacing: .12em; color: #9b753d; }
+.sadg-detail-hero.silver .sadg-detail-hero-copy > span { color: #708699; }
+.sadg-detail-hero-copy h3 { margin: 7px 0; font-size: 21px; font-weight: 800; color: #073e40; letter-spacing: -.5px; }
+.sadg-detail-hero-copy p { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; color: #73817a; font-size: 10px; }
+.sadg-detail-hero-copy i { width: 3px; height: 3px; border-radius: 50%; background: #97a89e; margin: 0 3px; }
+.sadg-detail-hero-amount { display: flex; flex-direction: column; gap: 6px; margin-left: auto; padding-left: 16px; border-left: 1px solid rgba(108,137,126,.18); text-align: right; white-space: nowrap; }
+.sadg-detail-hero-amount small { color: #75877d; font-size: 10px; }
+.sadg-detail-hero-amount strong { font-size: 24px; font-weight: 850; color: #073e40; letter-spacing: -.6px; }
+.sadg-detail-hero-amount > span { color: #79867d; font-size: 10px; }
+.sadg-detail-wide { grid-column: 1 / -1; }
+.sadg-detail-modal .sadg-order-modal-section-title { color: #60766b; font-size: 10px; letter-spacing: .11em; margin-bottom: 10px; }
+.sadg-detail-modal .sadg-order-modal-section-title svg { color: #a98242; }
+.sadg-detail-modal .sadg-order-info-box { background: #fff; border-color: #e2eae4; border-radius: 14px; padding: 17px; font-size: 12px; }
+.sadg-detail-metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
+.sadg-detail-metrics > div { padding: 14px 12px; background: #f6f9f6; border-radius: 10px; min-width: 0; overflow-wrap: anywhere; }
+.sadg-detail-metrics > div > div:first-child { font-size: 9px !important; margin-bottom: 8px !important; }
+.sadg-detail-timeline { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; padding: 20px 12px; background: #fff; border: 1px solid #e2eae4; border-radius: 14px; }
+.sadg-detail-stage { position: relative; display: flex; flex-direction: column; align-items: center; gap: 7px; color: #9caaa3; text-align: center; }
+.sadg-detail-stage:not(:last-child)::after { content: ''; position: absolute; top: 22px; left: calc(50% + 26px); height: 2px; width: calc(100% - 42px); background: #e7ede9; }
+.sadg-detail-stage.done::after { background: #c0d7c8; }
+.sadg-detail-stage-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: #f1f5f2; border: 1px solid #e5ece7; }
+.sadg-detail-stage.done { color: #32654b; }
+.sadg-detail-stage.done .sadg-detail-stage-icon { background: #eaf5ed; border-color: #cfe5d5; }
+.sadg-detail-stage.active .sadg-detail-stage-icon { background: #073e40; border-color: #073e40; color: #fff; box-shadow: 0 0 0 4px #e8f2ec; }
+.sadg-detail-stage.active strong { color: #073e40; }
+.sadg-detail-stage strong { font-size: 11px; margin-top: 5px; }
+.sadg-detail-stage small { font-size: 9px; }
+.sadg-detail-stage.active small { color: #b28440; font-weight: 700; }
+.sadg-detail-cancelled { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; margin-bottom: 10px; background: #fff0ee; color: #b65449; font-size: 12px; }
+.sadg-detail-modal .sadg-order-modal-footer { display: block; padding: 18px 26px; border-radius: 0; background: #fff; }
+.sadg-detail-footer-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.sadg-detail-footer-heading strong { font-size: 12px; color: #073e40; }
+.sadg-detail-footer-heading span { font-size: 10px; color: #84958c; }
+.sadg-detail-status-actions { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 8px; }
+.sadg-detail-status-btn { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 11px 5px; border: 1px solid #dce6df; border-radius: 10px; background: #f8faf8; color: #536a5c; text-transform: capitalize; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; transition: background 150ms ease, border-color 150ms ease; }
+.sadg-detail-status-btn:hover:not(:disabled) { background: #edf4ee; border-color: #9dbbaa; }
+.sadg-detail-status-btn.selected { background: #073e40; border-color: #073e40; color: #fff; }
+.sadg-detail-status-btn.cancel:not(.selected) { background: #fff8f6; color: #b06457; border-color: #efddd6; }
+.sadg-detail-status-btn:disabled { cursor: default; }
+.sadg-detail-status-btn:disabled:not(.selected) { opacity: .5; }
+.sadg-detail-modal button:focus-visible { outline: 3px solid #c6924b; outline-offset: 3px; }
+@media (max-width: 600px) {
+  .sadg-order-modal-card.sadg-detail-modal { border-radius: 20px; max-height: calc(100dvh - 16px); }
+  .sadg-detail-modal .sadg-order-modal-header { padding: 18px; align-items: flex-start; }
+  .sadg-detail-title { font-size: 15px; }
+  .sadg-detail-date { font-size: 10px; }
+  .sadg-detail-modal .sadg-order-modal-body { grid-template-columns: minmax(0,1fr); padding: 16px; gap: 18px; }
+  .sadg-detail-hero { flex-wrap: wrap; padding: 16px; gap: 12px; }
+  .sadg-detail-coin { width: 58px; height: 58px; }
+  .sadg-detail-coin img { width: 52px; height: 52px; }
+  .sadg-detail-hero-copy h3 { font-size: 19px; }
+  .sadg-detail-hero-amount { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; width: 100%; text-align: left; border-left: 0; border-top: 1px solid #dce6df; padding: 12px 0 0; margin-top: 4px; }
+  .sadg-detail-hero-amount > span { width: 100%; }
+  .sadg-detail-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .sadg-detail-timeline { gap: 4px; padding: 18px 6px; }
+  .sadg-detail-stage strong { font-size: 9px; }
+  .sadg-detail-stage small { font-size: 8px; }
+  .sadg-detail-stage-icon { width: 36px; height: 36px; border-radius: 12px; }
+  .sadg-detail-stage:not(:last-child)::after { top: 18px; left: calc(50% + 22px); width: calc(100% - 38px); }
+  .sadg-detail-modal .sadg-order-modal-footer { padding: 16px; }
+  .sadg-detail-footer-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .sadg-detail-status-actions { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}

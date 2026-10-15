@@ -424,6 +424,8 @@ export default function DigiGoldDashboard() {
   // ── STATE ──
   // ── INSTANT ZERO-LAG INITIAL STATE (WITH SKELETON LOADING) ──
   const [loading, setLoading] = useState(true)
+  const [dashboardReady, setDashboardReady] = useState(false)
+  const [dashboardError, setDashboardError] = useState('')
   const [data, setData] = useState(() => {
     let cachedRates = null
     try {
@@ -1003,6 +1005,8 @@ export default function DigiGoldDashboard() {
 
   // ── LIGHTNING FAST PARALLEL FETCH ──
   const fetchDashboardData = async () => {
+    setLoading(true)
+    setDashboardError('')
     try {
       const [rateRes, walletRes, dashRes] = await Promise.allSettled([
         api.get('/metal-rates/'),
@@ -1046,6 +1050,11 @@ export default function DigiGoldDashboard() {
       }
 
       const dashData = dashRes.status === 'fulfilled' ? dashRes.value?.data : null
+      if (!dashData?.kpis) {
+        throw new Error(dashRes.status === 'rejected'
+          ? (dashRes.reason?.response?.data?.error || 'Could not load your vault balance. Please try again.')
+          : 'Your vault balance is unavailable. Please try again.')
+      }
       const dashCoins = Number(dashData?.kpis?.aug_coins_balance ?? 0)
 
       // Authoritative AUG Coins balance directly from single source of truth
@@ -1094,6 +1103,8 @@ export default function DigiGoldDashboard() {
         recent_transactions: dashData?.recent_transactions || []
       })
 
+      setDashboardReady(true)
+
       // Fetch real bullion delivery orders from backend
       try {
         const delivRes = await api.get('/digi-gold/delivery/orders/')
@@ -1134,6 +1145,7 @@ export default function DigiGoldDashboard() {
       }
     } catch (err) {
       console.warn('Dashboard parallel fetch error:', err)
+      setDashboardError(err.message || 'Could not load your vault balance. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -3277,20 +3289,22 @@ export default function DigiGoldDashboard() {
               </div>
 
               {/* KPI Summary Strip */}
-              <div style={{
-                display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14,
-                background: '#FFFFFF', padding: 18, borderRadius: 16, border: '1px solid #E6ECEA',
-                boxShadow: '0 4px 16px rgba(10,62,66,0.04)'
-              }}>
+              {dashboardError ? (
+                <div className="dg-vault-summary-error" role="alert"><AlertCircle size={20} /><div><strong>Vault balance unavailable</strong><p>{dashboardError}</p></div><button type="button" onClick={fetchDashboardData}>Retry</button></div>
+              ) : loading || !dashboardReady ? (
+                <div className="dg-transactions-summary" role="status" aria-label="Loading vault summary">
+                  {[0, 1, 2, 3].map(item => <div className="dg-summary-placeholder" key={item}><span className="dg-skel" /><span className="dg-skel" /><span className="dg-skel" /></div>)}
+                </div>
+              ) : <div className="dg-transactions-summary">
                 <div>
-                  <small style={{ color: '#647474', fontWeight: 700, fontSize: 11, textTransform: 'uppercase' }}>Vault Holdings</small>
+                  <small style={{ color: '#647474', fontWeight: 700, fontSize: 11, textTransform: 'uppercase' }}>Gold Holdings</small>
                   <div style={{ fontSize: 20, fontWeight: 900, color: '#009957', marginTop: 2 }}>
                     <AnimatedNumber value={kpis.total_gold_holding_gm ?? 0} decimals={3} suffix=" g" />
                   </div>
                   <small style={{ color: '#647474', fontSize: 11 }}>({Number(kpis.total_gold_holding_mg ?? 0).toFixed(2)} mg)</small>
                 </div>
                 <div>
-                  <small style={{ color: '#647474', fontWeight: 700, fontSize: 11, textTransform: 'uppercase' }}>Current Valuation</small>
+                  <small style={{ color: '#647474', fontWeight: 700, fontSize: 11, textTransform: 'uppercase' }}>Gold Valuation</small>
                   <div style={{ fontSize: 20, fontWeight: 900, color: '#0A3E42', marginTop: 2 }}>
                     <AnimatedNumber value={kpis.gold_value_inr ?? 0} prefix="₹ " decimals={2} />
                   </div>
@@ -3311,25 +3325,23 @@ export default function DigiGoldDashboard() {
                     (<AnimatedNumber value={kpis.returns_percentage ?? 0} prefix={Number(kpis.returns_percentage ?? 0) >= 0 ? '+' : ''} suffix="%" decimals={2} />)
                   </small>
                 </div>
-              </div>
+              </div>}
 
               {/* Transactions Table Card */}
               <div className="dg-card" style={{ padding: 20 }}>
                 {/* Filters */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {[{ id: 'all', label: `All Transactions (${txHistoryAllCount.toLocaleString('en-IN')})` }, { id: 'buy', label: 'Purchases & Converts' }, { id: 'sell', label: 'Sales' }].map(tab => (
+                <div className="dg-transactions-toolbar">
+                  <div className="dg-transaction-tabs" role="group" aria-label="Filter transactions">
+                    {[{ id: 'all', label: 'All Transactions' }, { id: 'buy', label: 'Purchases & Converts' }, { id: 'sell', label: 'Sales' }].map(tab => (
                       <button
                         key={tab.id}
                         type="button"
                         onClick={() => setTxFilter(tab.id)}
-                        style={{
-                          padding: '7px 14px', borderRadius: 999, border: txFilter === tab.id ? '1.5px solid #009957' : '1px solid #D1DFDE',
-                          background: txFilter === tab.id ? '#E8F7F0' : '#FFFFFF', color: txFilter === tab.id ? '#009957' : '#0A3E42',
-                          fontWeight: 800, fontSize: 12, cursor: 'pointer', transition: 'all 0.15s ease'
-                        }}
+                        className={`dg-transaction-tab ${txFilter === tab.id ? 'active' : ''}`}
+                        aria-pressed={txFilter === tab.id}
                       >
                         {tab.label}
+                        {tab.id === 'all' && <span className="dg-transaction-tab-count">{txHistoryLoading ? <span className="dg-skel" aria-label="Loading count" /> : txHistoryAllCount.toLocaleString('en-IN')}</span>}
                       </button>
                     ))}
                   </div>
@@ -4031,16 +4043,16 @@ export default function DigiGoldDashboard() {
                     <ShieldCheck size={14} /> AUTOPAY BENEFITS
                   </span>
                   <div className="dg-festive-ticker-text">
-                    <b>AutoPay Benefits:</b> Live market rates, <b>5% off jewellery making</b>, and <b>2X reward points</b>.
+                    Live market rates, <b>5% off jewellery making</b>, and <b>2X reward points</b>.
                     <div className="dg-ticker-sub-perks">
                       <span><Check size={12} strokeWidth={3} /> Direct UPI Auto-Debit</span>
                       <span className="dg-dot-sep">•</span>
-                      <span>Pause or Cancel Anytime</span>
+                      <span><Check size={12} strokeWidth={3} /> Pause or Cancel Anytime</span>
                     </div>
                   </div>
                 </div>
                 <div className="dg-festive-ticker-right">
-                  <span className="dg-script-tagline">Small Steps<br />Big Wealth</span>
+                  <span className="dg-script-tagline">Small Steps <br />Big Wealth</span>
                   <svg className="dg-leaf-deco-svg" viewBox="0 0 24 24" fill="none" stroke="#D5A33A" strokeWidth="1.5">
                     <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
                     <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />

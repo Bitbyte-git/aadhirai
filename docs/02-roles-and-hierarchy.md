@@ -101,7 +101,7 @@ Routing lives in `frontend/src/App.jsx`. `ProtectedRoute` checks `localStorage.r
 | Wholesale Dealer | `/sub-dealer` | `/subdealer-hierarchy` | `/subdealer-hierarchy-grid` |
 | Retailer | `/promotor` | `/promotor-hierarchy` | `/promotor-hierarchy-grid` |
 | Shop | `/shop-dashboard` | `/shop-hierarchy-tree` | `/shop-hierarchy-grid` |
-| Customer | `/customer` (same as `/`) | — | — |
+| Customer | `/customer` (same as `/`) | — | `/customer-hierarchy-grid` |
 
 ### Coins & jewellery (all stock roles: `super_admin`, `admin`, `dealer`, `sub_dealer`, `promotor`, `shop`)
 

@@ -4518,6 +4518,9 @@ class HierarchyChildrenView(APIView):
         node_id = request.query_params.get('id')
         if not role or not node_id:
             return Response({'error': 'invalid role/id'}, status=400)
+        if request.user.role == 'customer':
+            if role != 'customer' or not _customer_can_view_hierarchy_node(request.user, node_id):
+                return Response({'error': 'Permission denied'}, status=403)
         data = get_hierarchy_children_data(role, node_id)
         if data is None:
             return Response({'error': 'not found or invalid role'}, status=404)
@@ -4542,6 +4545,9 @@ class HierarchyNodeInfoView(APIView):
         cfg = self.MODEL_MAP.get(role)
         if not cfg or not node_id:
             return Response({'error': 'invalid role/id'}, status=400)
+        if request.user.role == 'customer':
+            if role != 'customer' or not _customer_can_view_hierarchy_node(request.user, node_id):
+                return Response({'error': 'Permission denied'}, status=403)
 
         model, id_field = cfg
         try:
@@ -4584,6 +4590,15 @@ class HierarchyPathToNodeView(APIView):
         root_role = request.query_params.get('root_role')
         root_id = request.query_params.get('root_id')
         target_user_id = request.query_params.get('target_user_id')
+
+        if request.user.role == 'customer':
+            if root_role != 'customer' or not _customer_can_view_hierarchy_node(request.user, root_id):
+                return Response({'error': 'Permission denied'}, status=403)
+            if not str(target_user_id or '').isdigit():
+                return Response({'error': 'invalid target_user_id'}, status=400)
+            target_profile_id = CustomerProfile.objects.filter(user_id=target_user_id).values_list('id', flat=True).first()
+            if not _customer_can_view_hierarchy_node(request.user, target_profile_id):
+                return Response({'error': 'Permission denied'}, status=403)
 
         if not target_user_id:
             return Response({'error': 'target_user_id required'}, status=400)
@@ -4654,6 +4669,62 @@ class HierarchyPathToNodeView(APIView):
 
 # ── NEW: role-scoped hierarchy for Admin / Dealer / Sub Dealer / Promotor logins.
 # Ovvoruthar their own subtree mattum kaanpanum — SuperAdmin mari full tree venaam. ──
+def _customer_can_view_hierarchy_node(user, node_id):
+    """Follow creator links upwards; customers can only expand their own downline."""
+    try:
+        profile_id = int(node_id)
+    except (TypeError, ValueError):
+        return False
+    seen = set()
+    while profile_id not in seen:
+        seen.add(profile_id)
+        node = CustomerProfile.objects.filter(id=profile_id).values('user_id', 'created_by_id').first()
+        if not node:
+            return False
+        if node['user_id'] == user.id:
+            return True
+        profile_id = CustomerProfile.objects.filter(user_id=node['created_by_id']).values_list('id', flat=True).first()
+        if profile_id is None:
+            return False
+    return False
+
+
+def _customer_referral_tree(user):
+    """Load this customer's complete downline in batches, one query per level."""
+    frontier = [user.id]
+    seen = {user.id}
+    nodes = {}
+    by_creator = {}
+    counts = _month_rollup_counts()
+    statuses = _month_status_map()
+    while frontier:
+        rows = CustomerProfile.objects.filter(created_by_id__in=frontier).values(
+            'id', 'user_id', 'created_by_id', 'customer_id',
+            'first_name', 'last_name', 'mobile_number', 'city_name',
+        )
+        frontier = []
+        for row in rows:
+            uid = row['user_id']
+            if uid in seen:
+                continue
+            seen.add(uid)
+            frontier.append(uid)
+            row.update(
+                type='customer', customers=[],
+                order_count=counts.get(('customer', uid), 0),
+                status=statuses.get(('customer', uid), 'red'),
+            )
+            nodes[uid] = row
+            by_creator.setdefault(row['created_by_id'], []).append(row)
+    for uid, node in nodes.items():
+        children = by_creator.get(uid, [])
+        breakdown = dict.fromkeys(('red', 'orange', 'yellow', 'green'), 0)
+        for child in children:
+            breakdown[child['status']] += 1
+        node.update(customers=children, child_count=len(children), child_status_counts=breakdown)
+    return by_creator.get(user.id, [])
+
+
 class MyHierarchyView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -4661,7 +4732,7 @@ class MyHierarchyView(APIView):
         user = request.user
         role = user.role
 
-        if role not in ['admin', 'dealer', 'sub_dealer', 'promotor']:
+        if role not in ['admin', 'dealer', 'sub_dealer', 'promotor', 'customer']:
             return Response({'error': 'Use /hierarchy/full/ for your role'}, status=403)
 
         try:
@@ -4711,6 +4782,22 @@ class MyHierarchyView(APIView):
                     'child_count': len(direct_items),
                     'order_count': order_count,
                     'status': 'green',
+                }
+            elif role == 'customer':
+                node = CustomerProfile.objects.get(user=user)
+                if request.query_params.get('full') == '1':
+                    direct_items = _customer_referral_tree(user)
+                else:
+                    children_res = get_hierarchy_children_data('customer', node.id)
+                    direct_items = children_res.get('items', []) if children_res else []
+                root = {
+                    'type': 'customer', 'id': node.id, 'customer_id': node.customer_id,
+                    'user_id': node.user_id,
+                    'first_name': node.first_name, 'last_name': node.last_name,
+                    'mobile_number': node.mobile_number, 'city_name': node.city_name,
+                    'customers': direct_items, 'items': direct_items,
+                    'child_count': len(direct_items), 'order_count': order_count,
+                    'status': _month_status_map().get(('customer', node.user_id), 'red'),
                 }
             elif role == 'promotor':
                 node = PromotorProfile.objects.get(user=user)
@@ -5007,6 +5094,15 @@ def _collect_full_downline_user_ids(user):
 def _resolve_scope_user_ids(user, role, node_id):
     """role+node_id (DB pk) kொடுத்தா andha subtree oda user_ids list return pண்ணும்.
     role illama na, logged-in user oda own network return pண்ணும்."""
+    if user.role == 'customer':
+        if role:
+            if role != 'customer' or not _customer_can_view_hierarchy_node(user, node_id):
+                raise PermissionError('Permission denied')
+            node = CustomerProfile.objects.get(id=node_id)
+            root_user_id = node.user_id
+        else:
+            root_user_id = user.id
+        return _collect_nested_customer_ids(root_user_id, _get_children_by_creator()) + [root_user_id]
     if role == 'admin':
         node = AdminProfile.objects.prefetch_related('assigned_dealers__assigned_sub_dealers__assigned_promotors__assigned_customers').get(id=node_id)
         return _collect_user_ids_admin(node) + [node.user_id]

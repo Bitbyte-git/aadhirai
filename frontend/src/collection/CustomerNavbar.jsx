@@ -4634,7 +4634,7 @@ export default function CustomerNavbar() {
               <span className="mobile-service-arrow">›</span>
             </button>
 
-            {isLoggedIn && role === 'super_admin' && (
+            {isLoggedIn && ['super_admin', 'customer'].includes(role) && (
               <button
                 type="button"
                 className="mobile-service-item"
@@ -4652,6 +4652,20 @@ export default function CustomerNavbar() {
                 <span className="mobile-service-arrow">›</span>
               </button>
             )}
+
+            {isLoggedIn && role === 'customer' && (
+              <button type="button" className="mobile-service-item" onClick={() => {
+                setMobileOpen(false);
+                navigate("/customer-hierarchy-grid");
+              }}>
+                <div className="mobile-service-left">
+                  <span className="mobile-service-icon user-icon"><Icon name="role" size={17} /></span>
+                  <span className="mobile-service-label">Hierarchy</span>
+                </div>
+                <span className="mobile-service-arrow">›</span>
+              </button>
+            )}
+
 
             {roleSwitchCfg && (
               <button
@@ -4911,8 +4925,8 @@ export default function CustomerNavbar() {
                 </span>
               </button>
 
-              {/* 7. Create Customer — Super Admin mattum */}
-              {isLoggedIn && role === 'super_admin' && (
+              {/* 7. Create Customer */}
+              {isLoggedIn && ['super_admin', 'customer'].includes(role) && (
                 <button
                   className="role-drawer-item"
                   type="button"
@@ -4933,6 +4947,22 @@ export default function CustomerNavbar() {
                   <span className="role-drawer-chevron">
                     <Icon name="chevronRight" size={16} />
                   </span>
+                </button>
+              )}
+
+              {isLoggedIn && role === 'customer' && (
+                <button className="role-drawer-item" type="button" onClick={() => {
+                  setRoleDrawerOpen(false);
+                  navigate("/customer-hierarchy-grid");
+                }}>
+                  <div className="role-drawer-item-left">
+                    <span className="role-drawer-icon-box icon-teal"><Icon name="role" size={17} /></span>
+                    <div className="role-drawer-item-labels">
+                      <span className="role-drawer-item-title">Hierarchy</span>
+                      <span className="role-drawer-item-desc">View your customer referral network</span>
+                    </div>
+                  </div>
+                  <span className="role-drawer-chevron"><Icon name="chevronRight" size={16} /></span>
                 </button>
               )}
 

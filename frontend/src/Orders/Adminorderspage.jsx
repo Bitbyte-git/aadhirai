@@ -2440,6 +2440,8 @@ export default function AdminOrdersPage() {
                       {selectedOrder.address_line2 ? `, ${selectedOrder.address_line2}` : ''}, {selectedOrder.city}, {selectedOrder.state} – {selectedOrder.pincode}
                     </div>
                   </div>
+                  {selectedOrder.delivery_instructions && <p style={{ fontSize: 12, lineHeight: 1.8, color: '#526957', background: '#f4f7ed', padding: 10, borderRadius: 8 }}><strong>Delivery instructions:</strong> {selectedOrder.delivery_instructions}</p>}
+                  {/^https:\/\/(?:www\.)?google\.(?:com|co\.in)\/maps\b|^https:\/\/maps\.(?:google\.com|app\.goo\.gl)\//.test(selectedOrder.delivery_location?.map_url || '') && <a href={selectedOrder.delivery_location.map_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#32634a' }}>Open saved delivery location in Google Maps</a>}
                   {(selectedOrder.customer_dob || selectedOrder.customer_anniversary) && (
                     <div style={{ marginTop: '8px', fontSize: '11px', color: '#647B78', display: 'flex', gap: '14px' }}>
                       {selectedOrder.customer_dob && <span>DOB: {selectedOrder.customer_dob}</span>}

@@ -228,9 +228,9 @@ useEffect(() => { fetchDefaultHistory(1, 'all') }, [])
       <style>{styles}</style>
       <main className="sc-main">
         <p className="sc-kicker">Super Admin</p>
-        <h1 className="sc-title">Add AUG Coins</h1>
+        <h1 className="sc-title">Add AUG Revive</h1>
         <p className="sc-note">
-          Manually credit AUG Coin to any customer, promotor, sub dealer, dealer, or admin.
+          Manually credit AUG Revive to any customer, promotor, sub dealer, dealer, or admin.
           This does not trigger commission distribution — it's a direct grant.
         </p>
 
@@ -276,7 +276,7 @@ useEffect(() => { fetchDefaultHistory(1, 'all') }, [])
               <span>{coinsPreview.toLocaleString('en-IN')} coins</span>
             </div>
             <button className="sc-send-btn" disabled={!foundUser || sending || !amount || Number(amount) <= 0} onClick={handleSend}>
-              {sending ? 'Sending...' : 'Send AUG Coins'}
+              {sending ? 'Sending...' : 'Send AUG Revive'}
             </button>
           </section>
         </div>

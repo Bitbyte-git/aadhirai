@@ -546,12 +546,12 @@ export default function SuperAdminNavbar({
     },
     {
       id: 'send-aug-coins',
-      title: 'Send AUG Coins',
+      title: 'Send AUG Revive',
       category: 'Coins & Jewellery',
       icon: 'coin',
       path: '/superadmin-send-coins',
-      description: 'Directly credit and allocate AUG coins to members',
-      keywords: ['add aug coin', 'send coin', 'aug coins', 'send coins', 'coin anupu']
+      description: 'Directly credit and allocate AUG Revive to members',
+      keywords: ['add aug revive', 'send coin', 'aug revive', 'send coins', 'coin anupu']
     },
     {
       id: 'super-stockists',
@@ -1185,7 +1185,7 @@ export default function SuperAdminNavbar({
     ['Residual Commission', () => navigate('/superadmin-commission')],
     ['My Commission', () => navigate('/my-commission')],
     ['Commissions', () => navigate('/commissions')],
-    ['Add AUG Coins', () => navigate('/superadmin-send-coins')],
+    ['Add AUG Revive', () => navigate('/superadmin-send-coins')],
     ['Autopay List', () => navigate('/superadmin-autopay-list')],
   ]
   const inventory = [
@@ -1295,7 +1295,7 @@ export default function SuperAdminNavbar({
     { label: 'Residual Commission', path: '/superadmin-commission', action: () => navigate('/superadmin-commission') },
     { label: 'My Commission', path: '/my-commission', action: () => navigate('/my-commission') },
     { label: 'Commissions', path: '/commissions', action: () => navigate('/commissions') },
-    { label: 'Add AUG Coins', path: '/superadmin-send-coins', action: () => navigate('/superadmin-send-coins') },
+    { label: 'Add AUG Revive', path: '/superadmin-send-coins', action: () => navigate('/superadmin-send-coins') },
     { label: 'Autopay List', path: '/superadmin-autopay-list', action: () => navigate('/superadmin-autopay-list') },
   ]
 
@@ -1953,7 +1953,7 @@ export default function SuperAdminNavbar({
         category: 'Coins & Mandates',
         items: [
           {
-            label: 'Add AUG Coins',
+            label: 'Add AUG Revive',
             path: '/superadmin-send-coins',
             action: () => navigate('/superadmin-send-coins'),
             icon: (

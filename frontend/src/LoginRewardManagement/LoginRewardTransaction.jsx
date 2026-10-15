@@ -204,7 +204,7 @@ export default function LoginRewardTransaction() {
           <div>
             <p className="lrt-kicker">Super Admin</p>
             <h1 className="lrt-title">Login Reward Transactions</h1>
-            <p className="lrt-note">Daily &amp; streak login-reward AUG Coins, plus manually sent coins — combined into one ledger, per role and period.</p>
+            <p className="lrt-note">Daily &amp; streak login-reward AUG Revive, plus manually sent coins — combined into one ledger, per role and period.</p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
             <button className="lrt-download-btn" onClick={downloadReport} disabled={downloading || loading}>

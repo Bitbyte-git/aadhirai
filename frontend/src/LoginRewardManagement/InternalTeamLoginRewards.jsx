@@ -188,7 +188,7 @@ export default function InternalTeamLoginRewards() {
           <div>
             <p className="lrt-kicker">{ROLE_LABELS[role] || 'My Team'}</p>
             <h1 className="lrt-title">Team Login Rewards</h1>
-            <p className="lrt-note">Daily &amp; streak login-reward AUG Coins, plus manually sent coins, for your entire downline team — combined into one ledger.</p>
+            <p className="lrt-note">Daily &amp; streak login-reward AUG Revive, plus manually sent coins, for your entire downline team — combined into one ledger.</p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
             <button className="lrt-download-btn" onClick={downloadReport} disabled={downloading || loading}>

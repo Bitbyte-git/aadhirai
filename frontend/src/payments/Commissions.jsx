@@ -1332,7 +1332,7 @@ export default function Commissions() {
                   </div>
                 </div>
                 <div className="cms-card-bottom">
-                  <span className="cms-card-sub">AUG Coins wallet balance</span>
+                  <span className="cms-card-sub">AUG Revive wallet balance</span>
                   <Sparkline color="#10B981" />
                 </div>
               </div>

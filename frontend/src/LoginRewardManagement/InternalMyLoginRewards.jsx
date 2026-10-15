@@ -179,7 +179,7 @@ export default function InternalMyLoginRewards() {
           <div>
             <p className="lrt-kicker">{ROLE_LABELS[role] || 'My Account'}</p>
             <h1 className="lrt-title">My Login Rewards</h1>
-            <p className="lrt-note">Your own daily &amp; streak login-reward AUG Coins, plus coins manually sent to you — combined into one ledger.</p>
+            <p className="lrt-note">Your own daily &amp; streak login-reward AUG Revive, plus coins manually sent to you — combined into one ledger.</p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
             <button className="lrt-download-btn" onClick={downloadReport} disabled={downloading || loading}>

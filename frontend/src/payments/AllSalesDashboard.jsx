@@ -1982,7 +1982,7 @@ export default function AllSalesDashboard({
                   </div>
                 </div>
                 <div className="ref-card-bottom">
-                  <div className="ref-card-sub">AUG Coins utilized across orders</div>
+                  <div className="ref-card-sub">AUG Revive utilized across orders</div>
                   <Sparkline color="#10B981" />
                 </div>
               </div>
@@ -2774,9 +2774,9 @@ export default function AllSalesDashboard({
 
                   {selectedTxn.coins != null && Number(selectedTxn.coins) > 0 && (
                     <div className="ref-modal-row">
-                      <span className="ref-modal-lbl">AUG Coins Used</span>
+                      <span className="ref-modal-lbl">AUG Revive Used</span>
                       <span className="ref-modal-val" style={{ color: GOLD }}>
-                        {Number(selectedTxn.coins).toLocaleString('en-IN')} AUG Coins
+                        {Number(selectedTxn.coins).toLocaleString('en-IN')} AUG Revive
                       </span>
                     </div>
                   )}

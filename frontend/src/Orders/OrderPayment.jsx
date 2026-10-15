@@ -1,6 +1,152 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import CustomerFooter from '../collection/CustomerFooter'
+import { ArrowRight, Check, Coins, Download, LockKeyhole, MapPin, PackageCheck, ShoppingBag, Sparkles, Wallet } from 'lucide-react'
+import './CheckoutCelebration.css'
+import './CheckoutExperience.css'
+
+const steps = [
+  { label: 'Your selection', detail: 'Review your order', Icon: ShoppingBag },
+  { label: 'Delivery', detail: 'Choose your address', Icon: MapPin },
+  { label: 'Payment', detail: 'Pay with AUG Revive', Icon: Coins },
+]
+
+function CheckoutSteps({ active, onStepChange }) {
+  useEffect(() => {
+    const page = document.querySelector('.cx-checkout')
+    const navbars = [...document.querySelectorAll('.exact-nav, .san-top-shell, .irn-top')]
+    let frame = null
+    const measure = () => {
+      frame = null
+      const bottom = Math.max(0, ...navbars.map(nav => nav.getBoundingClientRect().bottom))
+      page?.style.setProperty('--cx-nav-bottom', `${Math.ceil(bottom) + 24}px`)
+    }
+    const schedule = () => { if (frame === null) frame = requestAnimationFrame(measure) }
+    measure()
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null
+    navbars.forEach(nav => observer?.observe(nav))
+    window.addEventListener('resize', schedule)
+    window.addEventListener('scroll', schedule, { passive: true })
+    return () => {
+      observer?.disconnect()
+      if (frame !== null) cancelAnimationFrame(frame)
+      window.removeEventListener('resize', schedule)
+      window.removeEventListener('scroll', schedule)
+      page?.style.removeProperty('--cx-nav-bottom')
+    }
+  }, [active])
+
+  return (
+    <ol className="cx-steps" aria-label="Checkout progress">
+      {steps.map((step, index) => (
+        <li key={step.label} className={`${index + 1 === active ? 'is-current' : ''} ${index + 1 < active ? 'is-complete' : ''}`} aria-current={index + 1 === active ? 'step' : undefined}>
+          <span className="cx-step-icon">{index + 1 < active ? <Check size={19} /> : <step.Icon size={19} />}</span>
+          <span><strong>{step.label}</strong><small>{step.detail}</small></span>
+          <span className="cx-step-number" aria-hidden="true">0{index + 1}</span>
+          {onStepChange && index + 1 < active && <button type="button" className="cx-step-jump" aria-label={`Back to ${step.label}`} onClick={() => onStepChange(index + 1)} />}
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function GiftIllustration() {
+  return (
+    <svg className="cc-gift" viewBox="0 0 220 200" fill="none" aria-hidden="true">
+      <ellipse cx="110" cy="174" rx="62" ry="10" fill="#073B3F" opacity=".09" />
+      <g className="cc-gift-box">
+        <path d="m44 75 66-30 66 30-66 31-66-31Z" fill="#E9CC9E" />
+        <path d="m44 75 66 31v66l-66-33V75Z" fill="#C99B63" />
+        <path d="m110 106 66-31v64l-66 33v-66Z" fill="#B47E44" />
+        <path d="m38 69 72-33 72 33-72 34-72-34Z" fill="#F4DFC0" />
+        <path d="m38 69 72 34v16L38 85V69Z" fill="#D9B382" />
+        <path d="m110 103 72-34v16l-72 34v-16Z" fill="#C3935D" />
+        <path d="m81 49 18-8 72 34-18 9-72-35Z" fill="#0E6668" />
+        <path d="m66 82 18 9 72-34-18-8-72 33Z" fill="#197778" />
+        <path d="m66 82 18 9v68l-18-9V82Z" fill="#0B585C" />
+        <path d="m137 91 18-8v66l-18 9V91Z" fill="#08474D" />
+        <path d="M109 62C69 60 77 25 93 35c9 6 16 27 16 27Zm1 0c41-2 33-37 17-27-9 6-17 27-17 27Z" stroke="#0B6467" strokeWidth="7" strokeLinejoin="round" />
+        <path d="m110 64-14 18m15-18 17 15" stroke="#0B6467" strokeWidth="7" strokeLinecap="round" />
+      </g>
+      <g className="cc-gift-seal">
+        <circle cx="166" cy="142" r="27" fill="#fff" />
+        <circle cx="166" cy="142" r="22" fill="#0E7770" />
+        <path d="m156 142 7 7 13-14" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+    </svg>
+  )
+}
+
+function CheckoutProcessing() {
+  useEffect(() => {
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = previous }
+  }, [])
+
+  return (
+    <div className="cc-processing" role="status" aria-live="polite">
+      <div className="cc-processing-card">
+        <div className="cc-processing-orbit" aria-hidden="true">
+          <div className="cc-orbit-ring" />
+          <div className="cc-processing-lock"><LockKeyhole size={32} strokeWidth={1.6} /></div>
+          <span className="cc-orbit-coin"><Coins size={22} /></span>
+        </div>
+        <span className="cc-eyebrow">A little moment of anticipation</span>
+        <h2>Making it yours<span className="cc-loading-dots" aria-hidden="true">…</span></h2>
+        <p>We’re confirming your AUG Revive payment.<br />Please keep this page open.</p>
+        <div className="cc-loading-track" aria-hidden="true"><span /></div>
+        <span className="cc-processing-note"><LockKeyhole size={12} /> Payment in progress</span>
+      </div>
+    </div>
+  )
+}
+
+function OrderCelebration({ orderId, coinsNeeded, productName, image, qty, total, address, banner, downloading, onDownload, onContinue }) {
+  const titleRef = useRef(null)
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
+    titleRef.current?.focus({ preventScroll: true })
+  }, [])
+
+  return (
+    <section className="cc-success" aria-labelledby="cc-success-title">
+      <div className="cc-confetti" aria-hidden="true">
+        {Array.from({ length: 32 }, (_, i) => (
+          <i key={i} style={{ '--x': `${((i * 47) % 760) - 380}px`, '--y': `${100 + (i * 37) % 370}px`, '--r': `${i * 67}deg`, '--delay': `${(i % 8) * 65}ms`, '--color': ['#BB8958', '#0E7770', '#E8C796', '#78B8A2'][i % 4] }} />
+        ))}
+      </div>
+      <div className="cc-hero">
+        <div className="cc-artwork">
+          <div className="cc-halo cc-halo-one" /><div className="cc-halo cc-halo-two" />
+          <Sparkles className="cc-spark cc-spark-one" size={24} />
+          <Sparkles className="cc-spark cc-spark-two" size={17} />
+          <GiftIllustration />
+        </div>
+        <span className="cc-confirmed"><Check size={13} strokeWidth={3} /> Order confirmed</span>
+        <h1 id="cc-success-title" ref={titleRef} tabIndex={-1}>A little treasure.<br /><em>Now yours.</em></h1>
+        <p className="cc-subtitle">Thank you for choosing us. Your order has been placed successfully.</p>
+        <div className="cc-order-number"><span>ORDER ID</span><strong>{orderId}</strong></div>
+      </div>
+
+      <div className="cc-details">
+        <div className="cc-product">
+          <div className="cc-product-image">{image ? <img src={image} alt={productName} /> : <PackageCheck size={30} />}</div>
+          <div><span className="cc-detail-label">Your new treasure</span><h2>{productName}</h2><p>Quantity: {qty}</p></div>
+          <strong className="cc-price">{total}</strong>
+        </div>
+        <div className="cc-payment"><span className="cc-detail-icon"><Coins size={20} /></span><div><strong>Paid with AUG Revive</strong><span>{coinsNeeded.toLocaleString('en-IN')} AUG Revive deducted</span></div><span className="cc-paid"><Check size={12} /> Paid</span></div>
+        {address && <div className="cc-address"><MapPin size={17} /><p><strong>Deliver to {address.name}</strong><span>{[address.address, address.locality, address.city, address.state, address.pincode].filter(Boolean).join(', ')}</span></p></div>}
+        {banner && <div className={`op-banner ${banner.type}`} role="alert">{banner.text}</div>}
+        <div className="cc-actions">
+          <button type="button" className="cc-primary" onClick={onContinue}>Continue shopping <ArrowRight size={17} /></button>
+          <button type="button" className="cc-secondary" disabled={downloading} onClick={onDownload}><Download size={16} />{downloading ? 'Preparing receipt…' : 'Download receipt'}</button>
+        </div>
+        <p className="cc-thank-you"><Sparkles size={13} /> A beautiful choice. A happy little moment.</p>
+      </div>
+    </section>
+  )
+}
 
 const GOLD = '#BB8958'
 const DARK = '#111817'
@@ -8,15 +154,57 @@ const MUTED = '#7A8987'
 const RED = '#073B3F'
 const COIN_RATE = 100 // 1 Rs = 100 coins
 
+function AnimatedReviveBalance({ value }) {
+  const [display, setDisplay] = useState(value)
+  const current = useRef(value)
+  useEffect(() => {
+    const from = current.current
+    const target = Number(value) || 0
+    let frame
+    const start = performance.now()
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const update = now => {
+      const progress = reducedMotion ? 1 : Math.min(1, (now - start) / 650)
+      current.current = Math.round(from + (target - from) * (1 - Math.pow(1 - progress, 3)))
+      setDisplay(current.current)
+      if (progress < 1) frame = requestAnimationFrame(update)
+    }
+    frame = requestAnimationFrame(update)
+    return () => cancelAnimationFrame(frame)
+  }, [value])
+  return <span className="cx-revive-number" aria-label={`${Number(value).toLocaleString('en-IN')} AUG Revive`}>{display.toLocaleString('en-IN')}</span>
+}
+
+function WalletTopUpSuccess({ amount, ready }) {
+  const continueToPayment = () => {
+    const button = document.getElementById('cx-confirm-payment')
+    button?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center' })
+    button?.focus({ preventScroll: true })
+  }
+  return (
+    <section className="cx-revive-success" role="status" aria-live="polite">
+      <div className="cx-revive-success-art" aria-hidden="true">
+        <svg viewBox="0 0 80 80" fill="none">
+          <circle cx="40" cy="40" r="35" stroke="#C5DCC5" strokeDasharray="3 5" />
+          <circle cx="40" cy="40" r="27" fill="#176454" />
+          <path className="cx-revive-check" pathLength="1" d="m28 40 8 8 17-18" stroke="#FFF5D8" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        {Array.from({ length: 8 }, (_, i) => <i key={i} style={{ '--angle': `${i * 45}deg`, '--delay': `${i * 35}ms` }} />)}
+      </div>
+      <div className="cx-revive-success-copy">
+        <span className="cx-revive-kicker">A little boost. A step closer.</span>
+        <h2>+{amount.toLocaleString('en-IN')} <span>AUG Revive added</span></h2>
+        <p>{ready ? 'Your wallet is topped up. Your order is ready for payment.' : 'Top-up successful. Your updated wallet balance appears below.'}</p>
+      </div>
+      {ready && <button type="button" onClick={continueToPayment}>Let’s make it yours <ArrowRight size={16} /></button>}
+    </section>
+  )
+}
+
 const CoinIcon = ({ size = 20 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <ellipse cx="12" cy="6" rx="8" ry="3" /><path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6" />
     <path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6" />
-  </svg>
-)
-const CheckIcon = ({ size = 16 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="9" /><path d="M9 12l2 2 4-4" />
   </svg>
 )
 const AlertIcon = ({ size = 16 }) => (
@@ -56,8 +244,6 @@ const styles = `
   .op-banner{margin-bottom:18px;padding:13px 16px;border-radius:8px;font-size:13px;font-weight:700}
   .op-banner.success{background:rgba(22,163,74,.1);color:#16a34a;border:1px solid rgba(22,163,74,.3)}
   .op-banner.error{background:rgba(229,62,62,.1);color:#e53e3e;border:1px solid rgba(229,62,62,.3)}
-  .op-success-box{text-align:center;padding:40px 20px}
-  .op-success-icon{width:70px;height:70px;border-radius:50%;background:rgba(22,163,74,.12);color:#16a34a;display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
   @media (max-width: 600px) {
     .op-main { width: min(100% - 20px, 900px); padding: 20px 0 50px; }
     .op-title { font-size: 26px; margin-bottom: 18px; }
@@ -76,10 +262,13 @@ export default function OrderPayment() {
 
   const [wallet, setWallet] = useState({ balance_coins: 0 })
   const [loadingWallet, setLoadingWallet] = useState(true)
+  const [walletError, setWalletError] = useState(false)
   const [paying, setPaying] = useState(false)
+  const paymentInFlight = useRef(false)
   const [topUpAmount, setTopUpAmount] = useState('')
   const [toppingUp, setToppingUp] = useState(false)
   const [banner, setBanner] = useState(null)
+  const [topUpSuccess, setTopUpSuccess] = useState(null)
   const [orderId, setOrderId] = useState(null)
   const [downloadingReceipt, setDownloadingReceipt] = useState(false)
 
@@ -96,13 +285,15 @@ export default function OrderPayment() {
     setDownloadingReceipt(false)
   }
 
-  const fetchWallet = async () => {
+  const fetchWallet = async ({ quiet = false } = {}) => {
+    if (!quiet) setLoadingWallet(true)
+    setWalletError(false)
     try {
       const { default: api } = await import('../api')
       const res = await api.get('/wallet/')
       setWallet(res.data)
     } catch {
-      // silent
+      setWalletError(true)
     } finally {
       setLoadingWallet(false)
     }
@@ -119,6 +310,8 @@ export default function OrderPayment() {
   const inr = n => `Rs. ${Math.round(n).toLocaleString('en-IN')}`
 
   const handlePayWithCoins = async () => {
+    if (paymentInFlight.current) return
+    paymentInFlight.current = true
     setPaying(true)
     setBanner(null)
     try {
@@ -126,6 +319,7 @@ export default function OrderPayment() {
       const res = await api.post('/orders/pay-with-coins/', {
         product_id: product.id,
         product_image_url: firstImage,
+        delivery_address_id: savedAddress.id,
         customer_name: savedAddress.name,
         customer_phone: savedAddress.phone,
         pincode: savedAddress.pincode,
@@ -146,6 +340,7 @@ export default function OrderPayment() {
       setBanner({ type: 'error', text: err.response?.data?.error || 'Payment failed. Please try again.' })
       fetchWallet()
     } finally {
+      paymentInFlight.current = false
       setPaying(false)
     }
   }
@@ -160,13 +355,14 @@ export default function OrderPayment() {
   })
 
   const handleBuyAugCoin = async () => {
-    const amount = Number(topUpAmount) || shortfallRupees
-    if (amount <= 0) {
+    const amount = Number(topUpAmount)
+    if (!Number.isFinite(amount) || amount <= 0) {
       setBanner({ type: 'error', text: 'Please enter a valid amount' })
       return
     }
     setToppingUp(true)
     setBanner(null)
+    setTopUpSuccess(null)
     try {
       const loaded = await loadRazorpay()
       if (!loaded) {
@@ -183,8 +379,8 @@ export default function OrderPayment() {
         key,
         amount: Math.round(orderAmount * 100),
         currency,
-        name: 'BitByte AUG Coin',
-        description: `Top-up ${Math.round(amount * COIN_RATE)} coins`,
+        name: 'BitByte AUG Revive',
+        description: `Top-up ${Math.round(amount * COIN_RATE)} AUG Revive`,
         order_id: razorpay_order_id,
         handler: async response => {
           try {
@@ -195,9 +391,10 @@ export default function OrderPayment() {
               recharge_id,
             })
             if (verifyRes.data.status === 'success') {
-              setBanner({ type: 'success', text: `${verifyRes.data.coins_credited} coins added! You can proceed to pay now.` })
+              setTopUpSuccess({ amount: Number(verifyRes.data.coins_credited) || 0, id: response.razorpay_payment_id })
+              setBanner(null)
               setTopUpAmount('')
-              fetchWallet()
+              await fetchWallet({ quiet: true })
             } else {
               setBanner({ type: 'error', text: 'Top-up verification failed. Please contact support.' })
             }
@@ -220,25 +417,22 @@ export default function OrderPayment() {
 
   if (orderId) {
     return (
-      <div className="op-page">
+      <div className="op-page cx-checkout">
         <style>{styles}</style>
         <main className="op-main">
-          <div className="op-card op-success-box">
-            <div className="op-success-icon"><CheckIcon size={32} /></div>
-            <h2 style={{ fontFamily: '"Playfair Display",serif', color: RED, margin: '0 0 10px' }}>Order Confirmed!</h2>
-            <p style={{ color: MUTED, fontSize: 14, marginBottom: 6 }}>Order ID</p>
-            <p style={{ fontWeight: 900, fontSize: 18, color: RED, marginBottom: 24 }}>{orderId}</p>
-            <p style={{ color: MUTED, fontSize: 13, marginBottom: 24 }}>Paid using AUG Coin — {coinsNeeded.toLocaleString('en-IN')} coins deducted.</p>
-            {banner && <div className={`op-banner ${banner.type}`} style={{ maxWidth: 320, margin: '0 auto 16px' }}>{banner.text}</div>}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 260, margin: '0 auto' }}>
-              <button className="op-pay-btn" style={{ background: 'linear-gradient(135deg,#BB8958,#9F6130)' }} disabled={downloadingReceipt} onClick={handleDownloadReceipt}>
-                {downloadingReceipt ? 'Preparing...' : 'Download Receipt'}
-              </button>
-              <button className="op-pay-btn" onClick={() => navigate('/customer')}>
-                Continue Shopping
-              </button>
-            </div>
-          </div>
+          <OrderCelebration
+            orderId={orderId}
+            coinsNeeded={coinsNeeded}
+            productName={isCartCheckout ? `${cartItems.length} jewellery pieces` : product.name}
+            image={firstImage}
+            qty={qty}
+            total={inr(totalPrice)}
+            address={savedAddress}
+            banner={banner}
+            downloading={downloadingReceipt}
+            onDownload={handleDownloadReceipt}
+            onContinue={() => navigate('/customer')}
+          />
         </main>
         <CustomerFooter />
       </div>
@@ -246,70 +440,99 @@ export default function OrderPayment() {
   }
 
   return (
-    <div className="op-page">
+    <div className="op-page cx-checkout">
       <style>{styles}</style>
-      <main className="op-main">
-        <button type="button" className="op-back" onClick={() => navigate(-1)} aria-label="Back">
+      {paying && <CheckoutProcessing />}
+      <main className="op-main" aria-busy={paying} inert={paying}>
+        <button type="button" className="op-back" onClick={() => navigate('/order-confirm', { state: { ...location.state, checkoutStep: 2 } })} aria-label="Back">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <line x1="19" y1="12" x2="5" y2="12" />
             <polyline points="12 19 5 12 12 5" />
           </svg>
         </button>
-        <p className="op-kicker">Secure Payment</p>
-        <h1 className="op-title">Pay with AUG Coin</h1>
+        <header className="cx-payment-heading">
+          <p className="op-kicker">Almost yours</p>
+          <h1 className="op-title">One last step. All yours.</h1>
+          <p>Review your total and pay with AUG Revive to confirm your order.</p>
+        </header>
+        <CheckoutSteps active={3} onStepChange={checkoutStep => navigate('/order-confirm', { state: { ...location.state, checkoutStep } })} />
 
         {banner && <div className={`op-banner ${banner.type}`}>{banner.text}</div>}
+        {topUpSuccess && <WalletTopUpSuccess key={topUpSuccess.id} amount={topUpSuccess.amount} ready={!loadingWallet && !walletError && hasEnoughCoins} />}
 
+        <div className="cx-payment-layout">
         <section className="op-card">
+          <span className="cx-summary-kicker">Your selection</span>
+          <h2 className="oc-summary-title">A beautiful choice, ready for checkout.</h2>
           <div className="op-order-row">
             <div className="op-order-img">
               {firstImage ? <img src={firstImage} alt="" /> : <div style={{ display: 'grid', placeItems: 'center', height: '100%', color: RED, fontWeight: 900 }}>BJ</div>}
             </div>
             <div>
-              <div style={{ fontWeight: 800, color: RED, fontSize: 15 }}>{isCartCheckout ? `${cartItems.length} jewellery pieces` : product.name}</div>
+              <span className="cx-payment-product-label">{isCartCheckout ? 'Your jewellery collection' : 'Selected for you'}</span>
+              <strong>{isCartCheckout ? `${cartItems.length} jewellery pieces` : product.name}</strong>
               <div style={{ color: MUTED, fontSize: 12, fontWeight: 700, marginTop: 4 }}>Qty: {qty}</div>
             </div>
           </div>
           <div className="op-amount-row"><span>Order Amount</span><strong style={{ color: DARK }}>{inr(totalPrice)}</strong></div>
-          <div className="op-amount-row"><span>Coins Required</span><strong style={{ color: GOLD }}>{coinsNeeded.toLocaleString('en-IN')} coins</strong></div>
-          <div className="op-amount-total"><span>Amount Payable</span><span>{inr(totalPrice)}</span></div>
+          <div className="op-amount-row"><span>AUG Revive required</span><strong style={{ color: GOLD }}>{coinsNeeded.toLocaleString('en-IN')} AUG Revive</strong></div>
+          <div className="op-amount-total"><span>Amount payable</span><span>{inr(totalPrice)}</span></div>
+          <div className="cx-payment-address"><MapPin size={18} /><p><strong>Deliver to {savedAddress.name}</strong><span>{[savedAddress.address, savedAddress.locality, savedAddress.city, savedAddress.state, savedAddress.pincode].filter(Boolean).join(', ')}</span></p></div>
         </section>
 
+        <div className="cx-payment-side">
         <section className="op-card op-balance-card">
-          <span className="op-balance-label">Available AUG Coin</span>
+          {topUpSuccess && <div key={topUpSuccess.id} className="cx-wallet-credit-shine" aria-hidden="true" />}
+          <div className="cx-wallet-head"><span>AUG REVIVE WALLET</span><Wallet size={23} strokeWidth={1.5} /></div>
+          <span className="op-balance-label">Available balance</span>
           <div className="op-balance-value">
-            {loadingWallet ? '...' : wallet.balance_coins.toLocaleString('en-IN')}
-            <span>coins</span>
+            {loadingWallet ? 'Checking…' : walletError ? 'Unavailable' : <AnimatedReviveBalance value={wallet.balance_coins} />}
+            {!loadingWallet && !walletError && <span>Revive</span>}
           </div>
+          <p className="cx-wallet-foot"><Coins size={13} /> 100 AUG Revive = ₹1</p>
+          <div className="cx-wallet-decoration" aria-hidden="true" />
         </section>
 
         <section className="op-card">
-          {hasEnoughCoins ? (
+          {loadingWallet ? (
+            <div className="op-status-banner" role="status">Checking your wallet balance…</div>
+          ) : walletError ? (
+            <><div className="op-status-banner no" role="alert">We couldn’t load your wallet balance.</div><button type="button" className="op-pay-btn" onClick={fetchWallet}>Try again</button></>
+          ) : hasEnoughCoins ? (
             <>
-              <div className="op-status-banner ok"><CheckIcon /> You have enough AUG Coin to pay for this order</div>
-              <button className="op-pay-btn" disabled={paying} onClick={handlePayWithCoins}>
-                {paying ? 'Processing...' : `Proceed to Pay — ${coinsNeeded.toLocaleString('en-IN')} coins`}
+              <div className="cx-revive-ready"><span><Check size={18} /></span><div><strong>You’re all set!</strong><p>Your AUG Revive balance covers this order.</p></div></div>
+              <button id="cx-confirm-payment" className="op-pay-btn" disabled={paying} onClick={handlePayWithCoins}>
+                {paying ? 'Confirming your order…' : <>Pay {coinsNeeded.toLocaleString('en-IN')} AUG Revive <ArrowRight size={18} /></>}
               </button>
             </>
           ) : (
             <>
               <div className="op-status-banner no">
-                <AlertIcon /> Coin not available — you need {shortfallCoins.toLocaleString('en-IN')} more coins ({inr(shortfallRupees)})
+                <AlertIcon /> You’re almost there. Add {shortfallCoins.toLocaleString('en-IN')} AUG Revive ({inr(shortfallRupees)}) to complete your order.
               </div>
+              <label htmlFor="cx-topup-amount" className="cx-topup-label">Amount to add (₹)</label>
               <input
+                id="cx-topup-amount"
                 className="op-shortfall-input"
-                type="number"
-                min="1"
-                placeholder={`Enter amount (min ${inr(shortfallRupees)})`}
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="Enter amount in rupees"
                 value={topUpAmount}
-                onChange={e => setTopUpAmount(e.target.value)}
+                onChange={e => {
+                  const value = e.target.value
+                  if (/^\d*(?:\.\d{0,2})?$/.test(value)) setTopUpAmount(value)
+                }}
               />
-              <button className="op-buy-coin-btn" disabled={toppingUp} onClick={handleBuyAugCoin}>
-                {toppingUp ? 'Processing...' : <><CoinIcon /> Buy AUG Coin</>}
+              <button className="op-buy-coin-btn" disabled={toppingUp || !Number.isFinite(Number(topUpAmount)) || Number(topUpAmount) <= 0} onClick={handleBuyAugCoin}>
+                {toppingUp ? 'Opening payment…' : <><CoinIcon /> Add AUG Revive</>}
               </button>
             </>
           )}
+          {!loadingWallet && !walletError && <p className="cx-payment-note"><LockKeyhole size={13} /> {hasEnoughCoins ? 'Your order is confirmed after payment succeeds.' : 'Add AUG Revive to your wallet, then confirm your order.'}</p>}
         </section>
+        </div>
+        </div>
       </main>
       <CustomerFooter />
     </div>

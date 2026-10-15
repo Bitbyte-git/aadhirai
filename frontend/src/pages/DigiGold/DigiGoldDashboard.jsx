@@ -72,7 +72,7 @@ import {
   Tooltip
 } from 'recharts'
 import * as XLSX from 'xlsx'
-import api from '../../api'
+import api, { checkoutAddress, loadAddressBook } from '../../api'
 import './DigiGoldDashboard.css'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -80,6 +80,7 @@ import goldCoinImg from '../../assets/gold-coin-transparent.png'
 import silverCoinImg from '../../assets/silver-coin-transparent.png'
 import metalsPedestalImg from '../../assets/metals_pedestal.jpg'
 import deliveryHeroImg from '../../assets/delivery_hero.jpg'
+import { AddressBook } from '../../Orders/Orderconfirm'
 import goldCoinsStackImg from '../../assets/gold_coins_stack.jpg'
 import silverCoinsStackImg from '../../assets/silver_coins_stack.jpg'
 import specialOfferGiftImg from '../../assets/special_offer_gift.jpg'
@@ -695,254 +696,46 @@ export default function DigiGoldDashboard() {
     }
   })
 
-  const [deliveryAddress, setDeliveryAddress] = useState(() => {
-    try {
-      const saved = localStorage.getItem('athirai_delivery_address')
-      if (saved) return JSON.parse(saved)
-      const stored = localStorage.getItem('user')
-      if (stored) {
-        const u = JSON.parse(stored)
-        const addrParts = [u.door_no ? `D.No: ${u.door_no}` : '', u.address || u.street_name, u.city || u.district, u.state, u.pincode].filter(Boolean)
-        return {
-          name: currentUser.name || u.first_name || '',
-          phone: currentUser.phone || u.phone || u.mobile_number || '',
-          door_no: u.door_no || '',
-          address_line1: u.address || u.street_name || '',
-          address_line2: u.town_name || '',
-          district: u.district || u.city || '',
-          city: u.city || u.district || '',
-          state: u.state || '',
-          pincode: u.pincode || '',
-          country: u.country || 'India',
-          formatted: addrParts.join(', ')
-        }
-      }
-    } catch { }
-    return {
-      name: currentUser.name || '',
-      phone: currentUser.phone || '',
-      door_no: '',
-      address_line1: '',
-      address_line2: '',
-      district: '',
-      city: '',
-      state: '',
-      pincode: '',
-      country: 'India',
-      formatted: ''
-    }
-  })
-
-  // ── DELIVERY ADDRESS POPUP STATE & HANDLERS ──
+  const [deliveryAddress, setDeliveryAddress] = useState({ formatted: '' })
+  const [addressLoading, setAddressLoading] = useState(true)
+  const [addressLoadError, setAddressLoadError] = useState(false)
   const [showAddressModal, setShowAddressModal] = useState(false)
-  const [addressForm, setAddressForm] = useState({
-    name: '',
-    phone: '',
-    door_no: '',
-    address_line1: '',
-    address_line2: '',
-    pincode: '',
-    district: '',
-    state: '',
-    country: 'India'
-  })
-  const [pincodeLoading, setPincodeLoading] = useState(false)
-  const [pincodeMsg, setPincodeMsg] = useState('')
-  const [profileFetching, setProfileFetching] = useState(false)
-  const [addressFeedback, setAddressFeedback] = useState(null)
-
-  const handleOpenAddressModal = () => {
-    setAddressForm({
-      name: deliveryAddress.name || currentUser.name || '',
-      phone: deliveryAddress.phone || currentUser.phone || '',
-      door_no: deliveryAddress.door_no || '',
-      address_line1: deliveryAddress.address_line1 || '',
-      address_line2: deliveryAddress.address_line2 || '',
-      pincode: deliveryAddress.pincode || '',
-      district: deliveryAddress.district || deliveryAddress.city || '',
-      state: deliveryAddress.state || '',
-      country: deliveryAddress.country || 'India'
-    })
-    setPincodeMsg('')
-    setAddressFeedback(null)
-    setShowAddressModal(true)
-  }
-
-  const handlePincodeChange = async (pinValue) => {
-    const cleanPin = pinValue.replace(/\D/g, '').slice(0, 6)
-    setAddressForm(prev => ({ ...prev, pincode: cleanPin }))
-
-    if (cleanPin.length === 6) {
-      setPincodeLoading(true)
-      setPincodeMsg('Fetching district, state & country…')
-      try {
-        const response = await fetch(`https://api.postalpincode.in/pincode/${cleanPin}`)
-        const resData = await response.json()
-        if (Array.isArray(resData) && resData[0]?.Status === 'Success' && resData[0]?.PostOffice?.length) {
-          const po = resData[0].PostOffice[0]
-          const detectedDistrict = po.District || po.Division || ''
-          const detectedState = po.State || ''
-          const detectedCountry = po.Country || 'India'
-
-          setAddressForm(prev => ({
-            ...prev,
-            pincode: cleanPin,
-            district: detectedDistrict,
-            state: detectedState,
-            country: detectedCountry,
-            address_line2: prev.address_line2 || (po.Name && po.Name !== detectedDistrict ? po.Name : prev.address_line2)
-          }))
-          setPincodeMsg(`Auto-detected: ${detectedDistrict}, ${detectedState}, ${detectedCountry}`)
-        } else {
-          setPincodeMsg('Pincode not found. Please enter district and state manually.')
-        }
-      } catch (err) {
-        console.warn('Pincode lookup error:', err)
-        setPincodeMsg('Could not auto-fetch. Please enter district and state manually.')
-      } finally {
-        setPincodeLoading(false)
-      }
-    } else {
-      setPincodeMsg('')
+  const handleOpenAddressModal = () => setShowAddressModal(true)
+  useEffect(() => {
+    if (!showAddressModal) return
+    const previousFocus = document.activeElement
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const frame = requestAnimationFrame(() => document.querySelector('.dg-shared-address-modal button')?.focus())
+    const onKeyDown = event => {
+      if (event.key === 'Escape') { setShowAddressModal(false); return }
+      if (event.key !== 'Tab') return
+      const dialog = document.querySelector('.dg-shared-address-modal')
+      const targets = [...(dialog?.querySelectorAll('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary') || [])].filter(element => element.getClientRects().length)
+      const first = targets[0], last = targets[targets.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
     }
-  }
-
-  const handleAutoFetchProfileAddress = async () => {
-    setProfileFetching(true)
-    setAddressFeedback(null)
-    try {
-      let prof = null
-      try {
-        const res = await api.get('/dashboard/')
-        if (res.data) prof = res.data
-      } catch (e) {
-        console.warn('Dashboard profile fetch notice:', e)
-      }
-
-      let storedUser = null
-      try {
-        const raw = localStorage.getItem('user')
-        if (raw) storedUser = JSON.parse(raw)
-      } catch { }
-
-      const source = prof || storedUser || {}
-      const fallbackName = currentUser.name || (source.first_name ? `${source.first_name || ''} ${source.last_name || ''}`.trim() : '')
-      const phone = source.mobile_number || source.phone || currentUser.phone || ''
-      const doorNo = source.door_no || ''
-      const street = source.street_name || source.address_line1 || source.address || ''
-      const locality = source.town_name || source.address_line2 || ''
-      const rawPin = (source.pincode || '').toString().replace(/\D/g, '').slice(0, 6)
-      const dist = source.district || source.city_name || source.city || ''
-      const st = source.state || ''
-      const ctry = source.country || 'India'
-
-      const updated = {
-        name: addressForm.name || fallbackName || 'Customer',
-        phone: addressForm.phone || phone || '',
-        door_no: doorNo,
-        address_line1: street,
-        address_line2: locality,
-        pincode: rawPin,
-        district: dist,
-        state: st,
-        country: ctry
-      }
-
-      setAddressForm(updated)
-
-      if (rawPin && rawPin.length === 6 && (!dist || !st)) {
-        handlePincodeChange(rawPin)
-      }
-
-      if (street || doorNo || rawPin) {
-        setAddressFeedback({
-          type: 'success',
-          text: 'Customer profile address details loaded successfully!'
-        })
-      } else {
-        setAddressFeedback({
-          type: 'info',
-          text: 'Profile found with contact details. Please enter your Door No, Street and PIN.'
-        })
-      }
-    } catch (err) {
-      setAddressFeedback({
-        type: 'error',
-        text: 'Could not fetch profile. Please enter your address manually.'
-      })
-    } finally {
-      setProfileFetching(false)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      cancelAnimationFrame(frame)
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', onKeyDown)
+      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true })
     }
-  }
+  }, [showAddressModal])
 
-  const handleResetAddressForm = () => {
-    setAddressForm({
-      name: currentUser.name || '',
-      phone: currentUser.phone || '',
-      door_no: '',
-      address_line1: '',
-      address_line2: '',
-      pincode: '',
-      district: '',
-      state: '',
-      country: 'India'
-    })
-    setPincodeMsg('')
-    setAddressFeedback(null)
-  }
-
-  const handleSaveDeliveryAddress = (e) => {
-    if (e) e.preventDefault()
-    setAddressFeedback(null)
-
-    if (!addressForm.door_no && !addressForm.address_line1) {
-      setAddressFeedback({
-        type: 'error',
-        text: 'Please enter Door No (D/No) or Address Line 1.'
-      })
-      return
-    }
-
-    if (!addressForm.pincode || addressForm.pincode.length !== 6) {
-      setAddressFeedback({
-        type: 'error',
-        text: 'Please enter a valid 6-digit PIN code.'
-      })
-      return
-    }
-
-    if (!addressForm.district || !addressForm.state) {
-      setAddressFeedback({
-        type: 'error',
-        text: 'Please enter District and State.'
-      })
-      return
-    }
-
-    const parts = [
-      addressForm.door_no ? `D.No: ${addressForm.door_no}` : '',
-      addressForm.address_line1,
-      addressForm.address_line2,
-      addressForm.district,
-      addressForm.state ? `${addressForm.state} - ${addressForm.pincode}` : addressForm.pincode,
-      addressForm.country || 'India'
-    ].filter(Boolean)
-
-    const formattedAddress = parts.join(', ')
-
-    const updated = {
-      ...addressForm,
-      city: addressForm.district,
-      formatted: formattedAddress
-    }
-
-    setDeliveryAddress(updated)
-    try {
-      localStorage.setItem('athirai_delivery_address', JSON.stringify(updated))
-    } catch { }
-
-    setShowAddressModal(false)
-  }
+  useEffect(() => {
+    let active = true
+    loadAddressBook().then(book => {
+      if (!active) return
+      const item = book.items.find(address => address.is_default) || book.items[0]
+      setDeliveryAddress(checkoutAddress(item) || { formatted: '' })
+      setAddressLoadError(false)
+    }).catch(() => { if (active) setAddressLoadError(true) })
+      .finally(() => { if (active) setAddressLoading(false) })
+    return () => { active = false }
+  }, [])
 
   const [submittingDelivery, setSubmittingDelivery] = useState(false)
   const [deliveryFeedback, setDeliveryFeedback] = useState(null)
@@ -1057,7 +850,7 @@ export default function DigiGoldDashboard() {
       }
       const dashCoins = Number(dashData?.kpis?.aug_coins_balance ?? 0)
 
-      // Authoritative AUG Coins balance directly from single source of truth
+      // Authoritative AUG Revive balance directly from single source of truth
       const authoritativeCoins = dashData?.kpis?.aug_coins_balance !== undefined
         ? Number(dashData.kpis.aug_coins_balance)
         : walletCoins
@@ -1533,7 +1326,7 @@ export default function DigiGoldDashboard() {
     }
   }
 
-  // ── CONVERT AUG COINS HANDLER ──
+  // ── CONVERT AUG REVIVE HANDLER ──
   const handleConvertCoins = async (e) => {
     e.preventDefault()
     if (!convertAmount || parseFloat(convertAmount) <= 0) return
@@ -1783,7 +1576,7 @@ export default function DigiGoldDashboard() {
   const isOverSelling = parsedSellGm > availableSellGm + 0.000001
   const hasNoHoldingsToSell = availableSellGm <= 0
 
-  // Live calculations for Convert AUG Coins modal
+  // Live calculations for Convert AUG Revive modal
   const parsedConvertAmount = parseFloat(convertAmount) || 0
   const convertRate = convertMetal === 'gold_22k' ? currentLiveRate : currentSilverRate
   const convertMgRate = convertMetal === 'gold_22k' ? currentLiveMgRate : currentSilverRate / 1000
@@ -1900,7 +1693,8 @@ export default function DigiGoldDashboard() {
     try {
       const res = await api.post('/digi-gold/delivery/order/', {
         items: payloadItems,
-        address: deliveryAddress
+        address: deliveryAddress,
+        delivery_address_id: deliveryAddress.id
       })
 
       const confirmed = res.data.order
@@ -3081,7 +2875,7 @@ export default function DigiGoldDashboard() {
               onClick={() => { setConvertFeedback(null); setShowConvertModal(true); setSidebarOpen(false); }}
             >
               <ArrowLeftRight size={18} />
-              <span>Convert Coins</span>
+              <span>Convert AUG Revive</span>
             </button>
             <button
               className={`dg-nav-btn ${currentView === 'valuation' ? 'active' : ''}`}
@@ -4719,7 +4513,7 @@ export default function DigiGoldDashboard() {
                           className="dg-rpanel-change-link"
                           onClick={handleOpenAddressModal}
                         >
-                          {deliveryAddress.formatted ? 'Change' : '+ Add Address'}
+                          {addressLoading ? 'Loading...' : addressLoadError ? 'Retry / Add' : deliveryAddress.formatted ? 'Change' : '+ Add Address'}
                         </button>
                       </div>
 
@@ -4840,7 +4634,7 @@ export default function DigiGoldDashboard() {
                       type="button"
                       className={`dg-rpanel-checkout-btn ${hasBalanceShortage ? 'btn-disabled-shortage' : ''}`}
                       onClick={handleProceedDeliveryCheckout}
-                      disabled={submittingDelivery || deliveryCart.length === 0 || hasBalanceShortage}
+                      disabled={submittingDelivery || addressLoading || !deliveryAddress.id || deliveryCart.length === 0 || hasBalanceShortage}
                     >
                       <span>
                         {submittingDelivery
@@ -5854,7 +5648,7 @@ export default function DigiGoldDashboard() {
                       ) : (
                         <>
                           <span className="dg-ccb-coins">
-                            <AnimatedNumber value={kpis.aug_coins_balance ?? 0} decimals={0} suffix=" Coins" />
+                            <AnimatedNumber value={kpis.aug_coins_balance ?? 0} decimals={0} suffix=" Revive" />
                           </span>
                           <span className="dg-ccb-inr">
                             (≈ <AnimatedNumber value={kpis.aug_balance_inr ?? 0} prefix="₹ " decimals={2} />)
@@ -6157,7 +5951,7 @@ export default function DigiGoldDashboard() {
                       <div className="dg-qa-icon wallet" style={{ background: 'rgba(0,153,87,0.12)', color: '#009957' }}>
                         <Coins size={20} />
                       </div>
-                      <span>Convert Coins</span>
+                      <span>Convert AUG Revive</span>
                     </button>
 
                     <button
@@ -6282,7 +6076,7 @@ export default function DigiGoldDashboard() {
                                 </div>
                                 <div className="dg-empty-tx-title">No Transactions Yet</div>
                                 <p className="dg-empty-tx-desc">
-                                  Convert your store coins or invest in 22K Digital Gold from just ₹10!
+                                  Convert your AUG Revive or invest in 22K Digital Gold from just ₹10!
                                 </p>
                                 <div className="dg-empty-tx-actions">
                                   <button
@@ -6291,7 +6085,7 @@ export default function DigiGoldDashboard() {
                                     onClick={() => { setConvertFeedback(null); setShowConvertModal(true); }}
                                   >
                                     <ArrowLeftRight size={13} />
-                                    <span>Convert Coins</span>
+                                    <span>Convert AUG Revive</span>
                                   </button>
                                   <button
                                     type="button"
@@ -6373,7 +6167,7 @@ export default function DigiGoldDashboard() {
                         </div>
                         <div className="dg-empty-tx-title">No Transactions Yet</div>
                         <p className="dg-empty-tx-desc">
-                          Convert your store coins or invest in 22K Digital Gold from just ₹10!
+                          Convert your AUG Revive or invest in 22K Digital Gold from just ₹10!
                         </p>
                         <div className="dg-empty-tx-actions">
                           <button
@@ -6382,7 +6176,7 @@ export default function DigiGoldDashboard() {
                             onClick={() => { setConvertFeedback(null); setShowConvertModal(true); }}
                           >
                             <ArrowLeftRight size={13} />
-                            <span>Convert Coins</span>
+                            <span>Convert AUG Revive</span>
                           </button>
                           <button
                             type="button"
@@ -6922,8 +6716,8 @@ export default function DigiGoldDashboard() {
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: '#009957', fontWeight: 700 }}>
-                  <span>AUG Coins Credited:</span>
-                  <span>+ {previewSellCoins.toLocaleString()} Coins (100 coins = ₹1)</span>
+                  <span>AUG Revive Credited:</span>
+                  <span>+ {previewSellCoins.toLocaleString()} Revive (100 Revive = ₹1)</span>
                 </div>
               </div>
 
@@ -6946,7 +6740,7 @@ export default function DigiGoldDashboard() {
         </div>
       )}
 
-      {/* ── MODAL: CONVERT AUG COINS TO 22K DIGI GOLD ── */}
+      {/* ── MODAL: CONVERT AUG REVIVE TO 22K DIGI GOLD ── */}
       {showConvertModal && (
         <div className="dg-modal-overlay" onClick={() => setShowConvertModal(false)}>
           <div className="dg-modal-box" onClick={e => e.stopPropagation()}>
@@ -7286,219 +7080,16 @@ export default function DigiGoldDashboard() {
         </div>
       )}
 
-      {/* ── DELIVERY ADDRESS POPUP MODAL ── */}
       {showAddressModal && (
         <div className="dg-modal-overlay" onClick={() => setShowAddressModal(false)}>
-          <div className="dg-modal-box dg-address-modal-box" onClick={e => e.stopPropagation()}>
-            {/* Modal Header */}
+          <div className="dg-modal-box dg-shared-address-modal" role="dialog" aria-modal="true" aria-label="Delivery address book" onClick={event => event.stopPropagation()}>
             <div className="dg-modal-head">
-              <div className="dg-modal-title-wrap">
-                <div className="dg-modal-icon-badge">
-                  <MapPin size={22} color="#007B50" />
-                </div>
-                <div>
-                  <h3 className="dg-modal-title" style={{ margin: 0, fontSize: 18, color: '#002D24', fontWeight: 800 }}>
-                    Doorstep Delivery Address
-                  </h3>
-                  <p style={{ margin: '3px 0 0', fontSize: 12, color: '#647474' }}>
-                    100% Insured courier dispatch for bullion coins
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                className="dg-modal-close"
-                onClick={() => setShowAddressModal(false)}
-                title="Close"
-              >
-                <X size={18} />
-              </button>
+              <div><h3 className="dg-modal-title">Your delivery addresses</h3><p style={{ fontSize: 12, color: '#647474' }}>Saved to your account for checkout and DigiGold.</p></div>
+              <button type="button" className="dg-modal-close" aria-label="Close address book" onClick={() => setShowAddressModal(false)}><X size={18} /></button>
             </div>
-
-            {/* Quick Actions Bar */}
-            <div className="dg-addr-quick-actions">
-              <button
-                type="button"
-                className="dg-addr-fetch-btn"
-                onClick={handleAutoFetchProfileAddress}
-                disabled={profileFetching}
-                title="Fetch address from your logged-in profile"
-              >
-                <UserRound size={15} />
-                <span>{profileFetching ? 'Fetching Profile…' : 'Auto-Fetch from Profile'}</span>
-              </button>
-              <button
-                type="button"
-                className="dg-addr-reset-btn"
-                onClick={handleResetAddressForm}
-                title="Clear and enter fresh address"
-              >
-                + Clear / New Address
-              </button>
+            <div className="dg-address-book-body">
+              <AddressBook selectedId={deliveryAddress.id} onSelect={address => setDeliveryAddress(address || { formatted: '' })} onUse={address => { if (address) setDeliveryAddress(address); setShowAddressModal(false) }} />
             </div>
-
-            {/* Alerts */}
-            {addressFeedback && (
-              <div className={`dg-addr-alert ${addressFeedback.type}`}>
-                {addressFeedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-                <span>{addressFeedback.text}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSaveDeliveryAddress} className="dg-addr-form">
-              {/* Recipient Contact */}
-              <div className="dg-addr-grid-2">
-                <div className="dg-addr-field">
-                  <label>Recipient Name *</label>
-                  <input
-                    type="text"
-                    value={addressForm.name}
-                    onChange={e => setAddressForm({ ...addressForm, name: e.target.value })}
-                    placeholder="Customer Name"
-                    required
-                  />
-                </div>
-                <div className="dg-addr-field">
-                  <label>Mobile Number *</label>
-                  <input
-                    type="tel"
-                    value={addressForm.phone}
-                    onChange={e => setAddressForm({ ...addressForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
-                    placeholder="10-digit mobile number"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* D/No & Address 1 */}
-              <div className="dg-addr-grid-dno">
-                <div className="dg-addr-field dno">
-                  <label>D/No (Door / Flat) *</label>
-                  <input
-                    type="text"
-                    value={addressForm.door_no}
-                    onChange={e => setAddressForm({ ...addressForm, door_no: e.target.value })}
-                    placeholder="e.g. 12 / 3B"
-                    required
-                  />
-                </div>
-                <div className="dg-addr-field">
-                  <label>Address 1 (Street / Road) *</label>
-                  <input
-                    type="text"
-                    value={addressForm.address_line1}
-                    onChange={e => setAddressForm({ ...addressForm, address_line1: e.target.value })}
-                    placeholder="e.g. Bharathi Street, Main Road"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Address 2 */}
-              <div className="dg-addr-field">
-                <label>Address 2 (Area / Locality / Landmark)</label>
-                <input
-                  type="text"
-                  value={addressForm.address_line2}
-                  onChange={e => setAddressForm({ ...addressForm, address_line2: e.target.value })}
-                  placeholder="e.g. Near Bus Stand / Temple, Anna Nagar"
-                />
-              </div>
-
-              {/* Pincode & District with auto-fetch */}
-              <div className="dg-addr-grid-2">
-                <div className="dg-addr-field">
-                  <div className="dg-addr-label-row">
-                    <label>Pincode *</label>
-                    {pincodeLoading && <span className="dg-addr-detecting">Auto-detecting…</span>}
-                  </div>
-                  <input
-                    type="text"
-                    maxLength={6}
-                    value={addressForm.pincode}
-                    onChange={e => handlePincodeChange(e.target.value)}
-                    placeholder="6-digit PIN (e.g. 600040)"
-                    required
-                  />
-                </div>
-                <div className="dg-addr-field">
-                  <label>District / City *</label>
-                  <input
-                    type="text"
-                    value={addressForm.district}
-                    onChange={e => setAddressForm({ ...addressForm, district: e.target.value })}
-                    placeholder="Auto-filled from PIN"
-                    required
-                  />
-                </div>
-              </div>
-
-              {pincodeMsg && (
-                <div className={`dg-pincode-hint ${pincodeMsg.includes('Auto-detected') ? 'success' : ''}`}>
-                  {pincodeMsg.includes('Auto-detected') ? <Check size={14} color="#009957" /> : <AlertCircle size={14} color="#647474" />}
-                  <span>{pincodeMsg}</span>
-                </div>
-              )}
-
-              {/* State & Country */}
-              <div className="dg-addr-grid-2">
-                <div className="dg-addr-field">
-                  <label>State *</label>
-                  <input
-                    type="text"
-                    value={addressForm.state}
-                    onChange={e => setAddressForm({ ...addressForm, state: e.target.value })}
-                    placeholder="Auto-filled from PIN"
-                    required
-                  />
-                </div>
-                <div className="dg-addr-field">
-                  <label>Country *</label>
-                  <input
-                    type="text"
-                    value={addressForm.country}
-                    onChange={e => setAddressForm({ ...addressForm, country: e.target.value })}
-                    placeholder="India"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Formatted Address Preview */}
-              {(addressForm.door_no || addressForm.address_line1 || addressForm.pincode) && (
-                <div className="dg-addr-preview-box">
-                  <span className="dg-addr-preview-label">Live Address Preview:</span>
-                  <p className="dg-addr-preview-text">
-                    {[
-                      addressForm.name && `${addressForm.name} (Ph: ${addressForm.phone || '—'})`,
-                      addressForm.door_no && `D.No: ${addressForm.door_no}`,
-                      addressForm.address_line1,
-                      addressForm.address_line2,
-                      addressForm.district,
-                      addressForm.state ? `${addressForm.state} - ${addressForm.pincode}` : addressForm.pincode,
-                      addressForm.country || 'India'
-                    ].filter(Boolean).join(', ')}
-                  </p>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="dg-addr-btn-row">
-                <button
-                  type="button"
-                  className="dg-addr-cancel-btn"
-                  onClick={() => setShowAddressModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="dg-addr-submit-btn"
-                >
-                  Save &amp; Confirm Address
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

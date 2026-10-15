@@ -440,19 +440,19 @@ export default function InternalRoleNavbar({
       },
       {
         id: 'buy-coin',
-        title: 'Buy AUG Coins',
+        title: 'Buy AUG Revive',
         category: 'Coins & Wallet',
         icon: 'coin',
-        description: 'Purchase or top up AUG Coins',
+        description: 'Purchase or top up AUG Revive',
         path: '/buy-coin',
-        keywords: ['buy coin', 'aug coin', 'coins', 'top up', 'recharge', 'நாணயம்', 'வாங்கு']
+        keywords: ['buy coin', 'aug revive', 'coins', 'top up', 'recharge', 'நாணயம்', 'வாங்கு']
       },
       {
         id: 'available-coins',
         title: 'Available Coins',
         category: 'Coins & Wallet',
         icon: 'coin',
-        description: 'Check available AUG Coin balances & stored stash',
+        description: 'Check available AUG Revive balances & stored stash',
         path: '/available-coins',
         keywords: ['available coin', 'coin balance', 'stored coins', 'இருப்பு']
       },
@@ -1889,7 +1889,7 @@ export default function InternalRoleNavbar({
                   type="button"
                   className="san-menu-trigger is-aug"
                   onClick={() => runItem(group.items[0])}
-                  title="AUG Coin Quick Recharge"
+                  title="AUG Revive Quick Recharge"
                 >
                   🪙 <span className="san-menu-trigger-text">{group.items[0].label}</span>
                 </button>

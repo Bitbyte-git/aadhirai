@@ -1,6 +1,54 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import CustomerFooter from '../collection/CustomerFooter'
+import { ArrowLeft, ArrowRight, Check, ChevronRight, Coins, Crosshair, Home, MapPin, PackageCheck, Pencil, Plus, ShoppingBag, Trash2, Truck } from 'lucide-react'
+import './CheckoutExperience.css'
+import api, { checkoutAddress, loadAddressBook, mapsCoordinates, mapsSearchUrl } from '../api'
+
+const steps = [
+  { label: 'Your selection', detail: 'Review your order', Icon: ShoppingBag },
+  { label: 'Delivery', detail: 'Choose your address', Icon: MapPin },
+  { label: 'Payment', detail: 'Pay with AUG Revive', Icon: Coins },
+]
+
+function CheckoutSteps({ active, onStepChange }) {
+  useEffect(() => {
+    const page = document.querySelector('.cx-checkout')
+    const navbars = [...document.querySelectorAll('.exact-nav, .san-top-shell, .irn-top')]
+    let frame = null
+    const measure = () => {
+      frame = null
+      const bottom = Math.max(0, ...navbars.map(nav => nav.getBoundingClientRect().bottom))
+      page?.style.setProperty('--cx-nav-bottom', `${Math.ceil(bottom) + 24}px`)
+    }
+    const schedule = () => { if (frame === null) frame = requestAnimationFrame(measure) }
+    measure()
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null
+    navbars.forEach(nav => observer?.observe(nav))
+    window.addEventListener('resize', schedule)
+    window.addEventListener('scroll', schedule, { passive: true })
+    return () => {
+      observer?.disconnect()
+      if (frame !== null) cancelAnimationFrame(frame)
+      window.removeEventListener('resize', schedule)
+      window.removeEventListener('scroll', schedule)
+      page?.style.removeProperty('--cx-nav-bottom')
+    }
+  }, [active])
+
+  return (
+    <ol className="cx-steps" aria-label="Checkout progress">
+      {steps.map((step, index) => (
+        <li key={step.label} className={`${index + 1 === active ? 'is-current' : ''} ${index + 1 < active ? 'is-complete' : ''}`} aria-current={index + 1 === active ? 'step' : undefined}>
+          <span className="cx-step-icon">{index + 1 < active ? <Check size={19} /> : <step.Icon size={19} />}</span>
+          <span><strong>{step.label}</strong><small>{step.detail}</small></span>
+          <span className="cx-step-number" aria-hidden="true">0{index + 1}</span>
+          {onStepChange && index + 1 < active && <button type="button" className="cx-step-jump" aria-label={`Back to ${step.label}`} onClick={() => onStepChange(index + 1)} />}
+        </li>
+      ))}
+    </ol>
+  )
+}
 
 const API_BASE = 'https://bitbyte-backend-f66f.onrender.com'
 const GOLD = '#BB8958'
@@ -9,23 +57,42 @@ const CREAM = '#FDFDFC'
 const MUTED = '#7A8987'
 const RED = '#073B3F'
 
-const COUNTRIES = [
-  { code: 'IN', name: 'India', flag: '🇮🇳' },
-  { code: 'US', name: 'United States', flag: '🇺🇸' },
-  { code: 'GB', name: 'United Kingdom', flag: '🇬🇧' },
-  { code: 'AE', name: 'UAE', flag: '🇦🇪' },
-  { code: 'SG', name: 'Singapore', flag: '🇸🇬' },
-  { code: 'CA', name: 'Canada', flag: '🇨🇦' },
-  { code: 'AU', name: 'Australia', flag: '🇦🇺' },
-  { code: 'DE', name: 'Germany', flag: '🇩🇪' },
-  { code: 'FR', name: 'France', flag: '🇫🇷' },
-  { code: 'JP', name: 'Japan', flag: '🇯🇵' },
-  { code: 'NZ', name: 'New Zealand', flag: '🇳🇿' },
-  { code: 'MY', name: 'Malaysia', flag: '🇲🇾' },
-  { code: 'QA', name: 'Qatar', flag: '🇶🇦' },
-  { code: 'KW', name: 'Kuwait', flag: '🇰🇼' },
-  { code: 'SA', name: 'Saudi Arabia', flag: '🇸🇦' },
-]
+function JewelleryCheckoutArt() {
+  return (
+    <svg className="cx-jewellery-art" viewBox="0 0 280 200" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="cx-jewel-gold" x1="70" y1="35" x2="190" y2="170" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#EEDBA8" /><stop offset=".45" stopColor="#B48A4B" /><stop offset="1" stopColor="#E9C980" />
+        </linearGradient>
+        <linearGradient id="cx-jewel-velvet" x1="75" y1="74" x2="193" y2="179" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#286B62" /><stop offset="1" stopColor="#123E40" />
+        </linearGradient>
+      </defs>
+      <circle cx="144" cy="98" r="86" stroke="#DCCBA5" strokeOpacity=".65" />
+      <circle cx="144" cy="98" r="72" stroke="#DCCBA5" strokeDasharray="2 7" strokeOpacity=".6" />
+      <ellipse cx="144" cy="177" rx="77" ry="9" fill="#1C5144" fillOpacity=".07" />
+      <g className="cx-jewellery-box">
+        <path d="M76 111 97 49c2-6 8-10 15-9l72 13c6 1 10 7 8 13l-18 60-98-15Z" fill="#D7C49B" />
+        <path d="m83 106 18-54c1-3 4-5 8-4l72 13c3 1 4 3 3 6l-16 52-85-13Z" fill="url(#cx-jewel-velvet)" />
+        <path d="m77 107 98 13 24 29-99-12-23-30Z" fill="#D9C69D" />
+        <path d="m80 110 92 12 17 22-87-10-22-24Z" fill="#28665B" />
+        <path d="m77 107 23 30 99 12v17c0 5-5 9-10 8l-88-13c-4-1-7-3-9-6l-15-23v-25Z" fill="url(#cx-jewel-velvet)" />
+        <path d="m100 137 99 12" stroke="#D7BE83" strokeWidth="2" />
+        <rect x="141" y="149" width="17" height="10" rx="3" transform="rotate(8 141 149)" fill="#D5B575" />
+        <path d="M116 65c-8 17-8 35 7 43 15 7 30-5 36-33" stroke="url(#cx-jewel-gold)" strokeWidth="3" strokeLinecap="round" />
+        <path d="m129 105 9 4-1 12-9-3-5-9 6-4Z" fill="url(#cx-jewel-gold)" />
+        <path d="m129 109 5 2-1 6-5-2-2-4 3-2Z" fill="#FFFAE7" />
+        <ellipse cx="135" cy="129" rx="15" ry="6" transform="rotate(8 135 129)" stroke="url(#cx-jewel-gold)" strokeWidth="4" />
+        <path d="m134 119 5 1 2 5-5 3-5-4 3-5Z" fill="#FAF2D7" stroke="#C8A96C" />
+      </g>
+      <g className="cx-jewellery-stars" stroke="#BA9559" strokeWidth="1.6" strokeLinecap="round">
+        <path d="M211 44v18m-9-9h18m-15-6 12 12m0-12-12 12" />
+        <path d="M59 104v12m-6-6h12M213 122v10m-5-5h10" />
+      </g>
+      <circle cx="77" cy="42" r="3" fill="#D5B575" /><circle cx="231" cy="94" r="2" fill="#D5B575" />
+    </svg>
+  )
+}
 
 const BANKS = [
   { name: 'State Bank of India', color: '#1a5276', initial: 'SBI' },
@@ -505,77 +572,16 @@ export default function OrderConfirm() {
   const cartAmount = isCartCheckout ? cartItems.reduce((sum, item) => sum + (Number(item.total) || ((Number(item.price) || 0) * (Number(item.qty) || 1))), 0) : 0
 
   const [qty, setQty] = useState(isCartCheckout ? cartQuantity || 1 : initialQty || 1)
-  const [step, setStep] = useState(1)
-  const [placing, setPlacing] = useState(false)
-  const [orderId, setOrderId] = useState(null)
+  const [step, setStep] = useState(location.state?.checkoutStep === 2 ? 2 : 1)
+  const placing = false
 
-  const [showAddressPopup, setShowAddressPopup] = useState(false)
+  const [showAddressPopup, setShowAddressPopup] = useState(true)
   const [savedAddress, setSavedAddress] = useState(null)
-  const [addressType, setAddressType] = useState('Home')
-  const [otherLabel, setOtherLabel] = useState('')
-  const [isDefault, setIsDefault] = useState(false)
-  const [country, setCountry] = useState('IN')
-  const [showCountryDrop, setShowCountryDrop] = useState(false)
-  const [addressForm, setAddressForm] = useState({
-    name: '', email: '', phone: '', pincode: '', city: '', state: '', address: '', locality: '',
-  })
-  const [addressErrors, setAddressErrors] = useState({})
-  const [pincodeLookup, setPincodeLookup] = useState({ loading: false, error: '' })
   const [payTab, setPayTab] = useState('card')
   const [cardForm, setCardForm] = useState({ number: '', expiry: '', cvv: '' })
   const [upiId, setUpiId] = useState('')
   const [selectedBank, setSelectedBank] = useState(null)
   const [bankSearch, setBankSearch] = useState('')
-
-  useEffect(() => {
-    const cached = sessionStorage.getItem('bb_saved_address')
-    if (cached) {
-      try { setSavedAddress(JSON.parse(cached)) } catch {}
-    }
-
-    const loadProfile = async () => {
-      try {
-        const { default: api } = await import('../api')
-        const res = await api.get('/dashboard/')
-        const d = res.data
-        if (d.first_name) {
-          setAddressForm(f => ({
-            ...f,
-            name: `${d.initial ? d.initial + ' ' : ''}${d.first_name} ${d.last_name || ''}`.trim(),
-            phone: d.mobile_number || '',
-            city: d.city_name || '',
-            state: d.state || '',
-            address: d.door_no ? `${d.door_no}, ${d.street_name || ''}, ${d.town_name || ''}`.replace(/,\s*,/g, ',').trim() : '',
-          }))
-        }
-      } catch {}
-    }
-    loadProfile()
-  }, [])
-
-  useEffect(() => {
-    const pin = addressForm.pincode
-    if (!/^\d{6}$/.test(pin)) { setPincodeLookup({ loading: false, error: '' }); return }
-    let cancelled = false
-    setPincodeLookup({ loading: true, error: '' })
-    const t = setTimeout(async () => {
-      try {
-        const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`)
-        const data = await res.json()
-        if (cancelled) return
-        const po = data?.[0]?.PostOffice?.[0]
-        if (data?.[0]?.Status === 'Success' && po) {
-          setAddressForm(f => ({ ...f, city: po.District || f.city, state: po.State || f.state }))
-          setPincodeLookup({ loading: false, error: '' })
-        } else {
-          setPincodeLookup({ loading: false, error: 'Pincode not found — enter city/state manually' })
-        }
-      } catch {
-        if (!cancelled) setPincodeLookup({ loading: false, error: '' })
-      }
-    }, 400)
-    return () => { cancelled = true; clearTimeout(t) }
-  }, [addressForm.pincode])
 
   useEffect(() => { if (!product) navigate(-1) }, [product, navigate])
   if (!product) return null
@@ -592,39 +598,9 @@ export default function OrderConfirm() {
   const totalPrice = isCartCheckout ? (Number(cartTotal) || cartAmount) : (displayPrice || 0) * qty
   const inr = n => `Rs. ${Math.round(n).toLocaleString('en-IN')}`
 
-  const validateAddress = () => {
-    const e = {}
-    if (!addressForm.name.trim()) e.name = 'Required'
-    if (!/^\d{10}$/.test(addressForm.phone)) e.phone = 'Valid 10-digit number'
-    if (!/^\d{6}$/.test(addressForm.pincode)) e.pincode = 'Valid 6-digit pincode'
-    if (!addressForm.city.trim()) e.city = 'Required'
-    if (!addressForm.state.trim()) e.state = 'Required'
-    if (!addressForm.address.trim()) e.address = 'Required'
-    setAddressErrors(e)
-    return Object.keys(e).length === 0
-  }
-
-  const handleUseAddress = () => {
-    if (!validateAddress()) return
-    const label = addressType === 'Other' && otherLabel.trim() ? otherLabel.trim() : addressType
-    const addr = { ...addressForm, type: label, isDefault, country }
-    setSavedAddress(addr)
-    sessionStorage.setItem('bb_saved_address', JSON.stringify(addr))
-    setShowAddressPopup(false)
-  }
-
-  const loadRazorpay = () => new Promise(resolve => {
-    if (window.Razorpay) { resolve(true); return }
-    const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-    script.onload = () => resolve(true)
-    script.onerror = () => resolve(false)
-    document.body.appendChild(script)
-  })
-
   const handlePlaceOrder = () => {
-    if (!savedAddress) return
-    // ── Razorpay ippo direct-a open aagathu — AUG Coin payment page ku pogum ──
+    if (!savedAddress || showAddressPopup) return
+    // ── Razorpay ippo direct-a open aagathu — AUG Revive payment page ku pogum ──
     navigate('/order-payment', {
       state: {
         product,
@@ -640,7 +616,6 @@ export default function OrderConfirm() {
     })
   }
 
-  const selectedCountry = COUNTRIES.find(c => c.code === country) || COUNTRIES[0]
   const filteredBanks = BANKS.filter(b => b.name.toLowerCase().includes(bankSearch.toLowerCase()))
 
   const inp = err => ({
@@ -655,7 +630,8 @@ export default function OrderConfirm() {
 
   const OrderSidebar = () => (
     <aside className="oc-summary-card">
-      <h3 className="oc-summary-title">Order Summary</h3>
+      <span className="cx-summary-kicker">The little details</span>
+      <h3 className="oc-summary-title">Your order summary</h3>
       {isCartCheckout ? (
         <div style={{ display: 'grid', gap: 12, marginBottom: 18, paddingBottom: 18, borderBottom: '1px solid rgba(189,207,206,0.62)' }}>
           {cartItems.map(item => (
@@ -692,12 +668,20 @@ export default function OrderConfirm() {
       <div className="oc-secure-box">
         <IconShield /><span>Delivery secured by BitByte</span>
       </div>
+      {step === 1 ? (
+        <>
+          <button className="oc-primary cx-review-continue" type="button" onClick={() => { setStep(2); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
+            Continue to delivery <ArrowRight size={18} />
+          </button>
+          <p className="cx-summary-caption">Choose your address next.<br />You can review everything before payment.</p>
+        </>
+      ) : <p className="cx-summary-caption">Next: pay with your AUG Revive balance.</p>}
     </aside>
   )
 
   if (step === 1) {
     return (
-      <div className="oc-page">
+      <div className="oc-page cx-checkout">
         <style>{checkoutStyles}</style>
         <main className="oc-main">
           <button type="button" className="oc-back" onClick={() => navigate(-1)} aria-label="Back">
@@ -709,17 +693,16 @@ export default function OrderConfirm() {
           <header className="oc-hero">
             <div>
               <p className="oc-kicker">Secure Checkout</p>
-              <h1>Review Your Order</h1>
-              <p>Confirm your jewellery, quantity, insured delivery, and final payable amount before moving to delivery and payment.</p>
+              <h1>A beautiful <span>choice.</span></h1>
+              <p>Your next favourite is almost yours. Review your selection, then choose where we should deliver it.</p>
             </div>
-            <div className="oc-trust-pill"><IconShield /> BIS checked checkout</div>
+            <div className="cx-hero-visual">
+              <JewelleryCheckoutArt />
+              <div className="oc-trust-pill"><IconShield /> Review before you pay</div>
+            </div>
           </header>
 
-          <div className="oc-stepper">
-            {['Review Order', 'Delivery & Payment', 'Order Placed'].map((label, i) => (
-              <div key={label} className={`oc-step ${i === 0 ? 'active' : ''}`}><i>{i + 1}</i>{label}</div>
-            ))}
-          </div>
+          <CheckoutSteps active={1} />
 
           <div className="oc-layout">
             <div>
@@ -747,9 +730,9 @@ export default function OrderConfirm() {
                     <span style={{ color: '#7A8987', fontSize: 12, fontWeight: 700 }}>Adjust pieces before checkout</span>
                   </div>
                   <div className="oc-stepper-qty">
-                    <button type="button" onClick={() => setQty(q => Math.max(1, q - 1))}>-</button>
-                    <span>{qty}</span>
-                    <button type="button" onClick={() => setQty(q => q + 1)}>+</button>
+                    <button type="button" aria-label="Decrease quantity" disabled={qty <= 1} onClick={() => setQty(q => Math.max(1, q - 1))}>−</button>
+                    <span aria-live="polite">{qty}</span>
+                    <button type="button" aria-label="Increase quantity" onClick={() => setQty(q => q + 1)}>+</button>
                   </div>
                 </div>}
 
@@ -759,15 +742,21 @@ export default function OrderConfirm() {
                   <div className="oc-row"><span>GST</span><strong>Included</strong></div>
                   <div className="oc-row"><span>Shipping</span><strong style={{ color: '#16a34a' }}>FREE</strong></div>
                   <div className="oc-row oc-total"><span>Total</span><strong>{inr(totalPrice)}</strong></div>
-                  <div className="oc-delivery-note">Free insured delivery. Estimated delivery: <strong>3-5 business days</strong></div>
+                  <div className="oc-delivery-note"><Truck size={18} /><span>Free insured delivery · Estimated arrival in <strong>3–5 business days</strong></span></div>
                 </div>
               </section>
 
-              <button className="oc-primary" type="button" onClick={() => { setStep(2); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
-                Continue To Address
-              </button>
+              <div className="cx-reassurance">
+                <div><Truck size={20} /><span>Free delivery</span></div>
+                <div><Coins size={20} /><span>Pay with AUG Revive</span></div>
+                <div><ShoppingBag size={20} /><span>Review before you pay</span></div>
+              </div>
             </div>
             <OrderSidebar />
+          </div>
+          <div className="cx-review-bar">
+            <div><span>Order total</span><strong>{inr(totalPrice)}</strong></div>
+            <button type="button" className="oc-primary" onClick={() => { setStep(2); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>Continue <ArrowRight size={18} /></button>
           </div>
         </main>
         <CustomerFooter />
@@ -777,7 +766,7 @@ export default function OrderConfirm() {
   // STEP 2: DELIVER TO ──
   if (step === 2) {
     return (
-      <div style={{ minHeight: '100vh', background: CREAM, fontFamily: '"Montserrat", sans-serif' }}>
+      <div className="cx-checkout" style={{ minHeight: '100vh', background: CREAM, fontFamily: '"Montserrat", sans-serif' }}>
         <style>{checkoutStyles}</style>
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Montserrat:wght@400;500;600;700&display=swap');
@@ -862,10 +851,11 @@ export default function OrderConfirm() {
             </svg>
           </button>
           <header className="delivery-heading">
-            <p className="delivery-kicker">Delivery &amp; offers</p>
-            <h1>Choose your delivery address</h1>
-            <p>Your jewellery is insured from dispatch until it reaches you.</p>
+            <p className="delivery-kicker">One step closer</p>
+            <h1>Make it a special delivery.</h1>
+            <p>Choose an address for your order. We’ll keep your selection ready for payment.</p>
           </header>
+          <CheckoutSteps active={2} onStepChange={next => { setStep(next); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />
           <div className="delivery-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 32, alignItems: 'start' }}>
             <div>
               {/* DELIVER TO */}
@@ -875,233 +865,34 @@ export default function OrderConfirm() {
                   <div className="delivery-step-line" style={{ width: 1, flex: 1, background: '#e2d9d0', marginTop: 8, minHeight: 40 }} />
                 </div>
                 <div className="delivery-content" style={{ flex: 1 }}>
-                  <h2 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 700, color: DARK }}>DELIVER TO</h2>
-                  {showAddressPopup ? (
-                    <div className="address-inline-card">
-                      {/* Header */}
-                      <div className="address-modal-header" style={{ padding: '22px 24px', borderBottom: '1px solid #f0ebe4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                          <p className="address-kicker">Secure delivery</p>
-                          <h2 className="address-title" style={{ margin: 0, fontSize: 18, fontWeight: 700, color: RED }}>Where should we deliver?</h2>
-                          <p className="address-subtitle">Add a complete address for insured and on-time delivery.</p>
-                        </div>
-                        {savedAddress && (
-                          <button className="address-close" type="button" aria-label="Close address form" onClick={() => setShowAddressPopup(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#999', lineHeight: 1 }}>&times;</button>
-                        )}
-                      </div>
-
-                      {/* Body */}
-                      <div className="address-modal-body" style={{ padding: '24px' }}>
-
-                        {/* Contact Details */}
-                        <section className="address-section">
-                        <h3 className="address-section-title" style={{ margin: '0 0 16px', fontSize: 13, fontWeight: 700, color: DARK }}>Contact Details</h3>
-                        <div className="address-contact-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-                          <div>
-                            <label style={lbl}>Name *</label>
-                            <input style={inp(addressErrors.name)} placeholder="Full Name"
-                              value={addressForm.name} onChange={e => setAddressForm(f => ({ ...f, name: e.target.value }))} />
-                            {addressErrors.name && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.name}</div>}
-                          </div>
-                          <div>
-                            <label style={lbl}>Email</label>
-                            <input style={inp()} placeholder="Email (optional)"
-                              value={addressForm.email} onChange={e => setAddressForm(f => ({ ...f, email: e.target.value }))} />
-                          </div>
-                        </div>
-                        <div style={{ marginBottom: 24 }}>
-                          <label style={lbl}>Contact Number *</label>
-                          <div style={{ display: 'flex', gap: 8 }}>
-                            <div style={{ padding: '13px 14px', border: '1px solid #d1dfde', borderRadius: 6, background: '#f3f3f0', fontSize: 13, fontWeight: 700, color: '#073B3F', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                              IN +91
-                            </div>
-                            <input style={{ ...inp(addressErrors.phone), flex: 1 }} placeholder="10-digit mobile" maxLength={10}
-                              value={addressForm.phone} onChange={e => setAddressForm(f => ({ ...f, phone: e.target.value }))} />
-                          </div>
-                          {addressErrors.phone && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.phone}</div>}
-                        </div>
-                        </section>
-
-                        {/* Address Details */}
-                        <section className="address-section">
-                        <h3 className="address-section-title" style={{ margin: '0 0 16px', fontSize: 13, fontWeight: 700, color: DARK }}>Address Details</h3>
-                        <div className="address-location-grid" style={{ display: 'grid', gridTemplateColumns: '0.65fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
-
-                          {/* Country dropdown */}
-                          <div style={{ position: 'relative' }}>
-                            <label style={lbl}>Country *</label>
-                            <div onClick={() => setShowCountryDrop(v => !v)}
-                              style={{ padding: '13px 14px', border: '1px solid #e2d9d0', borderRadius: 6, background: '#fafafa', fontSize: 14, color: DARK, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
-                              <span>{selectedCountry.flag}</span>
-                              <span>{selectedCountry.code}</span>
-                              <span style={{ marginLeft: 'auto', color: '#7A8987', fontSize: 12 }}>&#9662;</span>
-                            </div>
-                            {showCountryDrop && (
-                              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e2d9d0', borderRadius: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 100, maxHeight: 220, overflowY: 'auto' }}>
-                                {COUNTRIES.map(c => (
-                                  <div key={c.code} className="country-opt"
-                                    onClick={() => { setCountry(c.code); setShowCountryDrop(false) }}
-                                    style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', background: country === c.code ? 'rgba(123,31,46,0.06)' : '#fff', fontSize: 13, color: DARK, transition: 'background 0.15s' }}>
-                                    <span>{c.flag}</span>
-                                    <span style={{ fontWeight: country === c.code ? 700 : 400 }}>{c.name}</span>
-                                    <span style={{ color: '#aaa', fontSize: 11, marginLeft: 'auto' }}>{c.code}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          <div>
-                            <label style={lbl}>Pincode *</label>
-                            <input style={inp(addressErrors.pincode)} placeholder="6-digit pincode" maxLength={6}
-                              value={addressForm.pincode}
-                              onChange={e => setAddressForm(f => ({ ...f, pincode: e.target.value.replace(/\D/g, '') }))} />
-                            {addressErrors.pincode
-                              ? <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.pincode}</div>
-                              : pincodeLookup.loading
-                                ? <div style={{ color: MUTED, fontSize: 11, marginTop: 3 }}>Fetching city & state...</div>
-                                : pincodeLookup.error
-                                  ? <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{pincodeLookup.error}</div>
-                                  : null}
-                          </div>
-                          <div>
-                            <label style={lbl}>City *</label>
-                            <input style={inp(addressErrors.city)} placeholder="Auto-fills from pincode"
-                              value={addressForm.city} onChange={e => setAddressForm(f => ({ ...f, city: e.target.value }))} />
-                            {addressErrors.city && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.city}</div>}
-                          </div>
-                        </div>
-
-                        <div className="address-detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                          <div>
-                            <label style={lbl}>State *</label>
-                            <input style={inp(addressErrors.state)} placeholder="Auto-fills from pincode"
-                              value={addressForm.state} onChange={e => setAddressForm(f => ({ ...f, state: e.target.value }))} />
-                            {addressErrors.state && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.state}</div>}
-                          </div>
-                          <div>
-                            <label style={lbl}>Address (House No., Building, Street, Area) *</label>
-                            <input style={inp(addressErrors.address)} placeholder="Address"
-                              value={addressForm.address} onChange={e => setAddressForm(f => ({ ...f, address: e.target.value }))} />
-                            {addressErrors.address && <div style={{ color: '#e53e3e', fontSize: 11, marginTop: 3 }}>{addressErrors.address}</div>}
-                          </div>
-                        </div>
-
-                        <div style={{ marginBottom: 24 }}>
-                          <label style={lbl}>Locality / Town</label>
-                          <input style={inp()} placeholder="Locality / Town (optional)"
-                            value={addressForm.locality} onChange={e => setAddressForm(f => ({ ...f, locality: e.target.value }))} />
-                        </div>
-                        </section>
-
-                        {/* Save Address As */}
-                        <section className="address-section" style={{ marginBottom: 0 }}>
-                        <h3 className="address-section-title" style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: DARK }}>Save Address As</h3>
-                        <div style={{ display: 'flex', gap: 12, marginBottom: addressType === 'Other' ? 12 : 16, flexWrap: 'wrap' }}>
-                          {['Home', 'Work', 'Other'].map(t => (
-                            <button className="address-type-button" type="button" key={t} onClick={() => setAddressType(t)}
-                              style={{ padding: '8px 24px', borderRadius: 20, border: `1.5px solid ${addressType === t ? RED : '#e2d9d0'}`, background: addressType === t ? 'rgba(123,31,46,0.06)' : '#fff', color: addressType === t ? RED : '#777', fontWeight: addressType === t ? 700 : 400, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s' }}>
-                              {t}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Other label input */}
-                        {addressType === 'Other' && (
-                          <div style={{ marginBottom: 16 }}>
-                            <label style={lbl}>Label Name (e.g. Parents, Office 2...)</label>
-                            <input style={inp()} placeholder="Type address label..."
-                              value={otherLabel} onChange={e => setOtherLabel(e.target.value)} />
-                          </div>
-                        )}
-
-                        <div className="address-default" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <input type="checkbox" id="default-addr" checked={isDefault} onChange={e => setIsDefault(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer', accentColor: RED }} />
-                          <label htmlFor="default-addr" style={{ fontSize: 13, color: DARK, cursor: 'pointer' }}>Make this my default delivery address</label>
-                        </div>
-                        </section>
-                      </div>
-
-                      {/* Footer */}
-                      <div className="address-modal-footer" style={{ padding: '16px 24px', borderTop: '1px solid #f0ebe4', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                        {savedAddress && (
-                          <button className="address-action" type="button" onClick={() => setShowAddressPopup(false)} style={{ padding: '12px 28px', background: '#fff', border: '1.5px solid #0C4044', borderRadius: 2, color: '#073B3F', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
-                        )}
-                        <button className="address-action address-submit" type="button" onClick={handleUseAddress} style={{ padding: '12px 28px', background: RED, border: 'none', borderRadius: 2, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Use This Address</button>
-                      </div>
-                    </div>
-                  ) : savedAddress ? (
-                    <div className="saved-address-card" style={{ background: '#fff', border: '1px solid #e2d9d0', borderRadius: 6, overflow: 'hidden' }}>
-                      <div className="saved-address-head" style={{ padding: '14px 20px', borderBottom: '1px solid #f0ebe4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#777', letterSpacing: '1px' }}>SAVED ADDRESSES</span>
-                        <button className="new-address-button" type="button" onClick={() => setShowAddressPopup(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', background: 'transparent', border: `1px solid ${RED}`, borderRadius: 4, color: RED, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                          <span style={{ fontSize: 16 }}>+</span> New Address
-                        </button>
-                      </div>
-                      <div className="saved-address-body" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                            <span style={{ fontSize: 14, fontWeight: 700, color: DARK }}>{savedAddress.name.toUpperCase()}</span>
-                            <span style={{ fontSize: 11, padding: '2px 10px', border: `1px solid ${RED}`, borderRadius: 20, color: RED, fontWeight: 600 }}>{savedAddress.type}</span>
-                            {savedAddress.isDefault && <span style={{ fontSize: 11, padding: '2px 10px', border: '1px solid #aaa', borderRadius: 20, color: '#777', fontWeight: 600 }}>Default</span>}
-                          </div>
-                          <div style={{ fontSize: 13, color: MUTED }}>{savedAddress.address}{savedAddress.locality ? `, ${savedAddress.locality}` : ''} {savedAddress.city}, {savedAddress.state} {savedAddress.pincode}</div>
-                        </div>
-                        <div className="saved-address-actions" style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0, marginLeft: 16 }}>
-                          <button onClick={() => setShowAddressPopup(true)} style={{ padding: '7px 18px', background: '#fff', border: '1px solid #e2d9d0', borderRadius: 4, color: DARK, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Edit Address</button>
-                          {/* This address is already the active one — no navigation here.
-                              Only the bottom "Proceed To Buy" bar moves to payment/Razorpay. */}
-                          <span className="address-selected-badge" style={{ padding: '8px 18px', background: '#e7edec', border: 'none', borderRadius: 4, color: '#073B3F', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>&#10003; Selected</span>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ background: '#fff', border: '1px solid #e2d9d0', borderRadius: 6, padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 14, color: '#aaa' }}>No saved address</span>
-                      <button onClick={() => setShowAddressPopup(true)} style={{ padding: '10px 20px', background: RED, border: 'none', borderRadius: 4, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontSize: 18 }}>+</span> New Address
-                      </button>
-                    </div>
-                  )}
+                  <h2 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 700, color: DARK }}>Your delivery address</h2>
+                  <AddressBook onSelect={setSavedAddress} onEditingChange={setShowAddressPopup} onBack={() => { setStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />
                 </div>
               </div>
 
-              {/* GIFTCARDS */}
-              <div className="delivery-step" style={{ display: 'flex', gap: 20 }}>
-                <div className="delivery-step-marker-wrap" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 4 }}>
-                  <div className="delivery-step-marker" style={{ width: 44, height: 44, borderRadius: '50%', background: '#f7f4f0', border: '1px solid #e2d9d0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
-                    </svg>
-                  </div>
-                </div>
-                <div className="delivery-content" style={{ flex: 1 }}>
-                  <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: DARK }}>GIFTCARDS AND VOUCHERS</h3>
-                  <p style={{ margin: '0 0 12px', fontSize: 13, color: MUTED }}>Apply DigiGold, NeuCoins, GiftCards/E-Gift Cards, E-Vouchers, Discount Vouchers etc.</p>
-                  <div className="voucher-card" role="button" tabIndex={0} style={{ background: '#f7f4f0', border: '1px solid #e2d9d0', borderRadius: 6, padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 13, color: MUTED }}>Coupons and Vouchers</span>
-                    <span style={{ color: MUTED }}>›</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <OrderSidebar />
-          </div>
-
-          {/* Bottom bar */}
+              <section className="cx-next-card">
+                <h3><PackageCheck size={19} /> Just a few simple steps</h3>
+                <ol>
+                  <li><span>1</span>Choose your delivery address</li>
+                  <li><span>2</span>Review your AUG Revive payment</li>
+                  <li><span>3</span>Get your order confirmation</li>
+                </ol>
+              </section>
           <div className="checkout-actionbar" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', borderTop: '1px solid #e2d9d0', padding: '16px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 100, boxShadow: '0 -4px 20px rgba(0,0,0,0.08)' }}>
             <div>
               <div className="checkout-total-label">Final payable · {isCartCheckout ? cartQuantity : qty} item{(isCartCheckout ? cartQuantity : qty) > 1 ? 's' : ''}</div>
               <div className="checkout-total-value" style={{ fontSize: 16, fontWeight: 700, color: RED }}>{inr(totalPrice)}</div>
             </div>
-           <button className="oc-btn checkout-buy" disabled={!savedAddress || placing} onClick={handlePlaceOrder}
+           <button className="oc-btn checkout-buy" disabled={!savedAddress || showAddressPopup || placing} onClick={handlePlaceOrder}
               style={{ padding: '14px 32px', background: (savedAddress && !placing) ? RED : '#ccc', border: 'none', borderRadius: 2, color: '#fff', fontWeight: 700, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', cursor: (savedAddress && !placing) ? 'pointer' : 'not-allowed' }}>
-              {placing ? 'Processing...' : 'Proceed To Buy'}
+              {placing ? 'Processing...' : <>Continue to payment <ArrowRight size={18} /></>}
             </button>
           </div>
-          <div style={{ height: 80 }} />
+            </div>
+            <OrderSidebar />
+          </div>
+
         </main>
-        <div style={{ height: '80px' }} />
         <CustomerFooter />
       </div>
     )
@@ -1110,7 +901,7 @@ export default function OrderConfirm() {
   // ── STEP 3: PAYMENT ──
   if (step === 3) {
     return (
-      <div style={{ minHeight: '100vh', background: CREAM, fontFamily: '"Montserrat", sans-serif' }}>
+      <div className="cx-checkout" style={{ minHeight: '100vh', background: CREAM, fontFamily: '"Montserrat", sans-serif' }}>
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Montserrat:wght@400;500;600;700&display=swap');
           @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
@@ -1285,7 +1076,7 @@ export default function OrderConfirm() {
             <div style={{ fontSize: 16, fontWeight: 700, color: RED }}>Total ({isCartCheckout ? cartQuantity : qty} Item{(isCartCheckout ? cartQuantity : qty) > 1 ? 's' : ''}) : {inr(totalPrice)}</div>
             <button onClick={() => setStep(2)} style={{ padding: '10px 20px', background: 'transparent', border: `1px solid ${RED}`, borderRadius: 2, color: RED, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>← Checkout Page</button>
           </div>
-          <div style={{ height: 80 }} />
+          <div style={{ height: 100 }} />
         </main>
         <div style={{ marginTop: '75px' }}></div>
         <CustomerFooter />
@@ -1294,5 +1085,227 @@ export default function OrderConfirm() {
   }
 
   return null
+}
+
+const empty = { name: '', email: '', phone: '', country: 'IN', house: '', street: '', landmark: '', pincode: '', city: '', state: '', label: 'Home', instructions: '', is_default: false, map_url: '', latitude: null, longitude: null }
+const countries = [['IN', 'India'], ['US', 'United States'], ['GB', 'United Kingdom'], ['AE', 'United Arab Emirates'], ['SG', 'Singapore'], ['CA', 'Canada'], ['AU', 'Australia'], ['DE', 'Germany'], ['FR', 'France'], ['JP', 'Japan'], ['NZ', 'New Zealand'], ['MY', 'Malaysia'], ['QA', 'Qatar'], ['KW', 'Kuwait'], ['SA', 'Saudi Arabia']]
+const states = ['Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry']
+
+export function AddressBook({ onSelect, onUse, onEditingChange, onBack, selectedId }) {
+  const uid = useId()
+  const [items, setItems] = useState([])
+  const [selected, setSelected] = useState(null)
+  const [prefill, setPrefill] = useState(empty)
+  const [form, setForm] = useState(empty)
+  const [editingId, setEditingId] = useState(null)
+  const [view, setView] = useState('loading')
+  const [saving, setSaving] = useState(false)
+  const [errors, setErrors] = useState({})
+  const [message, setMessage] = useState('')
+  const [conflict, setConflict] = useState(false)
+  const [lookup, setLookup] = useState('')
+  const [locating, setLocating] = useState(false)
+  const [removeId, setRemoveId] = useState(null)
+  const [saved, setSaved] = useState(false)
+  const initialSelectedId = useRef(selectedId)
+  const callbacks = useRef({ onSelect, onUse, onEditingChange })
+  useEffect(() => { callbacks.current = { onSelect, onUse, onEditingChange } }, [onSelect, onUse, onEditingChange])
+  useEffect(() => {
+    callbacks.current.onEditingChange?.(view === 'form' || view === 'loading' || view === 'error')
+    return () => callbacks.current.onEditingChange?.(false)
+  }, [view])
+
+  const choose = item => {
+    setSelected(item)
+    callbacks.current.onSelect?.(checkoutAddress(item))
+  }
+  const load = async (preferredId = selectedId) => {
+    setMessage(''); setConflict(false)
+    try {
+      const data = await loadAddressBook()
+      const list = data.items || []
+      setItems(list)
+      setPrefill({ ...empty, ...data.prefill })
+      const active = list.find(item => item.id === preferredId) || list.find(item => item.is_default) || list[0] || null
+      choose(active)
+      if (active) setView('selected')
+      else { setForm({ ...empty, ...data.prefill, is_default: true }); setEditingId(null); setView('form') }
+    } catch { setMessage('Your saved addresses couldn’t load. Please try again.'); setView('error') }
+  }
+  useEffect(() => {
+    let active = true
+    loadAddressBook().then(data => {
+      if (!active) return
+      const list = data.items || []
+      setItems(list)
+      setPrefill({ ...empty, ...data.prefill })
+      const item = list.find(a => a.id === initialSelectedId.current) || list.find(a => a.is_default) || list[0] || null
+      setSelected(item)
+      callbacks.current.onSelect?.(checkoutAddress(item))
+      if (item) setView('selected')
+      else { setForm({ ...empty, ...data.prefill, is_default: true }); setView('form') }
+    }).catch(() => { if (active) { setMessage('Your saved addresses couldn’t load. Please try again.'); setView('error') } })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (view !== 'form' || form.country !== 'IN' || !/^\d{6}$/.test(form.pincode) || (form.city && form.state)) return
+    const controller = new AbortController()
+    const timer = setTimeout(async () => {
+      setLookup('Finding your city and state…')
+      try {
+        const response = await fetch(`https://api.postalpincode.in/pincode/${form.pincode}`, { signal: controller.signal })
+        const data = await response.json()
+        if (controller.signal.aborted) return
+        const place = data?.[0]?.PostOffice?.[0]
+        if (place && data[0].Status === 'Success') {
+          setForm(previous => ({ ...previous, city: previous.city || place.District, state: previous.state || place.State }))
+          setLookup('City and state filled. You can change them if needed.')
+        } else setLookup('Please enter your city and state below.')
+      } catch { if (!controller.signal.aborted) setLookup('Please enter your city and state below.') }
+    }, 350)
+    return () => { clearTimeout(timer); controller.abort() }
+  }, [form.pincode, form.country, view, form.city, form.state])
+
+  const edit = item => {
+    setForm(item ? { ...empty, ...item } : { ...empty, ...prefill, is_default: items.length === 0 })
+    setEditingId(item?.id || null)
+    setErrors({}); setMessage(''); setLookup(''); setSaved(false); setView('form')
+  }
+  const cancel = () => {
+    setErrors({}); setMessage('')
+    if (selected) setView('selected')
+    else { if (onBack) onBack(); else callbacks.current.onUse?.(null); setView('list') }
+  }
+  const handleConflict = error => {
+    if (error.response?.status !== 409) return false
+    setConflict(true)
+    setMessage('This address changed in another tab or device. Reload the latest addresses to continue.')
+    return true
+  }
+  const submit = async event => {
+    event.preventDefault()
+    if (saving) return
+    setSaving(true); setErrors({}); setMessage('')
+    const { id: _id, created_at: _created, updated_at: _updated, ...payload } = form
+    try {
+      const response = editingId
+        ? await api.patch(`/delivery-addresses/${editingId}/`, { ...payload, expected_updated_at: form.updated_at })
+        : await api.post('/delivery-addresses/', payload)
+      setItems(previous => [response.data, ...previous.filter(item => item.id !== response.data.id).map(item => response.data.is_default ? { ...item, is_default: false } : item)])
+      choose(response.data)
+      setSaved(true); setView('selected')
+      callbacks.current.onUse?.(checkoutAddress(response.data))
+    } catch (error) {
+      if (handleConflict(error)) return
+      const details = error.response?.data
+      if (details && typeof details === 'object') {
+        setErrors(details)
+        const firstField = Object.keys(details)[0]
+        requestAnimationFrame(() => document.getElementById(`${uid}-${firstField}`)?.focus())
+      }
+      setMessage('Address wasn’t saved. Please check the details and try again.')
+    } finally { setSaving(false) }
+  }
+  const setDefault = async item => {
+    if (saving) return
+    setSaving(true); setMessage('')
+    try {
+      const response = await api.patch(`/delivery-addresses/${item.id}/`, { is_default: true, expected_updated_at: item.updated_at })
+      setItems(previous => previous.map(address => address.id === item.id ? response.data : { ...address, is_default: false }))
+      choose(response.data)
+      setView('selected')
+    }
+    catch (error) { if (handleConflict(error)) return; setMessage('Couldn’t change your default address. Please try again.') }
+    finally { setSaving(false) }
+  }
+  const remove = async id => {
+    if (saving) return
+    setSaving(true); setMessage('')
+    try { await api.delete(`/delivery-addresses/${id}/`, { data: { expected_updated_at: items.find(item => item.id === id)?.updated_at } }); setRemoveId(null); await load() }
+    catch (error) { if (handleConflict(error)) return; setMessage('Couldn’t remove this address. Please try again.') }
+    finally { setSaving(false) }
+  }
+  const captureLocation = () => {
+    if (!navigator.geolocation) { setMessage('Location is unavailable here. You can paste a Google Maps share link instead.'); return }
+    setLocating(true); setMessage('')
+    navigator.geolocation.getCurrentPosition(position => {
+      const latitude = position.coords.latitude.toFixed(6), longitude = position.coords.longitude.toFixed(6)
+      setForm(previous => ({ ...previous, latitude, longitude, map_url: mapsSearchUrl({ latitude, longitude }) }))
+      setLocating(false)
+    }, () => { setLocating(false); setMessage('Couldn’t get your location. Open Google Maps or paste its share link instead.') }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 })
+  }
+  const field = (name, label, options = {}) => (
+    <div className={`sa-field ${options.wide ? 'sa-wide' : ''}`}>
+      <label htmlFor={`${uid}-${name}`}>{label}{options.required && <span aria-hidden="true"> *</span>}</label>
+      <input id={`${uid}-${name}`} name={name} required={options.required} autoComplete={options.autoComplete} type={options.type || 'text'} inputMode={options.inputMode} maxLength={options.maxLength || 200} value={form[name] || ''} aria-invalid={!!errors[name]} aria-describedby={errors[name] ? `${uid}-${name}-error` : undefined}
+        placeholder={options.placeholder} onChange={event => {
+          const value = event.target.value
+          setForm(previous => ({ ...previous, [name]: value, ...(name === 'pincode' ? { city: '', state: '' } : {}) }))
+        }} />
+      {errors[name] && <span className="sa-field-error" id={`${uid}-${name}-error`}>{String(errors[name])}</span>}
+    </div>
+  )
+
+  if (view === 'loading') return <div className="sa-loading" role="status"><span /> Loading your saved addresses…</div>
+  if (view === 'error') return <div className="sa-feedback" role="alert">{message}<button type="button" onClick={() => { setView('loading'); load() }}>Try again</button></div>
+  return (
+    <section className="sa-book" aria-label="Delivery address book">
+      {message && <div className="sa-feedback" role="alert">{message}{conflict && <button type="button" disabled={saving} onClick={() => load()}>Reload latest addresses</button>}</div>}
+      {view === 'form' ? (
+        <form onSubmit={submit} className="sa-form">
+          <header className="sa-form-head">
+            <button type="button" className="sa-icon-button" aria-label={selected ? 'Back to saved addresses' : 'Back'} onClick={cancel} disabled={saving}><ArrowLeft size={19} /></button>
+            <div><span>Saved to your account</span><h3>{editingId ? 'Edit your delivery address' : 'Where should we deliver?'}</h3></div>
+            <button type="button" className="sa-text-button" onClick={cancel} disabled={saving}>Cancel</button>
+          </header>
+          <div className="sa-form-body">
+            <div className="sa-field"><label htmlFor={`${uid}-country`}>Country / Region</label><select id={`${uid}-country`} value={form.country} autoComplete="country" onChange={event => setForm(previous => ({ ...previous, country: event.target.value, state: '', latitude: null, longitude: null, map_url: '' }))}>{countries.map(([code, name]) => <option key={code} value={code}>{name}</option>)}</select></div>
+            <div className="sa-grid">
+              {field('name', 'Full name (First and Last name)', { required: true, autoComplete: 'name' })}
+              {field('phone', 'Mobile number', { required: true, type: 'tel', autoComplete: 'tel-national', maxLength: form.country === 'IN' ? 10 : 20, placeholder: form.country === 'IN' ? '10-digit mobile number' : 'Mobile number' })}
+            </div>
+            <p className="sa-helper">Your mobile number may be used to assist delivery.</p>
+            <details className="sa-map" open={!!form.map_url}>
+              <summary><MapPin size={19} /><span>Add location on map</span><ChevronRight size={16} /></summary>
+              <p>Open Google Maps, choose a pin and copy its Share link. Paste the link below to save your location.</p>
+              <div className="sa-map-actions"><a href={mapsSearchUrl(form)} target="_blank" rel="noopener noreferrer"><MapPin size={15} /> Open Google Maps</a><button type="button" onClick={captureLocation} disabled={locating}><Crosshair size={15} />{locating ? 'Finding location…' : 'Use current location'}</button></div>
+              <label htmlFor={`${uid}-map_url`}>Google Maps share link (optional)</label>
+              <input id={`${uid}-map_url`} type="url" value={form.map_url} placeholder="https://maps.app.goo.gl/…" onChange={event => { const map_url = event.target.value; setForm(previous => ({ ...previous, map_url, ...mapsCoordinates(map_url) })) }} />
+              {errors.map_url && <p className="sa-field-error">{String(errors.map_url)}</p>}
+              {form.map_url && <span className="sa-location-saved"><Check size={14} /> Location ready to save with this address</span>}
+            </details>
+            {field('house', 'Flat, House no., Building, Company, Apartment', { required: true, autoComplete: 'address-line1' })}
+            {field('street', 'Area, Street, Sector, Village', { required: true, autoComplete: 'address-line2', maxLength: 250 })}
+            {field('landmark', 'Landmark (optional)', { placeholder: 'E.g. near the school or temple' })}
+            <div className="sa-grid">
+              {field('pincode', form.country === 'IN' ? 'Pincode' : 'Postal code', { required: true, autoComplete: 'postal-code', inputMode: form.country === 'IN' ? 'numeric' : 'text', maxLength: form.country === 'IN' ? 6 : 12 })}
+              {field('city', 'Town / City', { required: true, autoComplete: 'address-level2', maxLength: 100 })}
+            </div>
+            {lookup && <p className="sa-helper" role="status">{lookup}</p>}
+            {form.country === 'IN' ? <div className="sa-field"><label htmlFor={`${uid}-state`}>State *</label><select id={`${uid}-state`} required value={form.state} autoComplete="address-level1" onChange={event => setForm(previous => ({ ...previous, state: event.target.value }))}><option value="">Select your state</option>{[...new Set([...(form.state ? [form.state] : []), ...states])].map(state => <option key={state} value={state}>{state}</option>)}</select>{errors.state && <span className="sa-field-error">{String(errors.state)}</span>}</div> : field('state', 'State / Region', { required: true, autoComplete: 'address-level1', maxLength: 100 })}
+            <div className="sa-field"><label htmlFor={`${uid}-label`}>Save address as</label><div className="sa-labels">{['Home', 'Work', 'Other'].map(label => <button key={label} type="button" aria-pressed={form.label === label} onClick={() => setForm(previous => ({ ...previous, label }))}>{label === 'Home' && <Home size={14} />}{label}</button>)}</div>{!['Home', 'Work'].includes(form.label) && <input id={`${uid}-label`} aria-label="Address label" maxLength={50} value={form.label} onChange={event => setForm(previous => ({ ...previous, label: event.target.value }))} />}</div>
+            <label className="sa-default"><input type="checkbox" checked={form.is_default} onChange={event => setForm(previous => ({ ...previous, is_default: event.target.checked }))} /><span>Make this my default address<small>Automatically selected at your next checkout.</small></span></label>
+            <details className="sa-instructions"><summary><span><strong>Delivery instructions (optional)</strong><small>Notes, preferences and more</small></span><ChevronRight size={18} /></summary><label htmlFor={`${uid}-instructions`}>Anything that will help the delivery partner?</label><textarea id={`${uid}-instructions`} maxLength={1000} rows={3} value={form.instructions} placeholder="E.g. call on arrival, gate number, directions" onChange={event => setForm(previous => ({ ...previous, instructions: event.target.value }))} /></details>
+          </div>
+          <footer className="sa-form-footer"><button type="button" className="sa-secondary" disabled={saving} onClick={cancel}><ArrowLeft size={15} /> Back</button><button className="sa-primary" type="submit" disabled={saving}>{saving ? 'Saving your address…' : 'Save & use this address'}<Check size={17} /></button></footer>
+        </form>
+      ) : (
+        <>
+          <header className="sa-list-head"><div><span>Your address book</span><h3>{view === 'list' ? 'Choose a delivery address' : 'Ready for your delivery'}</h3></div><button type="button" className="sa-secondary" onClick={() => edit(null)}><Plus size={16} /> Add new</button></header>
+          {saved && <p className="sa-saved" role="status"><Check size={15} /> Address saved to your account.</p>}
+          {(view === 'list' ? items : selected ? [selected] : []).map(item => <article className={`sa-address ${item.id === selected?.id ? 'is-selected' : ''}`} key={item.id}>
+            <div className="sa-address-icon"><Home size={20} /></div><div className="sa-address-copy"><div className="sa-address-name"><strong>{item.name}</strong><span>{item.label}</span>{item.is_default && <span className="sa-default-tag">Default</span>}</div><p>{checkoutAddress(item).formatted}</p><p className="sa-phone">{item.phone}</p>{item.instructions && <p className="sa-address-note">Delivery note: {item.instructions}</p>}{item.map_url && <a href={item.map_url} target="_blank" rel="noopener noreferrer" className="sa-map-link"><MapPin size={13} /> View saved location</a>}
+              <div className="sa-address-actions"><button type="button" onClick={() => edit(item)} disabled={saving}><Pencil size={14} /> Edit</button>{!item.is_default && <button type="button" onClick={() => setDefault(item)} disabled={saving}>Make default</button>}<button type="button" onClick={() => setRemoveId(item.id)} disabled={saving}><Trash2 size={14} /> Remove</button></div>
+              {removeId === item.id && <div className="sa-remove-confirm"><span>Remove this saved address?</span><button type="button" onClick={() => remove(item.id)} disabled={saving}>Remove</button><button type="button" onClick={() => setRemoveId(null)}>Keep it</button></div>}
+            </div>
+            {view === 'list' ? <button type="button" className="sa-secondary" onClick={() => { choose(item); setView('selected'); callbacks.current.onUse?.(checkoutAddress(item)) }}>Use address</button> : <span className="sa-selected"><Check size={14} /> Selected</span>}
+          </article>)}
+          {items.length > 1 && <button type="button" className="sa-change" onClick={() => setView(view === 'list' ? 'selected' : 'list')}>{view === 'list' ? 'Back to selected address' : `Change address (${items.length} saved)`}<ChevronRight size={16} /></button>}
+          {!items.length && <button type="button" className="sa-primary" onClick={() => edit(null)}><Plus size={16} /> Add your first address</button>}
+        </>
+      )}
+    </section>
+  )
 }
 

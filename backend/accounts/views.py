@@ -1,3 +1,6 @@
+from django.shortcuts import get_object_or_404
+from rest_framework import serializers, status
+from .models import DeliveryAddress
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -10456,7 +10459,9 @@ class PayWithCoinsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        data = request.data
+        data = request.data.copy()
+        if data.get('delivery_address_id'):
+            data.update(saved_order_address(request.user, data['delivery_address_id']))
         product_id = data.get('product_id')
         total_price = Decimal(str(data.get('total_price', 0)))
 
@@ -10512,6 +10517,8 @@ class PayWithCoinsView(APIView):
             pincode=data.get('pincode', ''),
             address_line1=data.get('address_line1', ''),
             address_line2=data.get('address_line2', ''),
+            delivery_instructions=data.get('delivery_instructions', ''),
+            delivery_location=data.get('delivery_location', {}),
             city=data.get('city', ''),
             state=data.get('state', ''),
             quantity=int(data.get('quantity', 1)),
@@ -13648,6 +13655,9 @@ class DigiGoldDeliveryOrderView(APIView):
         user = request.user
         items = request.data.get('items', [])
         address = request.data.get('address', {})
+        if request.data.get('delivery_address_id'):
+            snapshot = saved_order_address(user, request.data['delivery_address_id'])
+            address = {**snapshot, 'name': snapshot['customer_name'], 'phone': snapshot['customer_phone'], 'instructions': snapshot['delivery_instructions']}
 
         if not items or not isinstance(items, list):
             return Response({'error': 'Please select at least one gold or silver coin for delivery.'}, status=400)
@@ -13778,6 +13788,8 @@ class DigiGoldDeliveryOrderView(APIView):
                 customer_phone=cust_phone,
                 address_line1=line1,
                 address_line2=line2,
+                delivery_instructions=address.get('instructions', ''),
+                delivery_location=address.get('delivery_location', {}),
                 city=city_val,
                 state=state_val,
                 pincode=pin_val,
@@ -15139,3 +15151,114 @@ class DigiGoldSuperAdminView(APIView):
         return Response(resp_payload)
 
 
+def profile_prefill(user):
+    """Use the signed-in account's profile only when creating a new address."""
+    attr = {
+        'customer': 'customer_profile', 'promotor': 'promotor_profile',
+        'sub_dealer': 'sub_dealer_profile', 'dealer': 'dealer_profile',
+        'admin': 'admin_profile', 'shop': 'shop_profile',
+    }.get(getattr(user, 'role', 'customer'))
+    profile = getattr(user, attr, None) if attr else None
+    def value(field):
+        return getattr(profile, field, '') or ''
+    return {
+        'name': ' '.join(filter(None, [value('initial'), value('first_name'), value('last_name')])),
+        'phone': value('mobile_number'), 'email': user.email,
+        'country': 'IN', 'house': value('door_no'),
+        'street': ', '.join(filter(None, [value('street_name'), value('town_name')])),
+        'landmark': '', 'city': value('city_name') or value('district'),
+        'state': value('state'), 'pincode': value('pincode'),
+        'label': 'Home', 'instructions': '', 'map_url': '',
+        'latitude': None, 'longitude': None,
+    }
+
+
+def delivery_address_conflict(request, address):
+    """Reject edits from an older tab while the account row is locked."""
+    if 'expected_updated_at' not in request.data:
+        return None
+    expected = serializers.DateTimeField().run_validation(request.data['expected_updated_at'])
+    if expected != address.updated_at:
+        return Response(
+            {'detail': 'This address changed in another tab or device. Reload the latest addresses before trying again.'},
+            status=status.HTTP_409_CONFLICT,
+        )
+    return None
+
+
+class DeliveryAddressListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        items = DeliveryAddress.objects.filter(user=request.user)
+        return Response({'items': DeliveryAddressSerializer(items, many=True).data, 'prefill': profile_prefill(request.user)})
+
+    @transaction.atomic
+    def post(self, request):
+        serializer = DeliveryAddressSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        User.objects.select_for_update().only('pk').get(pk=request.user.pk)
+        addresses = DeliveryAddress.objects.filter(user=request.user)
+        is_default = serializer.validated_data.get('is_default', False) or not addresses.exists()
+        if is_default:
+            addresses.filter(is_default=True).update(is_default=False, updated_at=timezone.now())
+        serializer.save(user=request.user, is_default=is_default)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class DeliveryAddressDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def patch(self, request, pk):
+        User.objects.select_for_update().only('pk').get(pk=request.user.pk)
+        address = get_object_or_404(DeliveryAddress, pk=pk, user=request.user)
+        conflict = delivery_address_conflict(request, address)
+        if conflict is not None:
+            return conflict
+        serializer = DeliveryAddressSerializer(address, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        if serializer.validated_data.get('is_default'):
+            DeliveryAddress.objects.filter(user=request.user, is_default=True).exclude(pk=pk).update(is_default=False, updated_at=timezone.now())
+        elif address.is_default and serializer.validated_data.get('is_default') is False:
+            # Keep a default unless another address has explicitly been chosen.
+            serializer.validated_data['is_default'] = True
+        serializer.save()
+        return Response(serializer.data)
+
+    @transaction.atomic
+    def delete(self, request, pk):
+        User.objects.select_for_update().only('pk').get(pk=request.user.pk)
+        address = get_object_or_404(DeliveryAddress, pk=pk, user=request.user)
+        conflict = delivery_address_conflict(request, address)
+        if conflict is not None:
+            return conflict
+        was_default = address.is_default
+        address.delete()
+        if was_default:
+            replacement = DeliveryAddress.objects.filter(user=request.user).first()
+            if replacement:
+                replacement.is_default = True
+                replacement.save(update_fields=['is_default', 'updated_at'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def saved_order_address(user, pk):
+    """Copy an owned address to an order; later edits cannot change old orders."""
+    try:
+        pk = int(pk)
+    except (ValueError, TypeError):
+        raise serializers.ValidationError({'delivery_address_id': 'Invalid saved address.'})
+    address = get_object_or_404(DeliveryAddress, user=user, pk=pk)
+    return {
+        'customer_name': address.name, 'customer_phone': address.phone,
+        'pincode': address.pincode, 'address_line1': f'{address.house}, {address.street}',
+        'address_line2': address.landmark, 'city': address.city, 'state': address.state,
+        'delivery_instructions': address.instructions,
+        'delivery_location': {
+            'country': address.country,
+            'map_url': address.map_url,
+            'latitude': str(address.latitude) if address.latitude is not None else None,
+            'longitude': str(address.longitude) if address.longitude is not None else None,
+        },
+    }

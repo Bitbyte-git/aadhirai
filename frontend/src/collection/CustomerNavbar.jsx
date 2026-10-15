@@ -996,7 +996,7 @@ export default function CustomerNavbar() {
   const location = useLocation();
   const role = localStorage.getItem("role");
   const isLoggedIn = Boolean(localStorage.getItem("token"));
-  // AUG Coin pill, coin-shop icon, and the menu drawer are hidden for
+  // AUG Revive pill, coin-shop icon, and the menu drawer are hidden for
   // guests (not logged in) on any page — they show up as soon as the
   // person logs in, regardless of which route they're on.
   const isLandingPage = !isLoggedIn;
@@ -4495,7 +4495,7 @@ export default function CustomerNavbar() {
           {/* User Requested Exact Order:
               1. Wishlist
               2. Cart
-              3. AUG Coins
+              3. AUG Revive
               4. Nearby Shop
               5. Profile
               6. Order Summary
@@ -4831,7 +4831,7 @@ export default function CustomerNavbar() {
                 )}
               </button>
 
-              {/* 3. AUG Coins */}
+              {/* 3. AUG Revive */}
               {isLoggedIn && (
                 <button
                   className="role-drawer-item"

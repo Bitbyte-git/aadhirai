@@ -8,7 +8,7 @@ export default function GeneralCustomerRevenue() {
       title="General Customer Revenue"
       note="Orders from General Customers only — customers who signed up directly (no referral link), so no one in a chain earns commission on these. A subset of All Sales."
       revenueLabel="General Customer Sales"
-      coinsLabel="AUG Coins Used"
+      coinsLabel="AUG Revive Used"
       showBreakdown
     />
   )

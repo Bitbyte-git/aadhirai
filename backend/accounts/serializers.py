@@ -1,3 +1,6 @@
+import re
+from urllib.parse import urlparse
+from .models import DeliveryAddress
 from rest_framework import serializers
 from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder,JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, Wallet, CoinRecharge, AutoPayMandate , StockNotifyRequest, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent, DigiGoldInvestment, DigiGoldWallet
 
@@ -632,6 +635,7 @@ class JewelryOrderSerializer(serializers.ModelSerializer):
             'customer_name', 'customer_phone', 'customer_alt_phone',
             'customer_dob', 'customer_anniversary',
             'pincode', 'address_line1', 'address_line2', 'city', 'state',
+            'delivery_instructions', 'delivery_location',
             'quantity', 'unit_price', 'total_price',
             'payment_method', 'payment_status', 'status',
             'created_at', 'updated_at'
@@ -1135,3 +1139,46 @@ class DigiGoldInvestmentSerializer(serializers.ModelSerializer):
         except Exception:
             return obj.user.email
 
+
+class DeliveryAddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeliveryAddress
+        exclude = ['user']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate_country(self, value):
+        value = value.upper()
+        if not re.fullmatch(r'[A-Z]{2}', value):
+            raise serializers.ValidationError('Select a country.')
+        return value
+
+    def validate_map_url(self, value):
+        if not value:
+            return value
+        url = urlparse(value)
+        host = (url.hostname or '').lower()
+        if url.scheme != 'https' or host not in {
+            'google.com', 'www.google.com', 'maps.google.com', 'maps.app.goo.gl', 'goo.gl',
+            'google.co.in', 'www.google.co.in',
+        }:
+            raise serializers.ValidationError('Use a Google Maps HTTPS share link.')
+        if host in {'google.com', 'www.google.com', 'google.co.in', 'www.google.co.in'} and not url.path.startswith('/maps'):
+            raise serializers.ValidationError('Use the Share link from Google Maps.')
+        if host == 'goo.gl' and not url.path.startswith('/maps/'):
+            raise serializers.ValidationError('Use a Google Maps share link.')
+        return value
+
+    def validate(self, attrs):
+        def field(name, default=None):
+            return attrs.get(name, getattr(self.instance, name, default))
+        if field('country', 'IN') == 'IN':
+            if not re.fullmatch(r'\d{6}', field('pincode', '')):
+                raise serializers.ValidationError({'pincode': 'Enter a valid 6-digit pincode.'})
+            if not re.fullmatch(r'\d{10}', field('phone', '')):
+                raise serializers.ValidationError({'phone': 'Enter a valid 10-digit mobile number.'})
+        lat, lng = field('latitude'), field('longitude')
+        if (lat is None) != (lng is None):
+            raise serializers.ValidationError({'latitude': 'Both location coordinates are required.'})
+        if lat is not None and (not -90 <= lat <= 90 or not -180 <= lng <= 180):
+            raise serializers.ValidationError({'latitude': 'Invalid map coordinates.'})
+        return attrs

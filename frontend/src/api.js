@@ -100,3 +100,41 @@ export const downloadSaleReceipt = async (saleId) => {
 }
 
 export default api
+
+export function checkoutAddress(item) {
+  if (!item) return null
+  return {
+    ...item, type: item.label, isDefault: item.is_default,
+    address: [item.house, item.street].filter(Boolean).join(', '),
+    locality: item.landmark || '', door_no: item.house,
+    address_line1: item.street, address_line2: item.landmark || '', district: item.city,
+    formatted: [item.house, item.street, item.landmark, item.city, item.state, item.pincode, item.country === 'IN' ? 'India' : item.country].filter(Boolean).join(', '),
+  }
+}
+
+export async function loadAddressBook() {
+  const response = await api.get('/delivery-addresses/')
+  return response.data
+}
+
+export function mapsSearchUrl(address) {
+  const query = address.latitude != null && address.longitude != null
+    ? `${address.latitude},${address.longitude}`
+    : [address.house, address.street, address.city, address.state, address.pincode, address.country].filter(Boolean).join(', ') || 'India'
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+}
+
+export function mapsCoordinates(link) {
+  try {
+    const url = new URL(link)
+    const query = url.searchParams.get('query') || url.searchParams.get('q') || ''
+    const match = query.match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/)
+      || link.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/)
+      || link.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/)
+    if (match) {
+      const latitude = Number(match[1]), longitude = Number(match[2])
+      if (Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) return { latitude: latitude.toFixed(6), longitude: longitude.toFixed(6) }
+    }
+  } catch { /* A shortened share link can still be saved without coordinates. */ }
+  return { latitude: null, longitude: null }
+}

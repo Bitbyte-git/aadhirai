@@ -8,7 +8,7 @@ export default function ResidualCommission() {
       title="Residual Commission"
       note="Leftover unallocated commission balance from the payout pool, retained by Super Admin on every successful recharge."
       revenueLabel="Commission Balance"
-      coinsLabel="AUG Coins Credited"
+      coinsLabel="AUG Revive Credited"
     />
   )
 }

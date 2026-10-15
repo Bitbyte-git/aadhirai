@@ -396,7 +396,8 @@ function showChainPopup(anchorEl, ancestors, current, pinned = false) {
     box-shadow:0 24px 60px rgba(7,59,63,0.16), 0 0 0 1px rgba(12,64,68,0.05);
     animation:acpSlideIn 0.3s cubic-bezier(0.22,1,0.36,1) both;
     min-width:200px; max-width:260px;
-    max-height:85vh; overflow-y:auto; overflow-x:hidden;
+    box-sizing:border-box;
+    max-height:min(85vh, calc(100dvh - 64px)); overflow-y:auto; overflow-x:hidden;
     scroll-behavior:smooth; scrollbar-width:thin;
     scroll-padding:8px;
     -webkit-overflow-scrolling:touch;
@@ -523,7 +524,7 @@ function showChainPopup(anchorEl, ancestors, current, pinned = false) {
   if (left + popupRect.width > window.innerWidth - 10) {
     left = rect.left - popupRect.width - pad
   }
-  let top = rect.top
+  let top = rect.top - 40
   // Mobile-la pinned popup screen center-la kaatum
   if (window.innerWidth <= 860) {
     left = (window.innerWidth - popupRect.width) / 2
@@ -531,10 +532,10 @@ function showChainPopup(anchorEl, ancestors, current, pinned = false) {
   }
   if (left < 10) left = 10
 
-  if (top + popupRect.height > window.innerHeight - 10) {
-    top = window.innerHeight - popupRect.height - 10
+  if (top + popupRect.height > window.innerHeight - 32) {
+    top = window.innerHeight - popupRect.height - 32
   }
-  if (top < 10) top = 10
+  if (top < 16) top = 16
 
   el.style.left = `${left}px`
   el.style.top = `${top}px`
@@ -660,7 +661,7 @@ function LaneCard({ node, role, active, onClick, ancestors, text, subtext, onMes
                 }}
                 title={count > 0 ? `Filter: ${s.toUpperCase()} (${count})` : undefined}
               >
-                {count > 0 ? count : ''}
+                {count}
               </span>
             )
           })}
@@ -961,170 +962,47 @@ export default function Promotor_Hierarchy_grid() {
       <div className="sahg-page" style={{ minHeight: '100vh', background: '#FFFFFF', color: text, fontFamily: '"Inter",system-ui,sans-serif', padding: '28px 32px' }}>
         <style>{`
           @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-          .gcard{
-            background: #FFFFFF;
-            border: 2.5px solid var(--sc);
-            border-radius: 16px;
-            padding: 14px 18px;
-            min-width: 172px;
-            max-width: 210px;
-            cursor: pointer;
-            position: relative;
-            transition: opacity .2s ease, transform .2s cubic-bezier(0.22,1,0.36,1), box-shadow .2s ease;
-            flex-shrink: 0;
-          }
-          .gcard:hover{
-            transform: translateY(-3px);
-            box-shadow: 0 16px 34px rgba(7,59,63,0.20);
-          }
-          .gcard-active{
-            opacity: 1;
-            transform: translateY(-4px);
-            box-shadow: 0 0 0 3px #BB8958, 0 0 18px rgba(187,137,88,0.45), 0 18px 36px rgba(187,137,88,0.22);
-          }
-          .gcard-dim{
-            opacity: 0.94;
-          }
-          .gcard-msg-btn{
-            position: absolute;
-            top: 8px;
-            right: 34px;
-            z-index: 2;
-            width: 22px;
-            height: 22px;
-            border-radius: 6px;
-            background: #FFFFFF;
-            border: 1px solid var(--nc);
-            color: var(--nc);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: background .2s ease, transform .2s ease;
-          }
-          .gcard-msg-btn:hover{
-            background: rgba(12,64,68,0.12);
-            transform: scale(1.08);
-          }
-          .gcard-info-btn{
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            z-index: 2;
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            background: #FFFFFF;
-            border: 1.5px solid var(--nc);
-            color: var(--nc);
-            font-size: 12px;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all .2s ease;
-            box-shadow: 0 2px 6px rgba(7,59,63,0.12);
-          }
-          .gcard-info-btn:hover{
-            background: var(--nc);
-            color: #FFFFFF;
-            transform: scale(1.1);
-          }
-          .gcard-badge{
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 10px;
-            font-weight: 900;
-            padding: 3px 10px;
-            border-radius: 20px;
-            margin-bottom: 8px;
-            color: var(--nc);
-            background: #FFFFFF;
-            border: 1.5px solid var(--nc);
-            box-shadow: 0 2px 6px rgba(7,59,63,0.06);
-          }
-          .gcard-id{
-            font-family: monospace;
-            font-size: 11px;
-            font-weight: 700;
-            margin-bottom: 4px;
-            word-break: break-all;
-          }
-          .gcard-name{
-            font-weight: 800;
-            font-size: 14px;
-            margin-bottom: 6px;
-            letter-spacing: -0.2px;
-          }
-          .gcard-sub{
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 11px;
-            font-weight: 500;
-            margin-bottom: 3px;
-          }
-          .gcard-actions{
-            margin-top: 10px;
-            display: flex;
-            gap: 6px;
-          }
-          .gcard-btn{
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-            padding: 6px 0;
-            font-size: 10px;
-            font-weight: 800;
-            background: #FFFFFF;
-            border: 1.5px solid var(--nc);
-            border-radius: 20px;
-            color: var(--nc);
-            cursor: pointer;
-            transition: all .15s ease;
-            box-shadow: 0 2px 6px rgba(7,59,63,0.05);
-          }
-          .gcard-btn:hover{
-            background: var(--nc);
-            color: #FFFFFF;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 10px rgba(7,59,63,0.18);
-          }
-          .gcard-btn-sales{
-            border-color: #0284C7;
-            color: #0284C7;
-          }
-          .gcard-btn-sales:hover{
-            background: #0284C7;
-            color: #FFFFFF;
-          }
-          .gcard-status-dots{
-            display: flex;
-            gap: 4px;
-            margin-top: 10px;
-            justify-content: flex-end;
-          }
-          .gcard-dot{
-            width: 17px;
-            height: 17px;
-            border-radius: 50%;
-            border-width: 1.5px;
-            border-style: solid;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 8px;
-            font-weight: 900;
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
-          }
-          .gcard-dot:hover{
-            transform: scale(1.22);
-            box-shadow: 0 2px 8px rgba(7,59,63,0.25);
-          }
+        .gcard{
+          background:#FFFFFF;
+          border:2.5px solid var(--sc); border-radius:16px; padding:14px 18px;
+          min-width:172px; max-width:210px; cursor:pointer; position:relative;
+          transition:opacity .2s ease, transform .2s cubic-bezier(0.22,1,0.36,1), box-shadow .2s ease;
+          flex-shrink:0;
+        }
+        .gcard:hover{ transform:translateY(-3px); box-shadow:0 16px 34px rgba(7,59,63,0.20); }
+                .gcard-msg-btn{
+          position:absolute; top:8px; right:8px; z-index:2;
+          width:22px; height:22px; border-radius:6px;
+          background:#FFFFFF; border:1.5px solid var(--nc);
+          color:var(--nc); display:flex; align-items:center; justify-content:center;
+          cursor:pointer; transition:background .2s ease, transform .2s ease;
+        }
+        .gcard-msg-btn:hover{ background:var(--nc); color:#FFFFFF; transform:scale(1.08); }
+        .gcard-info-btn{
+          position:absolute; top:8px; left:8px; z-index:2;
+          width:20px; height:20px; border-radius:50%;
+          background:#FFFFFF; border:1.5px solid var(--nc);
+          color:var(--nc); display:flex; align-items:center; justify-content:center;
+          cursor:pointer; font-size:11px; font-weight:900; font-style:italic; font-family:Georgia,serif;
+          transition:background .2s ease, transform .2s ease;
+        }
+        .gcard-info-btn:hover{ background:var(--nc); color:#FFFFFF; transform:scale(1.1); }
+        .gcard-active{ opacity:1; transform:translateY(-4px); box-shadow:0 0 0 3px #BB8958, 0 0 18px rgba(187,137,88,0.45), 0 18px 36px rgba(187,137,88,0.22); }
+        .gcard-dim{ opacity:1; }
+        .gcard-dim:hover{ opacity:1; }
+        .gcard-badge{ display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:900; padding:2px 8px; border-radius:20px; margin-bottom:8px; color:var(--nc); background:#FFFFFF; border:1.5px solid var(--nc); }
+        .gcard-id{ font-family:monospace; font-size:11px; font-weight:800; margin-bottom:6px; word-break:break-all; }
+        .gcard-name{ font-weight:900; font-size:14px; margin-bottom:8px; line-height:1.35; }
+        .gcard-sub{ display:flex; align-items:center; gap:4px; font-size:12px; font-weight:650; margin-bottom:4px; }
+        .gcard-actions{ margin-top:8px; display:flex; gap:6px; }
+        .gcard-btn{ flex:1; display:flex; align-items:center; justify-content:center; gap:4px; padding:5px 0; font-size:10px; font-weight:800; background:#FFFFFF; border:1.5px solid var(--nc); border-radius:20px; color:var(--nc); cursor:pointer; transition:background .15s ease, transform .1s ease; }
+        .gcard-btn:hover{ background:var(--nc); color:#FDFDFC; transform:scale(1.03); }
+        .gcard-btn-sales{ border-color:#0284C7; color:#0284C7; }
+        .gcard-count{ position:absolute; bottom:-9px; left:50%; transform:translateX(-50%); color:#FDFDFC; font-size:10px; font-weight:900; padding:2px 8px; border-radius:20px; white-space:nowrap; text-shadow:0 1px 1px rgba(0,0,0,0.18); }
+        .gcard-status-dots{ display:flex; gap:6px; justify-content:center; margin-top:9px; }
+        .gcard-dot{ width:20px; height:20px; border-radius:50%; border:1.5px solid; box-sizing:border-box; transition:all .15s ease; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:8px; font-weight:800; }
+        .gcard-dot:hover{ transform:scale(1.15); }
+
           .glane{
             margin-bottom: 26px;
           }

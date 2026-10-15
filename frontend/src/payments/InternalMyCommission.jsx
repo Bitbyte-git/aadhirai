@@ -13,7 +13,7 @@ export default function InternalMyCommission() {
       title="My Commission"
       note="Your own commission share, credited to you on every successful order in your chain."
       revenueLabel="My Commission Earned"
-      coinsLabel="AUG Coins Credited"
+      coinsLabel="AUG Revive Credited"
     />
   )
 }

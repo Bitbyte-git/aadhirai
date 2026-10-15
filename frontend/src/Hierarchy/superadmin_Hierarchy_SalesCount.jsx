@@ -384,29 +384,34 @@ export default function SuperAdminHierarchySalesCount() {
     return () => obs.disconnect()
   }, [hasMoreOrders, ordersLoading, groupedList.length])
 
-  // ── Left tree panel navbar-ku keezha 16px gap-oda nikkanum. Navbar height screen size & role-ku
-  // yetha maari maarum (Super Admin 82/104/136px, internal 74px) — adhanaala live-a measure pannurom ──
+  // Keep the tree below the active navbar, including the customer menu row.
   useEffect(() => {
-    const root = document.documentElement
+    const pageRoot = document.documentElement
+    const navbars = [...document.querySelectorAll('.san-top-shell, .irn-top, .exact-nav')]
+    let frame = null
     const update = () => {
-      const nav = document.querySelector('.san-top-shell, .irn-top')
-      const bottom = nav ? Math.max(0, nav.getBoundingClientRect().bottom) : 0
-      root.style.setProperty('--shc-nav-offset', `${Math.round(bottom) + 16}px`)
+      frame = null
+      const bottom = Math.max(0, ...navbars.map(nav => nav.getBoundingClientRect().bottom))
+      pageRoot.style.setProperty('--shc-nav-offset', `${Math.ceil(bottom) + 24}px`)
+    }
+    const scheduleUpdate = () => {
+      if (frame === null) frame = requestAnimationFrame(update)
     }
     update()
-    const nav = document.querySelector('.san-top-shell, .irn-top')
-    const ro = nav && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null
-    if (ro) ro.observe(nav)
-    window.addEventListener('resize', update)
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(scheduleUpdate) : null
+    navbars.forEach(nav => observer?.observe(nav))
+    window.addEventListener('resize', scheduleUpdate)
+    window.addEventListener('scroll', scheduleUpdate, { passive: true })
     return () => {
-      if (ro) ro.disconnect()
-      window.removeEventListener('resize', update)
-      root.style.removeProperty('--shc-nav-offset')
+      observer?.disconnect()
+      if (frame !== null) cancelAnimationFrame(frame)
+      window.removeEventListener('resize', scheduleUpdate)
+      window.removeEventListener('scroll', scheduleUpdate)
+      pageRoot.style.removeProperty('--shc-nav-offset')
     }
   }, [])
 
-  // ── Product grid-la ippo evlo columns (4/3/2/1 — screen size-ku yetha maari) nu measure pannurom,
-  // skeleton cards eppovume full rows-a fill aaganum (half row varakoodaadhu) ──
+  // Measure product columns so loading placeholders fill complete rows.
   const rightColRef = useRef(null)
   const [gridCols, setGridCols] = useState(4)
   useEffect(() => {
@@ -717,8 +722,11 @@ export default function SuperAdminHierarchySalesCount() {
           top: var(--shc-nav-offset, 120px);
           left: 32px;
           width: 340px;
-          max-height: calc(100vh - var(--shc-nav-offset, 120px) - 20px);
+          max-height: calc(100dvh - var(--shc-nav-offset, 120px) - 24px);
           overflow-y: auto;
+          scroll-behavior: smooth;
+          overscroll-behavior-y: contain;
+          scrollbar-gutter: stable;
           z-index: 40;
           box-sizing: border-box;
         }

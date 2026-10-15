@@ -862,6 +862,8 @@ class JewelryOrder(models.Model):
     pincode = models.CharField(max_length=6)
     address_line1 = models.TextField()
     address_line2 = models.TextField(blank=True)
+    delivery_instructions = models.TextField(blank=True, default='')
+    delivery_location = models.JSONField(default=dict, blank=True)
     city = models.CharField(max_length=50)
     state = models.CharField(max_length=50)
 
@@ -1368,3 +1370,38 @@ class DigiGoldLedgerRollup(models.Model):
     def __str__(self):
         return f"{self.day} {self.metal} {self.transaction_type}: {self.transaction_count} transactions"
 
+
+
+class DeliveryAddress(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='delivery_addresses')
+    name = models.CharField(max_length=200)
+    phone = models.CharField(max_length=20)
+    email = models.EmailField(blank=True)
+    country = models.CharField(max_length=2, default='IN')
+    house = models.CharField(max_length=200)
+    street = models.CharField(max_length=250)
+    landmark = models.CharField(max_length=200, blank=True)
+    pincode = models.CharField(max_length=12)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    label = models.CharField(max_length=50, default='Home')
+    instructions = models.TextField(blank=True, max_length=1000)
+    map_url = models.URLField(max_length=2048, blank=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_default', '-updated_at', '-id']
+        indexes = [
+            models.Index(
+                fields=['user', '-is_default', '-updated_at', '-id'],
+                name='delivery_user_list_idx',
+            ),
+        ]
+        constraints = [models.UniqueConstraint(fields=['user'], condition=models.Q(is_default=True), name='one_default_delivery_address')]
+
+    def __str__(self):
+        return f'{self.name} - {self.label}'

@@ -23,6 +23,21 @@ Errors are always `{"error": "<human message>"}` with 400 / 403 / 404, or DRF fi
 | GET/POST | `profile-update-request/` | auth | Submit or list profile change requests |
 | POST | `profile-update-request/<pk>/approve/` | approver | Apply a profile change |
 
+## Daily work check-in
+
+Attendance tracking only; this feature does not change commissions, wallet balances or login rewards.
+
+| Method | Path | Access | Purpose |
+|---|---|---|---|
+| GET | `daily-work-check-in/` | SS, DI, WD, RT | Current user's IST date, three slot statuses, completion count, server time and next status-change time. |
+| POST | `daily-work-check-in/` | SS, DI, WD, RT | Submit `{"slot":"12:00"}`, `{"slot":"16:00"}` or `{"slot":"20:00"}` for the authenticated user. |
+
+Windows use **Asia/Kolkata**: 12:00-12:30, 16:00-16:30 and 20:00-20:30. Opening time is inclusive; closing time is exclusive. The backend selects the work date and timestamp. Clients cannot submit for another user or backdate a check-in.
+
+Slot statuses are `upcoming`, `available`, `completed` and `missed`. A new submission returns `201`; a repeat of an already completed slot on the same day returns `200` without another record, including after that slot closes. Submitting outside the window returns `409` with `error` and the current status snapshot. Invalid slots return serializer errors (`400`); other roles receive `403`. GET and POST snapshots include `date`, `timezone`, `server_now`, `slots`, `completed_count`, `active_slot` and `next_change_at`; successful POST responses also include `created` and `message`.
+
+The `DailyWorkCheckIn` model enforces unique `(user, work_date, slot)` submissions and valid slot IDs, with an index on `(work_date, slot)`. **Before enabling this feature, manually generate and apply the model migration** from `backend`: `python manage.py makemigrations accounts`, then `python manage.py migrate`. No migration file is supplied with this change.
+
 ## Creating & listing members
 
 | Method | Path | Access | Purpose |

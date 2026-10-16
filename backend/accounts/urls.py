@@ -1,6 +1,6 @@
 from django import views
 from django.urls import path
-from .views import DeliveryAddressListView, DeliveryAddressDetailView
+from .views import DeliveryAddressListView, DeliveryAddressDetailView, DailyWorkCheckInView
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     LoginView, CreateAdminView, CreateShopView, MyShopProfileView, ShopHierarchyView, ShopDashboardStatsView, CreateDealerView,
@@ -21,6 +21,7 @@ HierarchySubtreeOrdersView, HierarchyAdminsView, HierarchyChildrenView, SalesRep
 )
 
 urlpatterns = [
+    path('daily-work-check-in/', DailyWorkCheckInView.as_view(), name='daily-work-check-in'),
     path('delivery-addresses/', DeliveryAddressListView.as_view()),
     path('delivery-addresses/<int:pk>/', DeliveryAddressDetailView.as_view()),
     path('ping/', ping),

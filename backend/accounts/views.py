@@ -1,6 +1,6 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers, status
-from .models import DeliveryAddress
+from .models import DeliveryAddress, DailyWorkCheckIn
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -15262,3 +15262,70 @@ def saved_order_address(user, pk):
             'longitude': str(address.longitude) if address.longitude is not None else None,
         },
     }
+
+
+# Work check-ins never call commission, wallet, login-reward or payment helpers.
+DAILY_WORK_CHECK_IN_ROLES = {'admin', 'dealer', 'sub_dealer', 'promotor'}
+
+
+def _daily_work_check_in_snapshot(user, now=None):
+    from datetime import datetime as check_datetime, time as check_time
+    from zoneinfo import ZoneInfo
+
+    local_now = (now or timezone.now()).astimezone(ZoneInfo('Asia/Kolkata'))
+    day = local_now.date()
+    completed = dict(DailyWorkCheckIn.objects.filter(user=user, work_date=day).values_list('slot', 'checked_in_at'))
+    slots, future_changes = [], []
+    for slot, label in DailyWorkCheckIn.SLOT_CHOICES:
+        opens = check_datetime.combine(day, check_time.fromisoformat(slot), tzinfo=local_now.tzinfo)
+        closes = opens + timedelta(minutes=30)
+        submitted_at = completed.get(slot)
+        slot_status = 'completed' if submitted_at else 'upcoming' if local_now < opens else 'available' if local_now < closes else 'missed'
+        slots.append({
+            'id': slot, 'label': label, 'opens_at': opens.isoformat(), 'closes_at': closes.isoformat(),
+            'status': slot_status, 'submitted_at': submitted_at.isoformat() if submitted_at else None,
+        })
+        future_changes.extend(boundary for boundary in (opens, closes) if boundary > local_now)
+    midnight = check_datetime.combine(day + timedelta(days=1), check_time.min, tzinfo=local_now.tzinfo)
+    return {
+        'date': day.isoformat(), 'timezone': 'Asia/Kolkata', 'server_now': local_now.isoformat(),
+        'window_minutes': 30, 'completed_count': len(completed), 'slots': slots,
+        'active_slot': next((slot['id'] for slot in slots if slot['status'] == 'available'), None),
+        'next_change_at': min(future_changes, default=midnight).isoformat(),
+    }
+
+
+class DailyWorkCheckInView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _allowed(self, user):
+        return user.is_active and user.role in DAILY_WORK_CHECK_IN_ROLES
+
+    def get(self, request):
+        if not self._allowed(request.user):
+            return Response({'error': 'Daily work check-in is only available to internal worker roles.'}, status=403)
+        return Response(_daily_work_check_in_snapshot(request.user))
+
+    def post(self, request):
+        if not self._allowed(request.user):
+            return Response({'error': 'Daily work check-in is only available to internal worker roles.'}, status=403)
+        data = DailyWorkCheckInSubmitSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        slot_id = data.validated_data['slot']
+        now = timezone.now()
+        snapshot = _daily_work_check_in_snapshot(request.user, now)
+        slot = next(item for item in snapshot['slots'] if item['id'] == slot_id)
+        # Retrying a successful submission is safe, including after its window closes.
+        if slot['status'] == 'completed':
+            return Response({**snapshot, 'created': False, 'message': 'This check-in is already completed.'})
+        if slot['status'] != 'available':
+            return Response({**snapshot, 'error': 'This check-in is outside its 30-minute submission window.'}, status=409)
+        # The unique constraint and get_or_create make concurrent submissions idempotent.
+        _, created = DailyWorkCheckIn.objects.get_or_create(
+            user=request.user, work_date=snapshot['date'], slot=slot_id,
+            defaults={'checked_in_at': now},
+        )
+        return Response({
+            **_daily_work_check_in_snapshot(request.user), 'created': created,
+            'message': 'Check-in submitted successfully.' if created else 'This check-in is already completed.',
+        }, status=201 if created else 200)

@@ -1,6 +1,6 @@
 import re
 from urllib.parse import urlparse
-from .models import DeliveryAddress
+from .models import DeliveryAddress, DailyWorkCheckIn
 from rest_framework import serializers
 from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder,JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, Wallet, CoinRecharge, AutoPayMandate , StockNotifyRequest, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent, DigiGoldInvestment, DigiGoldWallet
 
@@ -1182,3 +1182,7 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
         if lat is not None and (not -90 <= lat <= 90 or not -180 <= lng <= 180):
             raise serializers.ValidationError({'latitude': 'Invalid map coordinates.'})
         return attrs
+
+
+class DailyWorkCheckInSubmitSerializer(serializers.Serializer):
+    slot = serializers.ChoiceField(choices=DailyWorkCheckIn.SLOT_CHOICES)

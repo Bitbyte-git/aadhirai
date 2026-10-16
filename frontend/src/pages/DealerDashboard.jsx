@@ -5,7 +5,7 @@ import {
 } from 'recharts'
 import api from '../api'
 import logo from '../assets/logo.png'
-import InternalRoleNavbar from '../collection/InternalRoleNavbar'
+import InternalRoleNavbar, { DailyWorkCheckIn } from '../collection/InternalRoleNavbar'
 import CopyUrlButton from '../collection/CopyUrlButton'
 import goldCoin from '../assets/gold-coin-transparent.png'
 import silverCoin from '../assets/silver-coin.png'
@@ -2161,6 +2161,7 @@ const fetchCoinStock = async () => {
           </div>
 
           <div className="sa-welcome-actions">
+            <DailyWorkCheckIn />
             {/* Today Gold Rate Badge (Static Text Display Only - No Click) */}
             <div className="sa-welcome-gold-display" title="Live Gold Rate">
               <div className="sa-welcome-gold-icon">

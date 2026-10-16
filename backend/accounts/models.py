@@ -1,3 +1,4 @@
+from django import VERSION as DJANGO_VERSION
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 
@@ -1405,3 +1406,27 @@ class DeliveryAddress(models.Model):
 
     def __str__(self):
         return f'{self.name} - {self.label}'
+
+
+class DailyWorkCheckIn(models.Model):
+    """Attendance confirmations only; independent of rewards and commission."""
+    SLOT_CHOICES = [('12:00', '12 PM'), ('16:00', '4 PM'), ('20:00', '8 PM')]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='daily_work_check_ins')
+    work_date = models.DateField()
+    slot = models.CharField(max_length=5, choices=SLOT_CHOICES)
+    checked_in_at = models.DateTimeField(editable=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'work_date', 'slot'], name='work_checkin_user_day_slot'),
+            models.CheckConstraint(
+                name='work_checkin_valid_slot',
+                # Django 4.2 uses check; newer versions use condition.
+                **{'condition' if DJANGO_VERSION >= (5, 1) else 'check':
+                   models.Q(slot__in=['12:00', '16:00', '20:00'])},
+            ),
+        ]
+        indexes = [models.Index(fields=['work_date', 'slot'], name='work_checkin_day_slot_idx')]
+
+    def __str__(self):
+        return f'{self.user_id} - {self.work_date} - {self.slot}'

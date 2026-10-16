@@ -1124,6 +1124,7 @@ export default function SuperAdminNavbar({
   }
 
   const management = [
+    ['Daily Check-In List', () => navigate('/daily-check-in-list')],
     ['Today Gold Rate', () => { setShowTodayRates(true); fetchMetalPrices() }],
     ['Add Gold Rate', () => { setShowRatePopup(true); fetchMetalPrices() }],
     ['Add Product', () => navigate('/add-product')],
@@ -1208,6 +1209,7 @@ export default function SuperAdminNavbar({
   const adminEmail = localStorage.getItem('email') || localStorage.getItem('user_email') || 'superadmin@athirai.com'
 
   const drawerManagementItems = [
+    { label: 'Daily Check-In List', path: '/daily-check-in-list', action: () => navigate('/daily-check-in-list') },
     { label: 'Today Gold Rate', action: () => { setShowTodayRates(true); fetchMetalPrices() } },
     { label: 'Add Gold Rate', action: () => { setShowRatePopup(true); fetchMetalPrices() } },
     { label: 'Add Product', path: '/add-product', action: () => navigate('/add-product') },
@@ -1364,6 +1366,10 @@ export default function SuperAdminNavbar({
       {
         category: 'Rates & Operations',
         items: [
+          {
+            label: 'Daily Check-In List', path: '/daily-check-in-list', action: () => navigate('/daily-check-in-list'),
+            icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 11h18m-13 5 3 3 5-5" /></svg>,
+          },
           {
             label: 'Today Gold Rate',
             path: null,

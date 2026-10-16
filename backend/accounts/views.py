@@ -15329,3 +15329,101 @@ class DailyWorkCheckInView(APIView):
             **_daily_work_check_in_snapshot(request.user), 'created': created,
             'message': 'Check-in submitted successfully.' if created else 'This check-in is already completed.',
         }, status=201 if created else 200)
+
+
+class DailyWorkCheckInReportView(APIView):
+    """Super-admin-only attendance report, with bounded keyset pages."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from datetime import datetime as check_datetime, time as check_time
+        from zoneinfo import ZoneInfo
+        from django.db.models import Exists, OuterRef
+
+        if request.user.role != 'super_admin' or not request.user.is_active:
+            return Response({'error': 'Only Super Admin can view daily check-in reports.'}, status=403)
+        params = DailyWorkCheckInReportQuerySerializer(data=request.query_params)
+        params.is_valid(raise_exception=True)
+        query = params.validated_data
+        now = timezone.now().astimezone(ZoneInfo('Asia/Kolkata'))
+        day = query.get('date', now.date())
+        if day > now.date():
+            return Response({'error': 'Please select today or a past date.'}, status=400)
+        following_day = check_datetime.combine(day + timedelta(days=1), check_time.min, tzinfo=now.tzinfo)
+        records = DailyWorkCheckIn.objects.filter(user_id=OuterRef('pk'), work_date=day)
+        base = User.objects.filter(role__in=DAILY_WORK_CHECK_IN_ROLES, is_active=True, created_at__lt=following_day)
+        if query['role'] != 'all':
+            base = base.filter(role=query['role'])
+        profile_fields = {
+            'admin': ('admin_profile', 'admin_id'), 'dealer': ('dealer_profile', 'dealer_id'),
+            'sub_dealer': ('sub_dealer_profile', 'sub_dealer_id'), 'promotor': ('promotor_profile', 'promotor_id'),
+        }
+        if query['search']:
+            term = query['search']
+            search = Q(email__icontains=term)
+            if term.isdecimal() and int(term) <= 9223372036854775807:
+                search |= Q(pk=int(term))
+            for profile, identifier in profile_fields.values():
+                search |= Q(**{f'{profile}__{identifier}__istartswith': term})
+                search |= Q(**{f'{profile}__first_name__icontains': term}) | Q(**{f'{profile}__last_name__icontains': term})
+                search |= Q(**{f'{profile}__mobile_number__startswith': term})
+            base = base.filter(search)
+        base = base.annotate(has_work_checkin=Exists(records))
+        signature_scope = {key: query[key] for key in ('search', 'role', 'status')}
+        signature_scope['date'] = day.isoformat()
+        summary = None
+        after = 0
+        if query['cursor']:
+            try:
+                cursor = signing.loads(query['cursor'], salt='daily-work-check-in-report', max_age=86400)
+                if cursor['scope'] != signature_scope:
+                    raise ValueError('Cursor does not match filters')
+                after, ceiling = int(cursor['after']), int(cursor['ceiling'])
+                if after < 0 or ceiling < after:
+                    raise ValueError('Invalid cursor range')
+            except (signing.BadSignature, KeyError, ValueError, TypeError):
+                return Response({'error': 'This list cursor is invalid or expired. Refresh the list.'}, status=400)
+        else:
+            counts = base.aggregate(total=Count('id'), checked=Count('id', filter=Q(has_work_checkin=True)), ceiling=Max('id'))
+            ceiling = counts['ceiling'] or 0
+            summary = {'all_users': counts['total'], 'daily_check_in': counts['checked'], 'no_check_in': counts['total'] - counts['checked']}
+        if query['status'] == 'checked_in':
+            base = base.filter(has_work_checkin=True)
+        elif query['status'] == 'no_check_in':
+            base = base.filter(has_work_checkin=False)
+        fields = ['id', 'email', 'role']
+        for profile, identifier in profile_fields.values():
+            fields.extend(f'{profile}__{field}' for field in (identifier, 'first_name', 'last_name', 'mobile_number'))
+        page_size = 40
+        rows = list(base.filter(pk__gt=after, pk__lte=ceiling).order_by('pk').values(*fields)[:page_size + 1])
+        has_more = len(rows) > page_size
+        rows = rows[:page_size]
+        submitted = {}
+        if rows:
+            for entry in DailyWorkCheckIn.objects.filter(work_date=day, user_id__in=[row['id'] for row in rows]).values('user_id', 'slot', 'checked_in_at'):
+                submitted[(entry['user_id'], entry['slot'])] = entry['checked_in_at']
+        windows = []
+        for slot, label in DailyWorkCheckIn.SLOT_CHOICES:
+            opens = check_datetime.combine(day, check_time.fromisoformat(slot), tzinfo=now.tzinfo)
+            closes = opens + timedelta(minutes=30)
+            state = 'upcoming' if now < opens else 'available' if now < closes else 'missed'
+            windows.append({'id': slot, 'label': label, 'opens_at': opens.isoformat(), 'closes_at': closes.isoformat(), 'status': state})
+        items = []
+        for row in rows:
+            profile, identifier = profile_fields[row['role']]
+            slots = []
+            for window in windows:
+                checked_at = submitted.get((row['id'], window['id']))
+                slots.append({**window, 'status': 'success' if checked_at else window['status'], 'submitted_at': checked_at.isoformat() if checked_at else None})
+            name = ' '.join(filter(None, [row[f'{profile}__first_name'], row[f'{profile}__last_name']]))
+            items.append({
+                'user_id': row['id'], 'member_id': row[f'{profile}__{identifier}'] or str(row['id']),
+                'name': name or row['email'], 'phone': row[f'{profile}__mobile_number'] or '',
+                'role': row['role'], 'slots': slots, 'completed_count': sum(slot['status'] == 'success' for slot in slots),
+            })
+        next_cursor = signing.dumps({'scope': signature_scope, 'after': rows[-1]['id'], 'ceiling': ceiling}, salt='daily-work-check-in-report', compress=True) if has_more else None
+        return Response({
+            'date': day.isoformat(), 'timezone': 'Asia/Kolkata', 'server_now': now.isoformat(),
+            'summary': summary, 'items': items, 'has_more': has_more, 'next_cursor': next_cursor,
+            'page_size': page_size,
+        })

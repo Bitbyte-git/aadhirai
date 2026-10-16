@@ -101,6 +101,7 @@ const SuperStokistPromotions = lazy(() => import('./Promotions/SuperStokist'))
 const PromotionSalesOrderList = lazy(() => import('./Promotions/Promotion_sales_order_list'))
 const DigiGoldDashboard = lazy(() => import('./pages/DigiGold/DigiGoldDashboard'))
 const SuperAdminDigiGold = lazy(() => import('./Superadmin/SuperAdminDigiGold'))
+const DailyCheckInList = lazy(() => import('./Superadmin/DailyCheckInList'))
 const AffordableProducts = lazy(() => import('./collection/AffordableProducts'))
 
 const collectionPath = (category, metal) => {
@@ -275,6 +276,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterRouter />} />
           <Route path="/super-admin" element={<ProtectedRoute role="super_admin"><SuperAdminDashboard /></ProtectedRoute>} />
+          <Route path="/daily-check-in-list" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><DailyCheckInList /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/superadmin-hierarchy" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><SuperadminHierarchy /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/superadmin-hierarchy-grid" element={<ProtectedRoute role="super_admin"><WithSuperAdminNavbar><SuperadminHierarchyGrid /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>} />

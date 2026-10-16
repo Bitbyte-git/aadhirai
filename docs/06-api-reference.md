@@ -38,6 +38,14 @@ Slot statuses are `upcoming`, `available`, `completed` and `missed`. A new submi
 
 The `DailyWorkCheckIn` model enforces unique `(user, work_date, slot)` submissions and valid slot IDs, with an index on `(work_date, slot)`. **Before enabling this feature, manually generate and apply the model migration** from `backend`: `python manage.py makemigrations accounts`, then `python manage.py migrate`. No migration file is supplied with this change.
 
+### Super Admin check-in report
+
+`GET daily-work-check-in/report/` is restricted to `super_admin`. It accepts optional `date` (YYYY-MM-DD, defaults to today in IST), `search` (ID/name/phone/email, max 100 characters), `role` (`all`, `admin`, `dealer`, `sub_dealer`, `promotor`), `status` (`all`, `checked_in`, `no_check_in`) and a signed `cursor` from the previous response. Future dates are rejected. Keep filters unchanged when using a cursor.
+
+The first page returns `summary`: `all_users`, `daily_check_in` (at least one submission) and `no_check_in` (zero submissions). Counts cover currently active worker accounts created by the selected day, filtered by search and role; the status filter only affects the list. This is not a historical workforce-membership snapshot. Subsequent pages omit count computation (`summary: null`). Each page contains at most 40 users with member ID, name, phone, role and all three slots. Slots use `success` (with `submitted_at`), `available`, `upcoming` or `missed`; a missed slot has passed its exclusive closing time. The response also includes `date`, `timezone`, `server_now`, `items`, `has_more`, `next_cursor` and `page_size`.
+
+Pagination uses an ascending user-ID cursor with an initial upper bound, not SQL offsets; profiles and check-ins are fetched in bounded batches. New submissions can change a user's filter membership while browsing; refresh restarts the list and counts. No additional model migration is needed beyond the worker check-in model migration.
+
 ## Creating & listing members
 
 | Method | Path | Access | Purpose |

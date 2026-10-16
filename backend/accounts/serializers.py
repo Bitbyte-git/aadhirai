@@ -1186,3 +1186,11 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
 
 class DailyWorkCheckInSubmitSerializer(serializers.Serializer):
     slot = serializers.ChoiceField(choices=DailyWorkCheckIn.SLOT_CHOICES)
+
+
+class DailyWorkCheckInReportQuerySerializer(serializers.Serializer):
+    date = serializers.DateField(required=False)
+    search = serializers.CharField(required=False, allow_blank=True, max_length=100, default='')
+    role = serializers.ChoiceField(choices=['all', 'admin', 'dealer', 'sub_dealer', 'promotor'], default='all')
+    status = serializers.ChoiceField(choices=['all', 'checked_in', 'no_check_in'], default='all')
+    cursor = serializers.CharField(required=False, allow_blank=True, max_length=2048, default='')

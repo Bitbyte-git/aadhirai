@@ -15365,7 +15365,10 @@ class DailyWorkCheckInReportView(APIView):
                 search |= Q(pk=int(term))
             for profile, identifier in profile_fields.values():
                 search |= Q(**{f'{profile}__{identifier}__istartswith': term})
-                search |= Q(**{f'{profile}__first_name__icontains': term}) | Q(**{f'{profile}__last_name__icontains': term})
+                name_match = Q()
+                for word in term.split():
+                    name_match &= Q(**{f'{profile}__first_name__icontains': word}) | Q(**{f'{profile}__last_name__icontains': word})
+                search |= name_match
                 search |= Q(**{f'{profile}__mobile_number__startswith': term})
             base = base.filter(search)
         base = base.annotate(has_work_checkin=Exists(records))

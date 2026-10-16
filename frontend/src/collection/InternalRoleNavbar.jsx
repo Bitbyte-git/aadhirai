@@ -2263,7 +2263,7 @@ export function DailyWorkCheckIn() {
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
+  const [confirmation, setConfirmation] = useState(null)
   const buttonRef = useRef(null)
   const dialogRef = useRef(null)
   const requestVersion = useRef(0)
@@ -2276,7 +2276,7 @@ export function DailyWorkCheckIn() {
     const version = ++requestVersion.current
     setLoading(true); setError('')
     try {
-      const response = await api.get('/daily-work-check-in/')
+      const response = await api.get('/daily-work-check-in/', { timeout: 90000 })
       if (version === requestVersion.current) setSnapshot(response.data)
     } catch {
       if (version === requestVersion.current) setError('Check-in status could not load. Please retry.')
@@ -2287,7 +2287,7 @@ export function DailyWorkCheckIn() {
 
   useEffect(() => {
     if (!open) return
-    setSnapshot(null); setNotice('')
+    setSnapshot(null); setConfirmation(null)
     refresh()
     const visible = () => { if (document.visibilityState === 'visible') refresh() }
     document.addEventListener('visibilitychange', visible)
@@ -2331,16 +2331,31 @@ export function DailyWorkCheckIn() {
 
   const submit = async () => {
     if (!snapshot?.active_slot || loading || posting.current || fetching.current) return
-    posting.current = true; setSubmitting(true); setError(''); setNotice('')
+    const version = requestVersion.current
+    posting.current = true; setSubmitting(true); setError(''); setConfirmation(null)
     try {
-      const response = await api.post('/daily-work-check-in/', { slot: snapshot.active_slot })
-      setSnapshot(response.data); setNotice(response.data.message)
+      const response = await api.post('/daily-work-check-in/', { slot: snapshot.active_slot }, { timeout: 90000 })
+      if (version !== requestVersion.current) return
+      const confirmedSlot = response.data?.slots?.find(slot => slot.id === snapshot.active_slot)
+      if (![200, 201].includes(response.status) || confirmedSlot?.status !== 'completed' || !confirmedSlot.submitted_at) {
+        throw new Error('Check-in was not confirmed by the server')
+      }
+      setSnapshot(response.data)
+      setConfirmation({
+        label: confirmedSlot.label, submittedAt: confirmedSlot.submitted_at,
+        alreadyCompleted: response.data.created === false,
+      })
     } catch (failure) {
+      if (version !== requestVersion.current) return
       if (failure.response?.data?.slots) setSnapshot(failure.response.data)
       else setSnapshot(null) // Refresh before another attempt after an uncertain result.
       setError(failure.response?.data?.error || 'Submission could not be confirmed. Refresh status before trying again.')
-    } finally { posting.current = false; setSubmitting(false) }
+    } finally { posting.current = false; if (version === requestVersion.current) setSubmitting(false) }
   }
+
+  useEffect(() => {
+    if (open) dialogRef.current?.focus()
+  }, [open, confirmation])
 
   const timeLabel = value => new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(value))
   const labels = { completed: 'Completed', available: 'Available now', upcoming: 'Upcoming', missed: 'Missed' }
@@ -2352,19 +2367,30 @@ export function DailyWorkCheckIn() {
       .dwci-dialog{width:min(480px,100%);max-height:calc(100dvh - 40px);overflow:auto;box-sizing:border-box;background:#fff;border:1px solid #d6e4e8;border-radius:23px;padding:26px;box-shadow:0 24px 70px #001b3a33;animation:dwci-enter 180ms ease-out}.dwci-dialog *{box-sizing:border-box}.dwci-dialog:focus{outline:none}.dwci-heading{display:flex;gap:12px;align-items:center}.dwci-emblem{display:grid;place-items:center;width:46px;height:46px;flex-shrink:0;border:1px solid #e9d4ab;border-radius:14px;color:#8b6729;background:#fbf3e2}.dwci-heading>div{flex:1;min-width:0}.dwci-kicker{font-size:9px;letter-spacing:1.4px;font-weight:700;color:#96713a}.dwci-heading h2{margin:5px 0 0;font-size:20px;line-height:1.4;letter-spacing:-.5px;color:#073b3f}.dwci-close{display:grid;place-items:center;flex-shrink:0;min-width:38px;min-height:38px;border:1px solid #dbe5e9;border-radius:50%;color:#496d79;background:#f5f9fa;cursor:pointer}
       .dwci-copy{font-size:12px;line-height:1.8;color:#5c7480;margin:17px 0}.dwci-day{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px;background:#eef6f7;border:1px solid #dce9ec;border-radius:10px;font-size:11px;color:#426572}.dwci-day strong{color:#145e61;font-size:11px;white-space:nowrap}.dwci-slots{display:grid;gap:10px;margin:16px 0}.dwci-slot{display:flex;align-items:center;gap:11px;padding:14px 12px;border:1px solid #e0e8eb;border-radius:12px;background:#fff}.dwci-slot.available{border-color:#b5d1d4;background:#f0f8f8}.dwci-slot.completed{border-color:#c6dfd3;background:#f3faf6}.dwci-slot>svg{color:#68838d;flex-shrink:0}.dwci-slot.completed>svg{color:#25805a}.dwci-slot>div{flex:1;min-width:0}.dwci-slot strong{display:block;font-size:13px;color:#163f4b}.dwci-slot small{display:block;font-size:10px;color:#607b86;line-height:1.7;margin-top:4px}.dwci-status{padding:5px 7px;border-radius:7px;background:#eef2f4;color:#60757e;font-size:9px;font-weight:650;white-space:nowrap}.dwci-slot.completed .dwci-status{background:#def0e6;color:#207349}.dwci-slot.available .dwci-status{background:#dceff1;color:#155d68}.dwci-slot.missed .dwci-status{background:#fbeceb;color:#a3524a}
       .dwci-message{font-size:12px;line-height:1.8;padding:11px 12px;border-radius:10px;margin:14px 0;background:#fff4ed;color:#9b5235}.dwci-message.success{background:#eaf6ee;color:#256d47}.dwci-retry{border:1px solid #d4b77c;border-radius:7px;background:#fff;padding:7px 10px;margin-top:7px;color:#705520;font:inherit;cursor:pointer}.dwci-submit{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:49px;padding:12px;border:1px solid #c7a063;border-radius:12px;background:linear-gradient(115deg,#e3bf7b,#f2dca9);color:#382d19;font:700 13px 'Montserrat',system-ui,sans-serif;cursor:pointer}.dwci-submit:disabled{background:#edf2f4;border-color:#dce5e9;color:#7b8e96;cursor:default}.dwci-footnote{margin:11px 0 0;text-align:center;font-size:10px;line-height:1.7;color:#6c828b}.dwci-skeleton{height:74px;border-radius:12px;background:linear-gradient(90deg,#edf2f4,#f9fbfc,#edf2f4);background-size:200% 100%;animation:dwci-shimmer 1.4s linear infinite}.dwci-loading{font-size:11px;color:#637c88}.dwci-spin{animation:dwci-spin 1s linear infinite}
+      .dwci-success-popup{position:relative;text-align:center;padding:18px 0 0}.dwci-success-close{position:absolute;right:-6px;top:-8px}.dwci-success-mark{display:grid;place-items:center;width:86px;height:86px;margin:8px auto 24px;border-radius:50%;border:1px solid #c2ddcf;background:radial-gradient(circle at 30% 20%,#f5fcf7,#e2f2e8);color:#247450;box-shadow:0 0 0 9px #f4f9f5}.dwci-success-mark path{stroke-dasharray:42;stroke-dashoffset:42;animation:dwci-check 400ms 80ms ease-out forwards}.dwci-success-popup h2{margin:12px 0 10px;color:#073b3f;font-size:27px;line-height:1.3;font-weight:750;letter-spacing:-.6px}.dwci-success-popup p{font-size:12px;line-height:1.9;color:#607b87;margin:0 auto 21px;max-width:320px}.dwci-success-receipt{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px;background:#f2f7f8;border:1px solid #dce8eb;border-radius:13px;text-align:left;margin-bottom:22px}.dwci-success-receipt>span{font-size:10px;color:#6b828d;line-height:1.7}.dwci-success-receipt>span+span{border-left:1px solid #d7e3e7;padding-left:16px}.dwci-success-receipt strong{display:block;font-size:13px;color:#164d53;font-weight:700;margin-top:4px}.dwci-view-status{min-height:42px;margin-top:8px;padding:10px;border:0;background:transparent;color:#547681;font:600 11px 'Montserrat',system-ui,sans-serif;cursor:pointer}.dwci-view-status:hover{color:#073b3f;text-decoration:underline}@keyframes dwci-check{to{stroke-dashoffset:0}}@media(max-width:520px){.dwci-success-popup h2{font-size:24px}.dwci-success-receipt{padding:14px}.dwci-success-receipt strong{font-size:12px}}@media(prefers-reduced-motion:reduce){.dwci-success-mark path{animation:none;stroke-dashoffset:0}}
       @keyframes dwci-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes dwci-shimmer{to{background-position:-200% 0}}@keyframes dwci-spin{to{transform:rotate(360deg)}}@media(max-width:520px){.dwci-overlay{padding:14px}.dwci-dialog{padding:22px 18px;border-radius:19px;max-height:calc(100dvh - 28px)}.dwci-heading h2{font-size:18px}.dwci-slot{gap:8px;padding:13px 10px}.dwci-status{font-size:8px}.dwci-button{min-height:48px}}@media(prefers-reduced-motion:reduce){.dwci-dialog,.dwci-skeleton,.dwci-spin{animation:none}}
     `}</style>
-    <button ref={buttonRef} type="button" className="dwci-button" onClick={() => setOpen(true)} aria-haspopup="dialog"><NavIcon type="clock" size={18} />Daily Check-In</button>
+    <button ref={buttonRef} type="button" className="dwci-button" onClick={() => { setConfirmation(null); setSnapshot(null); setError(''); setLoading(true); setSubmitting(false); setOpen(true) }} aria-haspopup="dialog"><NavIcon type="clock" size={18} />Daily Check-In</button>
     {open && createPortal(<div className="dwci-overlay" onClick={event => { if (event.target === event.currentTarget && !posting.current) setOpen(false) }}>
-      <section ref={dialogRef} className="dwci-dialog" role="dialog" aria-modal="true" aria-labelledby="dwci-title" aria-describedby="dwci-description" tabIndex={-1}>
+      <section ref={dialogRef} className="dwci-dialog" role={confirmation ? 'alertdialog' : 'dialog'} aria-modal="true" aria-labelledby={confirmation ? 'dwci-success-title' : 'dwci-title'} aria-describedby={confirmation ? 'dwci-success-description' : 'dwci-description'} tabIndex={-1}>
+        {confirmation ? <div className="dwci-success-popup">
+          <button type="button" className="dwci-close dwci-success-close" aria-label="Close check-in confirmation" onClick={() => setOpen(false)}><NavIcon type="close" size={17} /></button>
+          <span className="dwci-success-mark" aria-hidden="true"><svg width="40" height="40" viewBox="0 0 40 40" fill="none"><path d="m10 20 7 7 14-15" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+          <span className="dwci-kicker">DAILY WORK CHECK-IN</span>
+          <h2 id="dwci-success-title">{confirmation.alreadyCompleted ? 'Already Checked In' : 'Check-In Successful!'}</h2>
+          <p id="dwci-success-description">{confirmation.alreadyCompleted ? 'Your check-in for this slot is already recorded.' : 'Your daily work check-in has been recorded successfully.'}</p>
+          <div className="dwci-success-receipt"><span>Check-in slot<strong>{confirmation.label}</strong></span><span>Submitted at<strong>{timeLabel(confirmation.submittedAt)} IST</strong></span></div>
+          <button type="button" className="dwci-submit" onClick={() => setOpen(false)}>Done</button>
+          <button type="button" className="dwci-view-status" onClick={() => setConfirmation(null)}>View today's check-ins</button>
+        </div> : <>
         <div className="dwci-heading"><span className="dwci-emblem"><NavIcon type="clock" size={24} /></span><div><span className="dwci-kicker">YOUR DAILY ROUTINE</span><h2 id="dwci-title">Daily Work Check-In</h2></div><button type="button" className="dwci-close" aria-label="Close daily check-in" disabled={submitting} onClick={() => setOpen(false)}><NavIcon type="close" size={17} /></button></div>
         <p className="dwci-copy" id="dwci-description">Check in at 12 PM, 4 PM and 8 PM. Each submission window stays open for 30 minutes. All times are IST.</p>
         {snapshot && <div className="dwci-day"><span>{new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(snapshot.server_now))}</span><strong>{snapshot.completed_count} / 3 completed</strong></div>}
         {loading && !snapshot ? <div className="dwci-slots" role="status" aria-label="Loading check-in status"><span className="dwci-loading">Loading check-in status...</span>{[0, 1, 2].map(index => <div className="dwci-skeleton" key={index} aria-hidden="true" />)}</div> : snapshot && <div className="dwci-slots">{snapshot.slots.map(slot => <div className={`dwci-slot ${slot.status}`} key={slot.id}><NavIcon type="clock" size={18} /><div><strong>{slot.label}</strong><small>{timeLabel(slot.opens_at)} - {timeLabel(slot.closes_at)} IST{slot.submitted_at && <><br />Submitted at {timeLabel(slot.submitted_at)}</>}</small></div><span className="dwci-status">{labels[slot.status]}</span></div>)}</div>}
-        {notice && <div className="dwci-message success" role="status">{notice}</div>}
         {error && <div className="dwci-message" role="alert">{error}<br /><button type="button" className="dwci-retry" disabled={loading || submitting} onClick={refresh}>Refresh status</button></div>}
         <button type="button" className="dwci-submit" disabled={loading || submitting || Boolean(error) || !snapshot?.active_slot} onClick={submit}>{submitting ? 'Submitting...' : allCompleted ? 'All check-ins completed' : 'Submit Check-In'}</button>
         <p className="dwci-footnote">{loading ? 'Refreshing current status...' : !snapshot ? 'Load your current status to continue.' : allCompleted ? 'You have completed all three check-ins today.' : snapshot.active_slot ? 'Your current check-in window is open.' : 'Submit becomes available during an open check-in window.'}</p>
+        </>}
       </section>
     </div>, document.body)}
   </>

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { ShoppingBag, ArrowRight, ShieldCheck, LockKeyhole, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import CustomerFooter from '../collection/CustomerFooter'
@@ -66,6 +67,23 @@ export default function CardSection() {
   const [cart, setCart] = useState([])
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState(null)
+  const cartPageRef = useRef(null)
+
+  useEffect(() => {
+    const page = cartPageRef.current
+    const header = document.querySelector('.exact-nav')
+    if (!page) return
+    const updateOffset = () => {
+      const bottom = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0
+      page.style.setProperty('--cart-summary-top', `${Math.ceil(bottom) + 16}px`)
+    }
+    updateOffset()
+    const observer = new ResizeObserver(updateOffset)
+    if (header) observer.observe(header)
+    window.addEventListener('resize', updateOffset)
+    return () => { observer.disconnect(); window.removeEventListener('resize', updateOffset) }
+  }, [])
+
 
   const fetchCart = async () => {
     setLoading(true)
@@ -152,13 +170,14 @@ export default function CardSection() {
   }
 
   return (
-    <div className="cart-page">
+    <div className="cart-page" ref={cartPageRef}>
       <style>{cartStyles}</style>
 
       <main className="cart-shell">
-        <section className="cart-hero">
+        <section className="cart-hero cart-hero-artwork">
+          <img className="cart-banner-art" src="/cart-banner.png" alt="" width="2048" height="768" fetchPriority="high" decoding="async" />
           <div>
-            <span className="cart-kicker">Bharathi Jewellers</span>
+            <span className="cart-kicker">YOUR SHOPPING BAG</span>
             <h1>My Cart</h1>
             <p>{totalItems} {totalItems === 1 ? 'piece' : 'pieces'} selected for checkout</p>
           </div>
@@ -228,9 +247,9 @@ export default function CardSection() {
 
                 return (
                   <article className="cart-card" key={`${item.id}-${idx}`} style={{ animationDelay: `${idx * 70}ms` }}>
-                    <button className="cart-image" type="button" onClick={() => navigate(productUrl)}>
+                    <button className="cart-image" aria-label={`View ${item.product_name || 'jewellery'}`} type="button" onClick={() => navigate(productUrl)}>
                       {item.product_image ? (
-                        <img src={item.product_image} alt={item.product_name || 'Cart jewellery'} onError={e => { e.currentTarget.style.display = 'none' }} />
+                        <img src={item.product_image} loading="lazy" decoding="async" alt={item.product_name || 'Cart jewellery'} onError={e => { e.currentTarget.style.display = 'none' }} />
                       ) : (
                         <span>BJ</span>
                       )}
@@ -242,16 +261,16 @@ export default function CardSection() {
                           <span className="cart-metal">{item.product_metal || 'Jewellery'} · {item.product_category || 'Collection'}</span>
                           <h3>{item.product_name || 'Jewellery Piece'}</h3>
                         </div>
-                        <button className="cart-remove" type="button" onClick={() => removeItem(item.product)} disabled={updatingId === item.product}>
-                          Remove
+                        <button className="cart-remove" aria-label={`Remove ${item.product_name || 'item'} from cart`} type="button" onClick={() => removeItem(item.product)} disabled={updatingId === item.product}>
+                          <Trash2 size={15} /><span>Remove</span>
                         </button>
                       </div>
 
                       <div className="cart-card-bottom">
                         <div className="cart-qty">
-                          <button type="button" onClick={() => updateQty(item.id, item.product, -1, qty)} disabled={updatingId === item.product}>−</button>
+                          <button type="button" aria-label={`Decrease quantity of ${item.product_name}`} onClick={() => updateQty(item.id, item.product, -1, qty)} disabled={updatingId === item.product}>−</button>
                           <span>{qty}</span>
-                          <button type="button" onClick={() => updateQty(item.id, item.product, 1, qty)} disabled={updatingId === item.product}>+</button>
+                          <button type="button" aria-label={`Increase quantity of ${item.product_name}`} onClick={() => updateQty(item.id, item.product, 1, qty)} disabled={updatingId === item.product}>+</button>
                         </div>
                         <div className="cart-price">
                           <strong>{total > 0 ? `₹${money(total)}` : 'On Request'}</strong>
@@ -287,15 +306,15 @@ export default function CardSection() {
                 <div className="grand"><span>Total</span><strong>{finalTotal > 0 ? `₹${money(finalTotal)}` : '—'}</strong></div>
               </div>
 
-              <button className="cart-checkout" type="button" onClick={handleCheckout}>
-                Place Order
+              <button className="cart-checkout" type="button" onClick={handleCheckout} disabled={updatingId !== null}>
+                <LockKeyhole size={17} /> Proceed to checkout <ArrowRight size={18} />
               </button>
 
               <div className="cart-trust">
                 <span>BIS Hallmarked</span>
                 <span>Free Insured Shipping</span>
                 <span>15-Day Easy Returns</span>
-                <span>Secure Payments</span>
+                <span><ShieldCheck size={15} />Secure Payments</span>
               </div>
             </aside>
           </section>
@@ -806,6 +825,27 @@ const cartStyles = `
       font-size: 13px !important;
     }
     .cart-trust { grid-template-columns: 1fr; gap: 6px; }
+  }
+
+  .cart-page{background:radial-gradient(ellipse at 100% 0%,#f5ecda 0,transparent 34%),#f3f6f8;color:#173e49}.cart-page *{box-sizing:border-box}.cart-shell{width:min(1440px,calc(100% - 48px));padding:32px 0 64px}
+  .cart-hero{align-items:center;padding:30px 34px;gap:24px;border-radius:22px;background:linear-gradient(110deg,#062f38,#0e5058);border-color:#1c555e;box-shadow:0 12px 28px #073b3f15;backdrop-filter:none}.cart-hero .cart-kicker{color:#f0d49c;font-size:10px;letter-spacing:1.8px}.cart-hero .cart-kicker::before{display:none}.cart-hero h1{font-size:clamp(32px,4vw,50px);color:#fff9e9;line-height:1.15;margin:10px 0}.cart-hero p{color:#d1e3e5;font-size:13px;font-weight:450;line-height:1.7}.cart-hero-stats{gap:10px;grid-template-columns:repeat(3,minmax(85px,1fr))}.cart-hero-stats div{padding:16px;border-radius:13px;background:#ffffff0a;border-color:#ffffff26;box-shadow:none;backdrop-filter:none}.cart-hero-stats span{font-size:9px;color:#c6dee1;font-weight:550;letter-spacing:.5px}.cart-hero-stats strong{font-size:20px;color:#f3dca8}
+  .cart-row{display:flex;align-items:center;gap:16px;margin-bottom:14px;border:1px solid #dce5e8;border-radius:16px;background:#fff}.cart-row-media{flex-shrink:0}.cart-layout{grid-template-columns:minmax(0,1fr) minmax(320px,380px);gap:24px}.cart-list{min-width:0}.cart-list-head{align-items:center;margin:4px 0 18px}.cart-list-head .cart-kicker,.cart-summary .cart-kicker{font-size:10px;letter-spacing:1.3px;font-weight:650;color:#987137}.cart-list-head .cart-kicker::before,.cart-summary .cart-kicker::before{display:none}.cart-list-head h2{font:700 23px 'Montserrat',sans-serif;margin-top:6px;line-height:1.4;letter-spacing:-.5px}.cart-clear{padding:10px 13px;border-radius:10px;background:#fff;color:#a73344;font:inherit;font-size:11px;font-weight:600;border-color:#ead5da}
+  .cart-card{grid-template-columns:156px minmax(0,1fr);border-radius:18px;border-color:#dce5e8;background:#fff;box-shadow:0 5px 18px #123b4607;backdrop-filter:none}.cart-card:hover{transform:translateY(-2px);box-shadow:0 10px 24px #123b4612;border-color:#bca06d}.cart-image{min-height:160px;background:#fafaf7}.cart-image img{object-fit:contain;padding:12px}.cart-card:hover .cart-image img{transform:scale(1.035)}.cart-info{padding:20px;gap:18px}.cart-metal{font-size:10px;line-height:1.6;font-weight:550;letter-spacing:.4px;color:#7e653e}.cart-product-top h3{font-size:17px;line-height:1.5;font-weight:650;overflow-wrap:anywhere}.cart-remove{display:inline-flex;align-items:center;gap:5px;padding:8px 0 8px 8px;font-size:10px;letter-spacing:0;text-transform:none;color:#a73344;white-space:nowrap;flex-shrink:0}.cart-card-bottom{align-items:center;flex-wrap:wrap}.cart-qty{border-radius:10px;box-shadow:none;background:#f6f9fa;border-color:#d6e3e7}.cart-qty button{width:40px;height:40px;font-weight:600}.cart-qty span{min-width:30px;font-size:13px;font-weight:650}.cart-price strong{font-size:21px;font-weight:750;font-variant-numeric:tabular-nums}.cart-price span{font-size:11px;font-weight:450;color:#647b86}
+  .cart-summary{border-radius:20px;border-color:#d5e2e6;background:#fff;box-shadow:0 8px 24px #123b4610;backdrop-filter:none;padding:26px;top:190px}.cart-summary h2{font:700 24px 'Montserrat',sans-serif;line-height:1.4;letter-spacing:-.5px;margin-top:8px}.summary-lines{margin:20px 0;gap:14px}.summary-line{font-size:12px;color:#5c7580}.summary-totals span{font-size:11px;letter-spacing:0;text-transform:none;font-weight:500;color:#526c78}.summary-totals .grand{background:#f8f3e7;border:1px solid #e9dbba;border-radius:12px;padding:15px 13px;align-items:center}.summary-totals .grand span{font-size:13px;font-weight:650;color:#163f4e}.summary-totals .grand strong{font:750 25px 'Montserrat',sans-serif;font-variant-numeric:tabular-nums}
+  .cart-checkout{display:flex;align-items:center;justify-content:center;gap:9px;border:1px solid #cba158;border-radius:12px;background:linear-gradient(110deg,#e1bd76,#f2dca9);color:#342b19;min-height:54px;font-family:inherit;font-size:13px;font-weight:750;letter-spacing:0;text-transform:none;box-shadow:0 5px 15px #9a722120;transition:filter 160ms}.cart-checkout:hover{filter:brightness(1.04)}.cart-checkout svg{flex-shrink:0}.cart-trust{gap:8px}.cart-trust span{display:flex;align-items:center;justify-content:center;gap:4px;font-size:9px;font-weight:550;letter-spacing:0;text-transform:none;background:#f4f8f9;border-color:#e1eaed;padding:9px 6px;border-radius:9px;line-height:1.6}.cart-secondary,.cart-primary{font:650 12px 'Montserrat',sans-serif;letter-spacing:0;text-transform:none;border-radius:11px;min-height:46px;box-shadow:none}.cart-secondary{display:inline-flex;align-items:center;margin-top:8px;background:#fff}.cart-empty{background:#fff;border-radius:20px;border-color:#dce5e8;box-shadow:none;padding:60px 24px}.cart-empty-mark{display:grid;place-items:center;width:76px;height:76px;background:#fbf3e3;border:1px solid #ecd7b0;color:#94703a;border-radius:22px;margin:0 auto 22px}.cart-empty h2{font-size:34px;line-height:1.3}.cart-empty p{font-size:13px;line-height:1.8}.cart-page button:focus-visible{outline:2px solid #ad843f;outline-offset:3px}.cart-page button:disabled{opacity:.5;cursor:wait}
+  @media(max-width:1100px){.cart-layout{grid-template-columns:minmax(0,1fr)}.cart-summary{position:static}.cart-hero-stats{grid-template-columns:repeat(3,minmax(70px,1fr))}}
+  @media(max-width:760px){.cart-shell{width:calc(100% - 24px);padding:18px 0 44px}.cart-hero{padding:22px 18px;border-radius:18px;gap:18px;align-items:stretch;flex-direction:column}.cart-hero-stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.cart-hero-stats div{padding:12px}.cart-hero-stats strong{font-size:18px}.cart-hero-stats span{font-size:9px}.cart-list-head h2{font-size:20px}.cart-list-head .cart-kicker{font-size:9px}.cart-card{grid-template-columns:88px minmax(0,1fr)!important;gap:12px!important;padding:12px!important;border-radius:15px!important}.cart-image{width:88px!important;height:104px!important;min-height:104px;border-radius:10px!important}.cart-image img{padding:6px}.cart-info{padding:0;gap:8px;min-width:0}.cart-info h3{font-size:14px!important;font-weight:650;line-height:1.5!important;margin:4px 0!important}.cart-metal{font-size:9px!important;line-height:1.5}.cart-product-top{position:relative;padding-right:30px}.cart-remove{position:absolute;right:0;top:-6px;min-width:36px;min-height:36px;padding:8px!important;justify-content:center}.cart-remove span{display:none}.cart-card-bottom{flex-wrap:wrap;gap:10px!important;margin-top:4px!important}.cart-qty{gap:0!important;padding:0!important;border-radius:9px}.cart-qty button{width:36px!important;height:36px!important;font-size:17px!important}.cart-qty span{min-width:26px!important;font-size:12px!important}.cart-price{margin-left:auto}.cart-price strong{font-size:16px!important}.cart-price span{font-size:10px!important}.cart-summary{padding:22px 18px!important;margin-top:0!important}.cart-trust{grid-template-columns:repeat(2,minmax(0,1fr))}.cart-checkout{font-size:13px!important;min-height:52px!important}.cart-empty h2{font-size:28px}.cart-empty{padding:40px 20px}.cart-hero p{font-size:12px}}
+  @media(prefers-reduced-motion:reduce){.cart-page *{animation:none!important;transition:none!important}.cart-card:hover,.cart-card:hover .cart-image img{transform:none}}
+
+  .cart-hero-artwork{position:relative;isolation:isolate;overflow:hidden;display:block;min-height:260px;background:#062f38}.cart-banner-art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:-2;pointer-events:none}.cart-hero-artwork::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,#021c2480,#021c2440 55%,transparent 80%);z-index:-1;pointer-events:none}.cart-hero-artwork>div:first-of-type{max-width:60%}.cart-hero-artwork .cart-hero-stats{grid-template-columns:repeat(3,minmax(0,1fr));width:360px;max-width:60%;margin-top:20px;gap:10px}.cart-hero-artwork .cart-hero-stats div{padding:12px 14px;background:#062f3880;border-color:#ffffff35}.cart-hero-artwork .cart-hero-stats strong{font-size:19px}
+  @media(max-width:760px){.cart-hero-artwork{min-height:280px;padding:23px 20px}.cart-banner-art{object-position:65% center}.cart-hero-artwork::after{background:linear-gradient(90deg,#021c24df,#021c2490 65%,#021c2433)}.cart-hero-artwork>div:first-of-type{max-width:95%}.cart-hero-artwork .cart-hero-stats{max-width:100%;width:330px;gap:8px;margin-top:18px}.cart-hero-artwork .cart-hero-stats div{padding:11px 12px}.cart-hero-artwork .cart-hero-stats strong{font-size:18px}}
+
+  /* Clip horizontal overflow without creating a scrolling ancestor for sticky. */
+  @media(min-width:1181px){
+    html:has(.cart-page),body:has(.cart-page){overflow-x:clip}
+    .cart-page .cart-layout{align-items:start;overflow:visible}
+    .cart-page .cart-summary{position:sticky;align-self:start;top:var(--cart-summary-top,190px);max-height:calc(100dvh - var(--cart-summary-top,190px) - 16px);overflow-y:auto;overscroll-behavior-y:contain;scrollbar-width:thin;scrollbar-color:#adc4ca transparent}
+    .cart-page .cart-summary .summary-lines{max-height:none;overflow:visible;padding-right:0}
   }
 `
 

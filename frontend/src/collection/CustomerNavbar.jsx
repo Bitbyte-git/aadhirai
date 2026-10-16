@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  Heart as DrawerHeart, ShoppingBag as DrawerBag,
+  Store as DrawerStore, UserRound as DrawerUser, ReceiptText as DrawerReceipt,
+  UserRoundPlus as DrawerUserPlus, Network as DrawerNetwork,
+  ArrowRightLeft as DrawerSwitch, LogOut as DrawerLogout,
+  ShieldCheck as DrawerShield, X as DrawerClose, ChevronRight as DrawerChevron,
+} from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import api from "../api";
 import { getCartCountDB } from "../collection/card_section";
@@ -991,9 +998,50 @@ const ROLE_SWITCH_LABELS = {
   admin: { label: "Super Stockist", path: "/admin" },
 };
 
+function AugMenuCoin() {
+  return <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
+    <circle cx="16" cy="16" r="14" fill="#f5ca55" stroke="#b98421" strokeWidth="1.2" />
+    <circle cx="16" cy="16" r="11.5" fill="#eeb83f" stroke="#fff0ac" strokeWidth="1.2" />
+    <circle cx="16" cy="16" r="9.5" fill="none" stroke="#c68e24" strokeWidth=".7" strokeDasharray="1 1.5" />
+    <path d="M8 9a11 11 0 0 1 14-2" fill="none" stroke="#fff6c9" strokeWidth="1.5" strokeLinecap="round" />
+    <text x="16" y="19" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="8" fontWeight="800" fill="#69450c">AUG</text>
+  </svg>;
+}
+
+function MobileCategoryIcon({ label }) {
+  const artwork = {
+    'All Jewellery': <><path d="M6 7c0 8 3 14 10 14S26 15 26 7" /><path d="m12 17 4-4 4 4-4 6z" fill="currentColor" fillOpacity=".18" /><circle cx="6" cy="7" r="2" /><circle cx="26" cy="7" r="2" /><path d="m10 13 2 2m10-2-2 2" /></>,
+    Gold: <><ellipse cx="16" cy="21" rx="9" ry="8" /><path d="m10 9 3-4h6l3 4-6 7z" fill="currentColor" fillOpacity=".2" /><path d="M10 9h12m-9-4 3 11 3-11" /></>,
+    Silver: <><path d="M7 7c-1 3-1 6 0 9 2 7 16 8 18-1 1-3 1-5-1-8" /><path d="M7 8c4 4 13 4 17 0M9 18l-1 4m7-1v5m7-8 2 4" /><circle cx="8" cy="24" r="2" fill="currentColor" fillOpacity=".18" /><circle cx="15" cy="28" r="2" fill="currentColor" fillOpacity=".18" /><circle cx="25" cy="24" r="2" fill="currentColor" fillOpacity=".18" /></>,
+    Coins: <><ellipse cx="12" cy="10" rx="8" ry="4" fill="currentColor" fillOpacity=".18" /><path d="M4 10v6c0 5 16 5 16 0v-6M4 15c3 4 13 4 16 0" /><circle cx="23" cy="21" r="7" fill="var(--category-surface)" /><path d="M23 17v8m-2-6h4m-4 3h4" /></>,
+    Offers: <><path d="M5 6h12l10 10-11 11L5 16z" fill="currentColor" fillOpacity=".1" /><circle cx="10" cy="11" r="1.5" /><path d="m15 13 5 8" /><circle cx="20" cy="15" r="1.5" /><circle cx="15" cy="21" r="1.5" /></>,
+    'Team369-Live': <><rect x="4" y="8" width="24" height="18" rx="5" fill="currentColor" fillOpacity=".1" /><path d="m13 13 8 5-8 5z" fill="currentColor" stroke="none" /><path d="M11 4h10" /></>,
+    Wedding: <><circle cx="11" cy="21" r="7" /><circle cx="22" cy="18" r="7" /><path d="m7 11 4-5 4 5-4 4zm11-3 4-5 4 5-4 4z" fill="currentColor" fillOpacity=".18" /></>,
+    Gifting: <><rect x="6" y="15" width="21" height="13" rx="2" fill="currentColor" fillOpacity=".1" /><rect x="4" y="10" width="25" height="6" rx="2" /><path d="M16 10v18m0-18c-8 0-10-7-5-7 3 0 5 7 5 7zm0 0c8 0 10-7 5-7-3 0-5 7-5 7z" /></>,
+    'Nearby Shop': <><path d="M5 13v15h22V13M3 12l4-8h18l4 8" /><path d="M3 12c0 5 7 5 7 0 0 5 6 5 6 0 0 5 6 5 6 0 0 5 7 5 7 0" fill="currentColor" fillOpacity=".12" /><path d="M13 28v-9h7v9m-10-9H8" /></>,
+  };
+  return <svg width="30" height="30" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{artwork[label] || artwork['All Jewellery']}</svg>;
+}
+
 export default function CustomerNavbar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const navbarRef = useRef(null);
+  const navbarSpacerRef = useRef(null);
+  useLayoutEffect(() => {
+    const header = navbarRef.current;
+    const spacer = navbarSpacerRef.current;
+    if (!header || !spacer) return;
+    const measure = () => {
+      const height = `${Math.ceil(header.getBoundingClientRect().height)}px`;
+      if (spacer.style.height !== height) spacer.style.setProperty('height', height, 'important');
+    };
+    measure();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    observer?.observe(header);
+    window.addEventListener('resize', measure);
+    return () => { observer?.disconnect(); window.removeEventListener('resize', measure); };
+  }, []);
   const role = localStorage.getItem("role");
   const isLoggedIn = Boolean(localStorage.getItem("token"));
   // AUG Revive pill, coin-shop icon, and the menu drawer are hidden for
@@ -1008,6 +1056,7 @@ export default function CustomerNavbar() {
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showSearchDrop, setShowSearchDrop] = useState(false);
+
   const [voiceListening, setVoiceListening] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(true);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
@@ -1021,9 +1070,113 @@ export default function CustomerNavbar() {
   const silenceTimerRef = useRef(null);
   const [ratesOpen, setRatesOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileMenuRef = useRef(null);
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const opener = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    mobileMenuRef.current?.querySelector('.mobile-menu-close')?.focus({ preventScroll: true });
+    const handleKey = event => {
+      if (event.key === 'Escape') { event.preventDefault(); setMobileOpen(false); }
+      if (event.key === 'Tab') {
+        const controls = [...(mobileMenuRef.current?.querySelectorAll('button:not(:disabled), a[href]') || [])].filter(element => element.getClientRects().length);
+        const first = controls[0], last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
+    };
+    const resize = () => { if (window.matchMedia('(min-width:1181px)').matches) setMobileOpen(false); };
+    document.addEventListener('keydown', handleKey);
+    window.addEventListener('resize', resize);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKey);
+      window.removeEventListener('resize', resize);
+      if (opener?.isConnected && (document.activeElement === document.body || mobileMenuRef.current?.contains(document.activeElement))) opener.focus({ preventScroll: true });
+    };
+  }, [mobileOpen]);
   const [roleDrawerOpen, setRoleDrawerOpen] = useState(false);
+  const roleDrawerRef = useRef(null);
+  useEffect(() => {
+    if (!roleDrawerOpen) return;
+    const opener = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    roleDrawerRef.current?.querySelector('.role-drawer-close')?.focus({ preventScroll: true });
+    const handleKey = event => {
+      if (event.key === 'Escape') { event.preventDefault(); setRoleDrawerOpen(false); }
+      if (event.key === 'Tab') {
+        const controls = [...(roleDrawerRef.current?.querySelectorAll('button:not(:disabled), a[href]') || [])].filter(element => element.getClientRects().length);
+        const first = controls[0], last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKey);
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, [roleDrawerOpen]);
   const [activeMega, setActiveMega] = useState(null);
   const megaRefs = useRef({});
+  const megaHoverTimer = useRef(null);
+  const megaCloseTimer = useRef(null);
+  const cancelMegaTimers = () => {
+    clearTimeout(megaHoverTimer.current);
+    clearTimeout(megaCloseTimer.current);
+  };
+  const closeMega = () => { cancelMegaTimers(); setActiveMega(null); };
+  const scheduleCloseMega = () => {
+    cancelMegaTimers();
+    megaCloseTimer.current = setTimeout(() => setActiveMega(null), 180);
+  };
+  const openMegaAfterHover = (label) => {
+    cancelMegaTimers();
+    if (!label) { setActiveMega(null); return; }
+    if (activeMega === label) return;
+    megaHoverTimer.current = setTimeout(() => setActiveMega(label), activeMega ? 140 : 250);
+  };
+  useEffect(() => () => {
+    clearTimeout(megaHoverTimer.current);
+    clearTimeout(megaCloseTimer.current);
+  }, []);
+  useEffect(() => {
+    clearTimeout(megaHoverTimer.current);
+    clearTimeout(megaCloseTimer.current);
+    setActiveMega(null);
+  }, [location.pathname, location.search]);
+  useEffect(() => {
+    const panel = megaRefs.current[activeMega];
+    if (!panel) return;
+    let frame;
+    const update = () => {
+      frame = undefined;
+      panel.querySelectorAll('.exact-mega-links').forEach(list => {
+        list.parentElement.dataset.moreAbove = String(list.scrollTop > 2);
+        list.parentElement.dataset.moreBelow = String(list.scrollHeight - list.clientHeight - list.scrollTop > 2);
+      });
+      const left = panel.parentElement.querySelector('.exact-mega-scroll-btn.left');
+      const right = panel.parentElement.querySelector('.exact-mega-scroll-btn.right');
+      if (left) left.disabled = panel.scrollLeft <= 2;
+      if (right) right.disabled = panel.scrollWidth - panel.clientWidth - panel.scrollLeft <= 2;
+    };
+    const schedule = () => { if (frame === undefined) frame = requestAnimationFrame(update); };
+    update();
+    panel.addEventListener('scroll', schedule, { passive: true, capture: true });
+    window.addEventListener('resize', schedule);
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
+    observer?.observe(panel);
+    panel.querySelectorAll('.exact-mega-links, .exact-mega-link').forEach(element => observer?.observe(element));
+    return () => {
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      panel.removeEventListener('scroll', schedule, true);
+      window.removeEventListener('resize', schedule);
+      observer?.disconnect();
+    };
+  }, [activeMega]);
   const recognitionRef = useRef(null);
   const [loginDropOpen, setLoginDropOpen] = useState(false);
   const loginHideTimerRef = useRef(null);
@@ -1033,6 +1186,49 @@ export default function CustomerNavbar() {
   // full-page view with its own back header, so it's deliberately excluded.
   const isCompactRoute = ["/collection/all", "/collection/coins", "/product-display"].includes(location.pathname);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const searchScreenRef = useRef(null);
+  const searchOpenerRef = useRef(null);
+  const restoringSearchFocus = useRef(false);
+  const openSearchScreen = () => {
+    searchOpenerRef.current = document.activeElement;
+    setShowSearchDrop(false);
+    closeMega();
+    setMobileOpen(false);
+    setRoleDrawerOpen(false);
+    setMobileSearchOpen(true);
+  };
+  const closeSearchScreen = () => {
+    setMobileSearchOpen(false);
+    requestAnimationFrame(() => { restoringSearchFocus.current = true; searchOpenerRef.current?.focus({ preventScroll: true }); restoringSearchFocus.current = false; });
+  };
+  useEffect(() => {
+    if (!mobileSearchOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKey = event => {
+      if (showVoiceModal) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setMobileSearchOpen(false);
+        requestAnimationFrame(() => { restoringSearchFocus.current = true; searchOpenerRef.current?.focus({ preventScroll: true }); restoringSearchFocus.current = false; });
+      }
+      if (event.key === 'Tab') {
+        const controls = [...(searchScreenRef.current?.querySelectorAll('button:not(:disabled), input, a[href]') || [])].filter(element => element.getClientRects().length);
+        const first = controls[0], last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
+    };
+    const handleResize = () => { if (window.matchMedia('(min-width: 1181px)').matches) setMobileSearchOpen(false); };
+    window.addEventListener('resize', handleResize);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKey);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [mobileSearchOpen, showVoiceModal]);
+  useEffect(() => { setMobileSearchOpen(false); }, [location.pathname, location.search]);
   const [recentSearches, setRecentSearches] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("bb_recent_searches") || "[]");
@@ -1391,33 +1587,22 @@ export default function CustomerNavbar() {
 
   useEffect(() => {
     const query = searchQuery.trim();
-    if (query.length < 2) {
-      setSearchResults([]);
-      setShowSearchDrop(false);
-      return undefined;
-    }
-
+    setSearchResults([]);
+    if (query.length < 2 || (!mobileSearchOpen && !showSearchDrop)) { setSearchLoading(false); return; }
+    let active = true;
+    const controller = new AbortController();
+    setSearchLoading(true);
     const timer = setTimeout(async () => {
-      setSearchLoading(true);
       try {
-        const res = await api.get(
-          `/jewelry-products/?search=${encodeURIComponent(query)}`,
-        );
-        const allResults = Array.isArray(res.data) ? res.data : [];
-        const filteredResults = allResults.filter(
-          (p) => p.metal !== "diamond" && p.metal !== "platinum",
-        );
-        setSearchResults(filteredResults.slice(0, 6));
-        setShowSearchDrop(true);
-      } catch {
-        setSearchResults([]);
-      } finally {
-        setSearchLoading(false);
-      }
+        const res = await api.get(`/jewelry-products/?search=${encodeURIComponent(query)}`, { signal: controller.signal });
+        if (!active) return;
+        const results = Array.isArray(res.data) ? res.data : res.data.results || [];
+        setSearchResults(results.filter(product => product.metal !== 'diamond' && product.metal !== 'platinum').slice(0, 6));
+      } catch { if (active) setSearchResults([]); }
+      finally { if (active) setSearchLoading(false); }
     }, 260);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+    return () => { active = false; clearTimeout(timer); controller.abort(); };
+  }, [searchQuery, mobileSearchOpen, showSearchDrop]);
 
   const submitSearch = (queryOverride) => {
     const query = (queryOverride ?? searchQuery).trim();
@@ -2366,8 +2551,9 @@ export default function CustomerNavbar() {
           scrollbar-color: #cca881 #f3ede7;
           width: 100%;
           min-width: 0;
+          height: min(43dvh, 400px);
           gap: 0;
-          padding: 20px 44px 16px;
+          padding: 18px 44px 14px;
           border: 1px solid #e6ded5;
           border-top: 0;
           border-radius: 0 0 12px 12px;
@@ -2409,11 +2595,49 @@ export default function CustomerNavbar() {
 
         .exact-mega-section {
           flex: 0 0 200px;
-          min-height: 220px;
-          padding: 0 22px 8px 16px;
+          min-width: max-content;
+          min-height: 0;
+          height: 100%;
+          padding: 0 22px 0 16px;
           border-right: 1px solid #e6ded5;
           display: flex;
           flex-direction: column;
+        }
+
+        .exact-mega-links-wrap { position: relative; flex: 1; min-height: 0; }
+        .exact-mega-links-wrap::before, .exact-mega-links-wrap::after {
+          content: ''; position: absolute; left: 0; right: 6px; height: 24px;
+          pointer-events: none; z-index: 1; opacity: 0; transition: opacity 150ms ease;
+        }
+        .exact-mega-links-wrap::before { top: 0; background: linear-gradient(#fdfdfc, transparent); }
+        .exact-mega-links-wrap::after { bottom: 0; height: 32px; background: linear-gradient(transparent, #fdfdfc 90%); }
+        .exact-mega-links-wrap[data-more-above="true"]::before,
+        .exact-mega-links-wrap[data-more-below="true"]::after { opacity: 1; }
+        .exact-mega-links {
+          box-sizing: border-box;
+          height: 100%;
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
+          scrollbar-width: thin;
+          scrollbar-color: #cca881 #f3ede7;
+          scrollbar-gutter: stable;
+          overscroll-behavior-y: contain;
+          scroll-behavior: smooth;
+          padding: 0 6px 0 0;
+        }
+
+        .exact-mega-links::-webkit-scrollbar { width: 4px; }
+        .exact-mega-links::-webkit-scrollbar-track { background: #f3ede7; border-radius: 999px; }
+        .exact-mega-links::-webkit-scrollbar-thumb { background: #cca881; border-radius: 999px; }
+        .exact-mega-title, .exact-mega-view { flex-shrink: 0; }
+        .exact-mega-link:focus-visible, .exact-mega-title:focus-visible, .exact-mega-view:focus-visible {
+          outline: 2px solid #b57720;
+          outline-offset: -2px;
+          border-radius: 3px;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .exact-mega, .exact-mega-links { scroll-behavior: auto; transition: none; }
         }
 
         .exact-mega-section:last-child {
@@ -2459,8 +2683,10 @@ export default function CustomerNavbar() {
           border: 0;
           background: transparent;
           width: 100%;
-          min-height: 28px;
-          padding: 0;
+          min-height: 30px;
+          padding: 6px 8px;
+          border-radius: 6px;
+          line-height: 1.35;
           color: var(--bb-ink);
           display: block;
           text-align: left;
@@ -2470,12 +2696,13 @@ export default function CustomerNavbar() {
           letter-spacing: 0;
           text-transform: none;
           cursor: pointer;
-          transition: color 160ms ease, transform 160ms ease;
+          transition: color 160ms ease, background 160ms ease, box-shadow 160ms ease;
         }
 
-        .exact-mega-link:hover {
-          color: #9F6130;
-          transform: translateX(3px);
+        .exact-mega-link:hover, .exact-mega-link:focus-visible {
+          color: #073b3f;
+          background: #eaf2ee;
+          box-shadow: inset 2px 0 #b99059;
         }
 
         .exact-mega-view {
@@ -2486,6 +2713,8 @@ export default function CustomerNavbar() {
           min-height: 34px;
           color: #073B3F;
           display: inline-flex;
+          white-space: nowrap;
+          flex-wrap: nowrap;
           align-items: center;
           gap: 8px;
           text-decoration: none;
@@ -2530,8 +2759,11 @@ export default function CustomerNavbar() {
           border-radius: 0 0 12px 0;
         }
 
-        .exact-mega-scroll-btn:hover {
-          opacity: 0.7;
+        .exact-mega-scroll-btn:hover { opacity: 0.7; }
+        .exact-mega-scroll-btn:disabled { opacity: 0; pointer-events: none; }
+        @media (prefers-reduced-motion: reduce) {
+          .exact-mega-link, .exact-mega-links-wrap::before,
+          .exact-mega-links-wrap::after { transition: none; }
         }
 
         .exact-menu-item.is-open .exact-mega-scroll-btn {
@@ -2938,402 +3170,52 @@ export default function CustomerNavbar() {
           }
         }
 
-        .role-drawer-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(7, 24, 26, 0.52);
-          backdrop-filter: blur(6px);
-          -webkit-backdrop-filter: blur(6px);
-          z-index: 10050;
-          display: flex;
-          justify-content: flex-end;
-          animation: role-drawer-fade 200ms ease both;
-        }
-
-        @keyframes role-drawer-fade {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        .role-drawer {
-          width: 340px;
-          max-width: 88vw;
-          height: 100%;
-          background: linear-gradient(180deg, #FDFDFC 0%, #FBFAF7 100%);
-          box-shadow: -20px 0 60px rgba(7, 45, 48, 0.28);
-          display: flex;
-          flex-direction: column;
-          box-sizing: border-box;
-          animation: role-drawer-slide 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
-          position: relative;
-          overflow: hidden;
-        }
-
-        @keyframes role-drawer-slide {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
-        }
-
-        .role-drawer-top-accent {
-          height: 4px;
-          width: 100%;
-          background: linear-gradient(90deg, #073B3F, #CCA881 35%, #E5C378 55%, #073B3F);
-          background-size: 200% 100%;
-          animation: role-drawer-accent-shift 6s ease-in-out infinite;
-          flex-shrink: 0;
-        }
-
-        @keyframes role-drawer-accent-shift {
-          0%, 100% { background-position: 0% 0%; }
-          50% { background-position: 100% 0%; }
-        }
-
-        .role-drawer-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 20px 20px 16px;
-          border-bottom: 1px solid #EDF4F3;
-          flex-shrink: 0;
-          background: radial-gradient(120% 100% at 0% 0%, rgba(204,168,129,0.10), transparent 55%), #FAFDFD;
-        }
-
-        .role-drawer-brand {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .role-drawer-logo-mark {
-          width: 34px;
-          height: 34px;
-          border-radius: 10px;
-          background: linear-gradient(145deg, #073B3F, #0C4E53);
-          border: 1px solid rgba(204, 168, 129, 0.55);
-          box-shadow: 0 4px 12px rgba(7, 59, 63, 0.22);
-          display: grid;
-          place-items: center;
-          color: #E5C378;
-          font-weight: 700;
-          font-size: 16px;
-          font-family: 'Playfair Display', Georgia, serif;
-        }
-
-        .role-drawer-brand-title {
-          font-family: 'Playfair Display', Georgia, serif;
-          font-size: 16px;
-          font-weight: 700;
-          letter-spacing: 0.14em;
-          color: #073B3F;
-          margin: 0;
-          text-transform: uppercase;
-        }
-
-        .role-drawer-brand-sub {
-          display: block;
-          font-size: 9px;
-          letter-spacing: 0.14em;
-          color: #7A8987;
-          text-transform: uppercase;
-          margin-top: 1px;
-        }
-
-        .role-drawer-close {
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          border: 1px solid #D1DFDE;
-          background: #F5FAF9;
-          color: #073B3F;
-          display: grid;
-          place-items: center;
-          cursor: pointer;
-          transition: all 180ms ease;
-        }
-
-        .role-drawer-close:hover {
-          background: #073B3F;
-          color: #ffffff;
-          border-color: #073B3F;
-          transform: rotate(90deg);
-        }
-
-        /* User Card in Drawer */
-        .role-drawer-user-card {
-          padding: 16px 20px;
-          background: linear-gradient(135deg, rgba(7,59,63,0.06) 0%, rgba(204,168,129,0.12) 100%);
-          border-bottom: 1px solid #EDF4F3;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          flex-shrink: 0;
-          position: relative;
-        }
-
-        .role-drawer-avatar {
-          width: 42px;
-          height: 42px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #073B3F, #0C4E53);
-          color: #F8F5EE;
-          display: grid;
-          place-items: center;
-          font-weight: 800;
-          font-size: 17px;
-          font-family: 'Playfair Display', Georgia, serif;
-          box-shadow: 0 0 0 3px rgba(204,168,129,0.22), 0 6px 16px rgba(7, 59, 63, 0.24);
-          border: 1.5px solid #CCA881;
-          flex-shrink: 0;
-        }
-
-        .role-drawer-user-meta {
-          min-width: 0;
-          flex: 1;
-        }
-
-        .role-drawer-user-name {
-          font-weight: 800;
-          font-size: 14px;
-          color: #073B3F;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          display: block;
-        }
-
-        .role-drawer-user-role {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          font-size: 9.5px;
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: #FDFBF5;
-          margin-top: 5px;
-          padding: 3px 9px;
-          border-radius: 999px;
-          background: linear-gradient(135deg, #9F6130, #CCA881);
-          box-shadow: 0 3px 8px rgba(159, 97, 48, 0.28);
-        }
-
-        .role-drawer-user-role.is-guest {
-          color: #7A8987;
-          background: transparent;
-          box-shadow: none;
-          padding: 0;
-          text-transform: none;
-          letter-spacing: normal;
-          font-weight: 600;
-          font-size: 11px;
-        }
-
-        /* Scrollable Navigation List */
-        .role-drawer-nav {
-          flex: 1;
-          overflow-y: auto;
-          -webkit-overflow-scrolling: touch;
-          padding: 12px 14px;
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .role-drawer-section-label {
-          font-size: 9.5px;
-          font-weight: 800;
-          letter-spacing: 0.16em;
-          text-transform: uppercase;
-          color: #9F6130;
-          padding: 8px 8px 4px;
-        }
-
-        .role-drawer-item {
-          width: 100%;
-          text-align: left;
-          border: 1px solid rgba(209, 223, 222, 0.6);
-          border-radius: 13px;
-          padding: 10px 12px;
-          background: #FFFFFF;
-          color: #073B3F;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
-          box-sizing: border-box;
-          text-decoration: none;
-          box-shadow: 0 1px 2px rgba(7, 59, 63, 0.04);
-        }
-
-        .role-drawer-item:hover {
-          background: linear-gradient(135deg, #FFFFFF, #FAF6EF);
-          border-color: #CCA881;
-          transform: translateX(4px);
-          box-shadow: 0 8px 20px rgba(7, 59, 63, 0.10);
-        }
-
-        .role-drawer-item-left {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          min-width: 0;
-          flex: 1;
-        }
-
-        .role-drawer-icon-box {
-          width: 34px;
-          height: 34px;
-          border-radius: 10px;
-          display: grid;
-          place-items: center;
-          flex-shrink: 0;
-          transition: transform 180ms ease;
-        }
-
-        .role-drawer-item:hover .role-drawer-icon-box {
-          transform: scale(1.08);
-        }
-
-        .role-drawer-icon-box.icon-ruby {
-          background: linear-gradient(145deg, rgba(201, 32, 53, 0.14), rgba(201, 32, 53, 0.05));
-          color: #C92035;
-        }
-        .role-drawer-icon-box.icon-teal {
-          background: linear-gradient(145deg, rgba(7, 59, 63, 0.14), rgba(7, 59, 63, 0.05));
-          color: #073B3F;
-        }
-        .role-drawer-icon-box.icon-gold {
-          background: linear-gradient(145deg, rgba(187, 137, 88, 0.22), rgba(187, 137, 88, 0.08));
-          color: #9F6130;
-        }
-        .role-drawer-icon-box.icon-emerald {
-          background: linear-gradient(145deg, rgba(12, 64, 68, 0.14), rgba(12, 64, 68, 0.05));
-          color: #0C4044;
-        }
-
-        .role-drawer-item-labels {
-          display: flex;
-          flex-direction: column;
-          min-width: 0;
-        }
-
-        .role-drawer-item-title {
-          font-weight: 800;
-          font-size: 13px;
-          color: #111817;
-          line-height: 1.25;
-        }
-
-        .role-drawer-item-desc {
-          font-size: 10.5px;
-          color: #7A8987;
-          margin-top: 2px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .role-drawer-item-badge {
-          padding: 2px 8px;
-          border-radius: 999px;
-          font-size: 11px;
-          font-weight: 800;
-          line-height: 1.3;
-          flex-shrink: 0;
-        }
-
-        .role-drawer-item-badge.badge-ruby {
-          background: #C92035;
-          color: #ffffff;
-        }
-        .role-drawer-item-badge.badge-teal {
-          background: #073B3F;
-          color: #ffffff;
-        }
-
-        .role-drawer-chevron {
-          color: #BDCFCE;
-          flex-shrink: 0;
-          transition: transform 180ms ease, color 180ms ease;
-        }
-
-        .role-drawer-item:hover .role-drawer-chevron {
-          color: #073B3F;
-          transform: translateX(2px);
-        }
-
-        /* Drawer Footer */
-        .role-drawer-footer {
-          padding: 12px 16px 16px;
-          border-top: 1px solid #EDF4F3;
-          background: #FAFDFD;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          flex-shrink: 0;
-        }
-
-        .role-drawer-logout-btn {
-          width: 100%;
-          border: 1px solid rgba(201, 32, 53, 0.25);
-          background: rgba(201, 32, 53, 0.04);
-          color: #C92035;
-          border-radius: 12px;
-          padding: 10px 14px;
-          font-weight: 800;
-          font-size: 13px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          transition: all 180ms ease;
-        }
-
-        .role-drawer-logout-btn:hover {
-          background: #C92035;
-          color: #ffffff;
-          border-color: #C92035;
-          box-shadow: 0 4px 14px rgba(201, 32, 53, 0.2);
-        }
-
-        .role-drawer-login-btn {
-          width: 100%;
-          border: none;
-          background: linear-gradient(135deg, #073B3F, #0C4E53);
-          color: #ffffff;
-          border-radius: 12px;
-          padding: 11px 16px;
-          font-weight: 800;
-          font-size: 13px;
-          letter-spacing: 0.04em;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          box-shadow: 0 6px 18px rgba(7, 59, 63, 0.22);
-          transition: all 180ms ease;
-        }
-
-        .role-drawer-login-btn:hover {
-          transform: translateY(-1px);
-          background: #0E585E;
-          box-shadow: 0 8px 22px rgba(7, 59, 63, 0.3);
-        }
-
-        .role-drawer-tagline {
-          text-align: center;
-          font-size: 9.5px;
-          color: #9F6130;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          font-weight: 700;
-          padding-top: 6px;
-          border-top: 1px solid rgba(204, 168, 129, 0.35);
-        }
+        /* Customer account drawer: one calm teal palette with warm gold accents. */
+        .role-drawer-overlay{position:fixed;inset:0;z-index:10050;display:flex;justify-content:flex-end;background:#102b2e70;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:role-drawer-fade 180ms ease both}
+        @keyframes role-drawer-fade{from{opacity:0}to{opacity:1}}
+        @keyframes role-drawer-slide{from{transform:translateX(100%)}to{transform:translateX(0)}}
+        .role-drawer{--drawer-ink:#123f3e;--drawer-muted:#657b75;width:380px;max-width:calc(100vw - 20px);height:100%;height:100dvh;display:flex;flex-direction:column;position:relative;overflow:hidden;box-sizing:border-box;background:#f6f8f5;box-shadow:-16px 0 60px #092b2b26;animation:role-drawer-slide 260ms cubic-bezier(.2,.8,.2,1) both;font-family:inherit}
+        .role-drawer *{box-sizing:border-box}
+        .role-drawer-top-accent{height:3px;flex-shrink:0;background:linear-gradient(90deg,#a67b42,#e6cf9c,#a67b42)}
+        .role-drawer-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:17px 22px;background:#fff;border-bottom:1px solid #e3eae3;flex-shrink:0}
+        .role-drawer-brand{display:flex;align-items:center;gap:12px;min-width:0}
+        .role-drawer-logo-mark{display:flex;align-items:center;justify-content:center;width:44px;height:48px;flex-shrink:0}
+        .role-drawer-logo-mark img{display:block;max-width:100%;max-height:100%;object-fit:contain}
+        .role-drawer-brand-title{font-family:Georgia,serif;font-size:19px;font-weight:700;letter-spacing:.12em;color:var(--drawer-ink);margin:0}
+        .role-drawer-brand-sub{display:block;margin-top:5px;font-size:10px;line-height:1.5;color:var(--drawer-muted);letter-spacing:.025em}
+        .role-drawer-close{display:grid;place-items:center;width:36px;height:36px;flex-shrink:0;border:1px solid #dee7e0;border-radius:50%;background:#f5f8f5;color:#43635b;cursor:pointer;transition:background 160ms,color 160ms}
+        .role-drawer-close:hover{background:#e5efea;color:#0e4741}
+        .role-drawer-user-card{display:flex;align-items:center;gap:14px;position:relative;isolation:isolate;overflow:hidden;margin:16px 18px 4px;padding:20px;border-radius:17px;background:linear-gradient(120deg,#103e40,#1e5b50);color:#fff;flex-shrink:0;box-shadow:0 8px 22px #103e4012}
+        .role-drawer-user-card::after{content:'';position:absolute;z-index:-1;right:-36px;top:-52px;width:170px;height:170px;border:1px solid #d4bc8129;border-radius:50%;box-shadow:0 0 0 24px #d4bc8109,0 0 0 48px #d4bc8107;pointer-events:none}
+        .role-drawer-avatar{display:grid;place-items:center;width:48px;height:48px;flex-shrink:0;border:1px solid #d9c59380;border-radius:14px;background:#ffffff12;color:#f6e8c8;font-size:23px;font-family:Georgia,serif;font-weight:700}
+        .role-drawer-user-meta{min-width:0;flex:1}.role-drawer-welcome{display:block;color:#c6dcd4;font-size:10px;letter-spacing:.04em;margin-bottom:5px}
+        .role-drawer-user-name{display:block;color:#fff;font-size:16px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
+        .role-drawer-user-role{display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:3px 9px;border:1px solid #d3bc833d;border-radius:20px;color:#f1dfb4;background:#ffffff0a;font-size:9px;font-weight:650;letter-spacing:.09em;text-transform:uppercase}
+        .role-drawer-user-role.is-guest{text-transform:none;letter-spacing:0;font-size:11px;border:0;padding:0;background:transparent;color:#c6dcd4}
+        .role-drawer-nav{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:#a9c0b6 transparent;padding:12px 18px 18px;display:flex;flex-direction:column;gap:7px}
+        .role-drawer-section-label{display:flex;align-items:center;gap:10px;padding:6px 3px 7px;color:#6a7d72;font-size:10px;font-weight:650;letter-spacing:.1em;text-transform:uppercase}
+        .role-drawer-section-label::after{content:'';height:1px;flex:1;background:#dfe7dc}
+        .role-drawer-item{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;min-height:66px;width:100%;padding:12px;border:1px solid #e1e8e1;border-radius:13px;background:#fff;text-align:left;text-decoration:none;cursor:pointer;box-shadow:none;transition:background 160ms,border-color 160ms,box-shadow 160ms}
+        .role-drawer-item:hover{background:#f1f6ef;border-color:#b9ccba;box-shadow:0 3px 12px #173e4006;transform:none}
+        .role-drawer-item:active{background:#e8f0e4}
+        .role-drawer-item-left{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+        .role-drawer-icon-box{display:grid;place-items:center;width:38px;height:38px;flex-shrink:0;border:1px solid #dfe8dc;border-radius:11px;background:#f0f5ec;color:#386650;transition:background 160ms}
+        .role-drawer-icon-box.icon-gold{background:#faf4e7;border-color:#eee1c6;color:#99703c}
+        .role-drawer-icon-box svg{display:block;stroke-width:1.7}
+        .role-drawer-item:hover .role-drawer-icon-box{background:#e3eedc;transform:none}.role-drawer-item:hover .role-drawer-icon-box.icon-gold{background:#f4e9d1}
+        .role-drawer-item-labels{display:flex;flex-direction:column;min-width:0;gap:4px}
+        .role-drawer-item-title{font-weight:650;font-size:13px;line-height:1.35;color:#173f36}
+        .role-drawer-item-desc{font-size:10.5px;line-height:1.5;color:#6b8077;white-space:normal}
+        .role-drawer-item-badge{display:grid;place-items:center;flex-shrink:0;min-width:25px;min-height:25px;padding:3px 7px;border:1px solid #cbdcc4;border-radius:9px;background:#edf4e7;color:#365f3e;font-size:11px;font-weight:700}
+        .role-drawer-chevron{display:grid;place-items:center;color:#94aa9b;flex-shrink:0;transition:color 160ms}.role-drawer-item:hover .role-drawer-chevron{color:#50765b;transform:none}
+        .role-drawer-footer{flex-shrink:0;padding:12px 18px max(14px,env(safe-area-inset-bottom));border-top:1px solid #e1e8df;background:#fff;display:flex;flex-direction:column;gap:12px}
+        .role-drawer-logout-btn,.role-drawer-login-btn{display:flex;align-items:center;justify-content:center;gap:9px;min-height:45px;width:100%;padding:11px 14px;border:1px solid #e4d8d0;border-radius:11px;background:#faf7f4;color:#90564a;font-family:inherit;font-size:13px;font-weight:650;cursor:pointer;transition:background 160ms,border-color 160ms}
+        .role-drawer-logout-btn:hover{background:#f4e9e3;border-color:#d8bfb2;box-shadow:none}
+        .role-drawer-login-btn{border-color:#164b43;background:#164b43;color:#fff}.role-drawer-login-btn:hover{background:#216052}
+        .role-drawer-tagline{display:flex;align-items:center;justify-content:center;gap:7px;color:#75856d;font-size:9px;letter-spacing:.035em;line-height:1.5;text-align:center}
+        .role-drawer button:focus-visible{outline:2px solid #ac8245;outline-offset:2px}
+        @media(max-width:380px){.role-drawer{max-width:calc(100vw - 12px)}.role-drawer-head{padding:15px 17px}.role-drawer-user-card{padding:17px;margin-inline:14px}.role-drawer-nav{padding-inline:14px}.role-drawer-footer{padding-inline:14px}}
+        @media(prefers-reduced-motion:reduce){.role-drawer-overlay,.role-drawer,.role-drawer *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
         @media (max-width: 1020px) and (min-width: 901px) {
           .summary-pill {
             width: 42px;
@@ -3536,106 +3418,6 @@ export default function CustomerNavbar() {
           display: none;
         }
 
-        .cn-search-overlay {
-          display: none;
-        }
-
-        @media (max-width: 1180px) {
-          .cn-hide-mobile {
-            display: none !important;
-          }
-
-          .exact-nav-spacer.cn-compact-spacer-height {
-            height: 50px !important;
-          }
-
-          .cn-compact-bar {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 10px 12px;
-            background: #fff;
-            border-bottom: 1px solid #f0e6d8;
-          }
-
-          .cn-compact-back,
-          .cn-compact-icon {
-            flex: 0 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            width: 26px;
-            height: 26px;
-            border: 0;
-            background: transparent;
-            color: #453b30;
-            padding: 0;
-            cursor: pointer;
-          }
-
-          .cn-compact-back:active,
-          .cn-compact-icon:active {
-            opacity: 0.6;
-          }
-
-          .cn-compact-aug-pill {
-            flex: 0 0 auto;
-            display: flex;
-            align-items: center;
-            gap: 3px;
-            height: 26px;
-            padding: 0 7px;
-            border: 1px solid #E5C378;
-            border-radius: 999px;
-            background: #FFF9EC;
-            color: #8b551e;
-            font-size: 10.5px;
-            font-weight: 800;
-            cursor: pointer;
-          }
-
-          .cn-compact-aug-pill:active {
-            opacity: 0.6;
-          }
-
-          .cn-compact-logo {
-            flex: 0 0 auto;
-            display: flex;
-            align-items: center;
-            border: 0;
-            background: transparent;
-            padding: 0;
-            cursor: pointer;
-          }
-
-          .cn-compact-logo img {
-            height: 30px;
-            width: auto;
-            display: block;
-          }
-
-          .cn-compact-spacer {
-            flex: 1;
-          }
-
-          .cn-compact-badge {
-            position: absolute;
-            top: -4px;
-            right: -6px;
-            min-width: 15px;
-            height: 15px;
-            padding: 0 3px;
-            border-radius: 999px;
-            background: #C92035;
-            color: #fff;
-            font-size: 9px;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-
           .cn-search-overlay {
             display: flex;
             flex-direction: column;
@@ -3820,6 +3602,104 @@ export default function CustomerNavbar() {
             color: #9a8f80;
             margin-top: 2px;
           }
+
+        @media (max-width: 1180px) {
+          .cn-hide-mobile {
+            display: none !important;
+          }
+
+          .exact-nav-spacer.cn-compact-spacer-height {
+            height: 50px !important;
+          }
+
+          .cn-compact-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 12px;
+            background: #fff;
+            border-bottom: 1px solid #f0e6d8;
+          }
+
+          .cn-compact-back,
+          .cn-compact-icon {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            width: 26px;
+            height: 26px;
+            border: 0;
+            background: transparent;
+            color: #453b30;
+            padding: 0;
+            cursor: pointer;
+          }
+
+          .cn-compact-back:active,
+          .cn-compact-icon:active {
+            opacity: 0.6;
+          }
+
+          .cn-compact-aug-pill {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            height: 26px;
+            padding: 0 7px;
+            border: 1px solid #E5C378;
+            border-radius: 999px;
+            background: #FFF9EC;
+            color: #8b551e;
+            font-size: 10.5px;
+            font-weight: 800;
+            cursor: pointer;
+          }
+
+          .cn-compact-aug-pill:active {
+            opacity: 0.6;
+          }
+
+          .cn-compact-logo {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            border: 0;
+            background: transparent;
+            padding: 0;
+            cursor: pointer;
+          }
+
+          .cn-compact-logo img {
+            height: 30px;
+            width: auto;
+            display: block;
+          }
+
+          .cn-compact-spacer {
+            flex: 1;
+          }
+
+          .cn-compact-badge {
+            position: absolute;
+            top: -4px;
+            right: -6px;
+            min-width: 15px;
+            height: 15px;
+            padding: 0 3px;
+            border-radius: 999px;
+            background: #C92035;
+            color: #fff;
+            font-size: 9px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+
         }
         @media (max-width: 1180px) {
           .exact-actions .exact-digi-gold-mobile,
@@ -3849,9 +3729,122 @@ export default function CustomerNavbar() {
           .cn-compact-icon { width: 24px; }
           .cn-compact-logo img { height: 26px; }
         }
+
+        .cn-search-overlay{height:100dvh;z-index:10040;color:#073b3f}
+        .cn-search-overlay-body{min-height:0;overscroll-behavior:contain}
+        .cn-search-clear{display:grid;place-items:center;width:32px;height:32px;border:0;background:transparent;color:#627773;cursor:pointer;flex-shrink:0}
+        .cn-search-all{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:17px 16px;border:0;border-bottom:1px solid #e0e9e4;background:#f3f7f3;color:#164c45;font:inherit;font-size:14px;font-weight:650;text-align:left;cursor:pointer}
+        .cn-search-discover{padding:26px 16px}.cn-search-discover h2{font-family:Georgia,serif;font-size:25px;margin:0 0 10px;color:#073b3f}.cn-search-discover p{font-size:13px;color:#71837a;line-height:1.7}.cn-search-discover>div{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}.cn-search-discover button{display:flex;align-items:center;gap:8px;border:1px solid #d9e4da;border-radius:24px;padding:10px 18px;background:#f5f8f2;color:#375d4c;font:inherit;font-size:13px;cursor:pointer}
+        .cn-search-result:hover,.cn-search-recent-item:hover{background:#f0f6f1}.cn-search-overlay button:focus-visible{outline:2px solid #bb8958;outline-offset:-3px}.cn-search-overlay-input:focus-within{box-shadow:0 0 0 2px #c2d6ca}
+        @media(min-width:1181px){
+          .exact-main{height:98px}.exact-menu{height:50px}.exact-nav-spacer{height:188px}.exact-search{height:50px}
+          .cn-search-overlay{display:none}
+        }
+
+        /* Comfortable mobile shopping header with all existing actions. */
+        @media(max-width:640px){
+          .exact-main{background:linear-gradient(180deg,#fff 0%,#f5f8f5 100%);padding:10px 0 12px;border-bottom:1px solid #dfe8df}
+          .exact-main .exact-inner{grid-template-columns:36px minmax(0,1fr);column-gap:8px;row-gap:11px;padding-inline:12px}
+          .exact-main .team-brand{width:36px;min-height:42px;justify-content:center}
+          .exact-main .team-mark-frame{height:40px;max-width:36px;justify-content:center}
+          .exact-main .team-mark{height:auto;max-height:40px;max-width:36px;object-fit:contain}
+          .exact-main .exact-actions{gap:4px;min-width:0;max-width:100%;justify-content:flex-end}
+          .exact-main .exact-actions .summary-pill{height:36px;padding:0 7px;gap:4px;border:1px solid #c8d9cf;border-radius:12px;background:#f1f6ed;color:#245341;box-shadow:none;font-size:10px;font-weight:700;white-space:nowrap;width:auto}
+          .exact-main .exact-actions .summary-pill>svg{width:12px;height:12px;color:#7d683f}
+          .exact-main .exact-actions .summary-pill .summary-text{display:inline;max-width:none;white-space:nowrap;line-height:1.2}
+          .exact-main .exact-actions .exact-digi-gold-mobile{height:36px;gap:4px;padding:0 7px 0 4px;border-radius:12px;box-shadow:0 3px 8px #123e4014;border-color:#356d5f}
+          .exact-main .exact-digi-gold-mobile .exact-digi-gold-coin{width:26px;height:26px}
+          .exact-main .exact-digi-gold-mobile .exact-digi-gold-label{font-size:10px;font-weight:700;white-space:nowrap}
+          .exact-main .exact-actions .exact-icon{width:34px;height:38px;flex-shrink:0;border-radius:11px;color:#244d42;background:#ffffffa6;border:1px solid #e3eae2;box-shadow:none}
+          .exact-main .exact-actions .exact-icon>svg{width:19px;height:19px}
+          .exact-main .exact-actions .exact-icon:hover{transform:none;background:#edf4e9}
+          .exact-main .exact-actions .exact-icon:active{background:#e0eddc}
+          .exact-main .exact-actions .exact-desktop-menu-toggle{display:none!important}
+          .exact-main .exact-icon .exact-badge{top:-4px;right:-3px;min-width:16px;height:16px;font-size:9px;border:2px solid #fff;box-shadow:none}
+          .exact-main .exact-search{height:47px;grid-template-columns:42px minmax(0,1fr) 43px;border:1px solid #cdded2;border-radius:15px;background:#fff;box-shadow:0 3px 12px #163f3606}
+          .exact-main .exact-search:focus-within{border-color:#6c9b7c;box-shadow:0 0 0 3px #6c9b7c16}
+          .exact-main .exact-search input{font-size:16px;color:#21473c;min-width:0;padding-right:6px}
+          .exact-main .exact-search input::placeholder{font-size:13px;color:#84958a}
+          .exact-main .exact-voice-btn{width:34px;height:34px;background:#f3f7ef;border:1px solid #dce6d6;box-shadow:none;color:#3c6b4d}
+          .exact-main .exact-voice-btn.is-listening{background:#e11d48;color:#fff}
+          .exact-main button:focus-visible,.cn-compact-bar button:focus-visible{outline:2px solid #ac8245;outline-offset:2px}
+          .cn-compact-bar{background:#fafcf8;border-bottom:1px solid #e1e9de;gap:5px;padding-block:11px}
+          .cn-compact-bar .cn-compact-icon{border-radius:9px;color:#244d42}
+          .cn-compact-bar .cn-compact-aug-pill{border-color:#c8d9cf;background:#f1f6ed;color:#245341;border-radius:10px}
+          .cn-compact-bar .exact-digi-gold-mobile{border-radius:10px;box-shadow:none}
+        }
+        @media(max-width:359px){
+          .exact-main .exact-inner{grid-template-columns:32px minmax(0,1fr);padding-inline:10px;column-gap:8px}
+          .exact-main .team-brand,.exact-main .team-mark-frame{width:32px;max-width:32px}
+          .exact-main .exact-actions{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;width:100%}
+          .exact-main .exact-actions .summary-pill,.exact-main .exact-actions .exact-digi-gold-mobile{grid-column:span 3;justify-content:center;width:100%}
+          .exact-main .exact-actions .exact-icon,.exact-main .exact-actions .login-dropdown{grid-column:span 2;width:100%}
+          .exact-main .exact-actions .exact-coin-icon-btn{display:none}
+        }
+
+        /* Mobile menu: fixed greeting/footer, calm service cards and compact categories. */
+        @media(max-width:1180px){
+          .exact-mobile-menu{width:min(370px,92vw);height:100dvh;max-height:100dvh;overflow:hidden;background:#f6f8f3;border-right:1px solid #dce6d9;box-sizing:border-box}
+          .exact-mobile-menu *{box-sizing:border-box}
+          .mobile-menu-header{flex-shrink:0;padding:20px 16px;background:linear-gradient(115deg,#103e40,#205a4e);box-shadow:none;border-bottom:2px solid #c6a872}
+          .mobile-user-avatar{width:43px;height:43px;border-radius:13px;border:1px solid #d9c59380;background:#ffffff12;color:#f7e5bb}
+          .mobile-user-text strong{font-size:14px;font-weight:650;white-space:normal;overflow-wrap:anywhere;line-height:1.5}
+          .mobile-user-text span{font-size:11px;color:#cbdfd2;line-height:1.5}
+          .mobile-menu-close{width:36px;height:36px;background:#ffffff12;border:1px solid #ffffff25}
+          .mobile-menu-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:#a9c0b0 transparent;padding-bottom:14px}
+          .mobile-menu-rates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px 14px;background:transparent;border-bottom:0}
+          .mobile-menu-rates span{display:block;text-align:center;white-space:normal;font-size:10px;line-height:1.6;padding:7px 5px;border:1px solid #e5dec9;border-radius:9px;background:#faf6eb;color:#80653b;font-weight:650}
+          .mobile-menu-divider-label{display:flex;align-items:center;gap:10px;padding:12px 16px 9px;background:transparent;border:0;color:#73816c;font-size:10px;font-weight:650;letter-spacing:.09em}
+          .mobile-menu-divider-label::after{content:'';height:1px;background:#dde6d6;flex:1}
+          .mobile-menu-services-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:0 14px 4px}
+          .mobile-service-item{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:9px;min-height:57px;margin:0;padding:10px 12px;border:1px solid #e0e7dc;border-radius:12px;background:#fff;box-shadow:none;color:#244b3d;transition:background 150ms,border-color 150ms}
+          .mobile-service-item:active{background:#eaf2e3;transform:none;border-color:#bdcfb2}
+          .mobile-service-left{display:flex;align-items:center;gap:11px;min-width:0}
+          .mobile-service-icon{display:grid;place-items:center;flex-shrink:0;width:35px;height:35px;border-radius:10px;background:#eff5e9!important;color:#426a45!important}
+          .mobile-service-icon svg{stroke-width:1.7}
+          .mobile-service-label{font-size:12px;line-height:1.45;font-weight:650;color:#204a39;white-space:normal}
+          .mobile-service-badge{display:grid;place-items:center;min-width:24px;height:24px;padding:2px 6px;border:1px solid #d2e1c8;border-radius:8px;background:#eef5e7;color:#426a45;font-size:11px;font-weight:700;flex-shrink:0}
+          .mobile-service-arrow{display:grid;place-items:center;color:#97ac8f;flex-shrink:0}
+          .mobile-service-tag{background:#faf2de;border:1px solid #eee0bd;color:#96743c;font-size:9px;font-weight:650;padding:4px 8px;border-radius:20px}
+          .mobile-service-item:nth-child(-n+2){grid-column:span 1;position:relative;min-height:90px;padding:12px;align-items:flex-start}
+          .mobile-service-item:nth-child(-n+2) .mobile-service-left{flex-direction:column;align-items:flex-start;gap:8px}
+          .mobile-service-item:nth-child(-n+2) .mobile-service-badge,.mobile-service-item:nth-child(-n+2) .mobile-service-arrow{position:absolute;right:11px;top:12px}
+          .mobile-service-item.mobile-digi-gold{margin:2px 0;padding:13px 12px;border-radius:13px;background:linear-gradient(115deg,#134c46,#0b383d);border-color:#397361;box-shadow:0 4px 12px #153f3510}
+          .mobile-digi-gold .mobile-service-label{color:#fff;font-size:13px}.mobile-digi-gold .mobile-service-icon{background:transparent!important;border:0;box-shadow:none}.mobile-digi-gold .exact-digi-gold-subtitle{color:#cadfcd;font-size:10px;line-height:1.5}.mobile-digi-gold .exact-digi-gold-arrow{color:#ead5a8;border-color:#d7bf7c44}
+          .mobile-menu-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 14px 4px}
+          .exact-mobile-menu button.mobile-cat-btn{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:9px;width:100%;min-height:84px;padding:13px 12px;border:1px solid #dfe7d8;border-radius:12px;background:#fff;box-shadow:none;color:#30573f;font:inherit;text-align:left}
+          .exact-mobile-menu button.mobile-cat-btn:active{transform:none;background:#eaf2e3;border-color:#b7cca9;box-shadow:none}
+          .mobile-cat-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:#f8f2e6;color:#a37c40;flex-shrink:0}
+          .mobile-cat-label{font-size:11px;font-weight:650;line-height:1.5;white-space:normal;overflow:visible;text-overflow:clip}
+          .mobile-menu-grid .mobile-cat-btn:last-child:nth-child(odd){grid-column:1/-1;flex-direction:row;align-items:center;justify-content:flex-start;min-height:52px}
+          .mobile-menu-bottom{flex-shrink:0;margin:0;padding:12px 14px max(12px,env(safe-area-inset-bottom));background:#fff;border-top:1px solid #e1e8dd}
+          .mobile-logout-btn{min-height:45px;border-radius:11px;font-size:12px;font-weight:650;box-shadow:none}
+          .mobile-logout-btn.is-logout{background:#faf7f3;border-color:#e4d7cb;color:#986349}.mobile-logout-btn.is-logout:active{background:#f4eade}
+          .mobile-logout-btn.is-login{background:#174b40;color:#fff;border-color:#174b40}
+          .exact-mobile-menu button:focus-visible{outline:2px solid #a37c40;outline-offset:2px}
+        }
+        @media(prefers-reduced-motion:reduce){.exact-mobile-menu,.exact-mobile-menu *,.mobile-drawer-overlay{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+
+        @media(max-width:1180px){
+          .mobile-cat-icon{--category-surface:#edf5ef;width:43px;height:43px;border-radius:13px;color:#245f50;background:var(--category-surface);border:1px solid #d7e7da}
+          .mobile-cat-icon[data-category="Gold"],.mobile-cat-icon[data-category="Coins"],.mobile-cat-icon[data-category="Wedding"]{--category-surface:#fcf3e1;color:#ac7829;border-color:#efdfbb}
+          .mobile-cat-icon[data-category="Silver"]{--category-surface:#eef3f7;color:#61788a;border-color:#d9e3eb}
+          .mobile-cat-icon[data-category="Offers"]{--category-surface:#fcf0e8;color:#a56d46;border-color:#edddd0}
+          .mobile-cat-label{font-size:12px;color:#244d3b;font-weight:650}
+          .exact-mobile-menu button.mobile-cat-btn{min-height:102px;gap:11px;background:linear-gradient(155deg,#fff,#fcfdf9);border-color:#dce6d7}
+        }
+
+        @media(max-width:1180px){
+          .mobile-menu-rates{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+          .mobile-menu-rates>span{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:9px 3px;min-width:0}
+          .mobile-menu-rates small{font-size:9px;font-weight:550;color:#8c7956;line-height:1.4}
+          .mobile-menu-rates strong{font-size:10px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
+          .mobile-menu-rates>span:last-child{background:#f0f4f7;border-color:#dde5ea;color:#5a7284}
+          .mobile-menu-rates>span:last-child small{color:#6d8391}
+        }
       `}</style>
 
-      <header className="exact-nav">
+      <header ref={navbarRef} className="exact-nav">
         {isCompactRoute && (
           <div className="cn-compact-bar">
             <button type="button" className="cn-compact-back" onClick={() => navigate(-1)} aria-label="Back">
@@ -3864,7 +3857,7 @@ export default function CustomerNavbar() {
               <img src="/Aadhirai-Logo.png" alt="Aadhirai" />
             </button>
             <div className="cn-compact-spacer" />
-            <button type="button" className="cn-compact-icon" onClick={() => setMobileSearchOpen(true)} aria-label="Search">
+            <button type="button" className="cn-compact-icon" onClick={openSearchScreen} aria-label="Search">
               <Icon name="search" size={19} />
             </button>
             {isLoggedIn && (
@@ -3911,9 +3904,9 @@ export default function CustomerNavbar() {
         )}
 
         {mobileSearchOpen && (
-          <div className="cn-search-overlay">
+          <div className="cn-search-overlay" ref={searchScreenRef} role="dialog" aria-modal="true" aria-label="Search jewellery">
             <div className="cn-search-overlay-bar">
-              <button type="button" className="cn-search-overlay-back" onClick={() => setMobileSearchOpen(false)} aria-label="Back">
+              <button type="button" className="cn-search-overlay-back" onClick={closeSearchScreen} aria-label="Back">
                 <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="19" y1="12" x2="5" y2="12" />
                   <polyline points="12 19 5 12 12 5" />
@@ -3927,8 +3920,10 @@ export default function CustomerNavbar() {
                   onKeyDown={(event) => {
                     if (event.key === "Enter") submitSearch();
                   }}
-                  placeholder="Search for Products, Brands and More"
+                  aria-label="Search jewellery"
+                  placeholder="Search gold, silver, coins and more"
                 />
+                {searchQuery && <button type="button" className="cn-search-clear" aria-label="Clear search" onClick={() => setSearchQuery('')}><Icon name="close" size={17} /></button>}
                 <button
                   type="button"
                   className={`cn-search-overlay-voice ${voiceListening || showVoiceModal ? "is-listening" : ""}`}
@@ -3944,8 +3939,10 @@ export default function CustomerNavbar() {
             </div>
 
             <div className="cn-search-overlay-body">
+              {searchQuery.trim().length >= 2 && <button type="button" className="cn-search-all" onClick={() => submitSearch()}>See all results for &ldquo;{searchQuery.trim()}&rdquo; <Icon name="chevronRight" size={16} /></button>}
               {searchQuery.trim() === "" ? (
-                recentSearches.length > 0 && (
+                <>
+                {recentSearches.length > 0 && (
                   <div className="cn-search-recent">
                     <div className="cn-search-recent-title">Recent Searches</div>
                     {recentSearches.map((q) => (
@@ -3975,9 +3972,11 @@ export default function CustomerNavbar() {
                       </div>
                     ))}
                   </div>
-                )
-              ) : (
-                <div className="cn-search-results">
+                )}
+                <div className="cn-search-discover"><h2>Find something you love</h2><p>Search by jewellery name, metal or collection.</p><div>{['Gold', 'Silver', 'Coins'].map(term => <button type="button" key={term} onClick={() => setSearchQuery(term)}><Icon name="search" size={15} />{term}</button>)}</div></div>
+                </>
+              ) : searchQuery.trim().length < 2 ? <div className="cn-search-status">Type at least 2 characters to see suggestions.</div> : (
+                <div className="cn-search-results" aria-live="polite">
                   {searchLoading && <div className="cn-search-status">Searching...</div>}
                   {!searchLoading && searchResults.length === 0 && (
                     <div className="cn-search-status">No products found</div>
@@ -4078,26 +4077,32 @@ export default function CustomerNavbar() {
               </span>
             </button>
 
-            <div className="exact-search-wrap">
+            <div className="exact-search-wrap" onBlur={event => {
+              if (!event.currentTarget.contains(event.relatedTarget)) setShowSearchDrop(false);
+            }}>
               <div className="exact-search">
                 <Icon name="search" size={18} />
-                <input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  onFocus={() =>
-                    searchResults.length && setShowSearchDrop(true)
-                  }
-                  onBlur={() => setTimeout(() => setShowSearchDrop(false), 180)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") submitSearch();
+                <input value={searchQuery} onChange={event => setSearchQuery(event.target.value)}
+                  onFocus={() => {
+                    if (restoringSearchFocus.current) return;
+                    if (window.matchMedia('(max-width: 1180px)').matches) openSearchScreen();
+                    else setShowSearchDrop(true);
                   }}
-                  placeholder="Search gold & silver jewellery..."
-                />
+                  onKeyDown={event => {
+                    if (event.key === 'Enter') submitSearch();
+                    if (event.key === 'Escape') setShowSearchDrop(false);
+                  }}
+                  aria-label="Search jewellery" aria-expanded={showSearchDrop && searchQuery.trim().length >= 2}
+                  aria-controls="customer-search-suggestions" placeholder="Search gold & silver jewellery..." />
                 <button
                   className={`exact-voice-btn ${voiceListening || showVoiceModal ? "is-listening" : ""}`}
                   type="button"
                   onMouseDown={(event) => event.preventDefault()}
-                  onClick={startVoiceModal}
+                  onClick={() => {
+                    if (window.matchMedia('(max-width: 1180px)').matches) openSearchScreen();
+                    else setShowSearchDrop(true);
+                    startVoiceModal();
+                  }}
                   disabled={!voiceSupported}
                   title={
                     voiceSupported
@@ -4110,58 +4115,19 @@ export default function CustomerNavbar() {
                 </button>
               </div>
 
-              {showSearchDrop && (
-                <div className="exact-results">
-                  {searchLoading && (
-                    <div
-                      style={{
-                        padding: 12,
-                        color: "var(--bb-muted)",
-                        fontWeight: 900,
-                      }}
-                    >
-                      Searching...
-                    </div>
-                  )}
-                  {!searchLoading && searchResults.length === 0 && (
-                    <div
-                      style={{
-                        padding: 12,
-                        color: "var(--bb-muted)",
-                        fontWeight: 900,
-                      }}
-                    >
-                      No products found
-                    </div>
-                  )}
-                  {searchResults.map((product) => (
-                    <button
-                      className="exact-result"
-                      type="button"
-                      key={product.id}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => {
-                        setShowSearchDrop(false);
-                        setSearchQuery("");
-                        navigate(
-                          `/product-display?category=${product.category}&metal=${product.metal}&id=${product.id}`,
-                        );
-                      }}
-                    >
-                      {productImage(product) ? (
-                        <img src={productImage(product)} alt="" />
-                      ) : (
-                        <div className="exact-fallback" />
-                      )}
-                      <span>
-                        <strong>{product.name}</strong>
-                        <span>
-                          {product.metal?.toUpperCase()} - {product.category} -{" "}
-                          {money(product.price)}
-                        </span>
-                      </span>
-                    </button>
-                  ))}
+              {showSearchDrop && !mobileSearchOpen && searchQuery.trim().length >= 2 && (
+                <div className="exact-results" id="customer-search-suggestions" aria-label="Search suggestions">
+                  {searchLoading && <div className="cn-search-status" role="status">Searching...</div>}
+                  {!searchLoading && searchResults.length === 0 && <div className="cn-search-status" role="status">No products found</div>}
+                  {searchResults.map(product => <button key={product.id} type="button" className="exact-result"
+                    onMouseDown={event => event.preventDefault()} onClick={() => {
+                      setShowSearchDrop(false); setSearchQuery('');
+                      navigate(`/product-display?category=${product.category}&metal=${product.metal}&id=${product.id}`);
+                    }}>
+                    {productImage(product) ? <img src={productImage(product)} alt="" /> : <div className="exact-fallback" />}
+                    <span><strong>{product.name}</strong><span>{product.metal?.toUpperCase()} - {product.category} - {money(product.price)}</span></span>
+                  </button>)}
+                  <button type="button" className="cn-search-all" onMouseDown={event => event.preventDefault()} onClick={() => submitSearch()}>See all results <Icon name="chevronRight" size={16} /></button>
                 </div>
               )}
             </div>
@@ -4374,7 +4340,13 @@ export default function CustomerNavbar() {
           </div>
         </div>
 
-        <nav className="exact-menu">
+        <nav className="exact-menu" aria-label="Jewellery categories" onKeyDown={event => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            event.target.closest('.exact-menu-item')?.querySelector('.exact-menu-button')?.focus();
+            closeMega();
+          }
+        }}>
           <div className="exact-inner">
             {menuItems.map((item) => {
               const sections = megaByLabel[item.label];
@@ -4383,16 +4355,31 @@ export default function CustomerNavbar() {
                 <div
                   className={`exact-menu-item ${activeMega === item.label ? "is-open" : ""}`}
                   key={item.label}
-                  onMouseEnter={() =>
-                    setActiveMega(sections ? item.label : null)
-                  }
-                  onMouseLeave={() => setActiveMega(null)}
+                  onMouseEnter={() => openMegaAfterHover(sections ? item.label : null)}
+                  onMouseLeave={scheduleCloseMega}
+                  onFocus={event => {
+                    if (!event.currentTarget.contains(event.relatedTarget)) {
+                      cancelMegaTimers();
+                      setActiveMega(sections ? item.label : null);
+                    }
+                  }}
+                  onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) closeMega(); }}
                 >
                   <button
                     className="exact-menu-button"
                     type="button"
+                    aria-expanded={sections ? activeMega === item.label : undefined}
+                    aria-controls={sections ? `customer-mega-${item.label.replace(/[^a-z0-9]/gi, '-').toLowerCase()}` : undefined}
+                    onKeyDown={event => {
+                      if (sections && event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        cancelMegaTimers();
+                        setActiveMega(item.label);
+                        requestAnimationFrame(() => megaRefs.current[item.label]?.querySelector('a')?.focus());
+                      }
+                    }}
                     onClick={() => {
-                      setActiveMega(null);
+                      closeMega();
                       if (item.label === "Nearby Shop") requireLogin(item.route);
                       else navigate(item.route);
                     }}
@@ -4410,8 +4397,9 @@ export default function CustomerNavbar() {
                       >‹</button>
                       <div
                         className="exact-mega"
+                        id={`customer-mega-${item.label.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`}
                         ref={el => { megaRefs.current[item.label] = el; }}
-                        onClick={() => setActiveMega(null)}
+                        onClick={event => { if (event.target.closest('a')) closeMega(); }}
                       >
                         {sections.map((section) => (
                           <section
@@ -4422,6 +4410,8 @@ export default function CustomerNavbar() {
                               <span>{megaIconFor(section.title)}</span>
                               {section.title}
                             </Link>
+                            <div className="exact-mega-links-wrap">
+                            <div className="exact-mega-links" aria-label={`${section.title} categories`}>
                             {section.links.map(([label, route]) => (
                               <Link
                                 className="exact-mega-link"
@@ -4431,11 +4421,13 @@ export default function CustomerNavbar() {
                                 {label}
                               </Link>
                             ))}
+                            </div>
+                            </div>
                             <Link
                               className="exact-mega-view"
                               to={section.viewAll[1]}
                             >
-                              {section.viewAll[0]} -&gt;
+                              {section.viewAll[0]} <span aria-hidden="true">&rarr;</span>
                             </Link>
                           </section>
                         ))}
@@ -4464,11 +4456,11 @@ export default function CustomerNavbar() {
           />
         )}
 
-        <div className={`exact-mobile-menu ${mobileOpen ? "open" : ""}`}>
+        <div ref={mobileMenuRef} className={`exact-mobile-menu ${mobileOpen ? "open" : ""}`} inert={!mobileOpen} role={mobileOpen ? "dialog" : undefined} aria-modal={mobileOpen ? true : undefined} aria-label="Shopping and account menu">
           <div className="mobile-menu-header">
             <div className="mobile-user-info">
               <div className="mobile-user-avatar">
-                <Icon name="user" size={20} />
+                <DrawerUser size={22} />
               </div>
               <div className="mobile-user-text">
                 <strong>Hello, {isLoggedIn ? (localStorage.getItem("email")?.split("@")[0] || "Customer") : "Guest"}</strong>
@@ -4481,14 +4473,16 @@ export default function CustomerNavbar() {
               onClick={() => setMobileOpen(false)}
               aria-label="Close menu"
             >
-              <Icon name="close" size={18} />
+              <DrawerClose size={19} />
             </button>
           </div>
 
+          <div className="mobile-menu-body">
           {rates && (
             <div className="mobile-menu-rates">
-              <span>Gold 22K: {money(rates?.gold_22k)}</span>
-              <span>Silver: {money(rates?.silver_999)}</span>
+              <span><small>Gold 22K</small><strong>{money(rates?.gold_22k)}</strong></span>
+              <span><small>Gold 24K</small><strong>{money(rates?.gold_24k)}</strong></span>
+              <span><small>Silver 999</small><strong>{money(rates?.silver_999)}</strong></span>
             </div>
           )}
 
@@ -4515,14 +4509,14 @@ export default function CustomerNavbar() {
             >
               <div className="mobile-service-left">
                 <span className="mobile-service-icon heart-icon">
-                  <Icon name="heart" size={17} />
+                  <DrawerHeart size={20} />
                 </span>
                 <span className="mobile-service-label">Wishlist</span>
               </div>
               {wishlistCount > 0 ? (
                 <span className="mobile-service-badge">{wishlistCount}</span>
               ) : (
-                <span className="mobile-service-arrow">›</span>
+                <span className="mobile-service-arrow"><DrawerChevron size={16} aria-hidden="true" /></span>
               )}
             </button>
 
@@ -4536,14 +4530,14 @@ export default function CustomerNavbar() {
             >
               <div className="mobile-service-left">
                 <span className="mobile-service-icon cart-icon">
-                  <Icon name="cart" size={17} />
+                  <DrawerBag size={20} />
                 </span>
                 <span className="mobile-service-label">Cart</span>
               </div>
               {cartCount > 0 ? (
                 <span className="mobile-service-badge">{cartCount}</span>
               ) : (
-                <span className="mobile-service-arrow">›</span>
+                <span className="mobile-service-arrow"><DrawerChevron size={16} aria-hidden="true" /></span>
               )}
             </button>
 
@@ -4558,9 +4552,9 @@ export default function CustomerNavbar() {
               >
                 <div className="mobile-service-left">
                   <span className="mobile-service-icon coin-icon">
-                    <Icon name="coin" size={17} />
+                    <AugMenuCoin />
                   </span>
-                  <span className="mobile-service-label">AUG Revive</span>
+                  <span className="mobile-service-label">AUG</span>
                 </div>
                 <span className="mobile-service-tag">Rewards</span>
               </button>
@@ -4593,11 +4587,11 @@ export default function CustomerNavbar() {
             >
               <div className="mobile-service-left">
                 <span className="mobile-service-icon shop-icon">
-                  <Icon name="shop" size={17} />
+                  <DrawerStore size={20} />
                 </span>
                 <span className="mobile-service-label">Nearby Shop</span>
               </div>
-              <span className="mobile-service-arrow">›</span>
+              <span className="mobile-service-arrow"><DrawerChevron size={16} aria-hidden="true" /></span>
             </button>
 
             <button
@@ -4610,11 +4604,11 @@ export default function CustomerNavbar() {
             >
               <div className="mobile-service-left">
                 <span className="mobile-service-icon user-icon">
-                  <Icon name="user" size={17} />
+                  <DrawerUser size={20} />
                 </span>
                 <span className="mobile-service-label">Profile</span>
               </div>
-              <span className="mobile-service-arrow">›</span>
+              <span className="mobile-service-arrow"><DrawerChevron size={16} aria-hidden="true" /></span>
             </button>
 
             <button
@@ -4627,11 +4621,11 @@ export default function CustomerNavbar() {
             >
               <div className="mobile-service-left">
                 <span className="mobile-service-icon truck-icon">
-                  <Icon name="truck" size={17} />
+                  <DrawerReceipt size={20} />
                 </span>
                 <span className="mobile-service-label">Order Summary</span>
               </div>
-              <span className="mobile-service-arrow">›</span>
+              <span className="mobile-service-arrow"><DrawerChevron size={16} aria-hidden="true" /></span>
             </button>
 
             {isLoggedIn && ['super_admin', 'customer'].includes(role) && (
@@ -4645,11 +4639,11 @@ export default function CustomerNavbar() {
               >
                 <div className="mobile-service-left">
                   <span className="mobile-service-icon add-user-icon">
-                    <Icon name="userPlus" size={17} />
+                    <DrawerUserPlus size={20} />
                   </span>
                   <span className="mobile-service-label">Create Customer</span>
                 </div>
-                <span className="mobile-service-arrow">›</span>
+                <span className="mobile-service-arrow"><DrawerChevron size={16} aria-hidden="true" /></span>
               </button>
             )}
 
@@ -4659,10 +4653,10 @@ export default function CustomerNavbar() {
                 navigate("/customer-hierarchy-grid");
               }}>
                 <div className="mobile-service-left">
-                  <span className="mobile-service-icon user-icon"><Icon name="role" size={17} /></span>
+                  <span className="mobile-service-icon user-icon"><DrawerNetwork size={20} /></span>
                   <span className="mobile-service-label">Hierarchy</span>
                 </div>
-                <span className="mobile-service-arrow">›</span>
+                <span className="mobile-service-arrow"><DrawerChevron size={16} aria-hidden="true" /></span>
               </button>
             )}
 
@@ -4678,18 +4672,20 @@ export default function CustomerNavbar() {
               >
                 <div className="mobile-service-left">
                   <span className="mobile-service-icon switch-icon">
-                    <Icon name="refresh" size={17} />
+                    <DrawerSwitch size={20} />
                   </span>
                   <span className="mobile-service-label">{roleSwitchCfg.label}</span>
                 </div>
-                <span className="mobile-service-arrow">›</span>
+                <span className="mobile-service-arrow"><DrawerChevron size={16} aria-hidden="true" /></span>
               </button>
             )}
           </div>
 
           <div className="mobile-menu-divider-label">Shop by Category</div>
           <div className="mobile-menu-grid">
-            {menuItems.map((item) => (
+            {menuItems.map((item) => {
+
+              return (
               <button
                 type="button"
                 className="mobile-cat-btn"
@@ -4700,12 +4696,13 @@ export default function CustomerNavbar() {
                   else navigate(item.route);
                 }}
               >
-                <span className="mobile-cat-icon"><Icon name={item.icon || "star"} size={16} /></span>
+                <span className="mobile-cat-icon" data-category={item.label}><MobileCategoryIcon label={item.label} /></span>
                 <span className="mobile-cat-label">{item.label}</span>
               </button>
-            ))}
+            ); })}
           </div>
 
+          </div>
           {/* Logout at the very bottom */}
           <div className="mobile-menu-bottom">
             <button
@@ -4716,7 +4713,7 @@ export default function CustomerNavbar() {
                 if (isLoggedIn) logout(); else goLogin();
               }}
             >
-              <Icon name={isLoggedIn ? "logout" : "user"} size={16} />
+              {isLoggedIn ? <DrawerLogout size={18} /> : <DrawerUser size={18} />}
               <span>{isLoggedIn ? "Logout" : "Login to Your Account"}</span>
             </button>
           </div>
@@ -4728,15 +4725,15 @@ export default function CustomerNavbar() {
           className="role-drawer-overlay"
           onClick={() => setRoleDrawerOpen(false)}
         >
-          <div className="role-drawer" onClick={(e) => e.stopPropagation()}>
+          <div ref={roleDrawerRef} role="dialog" aria-modal="true" aria-labelledby="customer-account-title" className="role-drawer" onClick={(e) => e.stopPropagation()}>
             <div className="role-drawer-top-accent" />
 
             <div className="role-drawer-head">
               <div className="role-drawer-brand">
-                <span className="role-drawer-logo-mark">A</span>
+                <span className="role-drawer-logo-mark"><img src="/Aadhirai-Logo.png" alt="" /></span>
                 <div>
-                  <h4 className="role-drawer-brand-title">ATHIRAI</h4>
-                  <small className="role-drawer-brand-sub">Exclusive Services</small>
+                  <h4 id="customer-account-title" className="role-drawer-brand-title">ATHIRAI</h4>
+                  <small className="role-drawer-brand-sub">Your personal jewellery space</small>
                 </div>
               </div>
               <button
@@ -4745,7 +4742,7 @@ export default function CustomerNavbar() {
                 onClick={() => setRoleDrawerOpen(false)}
                 aria-label="Close"
               >
-                <Icon name="close" size={16} />
+                <DrawerClose size={18} />
               </button>
             </div>
 
@@ -4755,10 +4752,11 @@ export default function CustomerNavbar() {
                 {isLoggedIn ? (
                   (localStorage.getItem("email") || "C").charAt(0).toUpperCase()
                 ) : (
-                  <Icon name="user" size={20} />
+                  <DrawerUser size={22} />
                 )}
               </div>
               <div className="role-drawer-user-meta">
+                <span className="role-drawer-welcome">{isLoggedIn ? "Welcome back" : "Discover something special"}</span>
                 <strong className="role-drawer-user-name">
                   {isLoggedIn
                     ? localStorage.getItem("email")?.split("@")[0] || "Valued Customer"
@@ -4788,7 +4786,7 @@ export default function CustomerNavbar() {
               >
                 <div className="role-drawer-item-left">
                   <span className="role-drawer-icon-box icon-ruby">
-                    <Icon name="heart" size={17} filled={wishlistCount > 0} />
+                    <DrawerHeart size={20} />
                   </span>
                   <div className="role-drawer-item-labels">
                     <span className="role-drawer-item-title">Wishlist</span>
@@ -4799,7 +4797,7 @@ export default function CustomerNavbar() {
                   <span className="role-drawer-item-badge badge-ruby">{wishlistCount}</span>
                 ) : (
                   <span className="role-drawer-chevron">
-                    <Icon name="chevronRight" size={16} />
+                    <DrawerChevron size={17} />
                   </span>
                 )}
               </button>
@@ -4815,7 +4813,7 @@ export default function CustomerNavbar() {
               >
                 <div className="role-drawer-item-left">
                   <span className="role-drawer-icon-box icon-teal">
-                    <Icon name="cart" size={17} />
+                    <DrawerBag size={20} />
                   </span>
                   <div className="role-drawer-item-labels">
                     <span className="role-drawer-item-title">Cart</span>
@@ -4826,7 +4824,7 @@ export default function CustomerNavbar() {
                   <span className="role-drawer-item-badge badge-teal">{cartCount}</span>
                 ) : (
                   <span className="role-drawer-chevron">
-                    <Icon name="chevronRight" size={16} />
+                    <DrawerChevron size={17} />
                   </span>
                 )}
               </button>
@@ -4843,15 +4841,15 @@ export default function CustomerNavbar() {
                 >
                   <div className="role-drawer-item-left">
                     <span className="role-drawer-icon-box icon-gold">
-                      <Icon name="coin" size={17} />
+                      <AugMenuCoin />
                     </span>
                     <div className="role-drawer-item-labels">
-                      <span className="role-drawer-item-title">AUG Revive</span>
+                      <span className="role-drawer-item-title">AUG</span>
                       <span className="role-drawer-item-desc">Shop with Revive rewards</span>
                     </div>
                   </div>
                   <span className="role-drawer-chevron">
-                    <Icon name="chevronRight" size={16} />
+                    <DrawerChevron size={17} />
                   </span>
                 </button>
               )}
@@ -4867,7 +4865,7 @@ export default function CustomerNavbar() {
               >
                 <div className="role-drawer-item-left">
                   <span className="role-drawer-icon-box icon-emerald">
-                    <Icon name="shop" size={17} />
+                    <DrawerStore size={20} />
                   </span>
                   <div className="role-drawer-item-labels">
                     <span className="role-drawer-item-title">Nearby Shop</span>
@@ -4875,7 +4873,7 @@ export default function CustomerNavbar() {
                   </div>
                 </div>
                 <span className="role-drawer-chevron">
-                  <Icon name="chevronRight" size={16} />
+                  <DrawerChevron size={17} />
                 </span>
               </button>
 
@@ -4890,7 +4888,7 @@ export default function CustomerNavbar() {
               >
                 <div className="role-drawer-item-left">
                   <span className="role-drawer-icon-box icon-teal">
-                    <Icon name="user" size={17} />
+                    <DrawerUser size={20} />
                   </span>
                   <div className="role-drawer-item-labels">
                     <span className="role-drawer-item-title">Profile</span>
@@ -4898,7 +4896,7 @@ export default function CustomerNavbar() {
                   </div>
                 </div>
                 <span className="role-drawer-chevron">
-                  <Icon name="chevronRight" size={16} />
+                  <DrawerChevron size={17} />
                 </span>
               </button>
 
@@ -4913,7 +4911,7 @@ export default function CustomerNavbar() {
               >
                 <div className="role-drawer-item-left">
                   <span className="role-drawer-icon-box icon-teal">
-                    <Icon name="receipt" size={17} />
+                    <DrawerReceipt size={20} />
                   </span>
                   <div className="role-drawer-item-labels">
                     <span className="role-drawer-item-title">Order Summary</span>
@@ -4921,7 +4919,7 @@ export default function CustomerNavbar() {
                   </div>
                 </div>
                 <span className="role-drawer-chevron">
-                  <Icon name="chevronRight" size={16} />
+                  <DrawerChevron size={17} />
                 </span>
               </button>
 
@@ -4937,7 +4935,7 @@ export default function CustomerNavbar() {
                 >
                   <div className="role-drawer-item-left">
                     <span className="role-drawer-icon-box icon-gold">
-                      <Icon name="userPlus" size={17} />
+                      <DrawerUserPlus size={20} />
                     </span>
                     <div className="role-drawer-item-labels">
                       <span className="role-drawer-item-title">Create Customer</span>
@@ -4945,7 +4943,7 @@ export default function CustomerNavbar() {
                     </div>
                   </div>
                   <span className="role-drawer-chevron">
-                    <Icon name="chevronRight" size={16} />
+                    <DrawerChevron size={17} />
                   </span>
                 </button>
               )}
@@ -4956,13 +4954,13 @@ export default function CustomerNavbar() {
                   navigate("/customer-hierarchy-grid");
                 }}>
                   <div className="role-drawer-item-left">
-                    <span className="role-drawer-icon-box icon-teal"><Icon name="role" size={17} /></span>
+                    <span className="role-drawer-icon-box icon-teal"><DrawerNetwork size={20} /></span>
                     <div className="role-drawer-item-labels">
                       <span className="role-drawer-item-title">Hierarchy</span>
                       <span className="role-drawer-item-desc">View your customer referral network</span>
                     </div>
                   </div>
-                  <span className="role-drawer-chevron"><Icon name="chevronRight" size={16} /></span>
+                  <span className="role-drawer-chevron"><DrawerChevron size={17} /></span>
                 </button>
               )}
 
@@ -4978,7 +4976,7 @@ export default function CustomerNavbar() {
                 >
                   <div className="role-drawer-item-left">
                     <span className="role-drawer-icon-box icon-emerald">
-                      <Icon name="role" size={17} />
+                      <DrawerSwitch size={20} />
                     </span>
                     <div className="role-drawer-item-labels">
                       <span className="role-drawer-item-title">{roleSwitchCfg.label}</span>
@@ -4986,7 +4984,7 @@ export default function CustomerNavbar() {
                     </div>
                   </div>
                   <span className="role-drawer-chevron">
-                    <Icon name="chevronRight" size={16} />
+                    <DrawerChevron size={17} />
                   </span>
                 </button>
               )}
@@ -5002,7 +5000,7 @@ export default function CustomerNavbar() {
                     logout();
                   }}
                 >
-                  <Icon name="logout" size={16} />
+                  <DrawerLogout size={18} />
                   <span>Logout</span>
                 </button>
               ) : (
@@ -5014,11 +5012,12 @@ export default function CustomerNavbar() {
                     goLogin();
                   }}
                 >
-                  <Icon name="user" size={16} />
+                  <DrawerUser size={18} />
                   <span>Login / Register</span>
                 </button>
               )}
               <div className="role-drawer-tagline">
+                <DrawerShield size={13} aria-hidden="true" />
                 ✦ BIS 100% Hallmarked • Secure Shopping ✦
               </div>
             </div>
@@ -5117,7 +5116,7 @@ export default function CustomerNavbar() {
         </div>
       )}
 
-      <div className={`exact-nav-spacer ${isCompactRoute ? "cn-compact-spacer-height" : ""}`} aria-hidden="true" />
+      <div ref={navbarSpacerRef} className={`exact-nav-spacer ${isCompactRoute ? "cn-compact-spacer-height" : ""}`} aria-hidden="true" />
     </>
   );
 }

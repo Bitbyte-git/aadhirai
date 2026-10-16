@@ -136,7 +136,25 @@
   .cx-checkout .oc-spec span{font-size:10px}
   .cx-checkout .cx-payment-note{font-size:11px;text-align:center}
 }
-@media(min-width:901px){.cx-checkout .oc-summary-card{position:sticky!important;top:var(--cx-nav-bottom,190px)!important;max-height:calc(100dvh - var(--cx-nav-bottom,190px) - 24px);overflow-y:auto;overscroll-behavior-y:contain;scrollbar-width:thin;scrollbar-gutter:stable}}
+.cx-summary-anchor{min-width:0}
+@media(min-width:901px){
+  .cx-checkout .cx-summary-anchor.is-pinned>.oc-summary-card{position:fixed!important;top:0!important;left:var(--cx-summary-left);width:var(--cx-summary-width);margin:0;z-index:20;animation:none;transform:translate3d(0,var(--cx-summary-top),0);will-change:transform;max-height:none;overflow:visible}
+}
+/* The page scrolls; the summary has no separate scrolling area. */
+@media(min-width:901px){
+  .cx-checkout .oc-layout,.cx-checkout .delivery-layout{align-items:start;overflow:visible}
+  .cx-checkout .oc-summary-card{position:sticky!important;top:var(--cx-nav-bottom,190px)!important;align-self:start;height:auto;max-height:none;overflow:visible;scrollbar-gutter:auto}
+}
+@media(min-width:901px) and (max-height:820px){
+  .cx-checkout .oc-summary-card{padding:18px 20px}
+  .cx-checkout .oc-summary-title{margin-bottom:14px}
+  .cx-checkout .oc-summary-card .cx-summary-product{margin-bottom:12px!important;padding-bottom:12px!important}
+  .cx-checkout .oc-summary-card .oc-row{margin-bottom:8px}
+  .cx-checkout .oc-summary-card .oc-total{margin-top:12px;padding:12px}
+  .cx-checkout .oc-summary-card .oc-secure-box{margin-top:12px;padding:10px 12px}
+  .cx-checkout .oc-summary-card .cx-review-continue{min-height:46px;margin-top:14px}
+  .cx-checkout .oc-summary-card .cx-summary-caption{margin-top:10px;line-height:1.5}
+}
 @media(prefers-reduced-motion:reduce){.cx-checkout *{animation:none!important;transition:none!important;scroll-behavior:auto!important}.cx-revive-check{stroke-dashoffset:0}.cx-revive-success-art i,.cx-wallet-credit-shine{display:none}}
 
 /* Saved delivery addresses for checkout and DigiGold. */
@@ -152,3 +170,9 @@
 @media(max-width:600px){.sa-list-head{align-items:flex-start}.sa-list-head h3{font-size:16px}.sa-list-head .sa-secondary{padding:9px 11px;white-space:nowrap}.sa-address{padding:17px 14px;gap:11px;flex-wrap:wrap}.sa-address-copy{min-width:calc(100% - 52px)}.sa-address-icon{width:34px;height:34px;border-radius:10px}.sa-selected{margin-left:45px}.sa-address>.sa-secondary{margin-left:45px}.sa-address-copy>p{font-size:13px}.sa-form-head{padding:18px 14px;gap:9px}.sa-form-head h3{font-size:20px}.sa-form-head>div>span{font-size:8px}.sa-form-body{padding:20px 16px}.sa-grid{grid-template-columns:1fr;gap:0}.sa-field label{font-size:13px}.sa-form-footer{padding:15px 16px;gap:10px}.sa-form-footer .sa-primary{min-width:0;flex:1;font-size:12px}.sa-form-footer .sa-secondary{padding:10px 12px}.sa-book .sa-text-button{font-size:11px;padding:6px}.sa-map-actions>*{flex:1}.sa-map-actions a,.sa-map-actions button{font-size:11px;white-space:nowrap;padding:10px}.dg-shared-address-modal{width:calc(100vw - 20px)!important;max-height:calc(100dvh - 24px)!important;border-radius:18px!important}.dg-address-book-body{padding:17px 12px}}
 @media(prefers-reduced-motion:reduce){.sa-book *,.sa-loading,.sa-loading span{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
+/* Inline delivery map picker, shared by checkout and DigiGold. */
+.sa-map-open{display:flex;align-items:center;gap:9px;width:100%;padding:4px 0;border:0;background:transparent;color:#426a47;font:inherit;font-size:14px;font-weight:650;cursor:pointer;min-height:40px;text-align:left}.sa-map-open>svg:last-child{margin-left:auto;transition:transform .2s}.sa-map-open[aria-expanded=true]>svg:last-child{transform:rotate(90deg)}
+.sa-map-picker{margin-top:15px;padding:18px;border:1px solid #d5e1cc;border-radius:16px;background:#fbfdf8;animation:sa-in .25s ease-out}.sa-map-picker>header{display:flex;align-items:center;justify-content:space-between;gap:12px}.sa-map-picker header span{font-size:9px;letter-spacing:1.3px;color:#9b7949;font-weight:700}.sa-map-picker h4{margin:5px 0 0;color:#173f36;font-size:20px}.sa-map-picker>p{font-size:12px;line-height:1.7;color:#63775b;margin:12px 0}.sa-map-search{display:flex;gap:8px;margin-bottom:12px}.sa-map-search input{min-width:0;flex:1}.sa-map-search .sa-primary{padding:10px 15px;flex-shrink:0}
+.sa-map-canvas-wrap{position:relative;height:320px;border:1px solid #cfddc5;border-radius:12px;overflow:hidden;background:#edf2e8}.sa-map-canvas{width:100%;height:100%}.sa-map-center-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-100%);color:#a47540;pointer-events:none;filter:drop-shadow(0 3px 3px #173f3633)}.sa-map-center-pin svg{display:block;stroke:#fff;stroke-width:1.5}.sa-map-center-pin i{position:absolute;left:50%;bottom:-5px;transform:translateX(-50%);width:12px;height:4px;border-radius:50%;background:#173f3633}.sa-map-cover{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#547047;font-size:13px;background:#f1f6ec}
+.sa-map-locate{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin:12px 0;padding:11px;border:1px solid #d1dec6;background:#fff;color:#426a47;min-height:44px;cursor:pointer}.sa-map-preview{display:flex;gap:10px;padding:14px 0;min-height:80px;align-items:flex-start}.sa-map-preview>svg{flex-shrink:0;color:#9b7949;margin-top:2px}.sa-map-preview strong{font-size:13px;color:#315538}.sa-map-preview p{font-size:12px;color:#62745b;line-height:1.7;margin:6px 0 0}.sa-book .sa-map-use{width:100%;min-height:46px}.sa-map-review{display:block;font-size:11px;line-height:1.7;color:#6f7e64;margin-top:10px;text-align:center}.sa-map-share{margin-top:12px}.sa-map-share summary{font-size:11px;font-weight:500;color:#6c7c60}.sa-map-share label{display:block;margin:12px 0 8px;font-size:12px;color:#547047}.sa-location-saved{flex-wrap:wrap;line-height:1.7}.sa-location-saved a{color:#426a47;text-underline-offset:3px;margin-left:4px}
+@media(max-width:600px){.sa-map-picker{padding:12px}.sa-map-canvas-wrap{height:280px}.sa-map-picker h4{font-size:18px}.sa-map-search{flex-wrap:wrap}.sa-map-search input{flex-basis:100%}.sa-map-search .sa-primary{width:100%}.sa-map-picker .sa-secondary{padding:8px 11px;font-size:12px}}

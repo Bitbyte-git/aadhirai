@@ -1,3 +1,4 @@
+import { Heart, ArrowUpRight, ShoppingBag } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
@@ -348,8 +349,6 @@ export default function WishlistPage() {
           text-transform: uppercase;
         }
 
-        .wishlist-empty,
-        
         @keyframes skelShimmer {
           0% { background-position: -200% 0; }
           100% { background-position: 200% 0; }
@@ -471,19 +470,38 @@ export default function WishlistPage() {
             font-size: 9.5px;
           }
         }
+
+        .wishlist-page{background:radial-gradient(ellipse at 100% 0%,#f5ecda 0,transparent 34%),#f3f6f8;color:#173e49}
+        .wishlist-page *{box-sizing:border-box}.wishlist-shell{max-width:1480px;margin:0 auto;padding:32px 24px 64px}
+        .wishlist-hero{position:relative;overflow:hidden;align-items:center;border:1px solid #1d555d;border-radius:22px;background:linear-gradient(110deg,#062f38,#0e5058);padding:30px 34px;box-shadow:0 12px 28px #073b3f15;backdrop-filter:none;gap:24px}
+        .wishlist-kicker{font-size:10px;letter-spacing:1.8px;color:#f0d49c;margin-bottom:12px}.wishlist-kicker::before{display:none}.wishlist-hero h1{font-size:clamp(32px,4vw,50px);color:#fff9e9;line-height:1.15}.wishlist-hero p{font-size:13px;color:#d1e3e5;max-width:560px;line-height:1.8;margin-top:12px}
+        .wishlist-stat{min-width:150px;background:#ffffff0a;border:1px solid #ffffff26;border-radius:16px;padding:20px;text-align:center}.wishlist-stat strong{color:#f3dca8;font-family:inherit;font-size:34px;font-weight:700}.wishlist-stat span{font-size:10px;letter-spacing:.6px;color:#d1e3e5;line-height:1.6}
+        .wishlist-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}.wishlist-card{border-color:#dce5e8;border-radius:18px;box-shadow:0 5px 18px #123b4607;background:#fff;display:flex;flex-direction:column;transition:transform 180ms,border-color 180ms,box-shadow 180ms}.wishlist-card:hover{transform:translateY(-3px);box-shadow:0 12px 25px #123b4612;border-color:#bca06d}
+        .wishlist-image{aspect-ratio:1;min-height:0;background:#fafaf7}.wishlist-image img{object-fit:contain;padding:16px;transform:none}.wishlist-card:hover .wishlist-image img{transform:scale(1.035)}.wishlist-ribbon{background:#073b3f;font-size:9px;font-weight:650;letter-spacing:.6px;padding:6px 16px 6px 10px}.wishlist-remove{width:44px;height:44px;background:#fff;border-color:#efdadd;box-shadow:0 3px 10px #5d213910}
+        .wishlist-content{padding:18px;display:flex;flex-direction:column;flex:1}.wishlist-price{font-size:19px;font-weight:750;color:#0c424d;margin-bottom:8px;font-variant-numeric:tabular-nums}.wishlist-name{font-family:inherit;font-size:14px;font-weight:600;line-height:1.6;min-height:44px;overflow-wrap:anywhere}.wishlist-meta{margin-top:auto;padding-top:14px;border-top:1px solid #e8eef0;font-size:10px;font-weight:500;color:#526d79;gap:8px}.wishlist-view{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:9px 10px;border:1px solid #d6e5e7;border-radius:9px;background:#eff6f7;color:#145461;font:inherit;font-size:11px;font-weight:650;text-transform:none;letter-spacing:0;cursor:pointer;white-space:nowrap}
+        .wishlist-empty{padding:60px 24px;border:1px solid #dce6e9;border-radius:20px;background:#fff;text-align:center}.wishlist-empty-icon{display:grid;place-items:center;width:70px;height:70px;margin:0 auto 22px;border:1px solid #ecd7b0;border-radius:22px;background:#fbf3e3;color:#94703a}.wishlist-empty h2{font-size:32px}.wishlist-empty p{font-size:13px;color:#526d79;line-height:1.8}.wishlist-btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;background:#073b3f;border-radius:12px;min-height:48px;letter-spacing:0;text-transform:none;font-size:13px;font-weight:650;box-shadow:0 5px 14px #073b3f18}
+        .wishlist-page button:focus-visible{outline:2px solid #ad843f;outline-offset:3px}.wishlist-page button:disabled{opacity:.5;cursor:wait}
+        @media(max-width:1180px){.wishlist-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+        @media(max-width:860px){.wishlist-hero{flex-direction:row;padding:26px;align-items:center}.wishlist-stat{width:auto;min-width:125px;padding:18px}.wishlist-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media(max-width:640px){.wishlist-shell{padding:18px 12px 44px}.wishlist-hero{padding:22px 18px;gap:14px;align-items:flex-start;flex-direction:column;border-radius:18px}.wishlist-kicker{font-size:9px;margin-bottom:8px}.wishlist-hero h1{font-size:32px}.wishlist-hero p{font-size:12px;line-height:1.7}.wishlist-stat{display:flex;align-items:center;flex-wrap:wrap;gap:7px 12px;min-width:0;width:100%;padding:11px 14px;text-align:left;border-radius:11px}.wishlist-stat strong{font-size:22px}.wishlist-stat span{margin:0;font-size:10px}.wishlist-stat span:last-child{margin-left:auto}.wishlist-grid{gap:12px!important}.wishlist-card{border-radius:14px}.wishlist-remove{width:44px;height:44px;top:4px;right:4px;background:#ffffffed}.wishlist-image img{padding:12px}.wishlist-content{padding:12px 10px}.wishlist-name{font-size:12px!important;line-height:1.6!important;min-height:39px!important;font-family:inherit}.wishlist-price{font-size:15px!important;margin-bottom:6px}.wishlist-meta{align-items:flex-start;flex-direction:column;padding-top:10px;margin-top:12px;font-size:10px}.wishlist-view{width:100%;min-height:40px;font-size:11px}.wishlist-empty h2{font-size:27px}.wishlist-empty{padding:40px 18px}}
+        @media(prefers-reduced-motion:reduce){.wishlist-page *{animation:none!important;transition:none!important}.wishlist-card:hover,.wishlist-card:hover .wishlist-image img{transform:none}}
+
+        .wishlist-hero-artwork{isolation:isolate;display:block;min-height:260px;background:#062f38}.wishlist-banner-art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:-2;pointer-events:none}.wishlist-hero-artwork::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,#021c2480,#021c2440 55%,transparent 80%);z-index:-1;pointer-events:none}.wishlist-hero-artwork>div:first-of-type{max-width:60%}.wishlist-hero-artwork .wishlist-stat{display:inline-flex;align-items:center;flex-wrap:wrap;gap:8px 14px;min-width:0;max-width:60%;width:auto;text-align:left;padding:11px 16px;margin-top:20px;border-radius:12px;background:#062f3880;border-color:#ffffff35}.wishlist-hero-artwork .wishlist-stat strong{font-family:inherit;font-size:25px}.wishlist-hero-artwork .wishlist-stat span{margin:0;font-size:10px;letter-spacing:.6px;line-height:1.7}
+        @media(max-width:640px){.wishlist-hero-artwork{min-height:280px;padding:23px 20px}.wishlist-banner-art{object-position:65% center}.wishlist-hero-artwork::after{background:linear-gradient(90deg,#021c24df,#021c2490 65%,#021c2433)}.wishlist-hero-artwork>div:first-of-type{max-width:95%}.wishlist-hero-artwork .wishlist-stat{max-width:100%;margin-top:18px;padding:10px 12px;gap:6px 10px}.wishlist-hero-artwork .wishlist-stat strong{font-size:22px}}
       `}</style>
 
       <main className="wishlist-shell">
-        <section className="wishlist-hero">
+        <section className="wishlist-hero wishlist-hero-artwork">
+          <img className="wishlist-banner-art" src="/wishlist-banner.png" alt="" width="2048" height="768" fetchPriority="high" decoding="async" />
           <div>
-            <div className="wishlist-kicker">Saved Selection</div>
+            <div className="wishlist-kicker"><Heart size={15} /> YOUR PERSONAL COLLECTION</div>
             <h1>My Wishlist</h1>
             <p>
               Your shortlisted jewellery, ready to compare, revisit and move into checkout when the choice feels right.
             </p>
           </div>
           <div className="wishlist-stat">
-            <strong>{grouped.count}</strong>
+            <strong>{loading ? '--' : grouped.count}</strong>
             <span>{grouped.count === 1 ? 'Saved item' : 'Saved items'}</span>
             <span>{grouped.metals}</span>
           </div>
@@ -503,10 +521,10 @@ export default function WishlistPage() {
           </section>
         ) : items.length === 0 ? (
           <section className="wishlist-empty">
-            <h2>Your Wishlist Is Empty</h2>
+            <span className="wishlist-empty-icon"><Heart size={30} /></span><h2>A little room for favourites</h2>
             <p>Browse the collection and save the jewellery pieces you want to revisit before ordering.</p>
             <button className="wishlist-btn" type="button" onClick={() => navigate('/collection/all')}>
-              Browse Collections
+              <ShoppingBag size={17} /> Browse Collections
             </button>
           </section>
         ) : (
@@ -520,7 +538,7 @@ export default function WishlistPage() {
                 <article className="wishlist-card" key={item.id || item.product_id} onClick={() => openProduct(item)}>
                   <div className="wishlist-image">
                     <img
-                      src={getImageUrl(item.product_image)}
+                      src={getImageUrl(item.product_image)} loading="lazy" decoding="async"
                       alt={item.product_name || 'Saved jewellery'}
                       onError={e => { e.currentTarget.src = '/img/gold/gold-bangles-1.png' }}
                     />
@@ -546,7 +564,7 @@ export default function WishlistPage() {
                     <h2 className="wishlist-name">{item.product_name || 'Jewellery Piece'}</h2>
                     <div className="wishlist-meta">
                       <span>{category}</span>
-                      <span className="wishlist-view">View Details</span>
+                      <button className="wishlist-view" type="button" onClick={event => { event.stopPropagation(); openProduct(item) }} aria-label={`View ${item.product_name || 'jewellery'} details`}>View piece <ArrowUpRight size={15} /></button>
                     </div>
                   </div>
                 </article>

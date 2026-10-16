@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import CustomerFooter from '../collection/CustomerFooter'
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Coins, Crosshair, Home, MapPin, PackageCheck, Pencil, Plus, ShoppingBag, Trash2, Truck } from 'lucide-react'
@@ -12,26 +12,50 @@ const steps = [
 ]
 
 function CheckoutSteps({ active, onStepChange }) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     const page = document.querySelector('.cx-checkout')
     const navbars = [...document.querySelectorAll('.exact-nav, .san-top-shell, .irn-top')]
     let frame = null
+    const updateStyle = (element, name, value) => {
+      if (element && element.style.getPropertyValue(name) !== value) element.style.setProperty(name, value)
+    }
     const measure = () => {
       frame = null
+      // Read geometry before writing styles to avoid repeated layout on scroll.
       const bottom = Math.max(0, ...navbars.map(nav => nav.getBoundingClientRect().bottom))
-      page?.style.setProperty('--cx-nav-bottom', `${Math.ceil(bottom) + 24}px`)
+      const anchor = page?.querySelector('.cx-summary-anchor')
+      const summary = anchor?.querySelector('.oc-summary-card')
+      const desktop = window.matchMedia('(min-width: 901px)').matches
+      const bounds = desktop && anchor ? anchor.getBoundingClientRect() : null
+      const layout = bounds ? anchor.parentElement.getBoundingClientRect() : null
+      const height = bounds && summary ? summary.getBoundingClientRect().height : 0
+      updateStyle(page, '--cx-nav-bottom', `${Math.ceil(bottom) + 24}px`)
+      if (anchor && summary && bounds) {
+        const pixelRatio = window.devicePixelRatio || 1
+        const top = Math.round(Math.min(Math.max(bounds.top, bottom + 24), layout.bottom - height) * pixelRatio) / pixelRatio
+        updateStyle(anchor, '--cx-summary-left', `${bounds.left}px`)
+        updateStyle(anchor, '--cx-summary-width', `${bounds.width}px`)
+        updateStyle(anchor, '--cx-summary-top', `${top}px`)
+        updateStyle(anchor, 'min-height', `${height}px`)
+        anchor.classList.add('is-pinned')
+      } else if (anchor) {
+        anchor.classList.remove('is-pinned')
+        anchor.style.minHeight = ''
+      }
     }
     const schedule = () => { if (frame === null) frame = requestAnimationFrame(measure) }
     measure()
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null
     navbars.forEach(nav => observer?.observe(nav))
+    page?.querySelectorAll('.cx-summary-anchor, .oc-summary-card, .oc-layout, .delivery-layout').forEach(element => observer?.observe(element))
     window.addEventListener('resize', schedule)
-    window.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('scroll', schedule, { passive: true, capture: true })
     return () => {
       observer?.disconnect()
       if (frame !== null) cancelAnimationFrame(frame)
       window.removeEventListener('resize', schedule)
-      window.removeEventListener('scroll', schedule)
+      window.removeEventListener('scroll', schedule, true)
+      page?.querySelector('.cx-summary-anchor')?.classList.remove('is-pinned')
       page?.style.removeProperty('--cx-nav-bottom')
     }
   }, [active])
@@ -628,12 +652,13 @@ export default function OrderConfirm() {
   })
   const lbl = { display: 'block', fontSize: 12, color: '#7A8987', marginBottom: 6, fontWeight: 700 }
 
-  const OrderSidebar = () => (
+  const orderSidebar = (
+    <div className="cx-summary-anchor">
     <aside className="oc-summary-card">
       <span className="cx-summary-kicker">The little details</span>
       <h3 className="oc-summary-title">Your order summary</h3>
       {isCartCheckout ? (
-        <div style={{ display: 'grid', gap: 12, marginBottom: 18, paddingBottom: 18, borderBottom: '1px solid rgba(189,207,206,0.62)' }}>
+        <div className="cx-summary-product" style={{ display: 'grid', gap: 12, marginBottom: 18, paddingBottom: 18, borderBottom: '1px solid rgba(189,207,206,0.62)' }}>
           {cartItems.map(item => (
             <div key={`${item.id}-${item.product_id}`} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
               <div style={{ width: 54, height: 54, borderRadius: 8, border: '1px solid rgba(204,168,129,0.42)', background: '#FDFDFC', overflow: 'hidden', flexShrink: 0 }}>
@@ -648,7 +673,7 @@ export default function OrderConfirm() {
           ))}
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: 14, marginBottom: 18, paddingBottom: 18, borderBottom: '1px solid rgba(189,207,206,0.62)' }}>
+        <div className="cx-summary-product" style={{ display: 'flex', gap: 14, marginBottom: 18, paddingBottom: 18, borderBottom: '1px solid rgba(189,207,206,0.62)' }}>
           <div style={{ width: 66, height: 66, borderRadius: 8, border: '1px solid rgba(204,168,129,0.42)', background: '#FDFDFC', overflow: 'hidden', flexShrink: 0 }}>
             {firstImage ? <img src={firstImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/> : <div style={{ display: 'grid', placeItems: 'center', height: '100%', color: '#073B3F', fontWeight: 900 }}>BJ</div>}
           </div>
@@ -677,6 +702,7 @@ export default function OrderConfirm() {
         </>
       ) : <p className="cx-summary-caption">Next: pay with your AUG Revive balance.</p>}
     </aside>
+    </div>
   )
 
   if (step === 1) {
@@ -752,7 +778,7 @@ export default function OrderConfirm() {
                 <div><ShoppingBag size={20} /><span>Review before you pay</span></div>
               </div>
             </div>
-            <OrderSidebar />
+            {orderSidebar}
           </div>
           <div className="cx-review-bar">
             <div><span>Order total</span><strong>{inr(totalPrice)}</strong></div>
@@ -889,7 +915,7 @@ export default function OrderConfirm() {
             </button>
           </div>
             </div>
-            <OrderSidebar />
+            {orderSidebar}
           </div>
 
         </main>
@@ -1068,7 +1094,7 @@ export default function OrderConfirm() {
               </div>
             </div>
 
-            <OrderSidebar />
+            {orderSidebar}
           </div>
 
           {/* Bottom bar */}
@@ -1091,6 +1117,162 @@ const empty = { name: '', email: '', phone: '', country: 'IN', house: '', street
 const countries = [['IN', 'India'], ['US', 'United States'], ['GB', 'United Kingdom'], ['AE', 'United Arab Emirates'], ['SG', 'Singapore'], ['CA', 'Canada'], ['AU', 'Australia'], ['DE', 'Germany'], ['FR', 'France'], ['JP', 'Japan'], ['NZ', 'New Zealand'], ['MY', 'Malaysia'], ['QA', 'Qatar'], ['KW', 'Kuwait'], ['SA', 'Saudi Arabia']]
 const states = ['Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry']
 
+let deliveryMapsPromise
+
+function loadDeliveryMaps() {
+  if (window.google?.maps?.importLibrary) return Promise.resolve(window.google.maps)
+  if (deliveryMapsPromise) return deliveryMapsPromise
+  const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+  if (!key) return Promise.reject(new Error('Maps is not configured.'))
+  deliveryMapsPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    const timeout = setTimeout(() => fail(), 20000)
+    const fail = () => {
+      clearTimeout(timeout)
+      script.remove()
+      reject(new Error('Maps could not load.'))
+    }
+    window.bitbyteDeliveryMapsReady = () => {
+      clearTimeout(timeout)
+      resolve(window.google.maps)
+    }
+    script.async = true
+    script.onerror = fail
+    script.src = `https://maps.googleapis.com/maps/api/js?${new URLSearchParams({ key, v: 'quarterly', loading: 'async', callback: 'bitbyteDeliveryMapsReady', language: 'en', region: 'IN' })}`
+    document.head.appendChild(script)
+  }).catch(error => { deliveryMapsPromise = null; throw error })
+  return deliveryMapsPromise
+}
+
+function deliveryMapFields(result) {
+  const parts = result?.address_components || []
+  const part = (...types) => {
+    for (const type of types) {
+      const item = parts.find(component => component.types.includes(type))
+      if (item) return item.long_name
+    }
+    return ''
+  }
+  return {
+    country: parts.find(item => item.types.includes('country'))?.short_name || '',
+    house: part('street_number', 'premise'),
+    street: [...new Set([part('route'), part('sublocality_level_2'), part('sublocality_level_1', 'sublocality', 'neighborhood')].filter(Boolean))].join(', '),
+    city: part('locality', 'postal_town', 'administrative_area_level_3', 'administrative_area_level_2'),
+    state: part('administrative_area_level_1'),
+    pincode: part('postal_code'),
+  }
+}
+
+function DeliveryLocationPicker({ address, onConfirm, onClose }) {
+  const canvas = useRef(null)
+  const map = useRef(null)
+  const geocoder = useRef(null)
+  const initialAddress = useRef(address)
+  const alive = useRef(true)
+  const sequence = useRef(0)
+  const searchInput = useRef(null)
+  const [ready, setReady] = useState(false)
+  const [busy, setBusy] = useState(true)
+  const [locating, setLocating] = useState(false)
+  const [query, setQuery] = useState('')
+  const [candidate, setCandidate] = useState(null)
+  const [notice, setNotice] = useState('')
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    alive.current = true
+    let active = true, timer, listeners = []
+    setReady(false); setFailed(false); setBusy(true); setNotice(''); setCandidate(null)
+    loadDeliveryMaps().then(async maps => {
+      const [{ Map }, { Geocoder }] = await Promise.all([maps.importLibrary('maps'), maps.importLibrary('geocoding')])
+      if (!active) return
+      const saved = initialAddress.current
+      const hasCoordinates = saved.latitude != null && saved.longitude != null
+      const center = hasCoordinates ? { lat: Number(saved.latitude), lng: Number(saved.longitude) } : { lat: 20.5937, lng: 78.9629 }
+      const instance = new Map(canvas.current, { center, zoom: hasCoordinates ? 17 : 5, gestureHandling: 'cooperative', streetViewControl: false, fullscreenControl: false, mapTypeControl: false, clickableIcons: false })
+      const coder = new Geocoder()
+      map.current = instance; geocoder.current = coder
+      const reverse = () => {
+        clearTimeout(timer)
+        const version = ++sequence.current
+        setBusy(true); setCandidate(null)
+        timer = setTimeout(() => {
+          if (instance.getZoom() < 15) {
+            setBusy(false); setNotice('Zoom in closer to choose your building or entrance.'); return
+          }
+          const point = instance.getCenter()
+          const location = { lat: point.lat(), lng: point.lng() }
+          coder.geocode({ location }, (results, status) => {
+            if (!active || version !== sequence.current) return
+            setBusy(false)
+            if (status === 'OK' || status === 'ZERO_RESULTS') {
+              const result = results?.[0]
+              setCandidate({ latitude: location.lat.toFixed(6), longitude: location.lng.toFixed(6), fields: deliveryMapFields(result), formatted: result?.formatted_address || 'Selected map pin. Enter the street, city and pincode below.' })
+              setNotice(result ? '' : 'No street address found here. You can enter it manually after selecting this pin.')
+            } else {
+              setNotice('Could not find this address. Move the pin or search again. You can also enter your address manually.')
+            }
+          })
+        }, 400)
+      }
+      listeners = [instance.addListener('center_changed', () => { ++sequence.current; clearTimeout(timer); setCandidate(null); setBusy(true) }), instance.addListener('zoom_changed', () => { ++sequence.current; clearTimeout(timer); setCandidate(null); setBusy(true) }), instance.addListener('idle', reverse), instance.addListener('click', event => { if (event.latLng) instance.panTo(event.latLng) })]
+      setReady(true)
+      searchInput.current?.focus({ preventScroll: true })
+      const knownAddress = [saved.house, saved.street, saved.city, saved.state, saved.pincode, saved.country].filter(Boolean).join(', ')
+      if (!hasCoordinates && (saved.pincode || saved.city || saved.street)) {
+        const originalCenter = instance.getCenter().toUrlValue()
+        coder.geocode({ address: knownAddress }, (results, status) => {
+          if (!active || instance.getCenter().toUrlValue() !== originalCenter) return
+          if (status === 'OK' && results?.[0]) { instance.setCenter(results[0].geometry.location); instance.setZoom(17) }
+        })
+      }
+    }).catch(() => {
+      if (active) { setFailed(true); setBusy(false); setNotice('The map could not load. Try again or enter your address below.') }
+    })
+    return () => {
+      active = false; alive.current = false; ++sequence.current; clearTimeout(timer)
+      listeners.forEach(listener => listener.remove())
+      map.current = null; geocoder.current = null
+    }
+  }, [attempt])
+
+  const search = () => {
+    if (!query.trim() || !geocoder.current) return
+    const version = ++sequence.current
+    setBusy(true); setCandidate(null); setNotice('')
+    geocoder.current.geocode({ address: query.trim(), region: initialAddress.current.country || 'IN' }, (results, status) => {
+      if (!alive.current || version !== sequence.current) return
+      if (status === 'OK' && results?.[0]) {
+        map.current.setCenter(results[0].geometry.location); map.current.setZoom(17)
+      } else { setBusy(false); setNotice('No matching location found. Try a nearby street, landmark or pincode.') }
+    })
+  }
+  const locate = () => {
+    if (!navigator.geolocation) { setNotice('Current location is unavailable. Search for your street or pincode instead.'); return }
+    setLocating(true); setNotice('')
+    navigator.geolocation.getCurrentPosition(position => {
+      if (!alive.current || !map.current) return
+      setLocating(false)
+      map.current.setCenter({ lat: position.coords.latitude, lng: position.coords.longitude }); map.current.setZoom(18)
+    }, () => {
+      if (alive.current) { setLocating(false); setNotice('Location access is unavailable. Search for your address or choose a point on the map.') }
+    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 })
+  }
+  return (
+    <section className="sa-map-picker" aria-label="Choose your delivery location">
+      <header><div><span>PIN YOUR DELIVERY</span><h4>Find your doorstep</h4></div><button type="button" className="sa-secondary" onClick={onClose}>Cancel</button></header>
+      <p>Search your area, then move the map until the pin is at your entrance.</p>
+      <div className="sa-map-search"><input ref={searchInput} aria-label="Search delivery location" placeholder="Search street, landmark or pincode" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); search() } }} /><button type="button" className="sa-primary" disabled={!ready || !query.trim()} onClick={search}>Search</button></div>
+      <div className="sa-map-canvas-wrap"><div ref={canvas} className="sa-map-canvas" aria-label="Delivery map. Pan with arrow keys or drag to move the pin." />{ready && <div className="sa-map-center-pin" aria-hidden="true"><MapPin size={42} fill="currentColor" /><i /></div>}{!ready && <div className="sa-map-cover" role="status">{failed ? <><MapPin size={27} /><span>Map unavailable</span><button type="button" className="sa-secondary" onClick={() => setAttempt(value => value + 1)}>Try again</button></> : 'Loading your map?'}</div>}</div>
+      <button type="button" className="sa-map-locate" onClick={locate} disabled={!ready || locating}><Crosshair size={17} />{locating ? 'Finding you?' : 'Use my current location'}</button>
+      <div className="sa-map-preview" aria-live="polite"><MapPin size={20} /><div><strong>{busy ? 'Finding this address?' : candidate ? 'Deliver to this location' : 'Choose your delivery point'}</strong>{candidate && <p>{candidate.formatted}</p>}{notice && <p>{notice}</p>}</div></div>
+      <button type="button" className="sa-primary sa-map-use" disabled={!candidate || busy || locating} onClick={() => onConfirm(candidate)}>Use this location <Check size={17} /></button>
+      <small className="sa-map-review">Please check the address and add your flat or house number before saving.</small>
+    </section>
+  )
+}
+
 export function AddressBook({ onSelect, onUse, onEditingChange, onBack, selectedId }) {
   const uid = useId()
   const [items, setItems] = useState([])
@@ -1104,7 +1286,8 @@ export function AddressBook({ onSelect, onUse, onEditingChange, onBack, selected
   const [message, setMessage] = useState('')
   const [conflict, setConflict] = useState(false)
   const [lookup, setLookup] = useState('')
-  const [locating, setLocating] = useState(false)
+  const [mapOpen, setMapOpen] = useState(false)
+  const mapButton = useRef(null)
   const [removeId, setRemoveId] = useState(null)
   const [saved, setSaved] = useState(false)
   const initialSelectedId = useRef(selectedId)
@@ -1226,14 +1409,22 @@ export function AddressBook({ onSelect, onUse, onEditingChange, onBack, selected
     catch (error) { if (handleConflict(error)) return; setMessage('Couldn’t remove this address. Please try again.') }
     finally { setSaving(false) }
   }
-  const captureLocation = () => {
-    if (!navigator.geolocation) { setMessage('Location is unavailable here. You can paste a Google Maps share link instead.'); return }
-    setLocating(true); setMessage('')
-    navigator.geolocation.getCurrentPosition(position => {
-      const latitude = position.coords.latitude.toFixed(6), longitude = position.coords.longitude.toFixed(6)
-      setForm(previous => ({ ...previous, latitude, longitude, map_url: mapsSearchUrl({ latitude, longitude }) }))
-      setLocating(false)
-    }, () => { setLocating(false); setMessage('Couldn’t get your location. Open Google Maps or paste its share link instead.') }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 })
+  const closeMap = () => {
+    setMapOpen(false)
+    requestAnimationFrame(() => mapButton.current?.focus({ preventScroll: true }))
+  }
+  const useMapLocation = location => {
+    const mapped = location.fields
+    setForm(previous => ({
+      ...previous,
+      country: mapped.country || previous.country,
+      house: previous.house || mapped.house || '',
+      street: mapped.street || '', city: mapped.city || '', state: mapped.state || '', pincode: mapped.pincode || '',
+      latitude: location.latitude, longitude: location.longitude,
+      map_url: mapsSearchUrl(location),
+    }))
+    setErrors({}); setLookup('Location selected. Check your address and add your house or flat number.')
+    closeMap()
   }
   const field = (name, label, options = {}) => (
     <div className={`sa-field ${options.wide ? 'sa-wide' : ''}`}>
@@ -1266,15 +1457,13 @@ export function AddressBook({ onSelect, onUse, onEditingChange, onBack, selected
               {field('phone', 'Mobile number', { required: true, type: 'tel', autoComplete: 'tel-national', maxLength: form.country === 'IN' ? 10 : 20, placeholder: form.country === 'IN' ? '10-digit mobile number' : 'Mobile number' })}
             </div>
             <p className="sa-helper">Your mobile number may be used to assist delivery.</p>
-            <details className="sa-map" open={!!form.map_url}>
-              <summary><MapPin size={19} /><span>Add location on map</span><ChevronRight size={16} /></summary>
-              <p>Open Google Maps, choose a pin and copy its Share link. Paste the link below to save your location.</p>
-              <div className="sa-map-actions"><a href={mapsSearchUrl(form)} target="_blank" rel="noopener noreferrer"><MapPin size={15} /> Open Google Maps</a><button type="button" onClick={captureLocation} disabled={locating}><Crosshair size={15} />{locating ? 'Finding location…' : 'Use current location'}</button></div>
-              <label htmlFor={`${uid}-map_url`}>Google Maps share link (optional)</label>
-              <input id={`${uid}-map_url`} type="url" value={form.map_url} placeholder="https://maps.app.goo.gl/…" onChange={event => { const map_url = event.target.value; setForm(previous => ({ ...previous, map_url, ...mapsCoordinates(map_url) })) }} />
+            <div className="sa-map">
+              <button ref={mapButton} type="button" className="sa-map-open" aria-expanded={mapOpen} onClick={() => setMapOpen(value => !value)}><MapPin size={19} /><span>{form.latitude != null ? 'Change location on map' : 'Add location on map'}</span><ChevronRight size={16} /></button>
+              {mapOpen && <DeliveryLocationPicker address={form} onConfirm={useMapLocation} onClose={closeMap} />}
+              {form.map_url && !mapOpen && <span className="sa-location-saved"><Check size={14} /> Delivery location selected <a href={form.map_url} target="_blank" rel="noopener noreferrer">View on Google Maps</a></span>}
+              <details className="sa-map-share"><summary>Already have a Google Maps share link?</summary><label htmlFor={`${uid}-map_url`}>Paste your location link (optional)</label><input id={`${uid}-map_url`} type="url" value={form.map_url} placeholder="https://maps.app.goo.gl/?" onChange={event => { const map_url = event.target.value; setForm(previous => ({ ...previous, map_url, ...mapsCoordinates(map_url) })) }} /></details>
               {errors.map_url && <p className="sa-field-error">{String(errors.map_url)}</p>}
-              {form.map_url && <span className="sa-location-saved"><Check size={14} /> Location ready to save with this address</span>}
-            </details>
+            </div>
             {field('house', 'Flat, House no., Building, Company, Apartment', { required: true, autoComplete: 'address-line1' })}
             {field('street', 'Area, Street, Sector, Village', { required: true, autoComplete: 'address-line2', maxLength: 250 })}
             {field('landmark', 'Landmark (optional)', { placeholder: 'E.g. near the school or temple' })}

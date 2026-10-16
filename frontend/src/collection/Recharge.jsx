@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { ArrowUpRight, ShieldCheck, WalletCards, Plus, Check, CheckCircle2, AlertCircle, RefreshCw, History, LockKeyhole, Repeat2, ChevronDown, Gem, Gift, ShoppingBag, TrendingUp, CreditCard, Landmark, Smartphone } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import CustomerFooter from './CustomerFooter'
 
@@ -9,29 +10,10 @@ const MUTED = '#7A8987'
 const RED = '#073B3F'
 const COIN_RATE = 100 // 1 Rs = 100 coins
 
-const MethodIcon = ({ type, size = 18 }) => {
-  const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
-  if (type === 'card') return (
-    <svg {...common}><rect x="1" y="4" width="22" height="16" rx="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>
-  )
-  if (type === 'upi') return (
-    <svg {...common}><polyline points="13 17 18 12 13 7" /><polyline points="6 17 11 12 6 7" /></svg>
-  )
-  if (type === 'netbanking') return (
-    <svg {...common}><line x1="3" y1="22" x2="21" y2="22" /><line x1="6" y1="18" x2="6" y2="11" /><line x1="10" y1="18" x2="10" y2="11" /><line x1="14" y1="18" x2="14" y2="11" /><line x1="18" y1="18" x2="18" y2="11" /><polygon points="12 2 20 7 4 7" /></svg>
-  )
-  if (type === 'wallet') return (
-    <svg {...common}><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2Z" /><path d="M2 9V6a2 2 0 0 1 2-2h13" /><circle cx="17" cy="13.5" r="1.5" /></svg>
-  )
-  if (type === 'commission') return (
-    <svg {...common}><path d="M20.8 5.6a5.1 5.1 0 0 0-7.2 0L12 7.2l-1.6-1.6a5.1 5.1 0 0 0-7.2 7.2L12 21l8.8-8.2a5.1 5.1 0 0 0 0-7.2Z" /></svg>
-  )
-  if (type === 'reward') return (
-    <svg {...common}><polyline points="20 12 20 22 4 22 4 12" /><rect x="2" y="7" width="20" height="5" /><line x1="12" y1="22" x2="12" y2="7" /><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7Z" /><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7Z" /></svg>
-  )
-  return (
-    <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>
-  )
+const MethodIcon = ({ type, size = 22 }) => {
+  const icons = { reward: Gift, commission: TrendingUp, purchase: ShoppingBag, digi: Gem, card: CreditCard, netbanking: Landmark, upi: Smartphone, wallet: WalletCards }
+  const Icon = icons[type] || History
+  return <Icon size={size} strokeWidth={1.8} aria-hidden="true" />
 }
 
 const RupeeIcon = ({ size = 15 }) => (
@@ -62,6 +44,13 @@ const DirectionBadge = ({ direction }) => (
   </span>
 )
 
+const TransactionSkeleton = ({ count = 3 }) => (
+  <div className="rc-skeleton-list" role="status" aria-label="Loading transactions">
+    <span className="rc-sr-only">Loading transactions...</span>
+    {Array.from({ length: count }, (_, index) => <div className="rc-skeleton-row" key={index} aria-hidden="true"><span className="rc-skeleton-block rc-skeleton-icon" /><div><span className="rc-skeleton-block rc-skeleton-title" /><span className="rc-skeleton-block rc-skeleton-detail" /></div><span className="rc-skeleton-block rc-skeleton-value" /></div>)}
+  </div>
+)
+
 const PRESET_AMOUNTS = [100, 1000, 5000, 10000, 100000]
 
 const rechargeStyles = `
@@ -82,8 +71,6 @@ const rechargeStyles = `
   .rc-amount-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
   .rc-amount-btn{padding:14px 8px;border-radius:8px;border:1.5px solid #D1DFDE;background:#FDFDFC;color:${DARK};font-weight:800;font-size:14px;cursor:pointer;transition:.15s ease}
   .rc-amount-btn.active{border-color:${RED};background:rgba(7,59,63,.06);color:${RED}}
-  .rc-custom-input{width:100%;padding:14px 16px;border:1px solid #D1DFDE;border-radius:8px;font-size:15px;font-weight:700;color:${DARK};box-sizing:border-box;margin-bottom:16px}
-  .rc-custom-input:focus{outline:none;border-color:${RED}}
   .rc-coin-preview{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-radius:8px;background:rgba(187,137,88,.1);border:1px dashed ${GOLD};margin-bottom:20px;font-size:14px;font-weight:800;color:#9F6130}
   .rc-pay-btn{width:100%;min-height:52px;border:none;border-radius:999px;background:linear-gradient(135deg,${RED},#0C4044);color:#fff;font-weight:900;font-size:13px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:.2s ease}
   .rc-pay-btn:disabled{background:#BDCFCE;cursor:not-allowed}
@@ -114,9 +101,6 @@ const rechargeStyles = `
   .rc-direction-badge.debit{background:rgba(229,62,62,.1);color:#c0392b}
   .rc-empty{color:${MUTED};font-size:13px;text-align:center;padding:24px 0}
   .rc-date-header{font-size:11px;font-weight:900;color:${MUTED};text-transform:uppercase;letter-spacing:1px;padding:14px 4px 6px}
-  .rc-loadmore-btn{width:100%;margin-top:14px;padding:12px;border-radius:8px;border:1.5px solid #D1DFDE;background:#FDFDFC;color:${RED};font-weight:800;font-size:13px;cursor:pointer;transition:.15s ease}
-  .rc-loadmore-btn:hover{border-color:${RED};background:rgba(7,59,63,.04)}
-  .rc-loadmore-btn:disabled{opacity:.6;cursor:not-allowed}
   .rc-filter-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px}
   .rc-filter-tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .rc-filter-tab{padding:8px 16px;border-radius:20px;border:1.5px solid #D1DFDE;background:#FDFDFC;color:${DARK};font-weight:800;font-size:12px;cursor:pointer;transition:.15s ease;white-space:nowrap}
@@ -136,6 +120,102 @@ const rechargeStyles = `
   .rc-spend-value{font-size:17px;font-weight:900;font-family:"Playfair Display",serif}
   .rc-spend-icon{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0}
   @media(max-width:760px){.rc-grid{grid-template-columns:1fr}}
+
+  /* Wallet experience: actual balances, clear payment choices, gentle motion. */
+  .rc-page{--rc-ink:#073b3f;--rc-leaf:#176b66;--rc-line:#dce5e7;background:radial-gradient(ellipse at 100% 0%,#f7eddb 0,transparent 32%),#f3f6f8;color:var(--rc-ink)}
+  .rc-page *,.rc-page *::before,.rc-page *::after{box-sizing:border-box}
+  .rc-main{width:min(1440px,calc(100% - 64px));padding:36px 0 72px;animation:none}
+  .rc-hero{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:30px;animation:rc-enter 320ms ease-out both}
+  .rc-kicker{display:flex;align-items:center;gap:8px;color:#9b7a44;font-size:10px;font-weight:700;letter-spacing:1.9px;margin-bottom:12px}.rc-kicker>span{width:6px;height:6px;border-radius:50%;background:#b99458}
+  .rc-title{font-family:'Playfair Display',Georgia,serif;font-size:clamp(29px,3.2vw,44px);font-weight:700;line-height:1.15;letter-spacing:-1.1px;margin:0;color:var(--rc-ink)}
+  .rc-subtitle{margin:12px 0 0;font-size:13px;line-height:1.8;color:#566b73;max-width:520px}
+  .rc-hero-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .rc-dashboard-link,.rc-autopay-btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:43px;padding:10px 14px;border:1px solid #d5e2e5;border-radius:12px;background:#ffffffc7;color:#104a50;font-family:inherit;font-size:11px;font-weight:650;cursor:pointer;transition:background 160ms,border-color 160ms}
+  .rc-dashboard-link:hover,.rc-autopay-btn:hover{background:#fff;border-color:#699b9f}.rc-dashboard-link>svg:first-child{color:#a4834f}.rc-autopay-btn strong{font-size:11px;border-radius:5px;margin-left:5px;padding:3px 5px;background:#edf2f4;color:#526b75}.rc-autopay-btn.is-on strong{color:#356b40;background:#e3efd9}
+  .rc-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.95fr);grid-template-areas:'balance recharge' 'recent recharge';gap:22px;align-items:start}
+  .rc-card{min-width:0;padding:26px;border:1px solid var(--rc-line);border-radius:22px;box-shadow:0 12px 32px #173f3005;background:#fff}
+  .rc-balance-card{grid-area:balance;position:relative;isolation:isolate;overflow:hidden;padding:29px 30px 23px;border:1px solid #13545c;min-height:286px;background:radial-gradient(ellipse at 100% 0%,#20838b40,transparent 65%),linear-gradient(118deg,#063139,#0b4d56);color:#fff;box-shadow:0 12px 30px #163f3912;animation:rc-enter 360ms 40ms ease-out both;gap:0}
+  .rc-balance-card::before{content:'';position:absolute;inset:-60% auto -60% -60%;width:40%;background:linear-gradient(90deg,transparent,#fff4cb0b,transparent);transform:rotate(25deg);animation:rc-wallet-sheen 1100ms 200ms ease-out both;z-index:-1;pointer-events:none}
+  .rc-wallet-top{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:28px}
+  .rc-wallet-label{display:flex;align-items:center;gap:10px;font-size:11px;letter-spacing:1.4px;font-weight:600;color:#f3e4bd}
+  .rc-wallet-icon{width:35px;height:35px;border:1px solid #d3c28e3d;background:#ffffff09;color:#e6d09c;border-radius:11px;display:grid;place-items:center;flex-shrink:0}
+  .rc-wallet-mark{font-family:Georgia,serif;font-size:13px;color:#e5d4a7;border:1px solid #d8bd783b;border-radius:50%;width:38px;height:38px;display:grid;place-items:center;transform:rotate(-12deg);flex-shrink:0}
+  .rc-balance-label{font-size:12px;text-transform:none;letter-spacing:0;font-weight:500;color:#d9edef;opacity:1;margin:0 0 10px}
+  .rc-balance-value{position:relative;display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;font-family:'Montserrat',system-ui,sans-serif;font-size:clamp(32px,3.3vw,48px);font-weight:700;line-height:1.2;letter-spacing:-1.5px;font-variant-numeric:tabular-nums;color:#fff;overflow-wrap:anywhere}
+  .rc-balance-value .rc-balance-unit{font-size:12px;letter-spacing:0;font-weight:500;color:#d9edef;opacity:1}.rc-balance-value .rc-balance-unavailable{font:inherit;font-size:28px;letter-spacing:-.5px}
+  .rc-currency-value{font-size:12px;line-height:1.7;color:#d9edef;margin:9px 0 22px}
+  .rc-wallet-decoration{position:absolute;z-index:-1;right:-42px;top:45px;width:180px;color:#d8c38a24;pointer-events:none}.rc-wallet-decoration svg{display:block;width:100%}
+  .rc-wallet-bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:17px;margin-top:auto;border-top:1px solid #ffffff20}
+  .rc-today-label{display:block;font-size:10px;color:#bcd9dd;margin-bottom:6px}.rc-wallet-bottom strong{display:block;font-size:12px;font-weight:650;line-height:1.6}.rc-wallet-bottom strong small{display:block;font-size:10px;color:#d9edef;font-weight:500}
+  .rc-convert-link{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 11px;min-height:40px;border:1px solid #d8bd784a;border-radius:10px;background:#ffffff08;color:#e6d4a6;font:inherit;font-size:10px;font-weight:600;cursor:pointer}.rc-convert-link:hover{background:#ffffff12}.rc-convert-link:disabled{opacity:.45;cursor:not-allowed}
+  .rc-wallet-error{display:flex;align-items:center;gap:7px;font-size:11px;color:#fae7b4;line-height:1.7;margin:0 0 16px}.rc-wallet-error svg{flex-shrink:0}.rc-wallet-error button{border:1px solid #d5c17f66;border-radius:6px;background:transparent;color:#fff;padding:4px 8px;font:inherit;cursor:pointer}
+  .rc-balance-skeleton{display:block;width:220px;height:44px!important;border-radius:8px;background:linear-gradient(90deg,#ffffff12,#ffffff25,#ffffff12);background-size:200% 100%;animation:rc-soft-shimmer 1.6s linear infinite}
+  .rc-recharge-card{grid-area:recharge;padding:27px;animation:rc-enter 360ms 90ms ease-out both;border-color:#dce5e7}
+  .rc-panel-heading{display:flex;align-items:center;gap:12px}.rc-panel-icon{display:grid;place-items:center;flex-shrink:0;width:42px;height:42px;border-radius:13px;background:#f5eedc;border:1px solid #e8daba;color:#a07b3d}
+  .rc-eyebrow{display:block;color:#9c8356;font-size:10px;font-weight:650;letter-spacing:1.45px;margin-bottom:6px}
+  .rc-section-title{font-size:18px;font-weight:700;color:var(--rc-ink);letter-spacing:-.4px;margin:0;line-height:1.4}
+  .rc-panel-copy{font-size:12px;color:#5c7079;line-height:1.8;margin:16px 0 22px;max-width:400px}
+  .rc-field-label{display:block;font-size:11px;color:#294e59;font-weight:600;margin:0 0 9px}
+  .rc-amount-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-bottom:21px}
+  .rc-amount-btn{position:relative;display:flex;align-items:center;justify-content:center;gap:5px;min-height:52px;padding:12px 8px;border:1px solid #d5e1e5;border-radius:12px;background:#fff;color:#173f4b;font-family:inherit;font-size:13px;font-weight:650;white-space:nowrap;transition:background 160ms,border-color 160ms,box-shadow 160ms}
+  .rc-amount-btn:hover{background:#f0f8f9;border-color:#6c9ca6}.rc-amount-btn.active{color:#fff;background:#0a4650;border-color:#0a4650;box-shadow:inset 0 0 0 .5px #0a4650}.rc-amount-check{color:#f2d28b;flex-shrink:0}.rc-amount-btn:disabled{cursor:default;opacity:.65}
+  .rc-rate-note{display:flex;align-items:center;gap:5px;font-size:10px;color:#5e747d;margin:9px 0 20px}
+  .rc-coin-preview{display:flex;align-items:center;justify-content:flex-start;gap:12px;padding:17px 15px;margin-bottom:0;border:1px solid #cbdfe2;border-radius:14px;background:linear-gradient(110deg,#eaf5f6,#f4fafb);color:#0b4e58;transition:background 180ms}
+  .rc-preview-icon{display:grid;place-items:center;flex-shrink:0;width:39px;height:39px;border-radius:12px;background:#cfe7eb;color:#125f6d}.rc-coin-preview>div{min-width:0;flex:1}.rc-coin-preview small{display:block;font-size:10px;font-weight:650;letter-spacing:1.1px;color:#496c76;margin-bottom:6px}.rc-coin-preview strong{display:block;font-size:21px;font-weight:700;color:#073b3f;letter-spacing:-.4px;line-height:1.4;overflow-wrap:anywhere}.rc-coin-preview strong>span{font-size:11px;letter-spacing:0;font-weight:550}.rc-preview-check{color:#157367;flex-shrink:0}
+  .rc-after-balance{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:11px;line-height:1.7;color:#647c84;margin:12px 0 0}.rc-after-balance strong{font-size:10px;font-weight:600;color:#264f5b;text-align:right}
+  .rc-pay-btn{display:flex;align-items:center;justify-content:center;gap:10px;min-height:54px;padding:16px 24px;margin-top:21px;border:1px solid #b68d4d;border-radius:13px;background:linear-gradient(110deg,#b98c4e,#d5b276);color:#1f302f;font-family:inherit;font-size:13px;font-weight:750;letter-spacing:0;text-transform:none;box-shadow:0 5px 16px #a9833d18;transition:box-shadow 160ms,transform 160ms,filter 160ms}
+  .rc-pay-btn>span{flex:0 1 auto}.rc-pay-btn>svg{flex-shrink:0}.rc-pay-btn:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 8px 18px #a9833d26;filter:brightness(1.025)}.rc-pay-btn:disabled{background:#e3e9da;border-color:#d7e0cc;color:#929e80;box-shadow:none}
+  .rc-payment-note{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:13px;color:#4f6a75;font-size:11px;line-height:1.8;text-align:center}.rc-payment-note svg{flex-shrink:0}
+  .rc-payment-options{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:16px;font-size:11px;color:#5c737c}.rc-payment-options i{width:3px;height:3px;border-radius:50%;background:#9cb4bd}.rc-payment-options small{margin-left:4px;font-size:10px;color:#667b84}
+  .rc-recent-card{grid-area:recent;padding:23px 26px;animation:rc-enter 360ms 130ms ease-out both}
+  .rc-activity-heading,.rc-history-heading{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:12px}.rc-activity-heading button{display:flex;align-items:center;gap:4px;padding:8px 0 8px 10px;border:0;background:transparent;color:#0c6170;font:inherit;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .rc-history-row{gap:12px;padding:14px 0;border-bottom:1px solid #e5edef;border-radius:0}.rc-history-row:hover{background:#f5f9fa}.rc-history-icon{width:44px;height:44px;border-radius:14px;background:#e9f1f4;color:#285b70;font-weight:500}.rc-history-body{overflow-wrap:anywhere}.rc-history-amount{font-size:12px;font-weight:650;line-height:1.7;margin-bottom:3px}.rc-history-coins{font-weight:650;color:#116553}.rc-history-date{font-size:10px;font-weight:450;color:#607782}.rc-history-source{font-size:10px;font-weight:500;color:#536d78;margin-top:3px;line-height:1.6}.rc-method-tag{font-size:10px;font-weight:600;padding:4px 7px;border-radius:6px;letter-spacing:.2px;background:transparent;color:#204c59}.rc-direction-badge{font-size:9px;font-weight:650;padding:2px 6px;letter-spacing:.2px;margin-left:6px}
+  .rc-transactions{margin-top:24px;padding:27px 30px;scroll-margin-top:220px;animation:rc-enter 360ms 150ms ease-out both}.rc-history-heading{margin-bottom:24px}.rc-history-heading p{font-size:11px;color:#607782;margin:7px 0 0;line-height:1.8}.rc-history-emblem{display:grid;place-items:center;width:43px;height:43px;border:1px solid #dce7ea;border-radius:13px;background:#f1f7f9;color:#2c7180;flex-shrink:0}
+  .rc-filter-tabs{gap:7px}.rc-filter-tab{font-family:inherit;min-height:38px;border-radius:10px;padding:8px 13px;border:1px solid #e0e7d8;background:#f5f9fa;font-size:10px;font-weight:550;color:#45616e}.rc-filter-tab.active{background:#0a4650;color:#fff;border-color:#0a4650}.rc-download-btn{min-height:38px;padding:9px 12px;border-radius:10px;border:1px solid #cddde3;font-size:10px;font-family:inherit;font-weight:600;color:#18596b;background:#fff}.rc-download-btn:hover{background:#f1f6e8;color:#4e7135}
+  .rc-date-header{font-size:11px;letter-spacing:.7px;font-weight:600;color:#526e7a;padding:17px 0 8px}.rc-history-loading,.rc-activity-loading{display:flex;align-items:center;gap:8px;font-size:11px;color:#8d9b7b;padding:16px 0}
+  .rc-banner{display:flex;align-items:flex-start;gap:9px;padding:13px;border-radius:12px;font-size:11px;font-weight:500;line-height:1.8}.rc-banner>svg{flex-shrink:0;margin-top:1px}.rc-banner.success{background:#eff7e8;border-color:#c9ddb5;color:#50753c;animation:rc-enter 250ms ease-out both}.rc-banner.error{background:#fff5ef;border-color:#ebd3bd;color:#a87550}.rc-banner button{margin-left:auto;border:1px solid #d6dbc5;border-radius:7px;padding:5px 8px;background:#fff;color:#6c7e54;font:inherit;cursor:pointer}.rc-empty{font-size:12px;line-height:1.8;color:#5e7580;padding:22px 0}
+  .rc-modal-backdrop{z-index:12000!important;padding:16px!important;background:#12352d80!important;backdrop-filter:blur(5px)}.rc-settings-modal{max-height:calc(100dvh - 32px);overflow-y:auto;border:1px solid #dbe4d1!important;border-radius:22px!important;box-shadow:0 24px 70px #143d3026!important;font-family:inherit}
+  .rc-page button:focus-visible,.rc-page input:focus-visible{outline:2px solid #a3854b;outline-offset:3px}.rc-spin{animation:rc-spin 1s linear infinite}
+  @keyframes rc-enter{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes rc-spin{to{transform:rotate(360deg)}}
+  @keyframes rc-soft-shimmer{to{background-position:-200% 0}}
+  @keyframes rc-wallet-sheen{from{left:-60%}to{left:140%}}
+  @media(max-width:1000px){.rc-main{width:calc(100% - 40px)}.rc-hero{align-items:flex-start}.rc-hero-actions{flex-wrap:wrap;justify-content:flex-end;max-width:260px}.rc-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:17px}.rc-card{padding:23px}.rc-balance-value{font-size:36px}.rc-wallet-bottom{flex-wrap:wrap}.rc-convert-link{margin-top:2px}.rc-amount-btn{font-size:11px;padding-inline:5px}}
+  @media(max-width:760px){.rc-main{width:calc(100% - 28px);padding:23px 0 44px}.rc-hero{flex-direction:column;gap:18px;margin-bottom:22px}.rc-title{font-size:32px;letter-spacing:-.8px}.rc-subtitle{font-size:12px;line-height:1.8;max-width:340px}.rc-hero-actions{max-width:none;justify-content:flex-start;width:100%;gap:8px}.rc-dashboard-link,.rc-autopay-btn{min-height:41px;font-size:10px;padding:10px 12px}.rc-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:'balance' 'recharge' 'recent';gap:17px}.rc-card{padding:22px;border-radius:19px}.rc-balance-card{min-height:270px;padding:24px 23px 20px}.rc-wallet-top{margin-bottom:24px}.rc-balance-value{font-size:39px}.rc-wallet-bottom{flex-wrap:nowrap}.rc-section-title{font-size:18px}.rc-recharge-card{padding:23px 21px}.rc-amount-btn{font-size:13px;min-height:52px}.rc-recent-card{padding:22px}.rc-transactions{padding:23px 20px;scroll-margin-top:170px}.rc-history-heading{gap:10px}.rc-filter-row{align-items:stretch}.rc-filter-tabs{flex-wrap:wrap}.rc-coin-preview strong{font-size:24px}}
+  @media(max-width:480px){.rc-main{width:calc(100% - 24px)}.rc-title{font-size:29px}.rc-kicker{font-size:9px}.rc-wallet-label{font-size:10px;letter-spacing:1px}.rc-wallet-top{gap:8px}.rc-balance-value{font-size:clamp(27px,9vw,39px)}.rc-wallet-bottom{gap:10px;align-items:flex-end}.rc-convert-link{font-size:11px;min-height:39px;padding:9px 8px}.rc-amount-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.rc-amount-btn:last-child{grid-column:1/-1}.rc-after-balance{flex-wrap:wrap;gap:4px}.rc-pay-btn{font-size:12px;min-height:53px}.rc-payment-note{font-size:9px}.rc-history-row{gap:9px;flex-wrap:wrap}.rc-history-row .rc-history-body{min-width:calc(100% - 50px)}.rc-history-row .rc-method-tag{margin-left:45px}.rc-filter-tab{padding:8px 10px;font-size:10px}.rc-coin-preview{padding:15px 12px}.rc-coin-preview strong{font-size:21px}.rc-preview-icon{width:34px;height:37px}.rc-history-emblem{width:36px;height:36px}.rc-modal-backdrop{padding:12px!important}.rc-settings-modal{padding:22px 18px!important}}
+  /* Crisp teal and champagne details, with a compact statement layout. */
+  .rc-recharge-card{align-self:start}.rc-gold-discovery + .rc-pay-btn{margin-top:0}
+  .rc-card{box-shadow:0 8px 30px #153a4810;border-radius:20px}
+  .rc-hero{margin-bottom:26px}.rc-title{font-size:clamp(30px,3.2vw,46px)}.rc-subtitle{font-size:14px;color:#526b76}
+  .rc-dashboard-link{background:#073b3f;color:#fff;border-color:#073b3f;box-shadow:0 5px 14px #073b3f18}.rc-dashboard-link:hover{background:#10535b;color:#fff;border-color:#10535b}.rc-dashboard-link>svg:first-child{color:#edc878}
+  .rc-dashboard-link,.rc-autopay-btn{min-height:46px;font-size:12px}.rc-autopay-btn{background:#fff}
+  .rc-balance-card{border-color:#21616b;box-shadow:0 16px 35px #073b3f20}.rc-wallet-label{font-size:12px}.rc-wallet-mark{background:radial-gradient(circle at 30% 25%,#fff2ba,#dbb85f 60%,#9c7029);color:#59401c;border:3px double #fff0ad;box-shadow:0 4px 14px #0002;font-weight:700;transform:none;width:44px;height:44px}
+  .rc-wallet-icon{background:#ffffff10;color:#f3d596;border-color:#ffffff30}.rc-balance-label{font-size:13px}.rc-currency-value{color:#d9edef;font-size:14px}.rc-wallet-decoration{color:#e5c27030;width:220px;right:-50px;top:25px}.rc-convert-link{font-size:12px;font-weight:650;color:#f8dfaa;background:#ffffff0e;border-color:#d9b96170;min-height:44px}
+  .rc-section-title{font-size:21px;letter-spacing:-.5px}.rc-panel-copy{font-size:13px;max-width:none;margin:14px 0 20px}.rc-field-label{font-size:12px}.rc-rate-note{font-size:11px}.rc-panel-icon{background:#073b3f;color:#f4d497;border-color:#073b3f}
+  .rc-amount-btn{font-size:14px;min-height:54px}.rc-amount-btn.active{box-shadow:0 5px 14px #073b3f1c}.rc-amount-btn.active:hover{background:#10535b}.rc-coin-preview strong{font-size:25px}.rc-pay-btn{min-height:56px;background:linear-gradient(115deg,#e3bf7b,#f2dca9);border-color:#cfa357;color:#342817;font-size:15px;box-shadow:0 6px 20px #a57d3530}.rc-pay-btn:disabled{background:#e5ecef;border-color:#d5dfe4;color:#72838c}.rc-payment-note{font-size:11px;color:#486976}
+  .rc-transactions{width:100%;max-width:none;margin:22px 0 0;padding:28px 32px}.rc-history-heading p{font-size:12px}.rc-history-heading{margin-bottom:20px}.rc-filter-tab,.rc-download-btn{font-size:12px}.rc-filter-tab:hover:not(.active){background:#eaf3f6;border-color:#a6c7d1}.rc-download-btn:hover{background:#073b3f;color:#fff}
+  .rc-history-row{align-items:flex-start;gap:14px;padding:20px 8px;border-bottom:1px solid #e4ecef;border-radius:10px;transition:background 160ms}.rc-history-row:hover{background:#f5f9fa}.rc-history-icon{margin-top:2px;width:46px;height:46px;border:1px solid #dae7eb;box-shadow:inset 0 1px 0 #fff}
+  .rc-history-icon.reward{color:#9b6611;background:#fff4d9;border-color:#efdcaa}.rc-history-icon.digi{color:#8b621d;background:linear-gradient(135deg,#fff6dc,#f4e4ba);border-color:#e8cf93}.rc-history-icon.commission{color:#5144a1;background:#f0edff;border-color:#dfd8fc}.rc-history-icon.purchase{color:#16596e;background:#e8f4f8;border-color:#cfe5ed}.rc-history-icon.wallet{color:#106c65;background:#e5f5f0;border-color:#c9e6df}
+  .rc-history-body{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:4px 18px;min-width:0}.rc-history-body>.rc-method-tag{justify-self:start;grid-column:1;grid-row:1;padding:0;border-radius:0;margin:0;background:transparent;font-size:14px;font-weight:750;text-transform:capitalize;letter-spacing:0;color:#163f4e;line-height:1.6}
+  .rc-history-body>.rc-method-tag.reward{color:#8d5a0c}.rc-history-body>.rc-method-tag.digi{color:#875c15}.rc-history-body>.rc-method-tag.commission{color:#59479e}
+  .rc-history-amount{grid-column:2;grid-row:1 / 3;text-align:right;font-size:14px;line-height:1.7;font-weight:700;margin:0;max-width:360px}.rc-history-coins{color:#107461}.rc-history-row.is-debit .rc-history-coins{color:#164c60}.rc-history-date{grid-column:1;grid-row:2;font-size:11px;color:#647c88}.rc-history-source{grid-column:1 / -1;color:#526c78;font-size:12px;font-weight:500;line-height:1.7;margin-top:2px}.rc-direction-badge{font-size:9px;padding:3px 7px;vertical-align:middle}.rc-direction-badge.credit{background:#e2f3eb;color:#147049}.rc-direction-badge.debit{background:#faeaea;color:#b33535}
+  .rc-recent-card .rc-history-row{padding:16px 0}.rc-recent-card .rc-history-body{grid-template-columns:minmax(0,1fr)}.rc-recent-card .rc-history-amount{grid-column:1;grid-row:2;text-align:left;max-width:none;font-size:13px}.rc-recent-card .rc-history-date{grid-row:3}.rc-recent-card .rc-history-source{font-size:11px}.rc-activity-heading button{font-size:12px;color:#145c6c}.rc-date-header{font-size:11px;font-weight:700;color:#536f7e;border-bottom:1px solid #edf2f4;margin-top:8px;padding:14px 8px 9px}
+  .rc-history-sentinel{height:2px;pointer-events:none}.rc-history-end{display:flex;align-items:center;justify-content:center;gap:7px;margin:20px 0 0;padding:14px;color:#657e88;font-size:12px;border-top:1px solid #edf2f4}
+  .rc-skeleton-row{display:flex;align-items:center;gap:14px;padding:20px 8px;border-bottom:1px solid #edf2f4}.rc-skeleton-row>div{flex:1;min-width:0}.rc-skeleton-block{display:block;position:relative;overflow:hidden;background:#e9eff2;border-radius:6px}.rc-skeleton-block::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,#ffffffb0,transparent);transform:translateX(-100%);animation:rc-skeleton-sweep 1.5s ease-in-out infinite}.rc-skeleton-icon{width:46px;height:46px;border-radius:14px;flex-shrink:0}.rc-skeleton-title{width:42%;max-width:170px;height:13px;margin-bottom:10px}.rc-skeleton-detail{width:65%;max-width:240px;height:10px}.rc-skeleton-value{width:110px;height:16px}.rc-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  @keyframes rc-skeleton-sweep{to{transform:translateX(100%)}}
+  @media(max-width:760px){.rc-transactions{padding:24px 18px}.rc-title{font-size:32px}.rc-section-title{font-size:20px}.rc-dashboard-link,.rc-autopay-btn{font-size:12px}.rc-history-body{grid-template-columns:minmax(0,1fr)}.rc-history-amount{grid-column:1;grid-row:2;text-align:left;max-width:none;font-size:14px}.rc-history-date{grid-row:3}.rc-history-source{font-size:12px}.rc-history-row{padding:18px 0;flex-wrap:nowrap;gap:12px}.rc-history-row .rc-history-body{min-width:0}.rc-history-row .rc-method-tag{margin-left:0}.rc-history-icon{width:42px;height:42px;border-radius:12px}.rc-direction-badge{white-space:nowrap}.rc-skeleton-value{width:65px}.rc-filter-tab,.rc-download-btn{font-size:11px}.rc-amount-btn{font-size:14px}.rc-pay-btn{font-size:14px}.rc-currency-value{font-size:13px}}
+  .rc-hero-with-art{position:relative;isolation:isolate;display:block;overflow:hidden;min-height:270px;padding:32px 36px;border-radius:22px;background:#062d30;border:1px solid #285252;box-shadow:0 12px 30px #073b3f15}
+  .rc-hero-art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:-2;pointer-events:none}
+  .rc-hero-with-art::after{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#021c24b3 0%,#021c2470 50%,transparent 78%);pointer-events:none}
+  .rc-hero-with-art .rc-hero-copy{max-width:68%}.rc-hero-with-art .rc-kicker{color:#f1d598}.rc-hero-with-art .rc-title{color:#fff8e8;font-size:clamp(29px,3vw,43px);text-wrap:balance}.rc-hero-with-art .rc-subtitle{color:#d3e4e3;max-width:490px;font-size:13px}.rc-hero-with-art .rc-hero-actions{margin-top:22px;justify-content:flex-start;max-width:none;flex-wrap:wrap}
+  .rc-hero-with-art .rc-dashboard-link{background:#f3dbab;color:#342b19;border-color:#e6c78c}.rc-hero-with-art .rc-dashboard-link>svg:first-child{color:#80601e}.rc-hero-with-art .rc-dashboard-link:hover{background:#fbe8c3;color:#342b19}.rc-hero-with-art .rc-autopay-btn{background:#073b3fcc;color:#fff;border-color:#ffffff45}
+  .rc-gold-discovery{display:flex;align-items:center;text-align:left;gap:14px;width:100%;padding:0 16px 0 0;margin:18px 0 22px;border:1px solid #ddc998;border-radius:14px;overflow:hidden;background:#fcf8ed;font:inherit;color:#133f49;cursor:pointer;transition:border-color 160ms,box-shadow 160ms}
+  .rc-gold-discovery:hover{border-color:#b48e45;box-shadow:0 5px 15px #8a6a2312}.rc-gold-discovery>img{width:98px;height:102px;object-fit:cover;flex-shrink:0}.rc-gold-discovery>span{flex:1;min-width:0}.rc-gold-discovery small{display:block;color:#8e6c2e;font-size:9px;letter-spacing:1.3px;font-weight:700;margin-bottom:5px}.rc-gold-discovery strong{display:block;font-size:16px;font-weight:750;line-height:1.4}.rc-gold-discovery>span>span{display:block;font-size:11px;line-height:1.6;margin-top:5px;color:#5e727a}.rc-gold-discovery>svg{flex-shrink:0;color:#8e6c2e}
+  @media(max-width:760px){.rc-hero-with-art{min-height:280px;padding:24px;border-radius:19px}.rc-hero-art{object-position:65% center}.rc-hero-with-art::after{background:linear-gradient(90deg,#021c24dc,#021c2490 65%,#021c2433)}.rc-hero-with-art .rc-hero-copy{max-width:90%}.rc-hero-with-art .rc-title{font-size:30px}.rc-hero-with-art .rc-subtitle{font-size:12px;max-width:290px}.rc-hero-with-art .rc-hero-actions{gap:8px;margin-top:20px}.rc-gold-discovery{gap:10px;padding-right:12px}.rc-gold-discovery>img{width:78px;height:100px}.rc-gold-discovery strong{font-size:14px}.rc-gold-discovery>span>span{font-size:10px}}
+  .rc-amount-input-wrap{display:flex;align-items:center;border:1px solid #c4d5da;border-radius:12px;background:#fff;overflow:hidden;flex-shrink:0}.rc-amount-input-wrap:focus-within{border-color:#236f79;box-shadow:0 0 0 3px #236f791c}.rc-amount-input-wrap>span{padding-left:16px;font-size:14px;font-weight:650;color:#526c76}
+  .rc-custom-input{width:100%;box-sizing:border-box;font-family:inherit;margin:0;min-height:54px;min-width:0;padding:14px 12px;border:0;background:transparent;font-size:19px;font-weight:650;color:#0b414b}.rc-custom-input:focus{outline:none}.rc-custom-input::placeholder{font-size:14px;font-weight:400;color:#788d96}
+  @media(prefers-reduced-motion:reduce){.rc-page *,.rc-page *::before,.rc-page *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.rc-balance-card::before{display:none}}
+
 `
 
 export default function Recharge() {
@@ -147,8 +227,12 @@ export default function Recharge() {
     history: [],
   })
   const [loadingWallet, setLoadingWallet] = useState(true)
+  const [walletReady, setWalletReady] = useState(false)
+  const [walletError, setWalletError] = useState('')
+  const [historyLoading, setHistoryLoading] = useState(true)
+  const [historyError, setHistoryError] = useState('')
+  const historyRequest = useRef(0)
   const [selectedAmount, setSelectedAmount] = useState(100)
-  const [customAmount, setCustomAmount] = useState('')
   const [paying, setPaying] = useState(false)
   const [banner, setBanner] = useState(null) // { type: 'success' | 'error', text }
   const [goldRate22k, setGoldRate22k] = useState(7045)
@@ -156,25 +240,29 @@ export default function Recharge() {
   const [convertAmount, setConvertAmount] = useState('100')
   const [converting, setConverting] = useState(false)
 
+  const [customAmount, setCustomAmount] = useState('')
   const amount = customAmount ? Number(customAmount) : selectedAmount
   const coinsPreview = amount > 0 ? Math.floor(amount * COIN_RATE) : 0
+  const validAmount = Number.isFinite(amount) && amount >= 1
+  const formatMoney = value => Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })
 
   const fetchWallet = async () => {
+    setWalletError('')
     try {
       const { default: api } = await import('../api')
       const res = await api.get('/wallet/')
-      setWallet(res.data)
-    } catch {
-      // silent — page still usable
-    } finally {
-      setLoadingWallet(false)
-    }
+      setWallet(res.data); setWalletReady(true)
+    } catch { setWalletError('Your balance could not refresh. Please try again.') }
+    finally { setLoadingWallet(false) }
   }
 
   const [fullHistory, setFullHistory] = useState([])
   const [historyPage, setHistoryPage] = useState(1)
   const [hasMoreHistory, setHasMoreHistory] = useState(false)
-  const [loadingMore, setLoadingMore] = useState(false)
+  const historySentinel = useRef(null)
+  const historyInFlight = useRef(false)
+  const historyQuery = useRef({ filter: 'today', from: '', to: '' })
+  const failedHistoryPage = useRef(1)
   const [activeFilter, setActiveFilter] = useState('today')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
@@ -185,6 +273,28 @@ const [autopayAmount, setAutopayAmount] = useState('')
 const [autopayDay, setAutopayDay] = useState(5)
 const [autopayFrequency, setAutopayFrequency] = useState('monthly')
 const [autopayLoading, setAutopayLoading] = useState(false)
+
+
+  const settingsModalRef = useRef(null)
+  useEffect(() => {
+    if (!showAutopayModal && !showConvertModal) return
+    const opener = document.activeElement
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    settingsModalRef.current?.focus({ preventScroll: true })
+    const handleKey = event => {
+      if (autopayLoading || converting || paying) return
+      if (event.key === 'Escape') { event.preventDefault(); setShowAutopayModal(false); setShowConvertModal(false) }
+      if (event.key === 'Tab') {
+        const controls = [...(settingsModalRef.current?.querySelectorAll('button:not(:disabled), input:not(:disabled), select') || [])].filter(element => element.getClientRects().length)
+        const first = controls[0], last = controls[controls.length - 1]
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === settingsModalRef.current)) { event.preventDefault(); last?.focus() }
+        else if (!event.shiftKey && (document.activeElement === last || document.activeElement === settingsModalRef.current)) { event.preventDefault(); first?.focus() }
+      }
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => { document.body.style.overflow = previous; document.removeEventListener('keydown', handleKey); if (opener?.isConnected) opener.focus({ preventScroll: true }) }
+  }, [showAutopayModal, showConvertModal, autopayLoading, converting, paying])
 
 const fetchAutopayStatus = async () => {
   try {
@@ -223,7 +333,7 @@ const handleEnableAutopay = async () => {
       name: 'BitByte Wallet Autopay',
       description: autopayFrequency === 'daily'
         ? `₹${autopayAmount} every week`
-        : `₹${autopayAmount} every month on day ${autopayDay}`, 
+        : `₹${autopayAmount} every month on day ${autopayDay}`,
       handler: async response => {
         try {
           const confirmRes = await api.post('/autopay/confirm/', {
@@ -266,25 +376,38 @@ const handleToggleAutopay = async () => {
 }
 
   const fetchHistory = async (page = 1, filter = activeFilter, from = customFrom, to = customTo) => {
+    const request = ++historyRequest.current
+    historyInFlight.current = true
+    failedHistoryPage.current = page
+    if (page === 1) { historyQuery.current = { filter, from, to }; setFullHistory([]); setHasMoreHistory(false) }
+    setHistoryLoading(true); setHistoryError('')
     try {
       const { default: api } = await import('../api')
       let url = `/recharge/history/?page=${page}&period=${filter}`
       if (filter === 'custom' && from && to) url += `&start_date=${from}&end_date=${to}`
       const res = await api.get(url)
+      if (request !== historyRequest.current) return
       setFullHistory(prev => page === 1 ? res.data.items : [...prev, ...res.data.items])
       setHasMoreHistory(res.data.has_more)
       setHistoryPage(page)
     } catch {
-      // silent
+      if (request === historyRequest.current) setHistoryError('Could not load your transactions. Please try again.')
     } finally {
-      setLoadingMore(false)
+      if (request === historyRequest.current) { historyInFlight.current = false; setHistoryLoading(false) }
     }
   }
 
-  const loadMoreHistory = () => {
-    setLoadingMore(true)
-    fetchHistory(historyPage + 1, activeFilter, customFrom, customTo)
-  }
+  useEffect(() => {
+    const node = historySentinel.current
+    if (!node || !hasMoreHistory || historyLoading || historyError) return
+    const observer = new IntersectionObserver(entries => {
+      if (!entries.some(entry => entry.isIntersecting) || historyInFlight.current) return
+      const { filter, from, to } = historyQuery.current
+      fetchHistory(historyPage + 1, filter, from, to)
+    }, { rootMargin: '0px 0px 240px 0px' })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [hasMoreHistory, historyLoading, historyError, historyPage])
 
   const handleFilterClick = filter => {
     setActiveFilter(filter)
@@ -409,7 +532,7 @@ const handleToggleAutopay = async () => {
   })
 
   const handleBuyRecharge = async () => {
-    if (!amount || amount <= 0) {
+    if (!validAmount) {
       setBanner({ type: 'error', text: 'Please enter a valid amount' })
       return
     }
@@ -447,6 +570,7 @@ const handleToggleAutopay = async () => {
               setBanner({ type: 'success', text: `Recharge successful! ${verifyRes.data.coins_credited} Revive added.` })
               setCustomAmount('')
               fetchWallet()
+              fetchHistory(1, activeFilter, customFrom, customTo)
             } else {
               setBanner({ type: 'error', text: 'Payment verification failed. Please contact support.' })
             }
@@ -485,135 +609,56 @@ const handleToggleAutopay = async () => {
     <div className="rc-page">
       <style>{rechargeStyles}</style>
       <main className="rc-main">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-  <div>
-    <p className="rc-kicker">Wallet</p>
-    <h1 className="rc-title" style={{ marginBottom: 0 }}>Recharge &amp; AUG Revive</h1>
-  </div>
-  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-    <button
-      type="button"
-      onClick={() => navigate('/digi-gold')}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 20,
-        border: '1.5px solid #C6924B', background: '#0A3E42',
-        color: '#FFFFFF', fontWeight: 800, fontSize: 12, cursor: 'pointer',
-        boxShadow: '0 2px 8px rgba(10, 62, 66, 0.15)'
-      }}
-    >
-      <span style={{ color: '#C6924B' }}>✦</span> Digi Gold Dashboard
-    </button>
-    <button
-      type="button"
-      className="rc-autopay-btn"
-      onClick={() => setShowAutopayModal(true)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 20,
-        border: `1.5px solid ${autopay.is_active ? '#16a34a' : '#D1DFDE'}`,
-        background: autopay.is_active ? 'rgba(22,163,74,.08)' : '#FDFDFC',
-        color: autopay.is_active ? '#16a34a' : DARK, fontWeight: 800, fontSize: 12, cursor: 'pointer'
-      }}
-    >
-      Autopay: {autopay.is_active ? 'ON' : 'OFF'}
-    </button>
-  </div>
-</div>
+        <header className="rc-hero rc-hero-with-art">
+          <img className="rc-hero-art" src="/wallet-banner.png" alt="" width="2048" height="768" fetchPriority="high" decoding="async" />
+          <div className="rc-hero-copy"><p className="rc-kicker"><span /> YOUR EVERYDAY WALLET</p><h1 className="rc-title">Your wallet. More possibilities.</h1><p className="rc-subtitle">Your AUG Revive balance, recharges and activity. All in one place.</p></div>
+          <div className="rc-hero-actions"><button type="button" className="rc-dashboard-link" onClick={() => navigate('/digi-gold')}><Gem size={17} /> Digi Gold <ArrowUpRight size={15} /></button><button type="button" className={`rc-autopay-btn ${autopay.is_active ? 'is-on' : ''}`} onClick={() => setShowAutopayModal(true)}><Repeat2 size={15} /><span>Autopay <strong>{autopay.is_active ? 'ON' : 'OFF'}</strong></span><ChevronDown size={13} /></button></div>
+        </header>
 
         <div className="rc-grid">
-          {/* LEFT: Buy Recharge */}
-          <section className="rc-card">
-            <h3 className="rc-section-title">Buy Recharge</h3>
-
-            {banner && <div className={`rc-banner ${banner.type}`}>{banner.text}</div>}
-
-            <div className="rc-amount-grid">
-              {PRESET_AMOUNTS.map(amt => (
-                <button
-                  key={amt}
-                  type="button"
-                  className={`rc-amount-btn ${!customAmount && selectedAmount === amt ? 'active' : ''}`}
-                  onClick={() => { setSelectedAmount(amt); setCustomAmount('') }}
-                >
-                  ₹{amt}
-                </button>
-              ))}
-            </div>
-
-            <input
-              className="rc-custom-input"
-              type="number"
-              min="1"
-              placeholder="Enter custom amount (₹)"
-              value={customAmount}
-              onChange={e => setCustomAmount(e.target.value)}
-            />
-
-            <div className="rc-coin-preview">
-              <span>You'll get</span>
-              <span>{coinsPreview.toLocaleString('en-IN')} AUG Revive (₹{amount || 0})</span>
-            </div>
-
-            <button className="rc-pay-btn" disabled={paying || amount <= 0} onClick={handleBuyRecharge}>
-              {paying ? 'Processing...' : `Pay ₹${amount || 0} & Recharge`}
-            </button>
-          </section>
-
-          {/* RIGHT: Available Coin + Recent Recharges */}
-          <div style={{ display: 'grid', gap: 20, alignContent: 'start' }}>
-            <section className="rc-card rc-balance-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span className="rc-balance-label" style={{ margin: 0 }}>Available AUG Revive</span>
-                <button
-                  type="button"
-                  onClick={() => setShowConvertModal(true)}
-                  title="Convert AUG Revive to 22K Digi Gold"
-                  style={{
-                    padding: '4px 11px',
-                    borderRadius: 999,
-                    background: 'rgba(198, 146, 75, 0.18)',
-                    border: '1px solid #C6924B',
-                    color: '#F8FAF9',
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    letterSpacing: '0.3px',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 5,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <span style={{ color: '#C6924B', fontWeight: 900 }}>Au</span>
-                  <span>Convert Digi Gold</span>
-                </button>
-              </div>
-              <div className="rc-balance-value">
-                {loadingWallet ? '...' : (wallet.balance_coins || 0).toLocaleString('en-IN')}
-                <span>Revive</span>
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255, 255, 255, 0.82)', marginTop: -2, letterSpacing: '0.2px' }}>
-                ≈ ₹ {((wallet.balance_coins || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-              <div className="rc-today-row">
-                <span>Today Recharged</span>
-                <span>₹{(wallet.today_amount || 0).toLocaleString('en-IN')} · {(wallet.today_coins || 0).toLocaleString('en-IN')} Revive</span>
-              </div>
+            <section className="rc-card rc-balance-card" aria-label="Your available AUG Revive balance" aria-busy={loadingWallet}>
+              <div className="rc-wallet-decoration" aria-hidden="true"><svg viewBox="0 0 170 170" fill="none"><circle cx="115" cy="87" r="65" stroke="currentColor" /><circle cx="115" cy="87" r="49" stroke="currentColor" /><circle cx="115" cy="87" r="32" stroke="currentColor" /><path d="M106 73h18m-18 7h18m-18-7c20 0 20 22 0 22l19 18" stroke="currentColor" strokeWidth="2" /></svg></div>
+              <div className="rc-wallet-top"><span className="rc-wallet-label"><span className="rc-wallet-icon"><WalletCards size={20} /></span> YOUR AUG REVIVE WALLET</span><span className="rc-wallet-mark" aria-hidden="true">AUG</span></div>
+              <p className="rc-balance-label">Available balance</p>
+              <div className="rc-balance-value">{!walletReady ? loadingWallet ? <span className="rc-balance-skeleton" aria-label="Loading balance" /> : <span className="rc-balance-unavailable">Unavailable</span> : (wallet.balance_coins || 0).toLocaleString('en-IN')}<span className="rc-balance-unit">Revive</span></div>
+              <div className="rc-currency-value">{walletReady ? `Equivalent to Rs. ${((wallet.balance_coins || 0) / COIN_RATE).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Your balance will appear once loaded.'}</div>
+              {walletError && <div className="rc-wallet-error" role="alert"><AlertCircle size={15} /><span>{walletError}</span><button type="button" onClick={fetchWallet}>Retry</button></div>}
+              <div className="rc-wallet-bottom"><div><span className="rc-today-label">Today recharged</span><strong>{walletReady ? `Rs. ${formatMoney(wallet.today_amount)} ` : '--'}<small>{walletReady ? `${(wallet.today_coins || 0).toLocaleString('en-IN')} Revive` : ''}</small></strong></div><button type="button" className="rc-convert-link" disabled={!walletReady} onClick={() => setShowConvertModal(true)}>Convert to Digi Gold <ArrowUpRight size={15} /></button></div>
             </section>
+          <section className="rc-card rc-recharge-card">
+            <div className="rc-panel-heading"><span className="rc-panel-icon"><Plus size={20} /></span><div><span className="rc-eyebrow">MAKE YOUR NEXT MOVE</span><h2 className="rc-section-title">Add to your wallet</h2></div></div><p className="rc-panel-copy">Choose an amount or enter your own to recharge your wallet.</p>
 
-            <section className="rc-card">
-              <h3 className="rc-section-title">Recent Recharges</h3>
-              {wallet.history.length === 0 ? (
+            {banner && <div className={`rc-banner ${banner.type}`} role={banner.type === 'error' ? 'alert' : 'status'}>{banner.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}<span>{banner.text}</span></div>}
+
+            <span className="rc-field-label">Quick amounts</span>
+            <div className="rc-amount-grid" role="group" aria-label="Choose a recharge amount">
+              {PRESET_AMOUNTS.map(amt => <button key={amt} type="button" className={`rc-amount-btn ${!customAmount && selectedAmount === amt ? 'active' : ''}`} aria-pressed={!customAmount && selectedAmount === amt} disabled={paying} onClick={() => { setSelectedAmount(amt); setCustomAmount('') }}>
+                <span>Rs. {amt.toLocaleString('en-IN')}</span>{!customAmount && selectedAmount === amt && <Check size={13} className="rc-amount-check" />}
+              </button>)}
+            </div>
+
+            <label className="rc-field-label" htmlFor="rc-amount">Or enter an amount</label>
+            <div className="rc-amount-input-wrap"><span aria-hidden="true">Rs.</span><input id="rc-amount" className="rc-custom-input" type="text" inputMode="decimal" autoComplete="off" placeholder="Enter amount" value={customAmount} disabled={paying} maxLength={12} aria-invalid={Boolean(customAmount) && !validAmount} onChange={event => { const next = event.target.value; if (/^\d*(?:\.\d{0,2})?$/.test(next)) setCustomAmount(next) }} /></div>
+            <button type="button" className="rc-gold-discovery" onClick={() => navigate('/digi-gold')} aria-label="Explore Digi Gold and Silver">
+              <img src="/wallet-digi-gold.png" alt="" width="1254" height="1254" loading="lazy" decoding="async" />
+              <span><small>DISCOVER MORE</small><strong>Digi Gold &amp; Silver</strong><span>Explore your digital metals dashboard</span></span><ArrowUpRight size={19} aria-hidden="true" />
+            </button>
+            <button type="button" className="rc-pay-btn" disabled={paying || !validAmount} onClick={handleBuyRecharge}>{paying ? <RefreshCw size={17} className="rc-spin" /> : <LockKeyhole size={16} />}<span>{paying ? 'Payment in progress...' : `Pay Rs. ${validAmount ? formatMoney(amount) : '0'} & recharge`}</span></button>
+            <div className="rc-payment-note"><ShieldCheck size={14} /><span>Balance updates after your payment is verified.</span></div><div className="rc-payment-options"><span>UPI</span><i /><span>Cards</span><i /><span>Net banking</span><small>via Razorpay</small></div>
+          </section>
+            <section className="rc-card rc-recent-card">
+              <div className="rc-activity-heading"><div><span className="rc-eyebrow">YOUR WALLET AT A GLANCE</span><h2 className="rc-section-title">Recent activity</h2></div><button type="button" onClick={() => document.getElementById('rc-transactions')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' })}>View all <ArrowUpRight size={14} /></button></div>
+              {loadingWallet ? <TransactionSkeleton count={2} /> : !walletReady ? <div className="rc-empty">Activity is unavailable. Retry your balance above.</div> : wallet.history.length === 0 ? (
                 <div className="rc-empty">No recharges yet</div>
               ) : (
-                wallet.history.map(h => {
-                  const methodColors = { card: '#2563eb', upi: '#9333ea', netbanking: '#ea580c', wallet: '#0d9488', other: RED, commission: '#8b5cf6', purchase: '#c0392b', reward: '#16764F' }
+                wallet.history.slice(0, 3).map(h => {
                   return (
-                    <div key={h.id} className="rc-history-row">
-                      <div className="rc-history-icon" style={{ background: methodColors[h.payment_method] || RED }}>
-                        <MethodIcon type={h.payment_method} size={19} />
+                    <div key={h.id} className={`rc-history-row ${h.direction === 'debit' ? 'is-debit' : 'is-credit'}`}>
+                      <div className={`rc-history-icon ${h.is_digi_gold ? 'digi' : h.payment_method}`}>
+                        <MethodIcon type={h.is_digi_gold ? 'digi' : h.payment_method} size={22} />
                       </div>
                       <div className="rc-history-body">
+                        <span className={`rc-method-tag ${h.is_digi_gold ? 'digi' : h.payment_method}`}>{h.is_digi_gold ? 'Digi Gold' : (h.payment_method === 'admin' ? 'BBTEAM' : h.payment_method || 'Wallet')}</span>
                         <div className="rc-history-amount">
                           {h.type !== 'reward' && (
                             <>
@@ -642,20 +687,17 @@ const handleToggleAutopay = async () => {
                           <div className="rc-history-source">Login Reward</div>
                         )}
                       </div>
-                      <span className={`rc-method-tag ${h.payment_method}`}>
-                        {h.is_digi_gold ? 'Digi Gold' : (h.payment_method === 'admin' ? 'BBTEAM' : h.payment_method)}
-                      </span>
+
                     </div>
                   )
                 })
               )}
             </section>
-          </div>
         </div>
 
-        {/* BOTTOM: Transaction History — full width, GPay style with date groups + Load More */}
-        <section className="rc-card" style={{ marginTop: 20 }}>
-          <h3 className="rc-section-title">Transaction History</h3>
+        {/* Transaction History — grouped by date with automatic pagination */}
+        <section className="rc-card rc-transactions" id="rc-transactions" aria-busy={historyLoading}>
+          <div className="rc-history-heading"><div><span className="rc-eyebrow">EVERY MOVE, IN ONE PLACE</span><h2 className="rc-section-title">Your transactions</h2><p>Review credits, purchases and recharge activity.</p></div><span className="rc-history-emblem" aria-hidden="true"><History size={23} /></span></div>
 
           <div className="rc-filter-row">
             <div className="rc-filter-tabs">
@@ -669,6 +711,7 @@ const handleToggleAutopay = async () => {
                   key={f.key}
                   type="button"
                   className={`rc-filter-tab ${activeFilter === f.key ? 'active' : ''}`}
+                  aria-pressed={activeFilter === f.key}
                   onClick={() => handleFilterClick(f.key)}
                 >
                   {f.label}
@@ -677,7 +720,7 @@ const handleToggleAutopay = async () => {
               {activeFilter === 'custom' && (
                 <>
                   <input
-                    type="date"
+                    type="date" aria-label="From date"
                     className="rc-custom-date"
                     value={customFrom}
                     max={customTo || new Date().toISOString().split('T')[0]}
@@ -685,7 +728,7 @@ const handleToggleAutopay = async () => {
                   />
                   <span className="rc-date-to-label">to</span>
                   <input
-                    type="date"
+                    type="date" aria-label="To date"
                     className="rc-custom-date"
                     value={customTo}
                     min={customFrom}
@@ -704,11 +747,11 @@ const handleToggleAutopay = async () => {
             </button>
           </div>
 
+          {historyError && <div className="rc-banner error" role="alert"><AlertCircle size={18} /><span>{historyError}</span><button type="button" onClick={() => fetchHistory(failedHistoryPage.current, historyQuery.current.filter, historyQuery.current.from, historyQuery.current.to)}>Retry</button></div>}
           {fullHistory.length === 0 ? (
-            <div className="rc-empty">No recharges yet</div>
+            historyLoading || historyError ? null : <div className="rc-empty">No transactions in this period.</div>
           ) : (
             (() => {
-              const methodColors = { card: '#2563eb', upi: '#9333ea', netbanking: '#ea580c', wallet: '#0d9488', other: RED, commission: '#8b5cf6', purchase: '#c0392b', reward: '#16764F' }
               let lastGroup = null
               return fullHistory.map(h => {
                 const group = dateGroupLabel(h.created_at)
@@ -717,11 +760,12 @@ const handleToggleAutopay = async () => {
                 return (
                   <div key={h.id}>
                     {showHeader && <div className="rc-date-header">{group}</div>}
-                    <div className="rc-history-row">
-                      <div className="rc-history-icon" style={{ background: methodColors[h.payment_method] || RED }}>
-                        <MethodIcon type={h.payment_method} size={19} />
+                    <div className={`rc-history-row ${h.direction === 'debit' ? 'is-debit' : 'is-credit'}`}>
+                      <div className={`rc-history-icon ${h.is_digi_gold ? 'digi' : h.payment_method}`}>
+                        <MethodIcon type={h.is_digi_gold ? 'digi' : h.payment_method} size={22} />
                       </div>
                       <div className="rc-history-body">
+                        <span className={`rc-method-tag ${h.is_digi_gold ? 'digi' : h.payment_method}`}>{h.is_digi_gold ? 'Digi Gold' : (h.payment_method === 'admin' ? 'BBTEAM' : h.payment_method || 'Wallet')}</span>
                         <div className="rc-history-amount">
                           {h.type !== 'reward' && (
                             <>
@@ -750,26 +794,23 @@ const handleToggleAutopay = async () => {
                           <div className="rc-history-source">Login Reward</div>
                         )}
                       </div>
-                      <span className={`rc-method-tag ${h.payment_method}`}>
-                        {h.is_digi_gold ? 'Digi Gold' : (h.payment_method === 'admin' ? 'BBTEAM' : h.payment_method)}
-                      </span>
+
                     </div>
                   </div>
                 )
               })
             })()
           )}
-          {hasMoreHistory && (
-            <button className="rc-loadmore-btn" type="button" onClick={loadMoreHistory} disabled={loadingMore}>
-              {loadingMore ? 'Loading...' : 'Load More'}
-            </button>
-          )}
+          {historyLoading && <TransactionSkeleton count={fullHistory.length ? 3 : 5} />}
+          <div ref={historySentinel} className="rc-history-sentinel" aria-hidden="true" />
+          {!hasMoreHistory && !historyLoading && !historyError && fullHistory.length > 0 && <p className="rc-history-end"><CheckCircle2 size={14} />You're all caught up for this period</p>}
+
         </section>
       </main>
 
       {showAutopayModal && (
-  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
-    <div style={{ background: '#fff', borderRadius: 10, padding: 24, width: 'min(420px, 90vw)' }}>
+  <div className="rc-modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+    <div className="rc-settings-modal" ref={settingsModalRef} role="dialog" aria-modal="true" aria-label="Autopay settings" tabIndex={-1} style={{ background: '#fff', borderRadius: 10, padding: 24, width: 'min(420px, 90vw)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
         <h3 style={{ margin: 0, fontSize: 14, fontWeight: 900, color: RED }}>Autopay settings</h3>
         {autopay.exists && (
@@ -850,11 +891,11 @@ const handleToggleAutopay = async () => {
 
 {/* ── COMPACT CONVERT TO 22K DIGI GOLD MODAL ── */}
 {showConvertModal && (
-  <div style={{
+  <div className="rc-modal-backdrop" style={{
     position: 'fixed', inset: 0, background: 'rgba(7,31,34,.58)', backdropFilter: 'blur(4px)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16
   }} onClick={() => setShowConvertModal(false)}>
-    <div style={{
+    <div className="rc-settings-modal" ref={settingsModalRef} role="dialog" aria-modal="true" aria-label="Convert to Digi Gold" tabIndex={-1} style={{
       background: '#fff', borderRadius: 20, maxWidth: 440, width: '100%', padding: '28px 24px',
       boxShadow: '0 20px 60px rgba(0,0,0,0.22)', border: '1px solid #D1DFDE'
     }} onClick={e => e.stopPropagation()}>

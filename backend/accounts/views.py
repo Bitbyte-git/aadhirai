@@ -8,16 +8,16 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from rest_framework.decorators import api_view, permission_classes
 from .models import User, AdminProfile, DealerProfile, SubDealerProfile, PromotorProfile, CustomerProfile, ShopProfile, Announcement, AnnouncementReply, ProfileUpdateRequest, MetalRate, MetalOrder, JewelryProduct, JewelryProductImage, HomeBanner, CartItem, Wishlist, JewelryOrder, CoinRequest, CoinRequestItem, CoinStock, DailyLoginLog, CoinRewardLog, ReferralLink, EmailOTP, Wallet, CoinRecharge, AutoPayMandate, JewelryStock, JewelryRequest, JewelryRequestItem, OrderTrackingEvent, StockSale, StockNotifyRequest, DigiGoldInvestment, DigiGoldWallet, DigiGoldLedgerRollup
-from django.db.models import Prefetch, Count, Q, Sum, Max, Min, F, Value, Case, When, DecimalField
+from django.db.models import Prefetch, Count, Q, Sum, Max, Min, F, Value, Case, When, DecimalField, IntegerField
 from django.db import transaction
 from django.core import signing
 from django.core.cache import cache   # ── NEW: for month_rollup/status caching ──
-from django.db.models.functions import TruncHour, TruncDate, TruncWeek, TruncMonth
+from django.db.models.functions import TruncHour, TruncDate, TruncWeek, TruncMonth, Coalesce
 from .serializers import *
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from datetime import timedelta
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 # pyrefly: ignore [missing-import]
 from django.db.models.functions import TruncMonth
 import razorpay
@@ -2620,6 +2620,76 @@ class MetalOrderSummaryView(APIView):
 
 
 # ADD AT BOTTOM OF views.py (before the ping function):
+
+# Public storefront: recent sales, historical bestsellers, then new arrivals.
+def current_product_price(product, rates):
+    """Match product-display/checkout: live metal + making - discount + extras + GST."""
+    field = {
+        'gold': 'gold_24k' if product.grade == '24k' else 'gold_22k',
+        'silver': 'silver_999',
+        'diamond': 'diamond_18k' if product.grade == '18k' else 'diamond_22k',
+        'platinum': 'platinum_92',
+    }.get(product.metal)
+    rate = getattr(rates, field, Decimal('0')) if rates and field else Decimal('0')
+    weight = product.net_weight or Decimal('0')
+    if rate > 0 and weight > 0:
+        with_making = rate * (1 + (product.making_charge or 0) / Decimal('100'))
+        effective = with_making * (1 - (product.wastage_charge or 0) / Decimal('100'))
+        amount = (weight * effective + (product.stone_value or 0) + (product.die_charge or 0)) * Decimal('1.03')
+        if amount > 0:
+            return int(amount.quantize(Decimal('1'), rounding=ROUND_HALF_UP)), 'live_rate'
+    if product.price and product.price > 0:
+        return int(product.price.quantize(Decimal('1'), rounding=ROUND_HALF_UP)), 'catalogue'
+    return None, 'unavailable'
+
+
+def ranked_products(now=None):
+    cutoff = (now or timezone.now()) - timedelta(days=30)
+    # A paid order is a sale even before fulfilment; COD counts once delivered.
+    valid = (
+        (Q(orders__payment_status='paid') | Q(orders__status='delivered', orders__payment_method='cash_on_delivery'))
+        & ~Q(orders__status='cancelled')
+        & ~Q(orders__payment_status__in=['failed', 'refunded'])
+        & Q(orders__quantity__gt=0)
+    )
+    return (
+        JewelryProduct.objects.filter(is_active=True, is_internal_asset=False, stock_quantity__gt=0)
+        .annotate(
+            recent_units=Coalesce(Sum('orders__quantity', filter=valid & Q(orders__created_at__gte=cutoff)), 0),
+            total_units=Coalesce(Sum('orders__quantity', filter=valid), 0),
+            last_sale=Max('orders__created_at', filter=valid),
+        )
+        .annotate(sales_tier=Case(
+            When(recent_units__gt=0, then=Value(0)),
+            When(total_units__gt=0, then=Value(1)),
+            default=Value(2), output_field=IntegerField(),
+        ))
+        .order_by('sales_tier', '-recent_units', '-total_units', '-last_sale', '-created_at', '-id')
+        .prefetch_related('images')
+    )
+
+
+class FastMovingProductsView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        products = list(ranked_products()[:10])
+        # Today's entry takes precedence; future-dated rates are never advertised.
+        rates = MetalRate.objects.filter(date__lte=timezone.localdate()).order_by('-date').first()
+        results = []
+        for product in products:
+            item = dict(JewelryProductSerializer(product, context={'request': request}).data)
+            item['live_price'], item['price_source'] = current_product_price(product, rates)
+            item['sales_group'] = ('recent', 'historical', 'new_arrival')[product.sales_tier]
+            results.append(item)
+        return Response({
+            'results': results,
+            'count': len(results),
+            'limit': 10,
+            'window_days': 30,
+            'rate_date': rates.date.isoformat() if rates else None,
+        })
+
 
 class JewelryProductView(APIView):
     def get_permissions(self):

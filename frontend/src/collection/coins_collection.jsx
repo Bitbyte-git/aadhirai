@@ -84,9 +84,10 @@ function coinMatchesWeight(product, weightFilter) {
   return false
 }
 
+
 function getCoinPrice(product, rates) {
-  const metal = textValue(product.metal).toLowerCase()
-  const grade = textValue(product.grade).toLowerCase()
+  const metal = String(product.metal || "").toLowerCase()
+  const grade = String(product.grade || "").toLowerCase()
   const rate = metal === 'silver'
     ? Number(rates.silver_999)
     : grade === '24k'

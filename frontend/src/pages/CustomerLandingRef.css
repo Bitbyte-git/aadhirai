@@ -1,0 +1,2177 @@
+/* ==========================================================================
+   ATHIRAI LUXURY STOREFRONT — EXACT REFERENCE MATCH (GRAND LUXURY SCALE)
+   Section 1 to 8: Upscaled, High-Impact, Premium Indian Jewellery E-Commerce
+   ========================================================================== */
+
+:root {
+  --ath-emerald: #063B35;
+  --ath-emerald-dark: #042E29;
+  --ath-teal: #073D3A;
+  --ath-gold: #D6A13A;
+  --ath-gold-light: #EBC978;
+  --ath-gold-glow: rgba(214, 161, 58, 0.35);
+  --ath-ivory: #FDFBF7;
+  --ath-cream: #F5EEDC;
+  --ath-cream-soft: #FAF6ED;
+  --ath-card-bg: #FFFFFF;
+  --ath-text-primary: #123F3B;
+  --ath-text-muted: #6E7265;
+  --ath-serif: Georgia, "Playfair Display", "Times New Roman", serif;
+  --ath-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --ath-shadow-sm: 0 6px 20px rgba(6, 59, 53, 0.08);
+  --ath-shadow-md: 0 16px 40px rgba(6, 59, 53, 0.12);
+  --ath-shadow-lg: 0 28px 64px rgba(6, 59, 53, 0.18);
+  --ath-shadow-gold: 0 12px 32px rgba(214, 161, 58, 0.38);
+}
+
+.ath-landing-container {
+  width: 100%;
+  max-width: 1640px;
+  min-width: 0;
+  margin: 0 auto;
+  padding: 0 24px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .ath-landing-container {
+    padding: 0 16px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   SECTION 1A — DUAL GOLD & SILVER COIN BANNERS (TALL & OPULENT)
+   -------------------------------------------------------------------------- */
+.ath-coin-banners-sec {
+  padding: 36px 0 32px;
+}
+
+.ath-coin-banners-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+}
+
+@media (max-width: 1024px) {
+  .ath-coin-banners-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
+.ath-coin-banner-card {
+  position: relative;
+  min-height: 480px;
+  border-radius: 28px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 140px clamp(24px, 3vw, 48px) 32px;
+  min-width: 0;
+  isolation: isolate;
+  box-sizing: border-box;
+  background-size: cover;
+  background-position: center right;
+  background-repeat: no-repeat;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.22);
+  transition: transform 320ms ease, box-shadow 320ms ease;
+  cursor: pointer;
+}
+
+.ath-coin-banner-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 26px 64px rgba(0,0,0,0.30);
+}
+
+/* Gold Banner */
+.ath-coin-banner-gold {
+  background-color: #063B3F;
+  --coin-art: url('/gold_coin_banner.jpg');
+}
+
+.ath-coin-banner-gold::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    rgba(5,48,44,0.97) 0%,
+    rgba(5,48,44,0.88) 38%,
+    rgba(5,48,44,0.40) 62%,
+    transparent 100%
+  );
+  z-index: 1;
+}
+
+/* Silver Banner */
+.ath-coin-banner-silver {
+  background-color: #101c24;
+  --coin-art: url('/silver_coin_banner.jpg');
+}
+
+.ath-coin-banner-silver::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    rgba(10,22,32,0.97) 0%,
+    rgba(10,22,32,0.88) 38%,
+    rgba(10,22,32,0.40) 62%,
+    transparent 100%
+  );
+  z-index: 1;
+}
+
+/* Price Badge — top-right floating circle */
+.ath-coin-price-badge {
+  position: absolute;
+  top: 32px;
+  right: 32px;
+  z-index: 3;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 2px;
+  border: 2px solid rgba(255,255,255,0.28);
+  animation: floatBadge 3.6s ease-in-out infinite;
+}
+
+@keyframes floatBadge {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+
+.ath-coin-badge-gold {
+  background: linear-gradient(135deg, #F9D976 0%, #E9B837 55%, #C18630 100%);
+  color: #12201F;
+  box-shadow: 0 10px 28px rgba(233,184,55,0.45);
+}
+
+.ath-coin-badge-silver {
+  background: linear-gradient(135deg, #F8FAFC 0%, #CBD5E1 55%, #94A3B8 100%);
+  color: #0F172A;
+  box-shadow: 0 10px 28px rgba(148,163,184,0.40);
+}
+
+.ath-coin-price-badge span {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  opacity: 0.8;
+}
+
+.ath-coin-price-badge strong {
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+/* Content block */
+.ath-coin-banner-content {
+  position: relative;
+  z-index: 2;
+  max-width: 440px;
+  margin-bottom: 20px;
+}
+
+.ath-coin-eyebrow {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.65);
+  margin-bottom: 10px;
+}
+
+.ath-coin-banner-gold .ath-coin-eyebrow { color: rgba(245,208,97,0.80); }
+.ath-coin-banner-silver .ath-coin-eyebrow { color: rgba(203,213,225,0.80); }
+
+.ath-coin-banner-title {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 700;
+  color: #FFFFFF;
+  line-height: 1.12;
+  margin: 0 0 10px;
+  letter-spacing: -0.01em;
+}
+
+.ath-coin-banner-sub {
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: rgba(255,255,255,0.78);
+  margin: 0 0 20px;
+}
+
+.ath-coin-actions-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ath-coin-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 26px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.ath-coin-cta-gold {
+  background: linear-gradient(135deg, #F9D976 0%, #F5D061 50%, #C18630 100%);
+  color: #063B3F;
+  box-shadow: 0 8px 22px rgba(245,208,97,0.35);
+}
+
+.ath-coin-cta-gold:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(245,208,97,0.50);
+}
+
+.ath-coin-cta-silver {
+  background: linear-gradient(135deg, #FFFFFF 0%, #E2E8F0 100%);
+  color: #0F172A;
+  box-shadow: 0 8px 22px rgba(226,232,240,0.30);
+}
+
+.ath-coin-cta-silver:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(226,232,240,0.42);
+}
+
+/* Weight Chips */
+.ath-coin-chips-track {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ath-coin-chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  border: 1px solid rgba(255,255,255,0.26);
+  background: rgba(255,255,255,0.10);
+  color: #FFFFFF;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+
+.ath-coin-chip:hover {
+  background: rgba(255,255,255,0.22);
+  border-color: rgba(255,255,255,0.50);
+}
+
+@media (max-width: 600px) {
+  .ath-coin-banner-card {
+    padding: 24px 20px 24px;
+    min-height: 320px;
+  }
+  .ath-coin-price-badge {
+    top: 18px;
+    right: 18px;
+    width: 82px;
+    height: 82px;
+  }
+  .ath-coin-price-badge strong { font-size: 13px; }
+  .ath-coin-chips-track { gap: 6px; }
+  .ath-coin-chip { padding: 5px 12px; font-size: 11.5px; }
+}
+
+/* --------------------------------------------------------------------------
+   SECTION 1B — INTERACTIVE COIN TOUR (GOLD & SILVER DENOMINATIONS)
+   -------------------------------------------------------------------------- */
+.ath-coin-tour-sec {
+  padding: 12px 0 46px;
+  position: relative;
+}
+
+.ath-coin-tour-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.ath-coin-tour-copy {
+  max-width: 620px;
+}
+
+.ath-coin-tour-copy .ath-sec-eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ath-gold);
+  margin-bottom: 6px;
+}
+
+.ath-coin-tour-title {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(26px, 2.5vw, 34px);
+  font-weight: 700;
+  color: var(--ath-emerald);
+  margin: 0 0 8px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.ath-coin-tour-subtitle {
+  font-size: 14px;
+  color: var(--ath-text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.ath-coin-tour-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* Metal Switcher Tabs */
+.ath-coin-metal-tabs {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(7, 59, 63, 0.06);
+  border: 1px solid rgba(7, 59, 63, 0.14);
+  padding: 4px;
+  border-radius: 999px;
+  gap: 4px;
+}
+
+.ath-coin-metal-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 20px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: #334E68;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 220ms ease;
+  white-space: nowrap;
+}
+
+.ath-coin-metal-tab:hover {
+  color: var(--ath-emerald);
+}
+
+.ath-coin-metal-tab.active-gold {
+  background: linear-gradient(135deg, #073B3F 0%, #0F5E54 100%);
+  color: #F5D061;
+  box-shadow: 0 6px 16px rgba(7, 59, 63, 0.28);
+}
+
+.ath-coin-metal-tab.active-silver {
+  background: linear-gradient(135deg, #1C2B36 0%, #334E68 100%);
+  color: #F0F4F8;
+  box-shadow: 0 6px 16px rgba(28, 43, 54, 0.28);
+}
+
+.ath-tab-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4);
+}
+
+.ath-tab-dot.gold-dot {
+  background: #E5B239;
+}
+
+.ath-tab-dot.silver-dot {
+  background: #C5D2DB;
+}
+
+/* Left / Right Navigation Arrow Buttons */
+.ath-coin-tour-arrows {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ath-coin-nav-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(193, 134, 48, 0.4);
+  background: #FFFFFF;
+  color: var(--ath-emerald);
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 900;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.ath-coin-nav-btn:hover {
+  background: var(--ath-emerald);
+  color: #F5D061;
+  border-color: var(--ath-gold);
+  transform: scale(1.08);
+  box-shadow: 0 8px 20px rgba(7, 59, 63, 0.22);
+}
+
+.ath-coin-nav-btn:active {
+  transform: scale(0.96);
+}
+
+/* Horizontal Scroll Track Wrapper */
+.ath-coin-tour-track-wrap {
+  position: relative;
+  overflow: hidden;
+  padding: 10px 4px 18px;
+}
+
+.ath-coin-tour-track {
+  display: flex;
+  gap: 22px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  padding: 6px 4px 12px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.ath-coin-tour-track::-webkit-scrollbar {
+  display: none;
+}
+
+/* Coin Card */
+.ath-coin-tour-card {
+  min-width: 0;
+  max-width: none;
+  flex: 0 0 calc((100% - 66px) / 4);
+  overflow: hidden;
+  scroll-snap-align: start;
+  border-radius: 24px;
+  padding: 14px 14px 20px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  cursor: pointer;
+  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 280ms ease, border-color 280ms ease;
+  user-select: none;
+}
+
+.ath-coin-tour-card:hover {
+  transform: translateY(-8px);
+}
+
+/* Gold Variant */
+.ath-coin-tour-card.gold-card {
+  background: linear-gradient(165deg, #FFFFFF 0%, #FFFDF8 45%, #FBF6E7 100%);
+  border: 1.5px solid rgba(212, 175, 55, 0.35);
+  box-shadow: 0 8px 24px rgba(184, 134, 11, 0.09);
+}
+
+.ath-coin-tour-card.gold-card:hover {
+  border-color: rgba(212, 175, 55, 0.9);
+  box-shadow: 0 18px 40px rgba(184, 134, 11, 0.2);
+}
+
+/* Silver Variant */
+.ath-coin-tour-card.silver-card {
+  background: linear-gradient(165deg, #FFFFFF 0%, #F8FAFC 45%, #EEF2F6 100%);
+  border: 1.5px solid rgba(160, 174, 192, 0.4);
+  box-shadow: 0 8px 24px rgba(100, 116, 139, 0.09);
+}
+
+.ath-coin-tour-card.silver-card:hover {
+  border-color: rgba(100, 116, 139, 0.85);
+  box-shadow: 0 18px 40px rgba(100, 116, 139, 0.2);
+}
+
+/* Highlights / Badges */
+.ath-coin-tour-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-radius: 999px;
+  z-index: 2;
+}
+
+.gold-card .ath-coin-tour-badge {
+  background: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FCD34D;
+}
+
+.silver-card .ath-coin-tour-badge {
+  background: #E0E7FF;
+  color: #3730A3;
+  border: 1px solid #C7D2FE;
+}
+
+/* 3D Coin Image Graphic & Radial Aura */
+.ath-coin-tour-img-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  margin: 0 0 18px;
+}
+
+.ath-coin-aura {
+  position: absolute;
+  width: 82%;
+  height: 82%;
+  border-radius: 50%;
+  filter: blur(22px);
+  opacity: 0.6;
+  pointer-events: none;
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+
+.gold-card .ath-coin-aura {
+  background: radial-gradient(circle, rgba(245, 208, 97, 0.85) 0%, rgba(212, 175, 55, 0.25) 60%, transparent 100%);
+}
+
+.silver-card .ath-coin-aura {
+  background: radial-gradient(circle, rgba(203, 213, 225, 0.95) 0%, rgba(148, 163, 184, 0.3) 60%, transparent 100%);
+}
+
+.ath-coin-tour-card:hover .ath-coin-aura {
+  opacity: 0.95;
+  transform: scale(1.18);
+}
+
+/* Mask only the rendered artwork so the original coin details stay intact.
+   The supplied images have an opaque cream square around the round coin. */
+.ath-coin-cutout {
+  display: block;
+  width: 78%;
+  max-width: 210px;
+  aspect-ratio: 1;
+  height: auto;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 10px 12px rgba(0, 0, 0, 0.18));
+  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: athCoinFloat 4.8s ease-in-out var(--coin-delay, 0s) infinite;
+}
+
+.ath-coin-tour-img-wrap img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  clip-path: ellipse(44.5% 44% at 50% 48.5%);
+  transition: transform 450ms ease;
+}
+
+/* The one-gram gold artwork has a slightly smaller coin in its source frame. */
+.ath-coin-tour-img-wrap img[src="/rail/gold-1g.png"] {
+  clip-path: ellipse(43.5% 42.8% at 49.8% 48.3%);
+}
+
+.ath-coin-tour-card:is(:hover, :focus-within) .ath-coin-cutout {
+  animation-play-state: paused;
+}
+.ath-coin-tour-card:is(:hover, :focus-within) .ath-coin-cutout img {
+  transform: scale(1.04) rotate(-2deg);
+}
+
+/* Meta Information */
+.ath-coin-tour-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.ath-coin-tour-purity {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.gold-card .ath-coin-tour-purity {
+  color: #B45309;
+}
+
+.silver-card .ath-coin-tour-purity {
+  color: #475569;
+}
+
+.ath-coin-tour-weight {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 4px;
+  line-height: 1.2;
+}
+
+.ath-coin-tour-desc {
+  font-size: 12px;
+  color: #6B7280;
+  margin: 0 0 14px;
+  line-height: 1.35;
+  min-height: 32px;
+}
+
+/* Card Footer: Live Price & Buy CTA */
+.ath-coin-tour-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.09);
+  gap: 8px;
+}
+
+.ath-coin-tour-price-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.ath-coin-price-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9CA3AF;
+}
+
+.ath-coin-tour-price {
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--ath-emerald);
+  line-height: 1.15;
+}
+
+.ath-coin-tour-buy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  border: none;
+  transition: all 180ms ease;
+}
+
+.gold-card .ath-coin-tour-buy-btn,
+.silver-card .ath-coin-tour-buy-btn {
+  background: radial-gradient(ellipse at 20% 0%, #216960 0%, transparent 65%), linear-gradient(120deg, #0A4545, #062F34);
+  color: #FFFFFF;
+  border: 1px solid #2C6A60;
+  box-shadow: 0 4px 12px rgba(7, 62, 64, .18), inset 0 1px 0 rgba(255, 255, 255, .14);
+}
+
+.gold-card .ath-coin-tour-buy-btn:hover,
+.silver-card .ath-coin-tour-buy-btn:hover {
+  border-color: #C5A567;
+  box-shadow: 0 7px 20px rgba(7, 62, 64, .24), 0 0 0 3px rgba(198, 146, 75, .1);
+  transform: translateY(-2px);
+}
+
+.ath-coin-tour-buy-btn > span:last-child {
+  color: #E9C887;
+}
+
+.ath-coin-tour-buy-btn:active {
+  transform: translateY(0);
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+  .ath-coin-tour-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .ath-coin-tour-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 600px) {
+  .ath-coin-tour-sec {
+    padding: 28px 0 36px;
+  }
+  .ath-coin-tour-card {
+    min-width: 0;
+    max-width: none;
+    padding: 18px 16px 16px;
+  }
+  .ath-coin-tour-img-wrap {
+    aspect-ratio: 1;
+  }
+  .ath-coin-tour-weight {
+    font-size: 18px;
+  }
+  .ath-coin-metal-tab {
+    padding: 7px 14px;
+    font-size: 12px;
+  }
+}
+
+/* Keep both collections within the page frame at every viewport width. */
+.ath-coin-banners-sec,
+.ath-coin-tour-sec,
+.ath-coin-tour-copy,
+.ath-coin-tour-controls,
+.ath-coin-tour-track-wrap,
+.ath-coin-tour-track {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.ath-coin-banner-art {
+  position: absolute;
+  inset: 0;
+  background: var(--coin-art) center right / cover no-repeat;
+  animation: athCoinArtDrift 16s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.ath-coin-banner-card::after {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 19px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.ath-coin-banner-content { overflow-wrap: anywhere; }
+.ath-coin-banner-title { max-width: 340px; text-wrap: balance; }
+.ath-coin-banner-sub { max-width: 300px; }
+.ath-coin-cta-btn { max-width: 100%; white-space: normal; text-align: left; }
+.ath-coin-banner-silver .ath-coin-banner-art { animation-delay: -8s; }
+.ath-coin-tour-title { font-size: clamp(30px, 4vw, 48px); color: var(--ath-emerald); }
+.ath-coin-tour-title > span { color: #b68a3d; font-style: italic; font-weight: 400; }
+.ath-coin-tour-track { width: 100%; overscroll-behavior-x: contain; }
+.ath-coin-tour-card { animation: athCoinReveal 450ms ease both; }
+.ath-coin-tour-img-wrap { overflow: hidden; border-radius: 18px; }
+/* The moving highlight stays inside the coin silhouette. */
+.ath-coin-cutout::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  clip-path: ellipse(43% 42% at 50% 48.5%);
+  background: linear-gradient(115deg, transparent 35%, rgb(255 255 255 / 65%) 49%, transparent 63%);
+  background-size: 300% 100%;
+  animation: athCoinLustre 6s ease-in-out var(--coin-delay, 0s) infinite;
+  pointer-events: none;
+}
+.ath-coin-tour-img-wrap::before {
+  content: "";
+  position: absolute;
+  width: 54%;
+  height: 8%;
+  bottom: 1%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgb(21 37 35 / 18%), transparent 70%);
+  animation: athCoinGroundShadow 4.8s ease-in-out var(--coin-delay, 0s) infinite;
+  pointer-events: none;
+}
+.ath-coin-tour-card:focus-within {
+  border-color: var(--ath-gold);
+  box-shadow: 0 18px 40px rgb(21 37 35 / 16%);
+}
+.ath-coin-tour-meta { flex: 1; padding-inline: 6px; }
+.ath-coin-tour-footer { margin-top: auto; flex-direction: column; align-items: stretch; gap: 14px; }
+.ath-coin-tour-price-box { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
+.ath-coin-tour-price { font-size: 20px; }
+.ath-coin-tour-buy-btn {
+  width: 100%;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-radius: 12px;
+  letter-spacing: .02em;
+}
+.ath-coin-tour-buy-btn > span:last-child { font-size: 20px; transition: transform 220ms ease; }
+.ath-coin-tour-buy-btn:hover > span:last-child { transform: translateX(4px); }
+@keyframes athCoinFloat {
+  0%, 100% { transform: translateY(3px) rotate(-1deg); }
+  50% { transform: translateY(-7px) rotate(1deg); }
+}
+@keyframes athCoinGroundShadow {
+  0%, 100% { transform: scaleX(1); opacity: .8; }
+  50% { transform: scaleX(.8); opacity: .4; }
+}
+@keyframes athCoinLustre {
+  0%, 65% { background-position: 100% 0; opacity: 0; }
+  70% { opacity: .8; }
+  90%, 100% { background-position: 0% 0; opacity: 0; }
+}
+.ath-coin-tour-price-box { min-width: 0; }
+.ath-coin-tour-price { overflow-wrap: anywhere; }
+.ath-coin-tour-buy-btn { min-height: 44px; flex-shrink: 0; }
+.ath-coin-banner-card button:focus-visible,
+.ath-coin-tour-sec button:focus-visible,
+.ath-coin-tour-track:focus-visible { outline: 3px solid #bd913e; outline-offset: 3px; }
+
+@keyframes athCoinArtDrift {
+  from { transform: scale(1); }
+  to { transform: scale(1.07) translateY(-5px); }
+}
+@keyframes athCoinReveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (min-width: 1400px) {
+  .ath-coin-tour-card { flex-basis: calc((100% - 88px) / 5); }
+}
+@media (max-width: 1100px) {
+  .ath-coin-tour-card { flex-basis: calc((100% - 44px) / 3); }
+}
+@media (max-width: 700px) {
+  .ath-coin-tour-card { flex-basis: calc((100% - 22px) / 2); }
+  .ath-coin-tour-header { gap: 12px; margin-bottom: 12px; }
+  .ath-coin-tour-controls { gap: 10px; }
+  .ath-coin-metal-tab { min-height: 44px; padding: 9px 22px; }
+}
+@media (max-width: 600px) {
+  .ath-coin-banner-card { min-height: 400px; padding: 124px 24px 28px; }
+  .ath-coin-banner-title { font-size: 32px; max-width: 240px; }
+  .ath-coin-eyebrow { font-size: 10px; }
+  .ath-coin-banners-sec { padding-top: 20px; }
+  .ath-coin-price-badge { width: 88px; height: 88px; }
+}
+@media (max-width: 480px) {
+  .ath-coin-tour-card { flex-basis: 100%; padding: 16px 16px 22px; }
+  .ath-coin-tour-img-wrap { aspect-ratio: 1; }
+  .ath-coin-tour-weight { font-size: 24px; }
+  .ath-coin-tour-desc { min-height: 0; }
+  .ath-coin-metal-tab { padding-inline: 18px; }
+  .ath-coin-tour-controls { flex-wrap: nowrap; }
+  .ath-coin-tour-arrows { gap: 6px; }
+  .ath-coin-tour-track-wrap { padding-inline: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ath-coin-banner-art,
+  .ath-coin-price-badge,
+  .ath-coin-tour-card,
+  .ath-coin-cutout,
+  .ath-coin-cutout::after,
+  .ath-coin-tour-img-wrap::before { animation: none; }
+  .ath-coin-cutout::after { opacity: 0; }
+  .ath-coin-banners-sec *, .ath-coin-tour-sec * { transition: none; scroll-behavior: auto; }
+}
+
+.ath-coin-rate-date, .ath-coin-unit-rate {
+  font-family: var(--ath-sans);
+  color: var(--ath-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.ath-coin-rate-date { margin: 4px 0 0; }
+.ath-coin-unit-rate { margin-top: -9px; font-size: 11px; }
+
+/* --------------------------------------------------------------------------
+   SECTION 2 — SHOP BY CATEGORY (PROMINENT CIRCLES & TILES)
+   -------------------------------------------------------------------------- */
+.ath-category-sec {
+  padding: 40px 0 52px;
+  background: #FDFDFC;
+  position: relative;
+}
+
+.ath-sec-header-center {
+  text-align: center;
+  max-width: 740px;
+  margin: 0 auto 36px;
+}
+
+.ath-sec-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--ath-gold);
+  font-family: var(--ath-sans);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.ath-sec-title {
+  color: var(--ath-emerald);
+  font-family: var(--ath-serif);
+  font-size: clamp(30px, 3vw, 44px);
+  font-weight: 600;
+  margin: 0 0 10px;
+  letter-spacing: -0.015em;
+}
+
+.ath-sec-subtitle {
+  color: var(--ath-text-muted);
+  font-family: var(--ath-sans);
+  font-size: 14.5px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.ath-section-intro {
+  max-width: min(100%, 52ch);
+  margin-inline: auto;
+  padding: 4px 6px 0;
+  box-sizing: border-box;
+  font-size: clamp(14px, 1.1vw, 16px);
+  line-height: 1.8;
+  color: #596c65;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+}
+
+.ath-section-intro em {
+  font-family: var(--ath-serif);
+  font-size: 1.16em;
+  font-weight: 500;
+  color: #936621;
+}
+
+.ath-section-intro::after {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 2px;
+  margin: 14px auto 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #c3933f, #ead6ad);
+}
+
+.ath-occasion-copy .ath-section-intro {
+  margin-inline: 0;
+  padding-inline: 0;
+}
+
+.ath-occasion-copy .ath-section-intro::after {
+  margin-inline: 0;
+}
+
+@media (max-width: 600px) {
+  .ath-section-intro {
+    padding-inline: 4px;
+    line-height: 1.7;
+  }
+  .ath-section-intro::after {
+    width: 34px;
+    margin-top: 12px;
+  }
+}
+
+@keyframes athCategoryInfiniteGlide {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.ath-category-marquee-wrap {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  padding: 14px 0 24px;
+}
+
+.ath-category-marquee-track {
+  display: flex;
+  gap: 22px;
+  width: max-content;
+  animation: athCategoryInfiniteGlide 34s linear infinite;
+  will-change: transform;
+}
+
+.ath-category-marquee-wrap:hover .ath-category-marquee-track,
+.ath-category-marquee-track:hover {
+  animation-play-state: paused;
+}
+
+.ath-category-rail-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ath-category-rail {
+  display: flex;
+  gap: 22px;
+  width: 100%;
+  padding: 16px 6px 24px;
+  box-sizing: border-box;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.ath-category-rail::-webkit-scrollbar {
+  display: none;
+}
+
+
+.ath-category-card {
+  flex: 0 0 176px;
+  min-width: 176px;
+  border-radius: 28px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #FAF4E8 100%);
+  border: 1.5px solid rgba(214, 161, 58, 0.35);
+  padding: 24px 14px 22px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 260ms ease, box-shadow 260ms ease, border-color 260ms ease;
+  box-shadow: 0 10px 28px rgba(6, 59, 53, 0.08);
+}
+
+.ath-category-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 44px rgba(6, 59, 53, 0.18);
+  border-color: var(--ath-gold);
+}
+
+.ath-category-circle {
+  width: 124px;
+  height: 124px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(214, 161, 58, 0.7);
+  background: radial-gradient(circle, #FFFDF9 25%, #F7EAD4 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  box-shadow: 0 10px 26px rgba(214, 161, 58, 0.25), inset 0 0 18px rgba(214, 161, 58, 0.2);
+  position: relative;
+  overflow: hidden;
+  transition: transform 260ms ease;
+}
+
+.ath-category-card:hover .ath-category-circle {
+  transform: scale(1.08);
+}
+
+.ath-category-circle img {
+  width: 112px;
+  height: 112px;
+  object-fit: contain;
+  transition: transform 280ms ease;
+}
+
+.ath-category-card:hover .ath-category-circle img {
+  transform: scale(1.06);
+}
+
+.ath-category-label {
+  font-family: var(--ath-sans);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ath-emerald);
+  margin: 0;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.ath-category-card:hover .ath-category-label {
+  color: #A2764C;
+}
+
+.ath-rail-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(214, 161, 58, 0.45);
+  background: #FFFFFF;
+  color: var(--ath-emerald);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  transition: all 180ms ease;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.ath-rail-arrow:hover {
+  background: var(--ath-emerald);
+  color: #FFFFFF;
+  border-color: var(--ath-emerald);
+  transform: translateY(-50%) scale(1.12);
+  box-shadow: 0 10px 28px rgba(6, 59, 53, 0.35);
+}
+
+.ath-rail-arrow-left {
+  left: -22px;
+}
+
+.ath-rail-arrow-right {
+  right: -22px;
+}
+
+/* --------------------------------------------------------------------------
+   SECTION 3 — FAST MOVING PRODUCTS (EXPANSIVE EMERALD SHOWCASE)
+   -------------------------------------------------------------------------- */
+.ath-fast-moving-sec {
+  padding: 56px 0 62px;
+  background: var(--ath-emerald);
+  position: relative;
+  overflow: hidden;
+  margin: 24px 0 44px;
+}
+
+.ath-fast-moving-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 36px;
+  align-items: center;
+}
+
+@media (max-width: 1024px) {
+  .ath-fast-moving-layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
+.ath-fast-moving-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-right: 12px;
+}
+
+.ath-fast-moving-eyebrow {
+  color: var(--ath-gold);
+  font-family: var(--ath-sans);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.ath-fast-moving-title {
+  color: #FFFFFF;
+  font-family: var(--ath-serif);
+  font-size: clamp(32px, 2.8vw, 44px);
+  font-weight: 600;
+  line-height: 1.15;
+  margin: 0 0 14px;
+}
+
+.ath-fast-moving-sub {
+  color: #D2E0DC;
+  font-family: var(--ath-sans);
+  font-size: 14.5px;
+  line-height: 1.55;
+  margin: 0 0 28px;
+}
+
+.ath-shop-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 30px;
+  border-radius: 999px;
+  background: var(--ath-cream);
+  color: var(--ath-text-primary);
+  font-family: var(--ath-sans);
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+.ath-shop-all-btn:hover {
+  background: #FFFFFF;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes athProductInfiniteGlide {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.ath-products-marquee-wrap {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  padding: 8px 0 20px;
+}
+
+.ath-products-marquee-track {
+  display: flex;
+  gap: 20px;
+  width: max-content;
+  animation: athProductInfiniteGlide 38s linear infinite;
+  will-change: transform;
+}
+
+.ath-products-marquee-wrap:hover .ath-products-marquee-track,
+.ath-products-marquee-track:hover {
+  animation-play-state: paused;
+}
+
+/* Fallbacks */
+.ath-products-row-wrap {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.ath-products-track {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 8px 6px 20px;
+}
+
+.ath-products-track::-webkit-scrollbar {
+  display: none;
+}
+
+/* Individual Product Card in Fast Moving */
+.ath-products-status {
+  color: #fff;
+  padding: 24px 12px;
+  line-height: 1.6;
+}
+.ath-product-sales-label {
+  color: #536d60;
+  font-family: var(--ath-sans);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.ath-add-cart-btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.ath-product-card {
+  flex: 0 0 216px;
+  min-width: 216px;
+  border-radius: 22px;
+  background: #FFFFFF;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  transition: transform 280ms ease, box-shadow 280ms ease, border-color 280ms ease;
+  border: 1.5px solid rgba(255, 255, 255, 0.65);
+}
+
+.ath-product-card:hover {
+  transform: translateY(-9px);
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.36);
+  border-color: var(--ath-gold);
+}
+
+.ath-product-img-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: radial-gradient(circle, #FFFFFF 35%, #FBF6EB 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 18px;
+  box-sizing: border-box;
+}
+
+.ath-product-img-wrap img {
+  width: 90%;
+  height: 90%;
+  object-fit: contain;
+  transition: transform 300ms ease;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.12));
+}
+
+.ath-product-card:hover .ath-product-img-wrap img {
+  transform: scale(1.10);
+}
+
+.ath-wishlist-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  color: #7A8987;
+  transition: transform 160ms ease, color 160ms ease, background 160ms ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.10);
+}
+
+.ath-wishlist-btn:hover {
+  transform: scale(1.15);
+  color: #C92035;
+  background: #FFFFFF;
+}
+
+.ath-wishlist-btn.active {
+  color: #C92035;
+  background: #FFFFFF;
+}
+
+.ath-product-info {
+  padding: 16px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: #FFFFFF;
+}
+
+.ath-product-name {
+  font-family: var(--ath-sans);
+  font-size: 15px;
+  font-weight: 700;
+  color: #122825;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+.ath-product-price {
+  font-family: var(--ath-sans);
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--ath-text-primary);
+  margin: 3px 0 2px;
+}
+
+.ath-product-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #F4F0E8;
+}
+
+.ath-product-rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--ath-gold);
+  font-weight: 700;
+}
+
+.ath-product-rating svg {
+  fill: currentColor;
+}
+
+.ath-product-rating span {
+  color: #666;
+  font-weight: 600;
+}
+
+.ath-add-cart-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #FAF6ED;
+  border: 1px solid rgba(214, 161, 58, 0.45);
+  color: var(--ath-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.ath-add-cart-btn:hover {
+  background: var(--ath-emerald);
+  color: #FFFFFF;
+  border-color: var(--ath-emerald);
+  transform: scale(1.08);
+}
+
+.ath-add-cart-btn.added {
+  background: #2E7D32;
+  color: #FFFFFF;
+  border-color: #2E7D32;
+}
+
+/* --------------------------------------------------------------------------
+   SECTION 4 — SHOP BY OCCASION (BALANCED LUXURY EDITORIAL TILES)
+   -------------------------------------------------------------------------- */
+.ath-occasion-sec {
+  padding: 48px 0 60px;
+}
+
+.ath-occasion-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 36px;
+  align-items: center;
+}
+
+@media (max-width: 1120px) {
+  .ath-occasion-layout {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+}
+
+.ath-occasion-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.ath-occasion-cards-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .ath-occasion-cards-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+
+.ath-occasion-card {
+  position: relative;
+  aspect-ratio: 0.68 / 1;
+  min-height: 480px;
+  border-radius: 26px;
+  overflow: hidden;
+  box-shadow: var(--ath-shadow-md);
+  cursor: pointer;
+  transition: transform 280ms ease, box-shadow 280ms ease;
+  border: none;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .ath-occasion-card {
+    min-height: 380px;
+  }
+}
+
+.ath-occasion-card:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--ath-shadow-lg);
+}
+
+.ath-occasion-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 420ms ease;
+}
+
+.ath-occasion-card:hover img {
+  transform: scale(1.08);
+}
+
+.ath-occasion-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(8, 22, 20, 0.94) 0%,
+    rgba(8, 22, 20, 0.48) 44%,
+    transparent 78%
+  );
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 24px 20px;
+  box-sizing: border-box;
+}
+
+.ath-occasion-card-title {
+  font-family: var(--ath-serif);
+  font-size: 24px;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin: 0 0 4px;
+}
+
+.ath-occasion-card-sub {
+  font-family: var(--ath-sans);
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.90);
+  margin: 0;
+}
+
+.ath-card-arrow-btn {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  color: var(--ath-emerald);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.32);
+  transition: transform 180ms ease, background 180ms ease, color 180ms ease;
+  font-size: 17px;
+  font-weight: 700;
+  z-index: 2;
+}
+
+.ath-occasion-card:hover .ath-card-arrow-btn,
+.ath-gender-card:hover .ath-card-arrow-btn {
+  transform: scale(1.15);
+  background: var(--ath-gold);
+  color: var(--ath-text-primary);
+}
+
+/* --------------------------------------------------------------------------
+   SECTION 5 — SHOP BY GENDER (WIDE, IMPRESSIVE PANELS)
+   -------------------------------------------------------------------------- */
+.ath-gender-sec {
+  padding: 48px 0 60px;
+}
+
+.ath-gender-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .ath-gender-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+.ath-gender-card {
+  position: relative;
+  height: 520px;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: var(--ath-shadow-md);
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  text-align: left;
+  transition: transform 280ms ease, box-shadow 280ms ease;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .ath-gender-card {
+    height: 420px;
+  }
+}
+
+.ath-gender-card:hover {
+  transform: translateY(-7px);
+  box-shadow: var(--ath-shadow-lg);
+}
+
+.ath-gender-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 18%;
+  transition: transform 420ms ease;
+}
+
+.ath-gender-card:hover img {
+  transform: scale(1.06);
+}
+
+.ath-gender-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(6, 40, 36, 0.94) 0%,
+    rgba(6, 40, 36, 0.44) 46%,
+    transparent 82%
+  );
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 26px 28px;
+  box-sizing: border-box;
+}
+
+.ath-gender-eyebrow {
+  color: var(--ath-gold-light);
+  font-family: var(--ath-sans);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.ath-gender-title {
+  font-family: var(--ath-serif);
+  font-size: 34px;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+
+.ath-gender-sub {
+  font-family: var(--ath-sans);
+  font-size: 14.5px;
+  color: rgba(255, 255, 255, 0.88);
+  margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   SECTION 6 — WHY CHOOSE ATHIRAI (BIS 916 CERTIFICATE & INSURED DELIVERY)
+   -------------------------------------------------------------------------- */
+.ath-trust-sec {
+  padding: 48px 0 56px;
+}
+
+.ath-why-choose-cards-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  align-items: stretch;
+  margin-top: 24px;
+}
+
+@media (max-width: 1080px) {
+  .ath-why-choose-cards-row {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+.ath-trust-showcase-card {
+  background: #FFFFFF;
+  border-radius: 24px;
+  border: 1.5px solid rgba(214, 161, 58, 0.35);
+  box-shadow: var(--ath-shadow-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 260ms ease, box-shadow 260ms ease, border-color 260ms ease;
+  height: 100%;
+}
+
+.ath-trust-showcase-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--ath-shadow-lg);
+  border-color: var(--ath-gold);
+}
+
+.ath-trust-card-media {
+  position: relative;
+  width: 100%;
+  height: 250px;
+  overflow: hidden;
+  background: #F8F5EE;
+}
+
+.ath-trust-card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 400ms ease;
+}
+
+.ath-trust-showcase-card:hover .ath-trust-card-media img {
+  transform: scale(1.06);
+}
+
+.ath-trust-card-tag {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  background: rgba(6, 59, 53, 0.94);
+  color: var(--ath-gold);
+  border: 1px solid rgba(214, 161, 58, 0.5);
+  padding: 5px 13px;
+  border-radius: 999px;
+  font-family: var(--ath-sans);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.ath-trust-card-body {
+  padding: 24px 26px 28px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.ath-trust-card-title {
+  font-family: var(--ath-serif);
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--ath-text-primary);
+  margin: 0 0 16px;
+  line-height: 1.3;
+}
+
+.ath-trust-check-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ath-trust-check-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--ath-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #2D3E3A;
+  line-height: 1.4;
+}
+
+.ath-trust-check-list li svg {
+  color: var(--ath-gold);
+  flex-shrink: 0;
+}
+
+.ath-trust-legacy-card {
+  cursor: pointer;
+}
+
+/* Card 3: More Than Just Jewellery Legacy Card */
+.ath-gifting-legacy-card {
+  background: linear-gradient(145deg, #063B35 0%, #032420 100%);
+  border-radius: 24px;
+  padding: 10px;
+  box-shadow: var(--ath-shadow-md);
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  border: 1.5px solid rgba(214, 161, 58, 0.5);
+  text-decoration: none;
+  transition: transform 260ms ease, box-shadow 260ms ease, border-color 260ms ease;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.ath-gifting-legacy-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--ath-shadow-lg);
+  border-color: var(--ath-gold);
+}
+
+.ath-legacy-inner-border {
+  border: 1.5px dashed rgba(214, 161, 58, 0.45);
+  border-radius: 18px;
+  padding: 34px 28px;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #FFFFFF;
+}
+
+.ath-lotus-icon {
+  width: 52px;
+  height: 52px;
+  margin-bottom: 14px;
+  color: var(--ath-gold);
+  filter: drop-shadow(0 4px 10px rgba(214, 161, 58, 0.4));
+}
+
+.ath-legacy-kicker {
+  color: var(--ath-gold-light);
+  font-family: var(--ath-sans);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.ath-gifting-legacy-title {
+  font-family: var(--ath-serif);
+  font-size: 28px;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin: 0 0 6px;
+  line-height: 1.2;
+}
+
+.ath-gifting-legacy-sub {
+  font-family: var(--ath-serif);
+  font-size: 16px;
+  font-style: italic;
+  color: var(--ath-gold-light);
+  margin: 0 0 16px;
+}
+
+.ath-legacy-desc {
+  font-family: var(--ath-sans);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 22px;
+  max-width: 320px;
+}
+
+.ath-legacy-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 24px;
+  border-radius: 999px;
+  background: var(--ath-gold);
+  color: var(--ath-text-primary);
+  font-family: var(--ath-sans);
+  font-size: 13px;
+  font-weight: 800;
+  transition: all 180ms ease;
+  box-shadow: 0 6px 20px rgba(214, 161, 58, 0.35);
+}
+
+.ath-gifting-legacy-card:hover .ath-legacy-cta-btn {
+  background: #FFFFFF;
+  transform: translateY(-2px);
+}
+
+/* Dedicated 5 Trust Badges Horizontal Strip */
+.ath-trust-badges-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 32px;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .ath-trust-badges-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+}
+
+@media (max-width: 640px) {
+  .ath-trust-badges-strip {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+.ath-trust-strip-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #FFFFFF;
+  border: 1.5px solid rgba(214, 161, 58, 0.3);
+  border-radius: 18px;
+  padding: 16px 20px;
+  box-shadow: 0 4px 14px rgba(6, 59, 53, 0.05);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.ath-trust-strip-item:hover {
+  transform: translateY(-3px);
+  border-color: var(--ath-gold);
+  box-shadow: 0 10px 24px rgba(214, 161, 58, 0.18);
+}
+
+.ath-trust-icon {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 50%;
+  background: #FAF6ED;
+  border: 1.5px solid rgba(214, 161, 58, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ath-emerald);
+  box-shadow: 0 4px 12px rgba(214, 161, 58, 0.16);
+}
+
+.ath-trust-label {
+  font-family: var(--ath-sans);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ath-text-primary);
+  line-height: 1.35;
+}
+
+/* --------------------------------------------------------------------------
+   SECTION 8 — ATHIRAI CIRCLE / EXCLUSIVE OFFERS & NEW ARRIVALS
+   -------------------------------------------------------------------------- */
+.ath-circle-sec {
+  padding: 44px 0 68px;
+}
+
+.ath-circle-banner {
+  background: var(--ath-emerald);
+  border-radius: 30px;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 50% 50%;
+  box-shadow: var(--ath-shadow-lg);
+  border: 1px solid rgba(214, 161, 58, 0.35);
+  position: relative;
+  min-height: 380px;
+}
+
+@media (max-width: 960px) {
+  .ath-circle-banner {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ath-circle-img-wrap {
+  position: relative;
+  min-height: 380px;
+  background-size: cover;
+  background-position: left center;
+  background-repeat: no-repeat;
+  background-image: url('/gifting_banner_artwork.jpg');
+}
+
+.ath-circle-img-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 140px;
+  background: linear-gradient(to right, transparent, var(--ath-emerald));
+  pointer-events: none;
+}
+
+.ath-circle-content {
+  padding: clamp(40px, 5vw, 64px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+}
+
+.ath-circle-eyebrow {
+  color: var(--ath-gold-light);
+  font-family: var(--ath-sans);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.ath-circle-title {
+  font-family: var(--ath-serif);
+  font-size: clamp(32px, 3.2vw, 46px);
+  color: #FFFFFF;
+  font-weight: 600;
+  line-height: 1.15;
+  margin: 0 0 14px;
+}
+
+.ath-circle-sub {
+  font-family: var(--ath-sans);
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.55;
+  margin: 0 0 28px;
+  max-width: 520px;
+}
+
+.ath-newsletter-form {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 520px;
+  margin-bottom: 28px;
+}
+
+@media (max-width: 540px) {
+  .ath-newsletter-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.ath-newsletter-input {
+  flex: 1;
+  min-height: 52px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: #FFFFFF;
+  padding: 0 26px;
+  font-family: var(--ath-sans);
+  font-size: 14.5px;
+  color: var(--ath-text-primary);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.ath-newsletter-input::placeholder {
+  color: #888888;
+}
+
+.ath-newsletter-btn {
+  min-height: 52px;
+  padding: 0 32px;
+  border-radius: 999px;
+  border: none;
+  background: var(--ath-gold);
+  color: var(--ath-text-primary);
+  font-family: var(--ath-sans);
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 180ms ease, background 180ms ease;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(214, 161, 58, 0.4);
+}
+
+.ath-newsletter-btn:hover {
+  background: #E5B44C;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(214, 161, 58, 0.5);
+}
+
+.ath-newsletter-msg {
+  font-family: var(--ath-sans);
+  font-size: 13px;
+  margin-top: -16px;
+  margin-bottom: 20px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  display: inline-block;
+}
+
+.ath-newsletter-msg.success {
+  background: rgba(46, 125, 50, 0.3);
+  color: #A5D6A7;
+  border: 1px solid rgba(165, 214, 167, 0.45);
+}
+
+.ath-newsletter-msg.error {
+  background: rgba(211, 47, 47, 0.3);
+  color: #EF9A9A;
+  border: 1px solid rgba(239, 154, 154, 0.45);
+}
+
+.ath-circle-perks-row {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.ath-circle-perk {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ath-gold-light);
+  font-family: var(--ath-sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.ath-circle-perk svg {
+  color: var(--ath-gold);
+}

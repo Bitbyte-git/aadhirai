@@ -1,5 +1,6 @@
 from django import views
 from django.urls import path
+from .views import FastMovingProductsView
 from .views import DeliveryAddressListView, DeliveryAddressDetailView, DailyWorkCheckInView, DailyWorkCheckInReportView
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
@@ -68,6 +69,7 @@ urlpatterns = [
     path('metal-orders/summary/', MetalOrderSummaryView.as_view()), 
     path('metal-orders/', MetalOrderView.as_view()),
     path('jewelry-products/', JewelryProductView.as_view()),
+    path('jewelry-products/fast-moving/', FastMovingProductsView.as_view(), name='fast-moving-products'),
     path('jewelry-products/<int:pk>/', JewelryProductDetailView.as_view()),
     path('jewelry-products/sold-out/', SoldOutProductsView.as_view()),
     path('notify-me/', StockNotifyRequestView.as_view()),

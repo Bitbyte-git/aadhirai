@@ -2189,6 +2189,21 @@ export default function CustomerNavbar() {
           box-shadow: 0 4px 12px rgba(7,59,63,0.10);
         }
 
+        .rate-dropdown-toggle:hover {
+          border-color: #C5A567;
+          box-shadow: 0 7px 20px rgba(7,62,64,.24), 0 0 0 3px rgba(198,146,75,.1);
+          transform: translateY(-2px);
+        }
+        .rate-dropdown-toggle:active, .login-pill:active { transform: translateY(0); }
+        .rate-dropdown-toggle:focus-visible, .login-pill:focus-visible {
+          outline: 3px solid #073E40;
+          outline-offset: 3px;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .rate-dropdown-toggle, .login-pill { transition: none; }
+          .rate-dropdown-toggle:hover, .login-pill:hover { transform: none; }
+        }
+
         .rate-dropdown {
           position: relative;
           display: flex;
@@ -2200,8 +2215,8 @@ export default function CustomerNavbar() {
                 .rate-dropdown-toggle {
           height: 42px;
           border-radius: 999px;
-          border: none;
-          background: #073B3F;
+          border: 1px solid #2C6A60;
+          background: radial-gradient(ellipse at 20% 0%, #216960 0%, transparent 65%), linear-gradient(120deg, #0A4545, #062F34);
           color: #fff;
           display: inline-flex;
           align-items: center;
@@ -2212,7 +2227,8 @@ export default function CustomerNavbar() {
           padding: 0 16px;
           cursor: pointer;
           white-space: nowrap;
-          box-shadow: 0 4px 12px rgba(7,59,63,0.22);
+          box-shadow: 0 4px 12px rgba(7,62,64,.18), inset 0 1px 0 rgba(255,255,255,.14);
+          transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
           max-width: clamp(220px, 26vw, 340px);
           min-width: 0;
           overflow: hidden;
@@ -2292,8 +2308,9 @@ export default function CustomerNavbar() {
         .login-pill {
           height: 42px;
           border-radius: 999px;
-          border: 1px solid #073B3F;
-          background: #073B3F;
+          border: 1px solid #2C6A60;
+          background: radial-gradient(ellipse at 20% 0%, #216960 0%, transparent 65%), linear-gradient(120deg, #0A4545, #062F34);
+          box-shadow: 0 4px 12px rgba(7,62,64,.18), inset 0 1px 0 rgba(255,255,255,.14);
           color: #fff;
           padding: 0 18px;
           display: inline-flex;
@@ -2310,8 +2327,8 @@ export default function CustomerNavbar() {
 
         .login-pill:hover {
           transform: translateY(-2px);
-          background: #0E4B46;
-          box-shadow: 0 10px 24px rgba(7,59,63,0.18);
+          border-color: #C5A567;
+          box-shadow: 0 7px 20px rgba(7,62,64,.24), 0 0 0 3px rgba(198,146,75,.1);
         }
 
         .exact-login-popover-wrap {
@@ -3160,13 +3177,14 @@ export default function CustomerNavbar() {
           }
 
           .mobile-logout-btn.is-login {
-            border: 1px solid #073B3F;
-            background: #073B3F;
+            border: 1px solid #2C6A60;
+            background: radial-gradient(ellipse at 20% 0%, #216960 0%, transparent 65%), linear-gradient(120deg, #0A4545, #062F34);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.14);
             color: #FFFFFF;
           }
 
           .mobile-logout-btn.is-login:active {
-            background: #0E4B46;
+            filter: brightness(1.08);
           }
         }
 
@@ -3211,7 +3229,7 @@ export default function CustomerNavbar() {
         .role-drawer-footer{flex-shrink:0;padding:12px 18px max(14px,env(safe-area-inset-bottom));border-top:1px solid #e1e8df;background:#fff;display:flex;flex-direction:column;gap:12px}
         .role-drawer-logout-btn,.role-drawer-login-btn{display:flex;align-items:center;justify-content:center;gap:9px;min-height:45px;width:100%;padding:11px 14px;border:1px solid #e4d8d0;border-radius:11px;background:#faf7f4;color:#90564a;font-family:inherit;font-size:13px;font-weight:650;cursor:pointer;transition:background 160ms,border-color 160ms}
         .role-drawer-logout-btn:hover{background:#f4e9e3;border-color:#d8bfb2;box-shadow:none}
-        .role-drawer-login-btn{border-color:#164b43;background:#164b43;color:#fff}.role-drawer-login-btn:hover{background:#216052}
+        .role-drawer-login-btn{border-color:#2C6A60;background:radial-gradient(ellipse at 20% 0%, #216960 0%, transparent 65%), linear-gradient(120deg, #0A4545, #062F34);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.14)}.role-drawer-login-btn:hover{border-color:#C5A567;filter:brightness(1.08)}
         .role-drawer-tagline{display:flex;align-items:center;justify-content:center;gap:7px;color:#75856d;font-size:9px;letter-spacing:.035em;line-height:1.5;text-align:center}
         .role-drawer button:focus-visible{outline:2px solid #ac8245;outline-offset:2px}
         @media(max-width:380px){.role-drawer{max-width:calc(100vw - 12px)}.role-drawer-head{padding:15px 17px}.role-drawer-user-card{padding:17px;margin-inline:14px}.role-drawer-nav{padding-inline:14px}.role-drawer-footer{padding-inline:14px}}

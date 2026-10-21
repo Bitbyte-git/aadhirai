@@ -1,0 +1,62 @@
+{
+  "tool": "Built-in image_gen",
+  "useCase": "background-extraction",
+  "transparentBackground": true,
+  "assets": [
+    {
+      "source": "rail/gold-earrings.png",
+      "destination": "frontend/public/rail/cutouts/gold-earrings.png",
+      "prompt": "Remove only the cream background and ground shadow from the gold jhumka earrings; preserve jewellery design, stones, pose, and framing; output a genuine transparent PNG."
+    },
+    {
+      "source": "rail/gold-bangles.png",
+      "destination": "frontend/public/rail/cutouts/gold-bangles.png",
+      "prompt": "Use case: background-extraction. Edit target: the single provided jewellery product photograph (rail/gold-bangles.png). Remove ONLY all background, surface, ground shadow, and any decorative framing or circular backdrop. Output the same jewellery as a clean cutout on a genuinely transparent alpha background. Preserve the precise jewellery design, gold or silver metal color, gemstone colors, engraved detail, pose, number of items and framing. Remove background within ring, bangle, bracelet, chain and anklet openings and between objects. For necklaces preserve all beads, chains, gemstones and pendant; no satin or display frame. No redesign, no new objects, no text, no opaque background. Website PNG asset."
+    },
+    {
+      "source": "rail/gold-rings.png",
+      "destination": "frontend/public/rail/cutouts/gold-rings.png",
+      "prompt": "Use case: background-extraction. Edit target: the single provided jewellery product photograph (rail/gold-rings.png). Remove ONLY all background, surface, ground shadow, and any decorative framing or circular backdrop. Output the same jewellery as a clean cutout on a genuinely transparent alpha background. Preserve the precise jewellery design, gold or silver metal color, gemstone colors, engraved detail, pose, number of items and framing. Remove background within ring, bangle, bracelet, chain and anklet openings and between objects. For necklaces preserve all beads, chains, gemstones and pendant; no satin or display frame. No redesign, no new objects, no text, no opaque background. Website PNG asset."
+    },
+    {
+      "source": "rail/gold-coins.png",
+      "destination": "frontend/public/rail/cutouts/gold-coins.png",
+      "prompt": "Use case: background-extraction. Edit target: the single provided jewellery product photograph (rail/gold-coins.png). Remove ONLY all background, surface, ground shadow, and any decorative framing or circular backdrop. Output the same jewellery as a clean cutout on a genuinely transparent alpha background. Preserve the precise jewellery design, gold or silver metal color, gemstone colors, engraved detail, pose, number of items and framing. Remove background within ring, bangle, bracelet, chain and anklet openings and between objects. For necklaces preserve all beads, chains, gemstones and pendant; no satin or display frame. No redesign, no new objects, no text, no opaque background. Website PNG asset."
+    },
+    {
+      "source": "rail/gold-mangalsutra.png",
+      "destination": "frontend/public/rail/cutouts/gold-mangalsutra.png",
+      "prompt": "Use case: background-extraction. Edit target: the single provided jewellery product photograph (rail/gold-mangalsutra.png). Remove ONLY all background, surface, ground shadow, and any decorative framing or circular backdrop. Output the same jewellery as a clean cutout on a genuinely transparent alpha background. Preserve the precise jewellery design, gold or silver metal color, gemstone colors, engraved detail, pose, number of items and framing. Remove background within ring, bangle, bracelet, chain and anklet openings and between objects. For necklaces preserve all beads, chains, gemstones and pendant; no satin or display frame. No redesign, no new objects, no text, no opaque background. Website PNG asset."
+    },
+    {
+      "source": "rail/gold-bracelets.png",
+      "destination": "frontend/public/rail/cutouts/gold-bracelets.png",
+      "prompt": "Use case: background-extraction. Edit target: the single provided jewellery product photograph (rail/gold-bracelets.png). Remove ONLY all background, surface, ground shadow, and any decorative framing or circular backdrop. Output the same jewellery as a clean cutout on a genuinely transparent alpha background. Preserve the precise jewellery design, gold or silver metal color, gemstone colors, engraved detail, pose, number of items and framing. Remove background within ring, bangle, bracelet, chain and anklet openings and between objects. For necklaces preserve all beads, chains, gemstones and pendant; no satin or display frame. No redesign, no new objects, no text, no opaque background. Website PNG asset."
+    },
+    {
+      "source": "rail/silver-anklets.png",
+      "destination": "frontend/public/rail/cutouts/silver-anklets.png",
+      "prompt": "Use case: background-extraction. Edit target: the single provided jewellery product photograph (rail/silver-anklets.png). Remove ONLY all background, surface, ground shadow, and any decorative framing or circular backdrop. Output the same jewellery as a clean cutout on a genuinely transparent alpha background. Preserve the precise jewellery design, gold or silver metal color, gemstone colors, engraved detail, pose, number of items and framing. Remove background within ring, bangle, bracelet, chain and anklet openings and between objects. For necklaces preserve all beads, chains, gemstones and pendant; no satin or display frame. No redesign, no new objects, no text, no opaque background. Website PNG asset."
+    },
+    {
+      "source": "rail/silver-rings.png",
+      "destination": "frontend/public/rail/cutouts/silver-rings.png",
+      "prompt": "Use case: background-extraction. Edit target: the single provided jewellery product photograph (rail/silver-rings.png). Remove ONLY all background, surface, ground shadow, and any decorative framing or circular backdrop. Output the same jewellery as a clean cutout on a genuinely transparent alpha background. Preserve the precise jewellery design, gold or silver metal color, gemstone colors, engraved detail, pose, number of items and framing. Remove background within ring, bangle, bracelet, chain and anklet openings and between objects. For necklaces preserve all beads, chains, gemstones and pendant; no satin or display frame. No redesign, no new objects, no text, no opaque background. Website PNG asset."
+    },
+    {
+      "source": "rail/silver-earrings.png",
+      "destination": "frontend/public/rail/cutouts/silver-earrings.png",
+      "prompt": "Use case: background-extraction. Edit target: the single provided jewellery product photograph (rail/silver-earrings.png). Remove ONLY all background, surface, ground shadow, and any decorative framing or circular backdrop. Output the same jewellery as a clean cutout on a genuinely transparent alpha background. Preserve the precise jewellery design, gold or silver metal color, gemstone colors, engraved detail, pose, number of items and framing. Remove background within ring, bangle, bracelet, chain and anklet openings and between objects. For necklaces preserve all beads, chains, gemstones and pendant; no satin or display frame. No redesign, no new objects, no text, no opaque background. Website PNG asset."
+    },
+    {
+      "source": "rail/silver-bracelets.png",
+      "destination": "frontend/public/rail/cutouts/silver-bracelets.png",
+      "prompt": "Use case: background-extraction. Edit target: the single provided jewellery product photograph (rail/silver-bracelets.png). Remove ONLY all background, surface, ground shadow, and any decorative framing or circular backdrop. Output the same jewellery as a clean cutout on a genuinely transparent alpha background. Preserve the precise jewellery design, gold or silver metal color, gemstone colors, engraved detail, pose, number of items and framing. Remove background within ring, bangle, bracelet, chain and anklet openings and between objects. For necklaces preserve all beads, chains, gemstones and pendant; no satin or display frame. No redesign, no new objects, no text, no opaque background. Website PNG asset."
+    },
+    {
+      "source": "landing-img/necklace.png",
+      "destination": "frontend/public/rail/cutouts/necklace.png",
+      "prompt": "Use case: background-extraction. Edit target: the single provided jewellery product photograph (landing-img/necklace.png). Remove ONLY all background, surface, ground shadow, and any decorative framing or circular backdrop. Output the same jewellery as a clean cutout on a genuinely transparent alpha background. Preserve the precise jewellery design, gold or silver metal color, gemstone colors, engraved detail, pose, number of items and framing. Remove background within ring, bangle, bracelet, chain and anklet openings and between objects. For necklaces preserve all beads, chains, gemstones and pendant; no satin or display frame. No redesign, no new objects, no text, no opaque background. Website PNG asset."
+    }
+  ]
+}

@@ -1,12 +1,21 @@
 from decimal import Decimal
 
 from django.db import transaction
+from django.core.cache import cache
 from django.db.models import F
 from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 
-from .models import CustomerProfile, DigiGoldInvestment, DigiGoldLedgerRollup, MetalOrder, User
+from .models import CustomerProfile, DigiGoldInvestment, DigiGoldLedgerRollup, MetalOrder, User, JewelryProduct, JewelryOrder
+
+
+@receiver(post_save, sender=JewelryProduct)
+@receiver(post_delete, sender=JewelryProduct)
+@receiver(post_save, sender=JewelryOrder)
+@receiver(post_delete, sender=JewelryOrder)
+def invalidate_storefront_sales_ranking(sender, **kwargs):
+    transaction.on_commit(lambda: cache.delete('storefront:fast-moving:ranked-ids:v2'))
 
 
 def _category_for_user(user_id, role):

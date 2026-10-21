@@ -256,25 +256,33 @@ const SILVER_COIN_WEIGHTS = ["250mg", "500mg", "1g",    "2g",    "5g", "10g"];
 const OCCASIONS = [
   {
     label: "Wedding",
-    sub: "Celebrate your forever",
+    sub: "For the day your forever begins.",
+    edit: "THE FOREVER EDIT",
+    action: "Shop Wedding",
     route: "/collection/all?wedding=true",
     image: "/occasion-wedding.png",
   },
   {
     label: "Casual",
-    sub: "Everyday elegance",
+    sub: "A little sparkle for your everyday joys.",
+    edit: "THE EVERYDAY EDIT",
+    action: "Shop Everyday",
     route: "/collection/all?dailywear=true",
     image: "/occasion-casual.png",
   },
   {
     label: "Modern",
-    sub: "Trendy & chic",
+    sub: "A little bold. Entirely you.",
+    edit: "THE STYLE EDIT",
+    action: "Shop Modern",
     route: "/collection/all?occasion=Modern Wear",
     image: "/occasion-modern.png",
   },
   {
     label: "Traditional",
-    sub: "Timeless heritage",
+    sub: "The traditions you carry close.",
+    edit: "THE HERITAGE EDIT",
+    action: "Shop Heritage",
     route: "/collection/all?occasion=Traditional Wear",
     image: "/occasion-traditional.png",
   },
@@ -388,6 +396,7 @@ export default function CustomerDashboard() {
 
   const [fastMovingData, setFastMovingData] = useState([]);
   const [fastMovingLoading, setFastMovingLoading] = useState(true);
+  const [loadedProductImages, setLoadedProductImages] = useState(new Set());
   const [fastMovingError, setFastMovingError] = useState(false);
   const [coinTourMetal, setCoinTourMetal] = useState("gold");
   const [rates, setRates] = useState(null);
@@ -400,46 +409,56 @@ export default function CustomerDashboard() {
 
   useEffect(() => {
     let alive = true;
-
-    async function load() {
-      const hasToken = Boolean(localStorage.getItem("token"));
-      const [productRes, wishRes] = await Promise.allSettled([
-        api.get("/jewelry-products/fast-moving/"),
-        hasToken ? api.get("/wishlist/") : Promise.resolve({ data: [] }),
-      ]);
-
-      if (!alive) return;
-
-      if (productRes.status === "fulfilled") {
-        const raw = productRes.value.data;
-        const list = Array.isArray(raw)
-          ? raw
-          : Array.isArray(raw?.results)
-            ? raw.results
-            : [];
-        setFastMovingData(list.slice(0, 10));
-        setFastMovingError(false);
-      } else {
-        setFastMovingData([]);
-        setFastMovingError(true);
-      }
-      setFastMovingLoading(false);
-
-      if (wishRes.status === "fulfilled") {
-        const items = Array.isArray(wishRes.value.data?.items)
-          ? wishRes.value.data.items
-          : Array.isArray(wishRes.value.data)
-            ? wishRes.value.data
-            : [];
-        setWishIds(new Set(items.map((item) => item.product_id || item.product)));
+    let pending = false;
+    async function loadProducts() {
+      if (pending) return;
+      pending = true;
+      try {
+        const response = await api.get("/jewelry-products/fast-moving/");
+        const raw = response.data;
+        const list = Array.isArray(raw) ? raw : Array.isArray(raw?.results) ? raw.results : [];
+        const seen = new Set();
+        const available = list.filter(product => {
+          if (product.is_active !== true || Number(product.stock_quantity) <= 0
+            || !Number.isFinite(Number(product.stock_quantity)) || seen.has(product.id)) return false;
+          seen.add(product.id);
+          return true;
+        }).slice(0, 10);
+        if (alive) {
+          setFastMovingData(available);
+          setFastMovingError(false);
+        }
+      } catch {
+        if (alive) {
+          setFastMovingData([]);
+          setFastMovingError(true);
+        }
+      } finally {
+        pending = false;
+        if (alive) setFastMovingLoading(false);
       }
     }
-
-    load();
-    const timer = setInterval(load, 45000);
+    // Wishlist latency must not delay the product cards.
+    if (localStorage.getItem("token")) {
+      api.get("/wishlist/").then(response => {
+        if (!alive) return;
+        const items = Array.isArray(response.data?.items) ? response.data.items
+          : Array.isArray(response.data) ? response.data : [];
+        setWishIds(new Set(items.map(item => item.product_id || item.product)));
+      }).catch(() => {});
+    }
+    const refreshVisible = () => {
+      if (document.visibilityState === "visible") loadProducts();
+    };
+    loadProducts();
+    const timer = setInterval(refreshVisible, 20000);
+    window.addEventListener("focus", loadProducts);
+    document.addEventListener("visibilitychange", refreshVisible);
     return () => {
       alive = false;
       clearInterval(timer);
+      window.removeEventListener("focus", loadProducts);
+      document.removeEventListener("visibilitychange", refreshVisible);
     };
   }, []);
 
@@ -498,9 +517,10 @@ export default function CustomerDashboard() {
     category: product.category,
     metal: product.metal,
     price: product.live_price == null ? null : Number(product.live_price),
+    priceLabel: product.price_source === "live_rate" ? "Current rate price" : "Price",
+    metalLabel: [safeText(product.grade).toUpperCase(), safeText(product.metal)].filter(Boolean).join(" / "),
     image: resolveImage(product.images?.[0] || product.image),
-    salesLabel: product.sales_group === "recent" ? "Recent bestseller"
-      : product.sales_group === "historical" ? "Past bestseller" : "New arrival",
+    salesLabel: product.sales_group === "new_arrival" ? "New Arrival" : "Customer Favourite",
   })), [fastMovingData]);
 
   const requireLogin = (route = "") => {
@@ -1116,10 +1136,21 @@ export default function CustomerDashboard() {
 
             {/* Right Product Cards Track - Infinite Seamless Loop */}
             <div className="ath-products-marquee-wrap">
-              {!fastMovingProducts.length && (
+              {fastMovingLoading && !fastMovingProducts.length && (
+                <div className="ath-fast-skeleton-track" role="status" aria-label="Loading fast moving products" aria-busy="true">
+                  {Array.from({ length: 10 }, (_, index) => (
+                    <div className="ath-product-card ath-fast-skeleton" key={index} aria-hidden="true">
+                      <div className="ath-skeleton-block ath-skeleton-media" />
+                      <div className="ath-skeleton-block ath-skeleton-name" />
+                      <div className="ath-skeleton-block ath-skeleton-price" />
+                      <div className="ath-skeleton-block ath-skeleton-action" />
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!fastMovingLoading && !fastMovingProducts.length && (
                 <p className="ath-products-status" role="status">
-                  {fastMovingLoading ? "Loading products..." : fastMovingError
-                    ? "Products could not be loaded. Please try again shortly."
+                  {fastMovingError ? "Products could not be loaded. Please try again shortly."
                     : "New pieces are on their way. Explore our collections."}
                 </p>
               )}
@@ -1133,8 +1164,19 @@ export default function CustomerDashboard() {
                       key={`${item.id}-${idx}`}
                       className="ath-product-card"
                       onClick={() => openProduct(item)}
+                      tabIndex={0}
+                      role="link"
+                      aria-label={`View ${item.displayTitle}`}
+                      onKeyDown={event => {
+                        if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+                          event.preventDefault();
+                          openProduct(item);
+                        }
+                      }}
                     >
-                      <div className="ath-product-img-wrap">
+                      <div className={`ath-product-img-wrap ${loadedProductImages.has(item.image || "/logo.png") ? "" : "is-loading"}`}>
+                        <span className="ath-product-image-badge">{item.salesLabel}</span>
+                        <span className="ath-product-stock"><i aria-hidden="true" />In stock</span>
                         <button
                           type="button"
                           className={`ath-wishlist-btn ${isWish ? "active" : ""}`}
@@ -1155,9 +1197,19 @@ export default function CustomerDashboard() {
                         <img
                           src={item.image || "/logo.png"}
                           alt={item.image ? item.displayTitle : "Product photo unavailable"}
-                          loading="lazy"
+                          loading={idx < 3 ? "eager" : "lazy"}
+                          decoding="async"
+                          fetchPriority={idx === 0 ? "high" : "auto"}
+                          width="464"
+                          height="464"
+                          onLoad={() => setLoadedProductImages(previous => {
+                            const source = item.image || "/logo.png";
+                            return previous.has(source) ? previous : new Set([...previous, source]);
+                          })}
                           onError={(e) => {
-                            e.currentTarget.onerror = null;
+                            if (e.currentTarget.dataset.fallback === "true") return;
+                            e.currentTarget.dataset.fallback = "true";
+                            e.currentTarget.style.objectFit = "contain";
                             e.currentTarget.alt = "Product photo unavailable";
                             e.currentTarget.src = "/logo.png";
                           }}
@@ -1165,10 +1217,18 @@ export default function CustomerDashboard() {
                       </div>
 
                       <div className="ath-product-info">
+                        <span className="ath-product-metal">{item.metalLabel}</span>
                         <h3 className="ath-product-name">{item.displayTitle}</h3>
+                        <span className="ath-product-price-caption">{item.priceLabel}</span>
                         <div className="ath-product-price">{item.price > 0 ? money(item.price) : "Price unavailable"}</div>
                         <div className="ath-product-footer-row">
-                          <span className="ath-product-sales-label">{item.salesLabel}</span>
+                          <button
+                            type="button"
+                            className="ath-view-product-btn"
+                            onClick={event => { event.stopPropagation(); openProduct(item); }}
+                          >
+                            Shop Now <span aria-hidden="true">&rarr;</span>
+                          </button>
                           <button
                             type="button"
                             className={`ath-add-cart-btn ${isAdded ? "added" : ""}`}
@@ -1207,39 +1267,45 @@ export default function CustomerDashboard() {
         <section className="ath-occasion-sec" aria-label="Shop by Occasion">
           <div className="ath-occasion-layout">
             <div className="ath-occasion-copy">
-              <span className="ath-sec-eyebrow">• FOR EVERY SPECIAL MOMENT •</span>
-              <h2 className="ath-sec-title">Shop by Occasion</h2>
-              <p className="ath-sec-subtitle ath-section-intro">
-                Celebrate the big moments. <em>Shine in the little ones.</em>
-              </p>
+              <div className="ath-occasion-heading">
+                <span className="ath-sec-eyebrow">FOR LIFE&apos;S BEAUTIFUL MOMENTS</span>
+                <h2 className="ath-sec-title">Shop by Occasion</h2>
+                <p className="ath-sec-subtitle ath-section-intro">
+                  Some moments become memories. <em>Dress them in something beautiful.</em>
+                </p>
+              </div>
               <button
                 type="button"
-                className="ath-coin-cta-btn ath-coin-cta-silver"
-                style={{ marginTop: 24 }}
+                className="ath-occasion-explore"
                 onClick={() => navigate("/collection/all")}
               >
-                <span>Explore All</span>
-                <span>→</span>
+                Find Your Moment <span aria-hidden="true">&rarr;</span>
               </button>
             </div>
 
-            <div className="ath-occasion-cards-row">
+            <div className="ath-occasion-cards-row" role="group" aria-label="Explore jewellery by occasion" tabIndex={0}>
               {OCCASIONS.map((occ) => (
                 <button
                   key={occ.label}
                   type="button"
                   className="ath-occasion-card"
+                  aria-label={`${occ.action} jewellery`}
                   onClick={() => navigate(occ.route)}
                 >
-                  <img src={occ.image} alt={occ.label} loading="lazy" />
+                  <img src={occ.image} alt={`${occ.label} jewellery collection`} loading="lazy" decoding="async" />
+                  <span className="ath-occasion-edit">{occ.edit}</span>
                   <div className="ath-occasion-overlay">
+                    <span className="ath-occasion-detail" aria-hidden="true" />
                     <h3 className="ath-occasion-card-title">{occ.label}</h3>
                     <p className="ath-occasion-card-sub">{occ.sub}</p>
-                    <span className="ath-card-arrow-btn">→</span>
+                    <span className="ath-occasion-shop">
+                      {occ.action}<span aria-hidden="true">&rarr;</span>
+                    </span>
                   </div>
                 </button>
               ))}
             </div>
+            <p className="ath-occasion-swipe-hint">Swipe to find your moment <span aria-hidden="true">&rarr;</span></p>
           </div>
         </section>
 

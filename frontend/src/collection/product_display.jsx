@@ -1,10 +1,36 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import logo from '../assets/logo.png'
+import api from '../api'
 import { addToCartDB } from '../collection/card_section'
 import CustomerFooter from '../collection/CustomerFooter'
 
-const API_BASE = 'https://bitbyte-backend-f66f.onrender.com'
+const API_BASE = (api.defaults.baseURL || '').replace(/\/api\/?$/, '')
+
+function getProductRate(product, rates) {
+  const field = product?.metal === 'gold' ? (product.grade === '24k' ? 'gold_24k' : 'gold_22k')
+    : product?.metal === 'silver' ? 'silver_999' : product?.metal === 'diamond'
+      ? (product.grade === '18k' ? 'diamond_18k' : 'diamond_22k')
+      : product?.metal === 'platinum' ? 'platinum_92' : null
+  const rate = Number(rates?.[field])
+  return Number.isFinite(rate) && rate > 0 ? rate : 0
+}
+
+function calculateLiveProductPrice(product, rates, discounted = true) {
+  const rate = getProductRate(product, rates)
+  const weight = Number(product?.net_weight) || 0
+  if (!rate || weight <= 0) {
+    const stored = Number(discounted ? product?.price : product?.original_price)
+    return Number.isFinite(stored) && stored > 0 ? stored : null
+  }
+  const making = Number(product.making_charge) || 0
+  const discount = discounted ? Number(product.wastage_charge) || 0 : 0
+  const stone = Number(product.stone_value) || 0
+  const dieCharge = Number(product.die_charge) || 0
+  const effectiveRate = rate * (1 + making / 100) * (1 - discount / 100)
+  const price = Math.round((weight * effectiveRate + stone + dieCharge) * 1.03)
+  return price > 0 ? price : null
+}
 
 const PARTICLES = Array.from({ length: 14 }, (_, i) => ({
   id: i,
@@ -108,30 +134,8 @@ function MoreFromCollection({ currentProductId, category, metal, gender, occasio
 
   if (!products.length) return null
 
-  const calcLivePrice = (p) => {
-    const wt = parseFloat(p.net_weight) || parseFloat(p.cross_weight) || 0
-    let rate = 0
-    if (liveRate) {
-      if (p.metal === 'gold') rate = p.grade === '24k' ? liveRate.gold_24k : liveRate.gold_22k
-      else if (p.metal === 'silver') rate = liveRate.silver_999
-    }
-    const metalCost = wt * rate
-    const wastage = parseFloat(p.wastage_charge) || 0
-    const making = parseFloat(p.making_charge) || 0
-    const stone = parseFloat(p.stone_value) || 0
-    const base = metalCost + (metalCost * wastage / 100) + (metalCost * making / 100) + stone
-    const gst = base * 0.03
-    return Math.round(base + gst) || Math.round(parseFloat(p.price) || 0)
-  }
-
-  const calcOriginalPrice = (p) => {
-    const live = calcLivePrice(p)
-    const discount = parseFloat(p.wastage_charge) || 0
-    if (discount > 0 && live > 0) {
-      return Math.round(live / (1 - discount / 100))
-    }
-    return 0
-  }
+  const calcLivePrice = (product) => calculateLiveProductPrice(product, liveRate)
+  const calcOriginalPrice = (product) => calculateLiveProductPrice(product, liveRate, false)
 
   const getImageUrl = (imgObj) => {
     if (!imgObj) return null
@@ -349,27 +353,7 @@ function MoreFromCollection({ currentProductId, category, metal, gender, occasio
     </section>
   )
 }
-function ProductInfoAndBreakup({ product, metal }) {
-  const [liveRate, setLiveRate] = useState(null)
-
-  useEffect(() => {
-    import('../api').then(({ default: api }) => {
-      api.get('/metal-rates/')
-        .then(res => {
-          const d = res.data
-          setLiveRate({
-            gold_22k: parseFloat(d.gold_22k) || 0,
-            gold_24k: parseFloat(d.gold_24k) || 0,
-            silver_999: parseFloat(d.silver_999) || 0,
-            diamond_18k: parseFloat(d.diamond_18k) || 0,
-            diamond_22k: parseFloat(d.diamond_22k) || 0,
-            platinum_92: parseFloat(d.platinum_92) || 0,
-          })
-        })
-        .catch(() => { })
-    })
-  }, [])
-
+function ProductInfoAndBreakup({ product, metal, liveRate }) {
   if (!product) return null
 
   const purityLabel = PURITY_LABELS[metal]?.[product.grade] || product.grade?.toUpperCase() || '-'
@@ -384,10 +368,10 @@ function ProductInfoAndBreakup({ product, metal }) {
 
   let todayRate = 0
   if (liveRate) {
-    if (metal === 'gold') todayRate = product.grade === '24k' ? liveRate.gold_24k : liveRate.gold_22k
-    else if (metal === 'silver') todayRate = liveRate.silver_999
-    else if (metal === 'diamond') todayRate = product.grade === '18k' ? liveRate.diamond_18k : liveRate.diamond_22k
-    else if (metal === 'platinum') todayRate = liveRate.platinum_92
+    if (metal === 'gold') todayRate = Number(product.grade === '24k' ? liveRate.gold_24k : liveRate.gold_22k)
+    else if (metal === 'silver') todayRate = Number(liveRate.silver_999)
+    else if (metal === 'diamond') todayRate = Number(product.grade === '18k' ? liveRate.diamond_18k : liveRate.diamond_22k)
+    else if (metal === 'platinum') todayRate = Number(liveRate.platinum_92)
   }
 
   const inr = n => n !== null && n !== undefined ? `Rs. ${Math.round(n).toLocaleString('en-IN')}` : '-'
@@ -513,8 +497,8 @@ export default function ProductDisplay() {
   const canvasRef = useRef(null)
 
   const productId = searchParams.get('id')
-  const category = searchParams.get('category') || 'rings'
-  const metal = searchParams.get('metal') || 'gold'
+  const categoryFilter = searchParams.get('category') || 'rings'
+  const metalFilter = searchParams.get('metal') || 'gold'
 
   const [dark, setDark] = useState(true)
   const [loading, setLoading] = useState(true)
@@ -527,9 +511,18 @@ export default function ProductDisplay() {
   const [zoomLensStyle, setZoomLensStyle] = useState({})
   const [wishlisted, setWishlisted] = useState(false)
   const [liveRate, setLiveRate] = useState(null)
+  const [ratesLoading, setRatesLoading] = useState(true)
   const [notifyMsg, setNotifyMsg] = useState('')
   const imageRef = useRef(null)
   const mainImageRef = useRef(null)
+
+  const product = useMemo(() => {
+    if (productId) return products.find(item => String(item.id) === String(productId)) || null
+    return products[0] || null
+  }, [products, productId])
+
+  const category = product?.category || categoryFilter
+  const metal = product?.metal || metalFilter
 
   const isGold = metal === 'gold'
   const accentColor = isGold ? '#fbbf24' : '#c0c0c0'
@@ -565,53 +558,54 @@ export default function ProductDisplay() {
   }, [productId])
 
   useEffect(() => {
-    import('../api').then(({ default: api }) => {
-      api.get('/metal-rates/').then(res => {
-        const d = res.data
-        setLiveRate({
-          gold_22k: parseFloat(d.gold_22k) || 0,
-          gold_24k: parseFloat(d.gold_24k) || 0,
-          silver_999: parseFloat(d.silver_999) || 0,
-          diamond_18k: parseFloat(d.diamond_18k) || 0,
-          diamond_22k: parseFloat(d.diamond_22k) || 0,
-          platinum_92: parseFloat(d.platinum_92) || 0,
-        })
-      }).catch(() => { })
-    })
+    let cancelled = false
+    let pending = false
+    async function loadRates() {
+      if (pending) return
+      pending = true
+      try {
+        const response = await api.get('/metal-rates/')
+        const data = Array.isArray(response.data) ? response.data[0] : response.data
+        if (!cancelled) setLiveRate(data || null)
+      } catch {
+        if (!cancelled) setLiveRate(null)
+      } finally {
+        pending = false
+        if (!cancelled) setRatesLoading(false)
+      }
+    }
+    loadRates()
+    const timer = setInterval(loadRates, 45000)
+    window.addEventListener('focus', loadRates)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+      window.removeEventListener('focus', loadRates)
+    }
   }, [])
 
   useEffect(() => {
+    let cancelled = false
     setLoading(true)
-    if (metal === 'diamond' || metal === 'platinum') {
-      setProducts([])
-      setLoading(false)
-      return
-    }
-    import('../api').then(({ default: api }) => {
-      // "More from this Collection" is a small preview row with its own
-      // "View All" escape hatch to the full paginated listing — no need to
-      // fetch every matching product just to show a handful of cards here.
-      api.get(`/jewelry-products/?category=${category}&metal=${metal}&page=1&page_size=10`)
-        .then(res => {
-          const list = Array.isArray(res.data) ? res.data : (res.data?.results || [])
-          setProducts(list)
-          setLoading(false)
-        })
-        .catch(err => {
-          setProducts([])
-          setLoading(false)
-        })
-    })
-  }, [category, metal])
-
-  const product = useMemo(() => {
-    if (!products.length) return null
-    if (productId) {
-      const found = products.find(item => String(item.id) === String(productId))
-      if (found) return found
-    }
-    return products[0]
-  }, [products, productId])
+    setProducts([])
+    setQty(1)
+    setMainImage(null)
+    setShowZoom(false)
+    const params = new URLSearchParams({ category: categoryFilter, metal: metalFilter, page: '1', page_size: '1' })
+    const url = productId
+      ? `/jewelry-products/${encodeURIComponent(productId)}/`
+      : `/jewelry-products/?${params.toString()}`
+    api.get(url)
+      .then(res => {
+        if (cancelled) return
+        const list = productId ? [res.data]
+          : Array.isArray(res.data) ? res.data : (res.data?.results || [])
+        setProducts(list)
+      })
+      .catch(() => { if (!cancelled) setProducts([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [categoryFilter, metalFilter, productId])
 
   const productImages = useMemo(() => {
     if (!product) return []
@@ -621,8 +615,11 @@ export default function ProductDisplay() {
     return []
   }, [product, metal])
 
+  const selectedImage = productImages.includes(mainImage) ? mainImage : productImages[0] || null
+
   useEffect(() => {
-    if (productImages.length > 0) setMainImage(productImages[0])
+    setMainImage(productImages[0] || null)
+    setShowZoom(false)
   }, [productImages])
 
   useEffect(() => {
@@ -707,45 +704,9 @@ export default function ProductDisplay() {
     })
   }
 
-  const calcLivePriceMain = () => {
-    if (!liveRate || !product) return Number(product?.price) || null
-    const netWt = parseFloat(product.net_weight) || 0
-    const makingChargePct = parseFloat(product.making_charge) || 0
-    const discountPct = parseFloat(product.wastage_charge) || 0
-    const stoneVal = parseFloat(product.stone_value) || 0
-    const dieChargeVal = parseFloat(product.die_charge) || 0
-    let todayRate = 0
-    if (metal === 'gold') todayRate = product.grade === '24k' ? liveRate.gold_24k : liveRate.gold_22k
-    else if (metal === 'silver') todayRate = liveRate.silver_999
-    else if (metal === 'diamond') todayRate = product.grade === '18k' ? liveRate.diamond_18k : liveRate.diamond_22k
-    else if (metal === 'platinum') todayRate = liveRate.platinum_92
-    if (!todayRate || !netWt) return Number(product?.price) || null
-    const makingPerGram = todayRate * (makingChargePct / 100)
-    const rateWithMaking = todayRate + makingPerGram
-    const discountPerGram = rateWithMaking * (discountPct / 100)
-    const effectiveRate = rateWithMaking - discountPerGram
-    return Math.round(((netWt * effectiveRate) + stoneVal + dieChargeVal) * 1.03)
-  }
-
-  const calcOriginalPriceMain = () => {
-    if (!liveRate || !product) return Number(product?.original_price) || null
-    const netWt = parseFloat(product.net_weight) || 0
-    const makingChargePct = parseFloat(product.making_charge) || 0
-    const stoneVal = parseFloat(product.stone_value) || 0
-    const dieChargeVal = parseFloat(product.die_charge) || 0
-    let todayRate = 0
-    if (metal === 'gold') todayRate = product.grade === '24k' ? liveRate.gold_24k : liveRate.gold_22k
-    else if (metal === 'silver') todayRate = liveRate.silver_999
-    else if (metal === 'diamond') todayRate = product.grade === '18k' ? liveRate.diamond_18k : liveRate.diamond_22k
-    else if (metal === 'platinum') todayRate = liveRate.platinum_92
-    if (!todayRate || !netWt) return Number(product?.original_price) || null
-    const makingPerGram = todayRate * (makingChargePct / 100)
-    const rateWithMaking = todayRate + makingPerGram
-    return Math.round(((netWt * rateWithMaking) + stoneVal + dieChargeVal) * 1.03)
-  }
-
-  const displayPrice = calcLivePriceMain()
-  const displayOriginalPrice = calcOriginalPriceMain()
+  const displayPrice = calculateLiveProductPrice(product, liveRate)
+  const displayOriginalPrice = calculateLiveProductPrice(product, liveRate, false)
+  const hasLivePrice = getProductRate(product, liveRate) > 0 && Number(product?.net_weight) > 0
 
   const requireLogin = () => {
     if (localStorage.getItem('token')) return false
@@ -767,7 +728,7 @@ export default function ProductDisplay() {
   const handleMouseMove = (e) => {
     const frameRect = imageRef.current?.getBoundingClientRect()
     const imgRect = mainImageRef.current?.getBoundingClientRect()
-    if (!frameRect || !imgRect || !mainImage) return
+    if (!frameRect || !imgRect || !selectedImage) return
 
     // ── image area kulla than mouse irukka nu check pannurom — illana zoom hide ──
     const insideImage = e.clientX >= imgRect.left && e.clientX <= imgRect.right &&
@@ -787,7 +748,7 @@ export default function ProductDisplay() {
 
     setZoomPixel({ x: frameX, y: frameY })
     setZoomLensStyle({
-      backgroundImage: `url(${mainImage})`,
+      backgroundImage: `url(${selectedImage})`,
       backgroundSize: `${imgRect.width * zoomScale}px ${imgRect.height * zoomScale}px`,
       backgroundPosition: `${(lensSize / 2) - (imgX * zoomScale)}px ${(lensSize / 2) - (imgY * zoomScale)}px`,
     })
@@ -800,9 +761,9 @@ export default function ProductDisplay() {
     if (result) { setShowAdded(true); setTimeout(() => setShowAdded(false), 1600) }
   }
 
-  if (loading) {
+  if (loading || ratesLoading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#FDFDFC', color: '#111817', fontFamily: '"Inter",system-ui,sans-serif', padding: '30px 16px 80px' }}>
+      <div role="status" aria-label="Loading product and current price" aria-busy="true" style={{ minHeight: '100vh', background: '#FDFDFC', color: '#111817', fontFamily: '"Inter",system-ui,sans-serif', padding: '30px 16px 80px' }}>
         <style>{`
           @keyframes pdShimmer {
             0% { background-position: -200% 0; }
@@ -814,6 +775,7 @@ export default function ProductDisplay() {
             animation: pdShimmer 1.5s infinite ease-in-out;
             border-radius: 12px;
           }
+          @media (prefers-reduced-motion: reduce) { .pd-skel { animation: none; } }
           .pd-skel-shell {
             width: min(1480px, 100%);
             margin: 0 auto;
@@ -1366,12 +1328,12 @@ export default function ProductDisplay() {
                 </svg>
               </button>
 
-              {mainImage && (
-                <img ref={mainImageRef} className="pd-main-img" src={mainImage} onError={e => { e.currentTarget.style.display = 'none' }}
+              {selectedImage && (
+                <img key={selectedImage} ref={mainImageRef} className="pd-main-img" src={selectedImage} alt={productName} onError={e => { e.currentTarget.style.display = 'none' }}
                   style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain', filter: isSoldOut ? 'drop-shadow(0 20px 36px rgba(0,0,0,0.14)) grayscale(0.55) opacity(0.85)' : 'drop-shadow(0 20px 36px rgba(0,0,0,0.14))', transition: 'transform 0.55s cubic-bezier(0.34,1.56,0.64,1)' }} />
               )}
 
-              {showZoom && mainImage && (
+              {showZoom && selectedImage && (
                 <div className="pd-zoom-lens" style={{ left: zoomPixel.x - 86, top: zoomPixel.y - 86, borderColor: accentColor, ...zoomLensStyle }} />
               )}
             </div>
@@ -1379,7 +1341,7 @@ export default function ProductDisplay() {
             {/* Thumbnails */}
             <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
               {productImages.map((img, index) => (
-                <button key={index} className={`pd-thumb${mainImage === img ? ' active' : ''}`} onClick={() => setMainImage(img)}>
+                <button key={index} className={`pd-thumb${selectedImage === img ? ' active' : ''}`} onClick={() => setMainImage(img)}>
                   <img src={img} alt={`${productName} ${index + 1}`}
                     onError={e => { const fb = isGold ? '/img/gold/gold-ring-1.png' : '/img/silver/silver-ring-1.png'; if (e.currentTarget.src !== window.location.origin + fb) e.currentTarget.src = fb }}
                     style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
@@ -1424,7 +1386,7 @@ export default function ProductDisplay() {
                 <div className="pd-rating-stars">★★★★★</div>
                 <div style={{ marginTop: 5, color: '#7A8987', fontSize: 12, fontWeight: 700 }}>Premium selected jewellery</div>
               </div>
-              <div className="pd-rate-chip">Live rate pricing</div>
+              <div className="pd-rate-chip">{hasLivePrice ? "Live rate pricing" : "Catalogue price"}</div>
             </div>
 
             <p className="pd-product-copy">{productDesc}</p>
@@ -1448,7 +1410,7 @@ export default function ProductDisplay() {
 
             {/* Price box */}
             <div className="pd-price-box">
-              <div style={{ color: '#7A8987', fontSize: 10, fontWeight: 900, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 12 }}>Today's Price</div>
+              <div style={{ color: '#7A8987', fontSize: 10, fontWeight: 900, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 12 }}>{hasLivePrice ? "Current rate price" : "Catalogue price"}</div>
 
               {(() => {
                 const discountPct = parseFloat(product?.wastage_charge) || 0
@@ -1626,7 +1588,7 @@ export default function ProductDisplay() {
       </div>
 
       {/* ── PRODUCT INFO + PRICE BREAKUP ── */}
-      <ProductInfoAndBreakup product={product} metal={metal} />
+      <ProductInfoAndBreakup product={product} metal={metal} liveRate={liveRate} />
 
       {/* ── MORE FROM THIS COLLECTION ── */}
       <MoreFromCollection currentProductId={productId} category={category} metal={metal} gender={product?.gender} occasion={product?.occasion} liveRate={liveRate} />

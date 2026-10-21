@@ -2673,7 +2673,30 @@ class FastMovingProductsView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        products = list(ranked_products()[:10])
+        # Cache ranking IDs, never availability, images, or rate-based prices.
+        # Keeping extra candidates lets stock changes be handled without serving
+        # stale products or recomputing the sales aggregation for every visitor.
+        cache_key = 'storefront:fast-moving:ranked-ids:v2'
+        ranked_rows = cache.get(cache_key)
+        if ranked_rows is None:
+            ranked_rows = list(ranked_products().values('id', 'sales_tier')[:100])
+            cache.set(cache_key, ranked_rows, 60)
+        ranked_ids = [row['id'] for row in ranked_rows]
+        available = JewelryProduct.objects.filter(
+            id__in=ranked_ids, is_active=True, is_internal_asset=False, stock_quantity__gt=0,
+        ).order_by(Case(
+            *(When(pk=pk, then=Value(position)) for position, pk in enumerate(ranked_ids)),
+            default=Value(len(ranked_ids)), output_field=IntegerField(),
+        )).prefetch_related('images')[:10]
+        by_id = {product.id: product for product in available}
+        for row in ranked_rows:
+            if row['id'] in by_id:
+                by_id[row['id']].sales_tier = row['sales_tier']
+        products = [by_id[pk] for pk in ranked_ids if pk in by_id][:10]
+        if len(products) < 10:
+            products.extend(list(ranked_products().exclude(
+                id__in=[product.id for product in products],
+            )[:10 - len(products)]))
         # Today's entry takes precedence; future-dated rates are never advertised.
         rates = MetalRate.objects.filter(date__lte=timezone.localdate()).order_by('-date').first()
         results = []
@@ -2682,13 +2705,15 @@ class FastMovingProductsView(APIView):
             item['live_price'], item['price_source'] = current_product_price(product, rates)
             item['sales_group'] = ('recent', 'historical', 'new_arrival')[product.sales_tier]
             results.append(item)
-        return Response({
+        response = Response({
             'results': results,
             'count': len(results),
             'limit': 10,
             'window_days': 30,
             'rate_date': rates.date.isoformat() if rates else None,
         })
+        response['Cache-Control'] = 'no-store'
+        return response
 
 
 class JewelryProductView(APIView):

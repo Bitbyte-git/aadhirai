@@ -138,7 +138,11 @@ function HomeBannerSlider() {
         <img
           key={banner.id || banner.slot}
           src={resolveImage(banner.image)}
-          alt=""
+          alt={`Athirai jewellery collection banner ${index + 1}`}
+          loading={index === 0 ? "eager" : "lazy"}
+          fetchPriority={index === 0 ? "high" : "auto"}
+          decoding="async"
+          aria-hidden={index !== active}
           className={index === active ? "active" : ""}
         />
       ))}
@@ -149,6 +153,8 @@ function HomeBannerSlider() {
               key={banner.id || banner.slot}
               type="button"
               className={index === active ? "active" : ""}
+              aria-label={`Show banner ${index + 1}`}
+              aria-current={index === active ? "true" : undefined}
               onClick={() => goTo(index)}
             />
           ))}
@@ -1049,7 +1055,10 @@ export default function CustomerDashboard() {
 
                     <div className="ath-coin-tour-meta">
                       <span className="ath-coin-tour-purity">{item.purity}</span>
-                      <h3 className="ath-coin-tour-weight">{item.label}</h3>
+                      <h3 className="ath-coin-tour-weight" aria-label={item.label}>
+                        <span className="ath-coin-weight-full">{item.label}</span>
+                        <span className="ath-coin-weight-compact" aria-hidden="true">{item.weight}</span>
+                      </h3>
                       <p className="ath-coin-tour-desc">{item.desc}</p>
 
                       <div className="ath-coin-tour-footer">
@@ -1097,7 +1106,7 @@ export default function CustomerDashboard() {
                 <button
                   key={`${cat.id}-${idx}`}
                   type="button"
-                  className="ath-category-card"
+                  className={`ath-category-card${idx >= CATEGORIES.length ? " ath-mobile-copy" : ""}`}
                   onClick={() => navigate(cat.route)}
                 >
                   <span className="ath-category-circle">
@@ -1162,7 +1171,7 @@ export default function CustomerDashboard() {
                   return (
                     <article
                       key={`${item.id}-${idx}`}
-                      className="ath-product-card"
+                      className={`ath-product-card${idx >= fastMovingProducts.length ? " ath-mobile-copy" : ""}`}
                       onClick={() => openProduct(item)}
                       tabIndex={0}
                       role="link"
@@ -1283,7 +1292,7 @@ export default function CustomerDashboard() {
               </button>
             </div>
 
-            <div className="ath-occasion-cards-row" role="group" aria-label="Explore jewellery by occasion" tabIndex={0}>
+            <div className="ath-occasion-cards-row" role="group" aria-label="Explore jewellery by occasion">
               {OCCASIONS.map((occ) => (
                 <button
                   key={occ.label}
@@ -1305,7 +1314,6 @@ export default function CustomerDashboard() {
                 </button>
               ))}
             </div>
-            <p className="ath-occasion-swipe-hint">Swipe to find your moment <span aria-hidden="true">&rarr;</span></p>
           </div>
         </section>
 
@@ -1463,6 +1471,9 @@ export default function CustomerDashboard() {
                   type="email"
                   className="ath-newsletter-input"
                   placeholder="Enter your email address"
+                  aria-label="Email address for Athirai updates"
+                  autoComplete="email"
+                  inputMode="email"
                   value={newsletterEmail}
                   onChange={(e) => setNewsletterEmail(e.target.value)}
                 />
@@ -1473,7 +1484,7 @@ export default function CustomerDashboard() {
               </form>
 
               {newsletterStatus && (
-                <div className={`ath-newsletter-msg ${newsletterStatus.type}`}>
+                <div className={`ath-newsletter-msg ${newsletterStatus.type}`} role="status">
                   {newsletterStatus.message}
                 </div>
               )}

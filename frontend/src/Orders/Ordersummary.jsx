@@ -1279,6 +1279,38 @@ export default function OrderSummary() {
             font-size: 11px;
           }
         }
+
+        .os-hero-card {
+          background: linear-gradient(90deg, #faf8f1f5 0%, #faf8f1ed 40%, #faf8f1b0 64%, #faf8f100 86%), url('/order-history-hero-v2.webp') right center / cover no-repeat;
+        }
+        .os-hero-card:after { display: none; }
+        .os-hero-card > * { position: relative; z-index: 1; }
+        .os-hero-card h1 { max-width: 75%; font-size: clamp(38px, 4.3vw, 64px); line-height: 1.08; }
+        .os-hero-copy { max-width: 66%; font-size: 14px; line-height: 1.7; }
+        .os-trust-card {
+          min-height: 360px;
+          background: linear-gradient(180deg, #052e2910 0%, #052e2900 38%, #052e29dd 65%, #052e29 100%), url('/order-protection-v2.webp') center top / cover no-repeat;
+          background-color: #052e29;
+        }
+        .os-trust-card:before { display: none; }
+        .os-trust-icon { width: 44px; height: 44px; background: #063b35b3; }
+        .os-trust-card h2 { font-size: clamp(24px, 2.2vw, 30px); margin-top: 140px; }
+        @media (min-width: 761px) and (max-width: 1080px) {
+          .os-trust-card { min-height: 280px; background-size: 100% 100%, 58% auto; background-position: center, right 28%; }
+          .os-trust-card > div:last-child { max-width: 48%; }
+          .os-trust-card h2 { margin-top: 30px; }
+        }
+        @media (max-width: 760px) {
+          .os-hero-card {
+            background: linear-gradient(180deg, #faf8f100 0%, #faf8f100 100px, #faf8f1ed 170px, #faf8f1 220px), url('/order-history-hero-v2.webp') right top / auto 240px no-repeat, #faf8f1;
+            padding-top: 180px;
+          }
+          .os-hero-card h1 { max-width: 100%; font-size: 30px; }
+          .os-hero-copy { max-width: 100%; margin-top: 12px; font-size: 13px; }
+          .os-hero-actions { gap: 10px; margin-top: 20px; }
+          .os-trust-card { min-height: 320px; padding: 20px; background-size: 100% 100%, 100% auto; }
+          .os-trust-card h2 { margin-top: 130px; font-size: 26px; }
+        }
       `}</style>
 
       <main className="os-shell">

@@ -10,7 +10,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import api from "../api";
 import { getCartCountDB } from "../collection/card_section";
 import { getSubcategories } from "../config/categoryConfig";
-import digiGoldCoinsIcon from "../assets/digi-gold-icon.png";
+import digiGoldCoinsIcon from "../assets/digi-gold-nav-v2.webp";
 
 const API_ORIGIN = (api.defaults.baseURL || "").replace(/\/api\/?$/, "");
 
@@ -1803,7 +1803,7 @@ export default function CustomerNavbar() {
         .exact-digi-gold-coin,
         .mobile-digi-gold .mobile-service-icon { overflow: hidden; background: transparent; border: 0; box-shadow: none; }
         .exact-digi-gold-coin img,
-        .mobile-digi-gold .mobile-service-icon img { width: 100%; height: 100%; object-fit: contain; display: block; transform: scale(1.28); filter: drop-shadow(0 2px 2px rgba(0,0,0,.18)); }
+        .mobile-digi-gold .mobile-service-icon img { width: 100%; height: 100%; object-fit: contain; display: block; transform: none; filter: drop-shadow(0 2px 2px rgba(0,0,0,.18)); }
         .exact-digi-gold-mobile { display: none; }
         .exact-digi-gold-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; line-height: 1; }
         .exact-digi-gold-subtitle { font-size: 10px; color: #BCD4C9; font-weight: 500; letter-spacing: .03em; }

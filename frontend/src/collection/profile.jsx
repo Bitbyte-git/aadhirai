@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import CustomerFooter from './CustomerFooter'
@@ -71,6 +71,7 @@ export default function Profile() {
   const [copied, setCopied] = useState('')
 
   const [showEdit, setShowEdit] = useState(false)
+  const editDialogRef = useRef(null)
   const [updateForm, setUpdateForm] = useState({})
   const [updateMessage, setUpdateMessage] = useState('')
   const [proofDocument, setProofDocument] = useState(null)
@@ -95,6 +96,19 @@ export default function Profile() {
   }
 
   useEffect(() => { fetchProfile() }, [navigate])
+
+  useEffect(() => {
+    if (!showEdit) return
+    const dialog = editDialogRef.current
+    if (!dialog) return
+    const previousOverflow = document.body.style.overflow
+    dialog.showModal()
+    document.body.style.overflow = 'hidden'
+    return () => {
+      dialog.close()
+      document.body.style.overflow = previousOverflow
+    }
+  }, [showEdit])
 
   const fullName = useMemo(() => {
     if (!profile) return ''
@@ -333,12 +347,12 @@ export default function Profile() {
       </main>
 
       {showEdit && (
-        <div className="profile-modal-backdrop" onClick={() => setShowEdit(false)}>
+        <dialog ref={editDialogRef} className="profile-modal-backdrop" aria-labelledby="profile-edit-title" onCancel={() => setShowEdit(false)} onClick={e => { if (e.target === e.currentTarget) setShowEdit(false) }}>
           <form className="profile-modal" onSubmit={submitProfileUpdate} onClick={e => e.stopPropagation()}>
             <div className="profile-modal-head">
               <div>
                 <span>Approval Request</span>
-                <h2>Profile Update Request</h2>
+                <h2 id="profile-edit-title">Profile Update Request</h2>
                 <p>Update the fields below and attach proof. Changes apply after admin approval.</p>
               </div>
               <button type="button" onClick={() => setShowEdit(false)}>Close</button>
@@ -402,7 +416,7 @@ export default function Profile() {
               <button type="submit" disabled={submitting}>{submitting ? 'Submitting...' : 'Submit Request'}</button>
             </div>
           </form>
-        </div>
+        </dialog>
       )}
       <CustomerFooter />
     </div>
@@ -746,17 +760,33 @@ const profileStyles = `
   .profile-modal-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 1300;
-    background: rgba(17,24,23,0.62);
-    backdrop-filter: blur(10px);
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    color: inherit;
+    background: transparent;
     display: grid;
     place-items: center;
     padding: 20px;
   }
 
+  .profile-modal-backdrop:not([open]) { display: none; }
+  .profile-modal-backdrop::backdrop {
+    background: rgba(17,24,23,0.62);
+    backdrop-filter: blur(6px);
+  }
+
   .profile-modal {
     width: min(1080px, 100%);
-    max-height: 90vh;
+    min-height: 0;
+    max-height: calc(100vh - 40px);
+    max-height: calc(100dvh - 40px);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -767,6 +797,7 @@ const profileStyles = `
   }
 
   .profile-modal-head {
+    flex-shrink: 0;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -794,6 +825,8 @@ const profileStyles = `
   }
 
   .profile-modal-body {
+    min-height: 0;
+    overscroll-behavior: contain;
     overflow: auto;
     padding: 24px 26px;
   }
@@ -850,6 +883,7 @@ const profileStyles = `
   }
 
   .profile-modal-actions {
+    flex-shrink: 0;
     display: flex;
     justify-content: flex-end;
     gap: 12px;

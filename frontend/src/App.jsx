@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { useLayoutEffect } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import CustomerNavbar from './collection/CustomerNavbar'
 import SuperAdminNavbar from './collection/SuperAdminNavbar'
@@ -242,10 +242,26 @@ function WithAnyNavbar({ children }) {
 
 function ScrollToTop() {
   const { pathname, search } = useLocation()
+  const previousPath = useRef(null)
 
   useLayoutEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
-    if (document.scrollingElement) document.scrollingElement.scrollTop = 0
+    const collectionPaths = ['/collection/all', '/collection/coins', '/collection/gifting']
+    const previous = previousPath.current
+    previousPath.current = pathname
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    // Bring changed results into view smoothly rather than hard-resetting to zero.
+    if (previous === pathname && collectionPaths.includes(pathname)) {
+      const frame = requestAnimationFrame(() => {
+        const target = document.querySelector(pathname === '/collection/coins' ? '.coins-catalog-layout' : '.an-main-head')
+        if (!target) return
+        const headerBottom = Math.max(0, document.querySelector('.exact-nav')?.getBoundingClientRect().bottom || 0)
+        const top = Math.max(0, window.scrollY + target.getBoundingClientRect().top - headerBottom - 12)
+        window.scrollTo({ top, behavior: reducedMotion ? 'instant' : 'smooth' })
+      })
+      return () => cancelAnimationFrame(frame)
+    }
+    const smooth = collectionPaths.includes(previous) && collectionPaths.includes(pathname) && !reducedMotion
+    window.scrollTo({ top: 0, left: 0, behavior: smooth ? 'smooth' : 'instant' })
   }, [pathname, search])
 
   return null

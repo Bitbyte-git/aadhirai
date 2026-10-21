@@ -389,6 +389,90 @@ function CoinSortFilterBar({ sortBy, setSortBy, isGold, isAllMetals, metalFilter
   )
 }
 
+function useFixedCatalogueSidebar(mobileBreakpoint = 1180) {
+  const wrapRef = useRef(null)
+  const asideRef = useRef(null)
+
+  useEffect(() => {
+    const wrapper = wrapRef.current
+    const panel = asideRef.current
+    if (!wrapper || !panel) return
+    const header = document.querySelector('.exact-nav')
+    const footer = document.querySelector('.reference-footer')
+    const ownedStyles = ['position', 'top', 'left', 'width', 'height', 'maxHeight', 'overflowY', 'zIndex', 'boxSizing', 'scrollBehavior', 'transform']
+    let frame = 0
+    let desktop = false
+    let shortWindow = false
+    let headerTop = 12
+    let viewportSpace = 0
+    let scrollBehavior = 'smooth'
+    const applyStyle = next => {
+      for (const name of ownedStyles) {
+        const value = next[name] || ''
+        if (panel.style[name] !== value) panel.style[name] = value
+      }
+    }
+    const paint = () => {
+      frame = 0
+      if (!desktop || shortWindow) return
+      // Read geometry together; update only the sidebar DOM, never the product
+      // list's React state during scrolling.
+      const rect = wrapper.getBoundingClientRect()
+      const footerTop = footer?.getBoundingClientRect().top ?? Infinity
+      const top = Math.max(headerTop, rect.top)
+      const height = Math.max(0, Math.floor(window.innerHeight - top - 12))
+      const offset = Math.min(top - headerTop, footerTop - headerTop - height - 12)
+      applyStyle({
+        position: 'fixed', top: `${headerTop}px`, left: `${rect.left}px`, width: `${rect.width}px`,
+        height: `${height}px`, maxHeight: `${height}px`, overflowY: 'auto', zIndex: '20',
+        boxSizing: 'border-box', scrollBehavior, transform: `translate3d(0, ${offset}px, 0)`,
+      })
+    }
+    const schedule = () => {
+      if (!frame && desktop && !shortWindow) frame = requestAnimationFrame(paint)
+    }
+    const measure = () => {
+      desktop = window.innerWidth > mobileBreakpoint
+      if (!desktop) {
+        wrapper.style.minHeight = ''
+        applyStyle({})
+        return
+      }
+      headerTop = Math.ceil(Math.max(0, header?.getBoundingClientRect().bottom || 0)) + 12
+      viewportSpace = window.innerHeight - headerTop - 12
+      shortWindow = viewportSpace < 180
+      scrollBehavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+      if (shortWindow) {
+        wrapper.style.minHeight = ''
+        applyStyle({ position: 'static', maxHeight: 'none', overflowY: 'visible' })
+        return
+      }
+      const reservedHeight = `${viewportSpace}px`
+      if (wrapper.style.minHeight !== reservedHeight) wrapper.style.minHeight = reservedHeight
+      schedule()
+    }
+    measure()
+    const headerObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    if (header) headerObserver?.observe(header)
+    const layoutObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null
+    if (wrapper.parentElement) layoutObserver?.observe(wrapper.parentElement)
+    window.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', measure)
+    return () => {
+      cancelAnimationFrame(frame)
+      headerObserver?.disconnect()
+      layoutObserver?.disconnect()
+      window.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', measure)
+      wrapper.style.minHeight = ''
+      applyStyle({})
+    }
+  }, [mobileBreakpoint])
+
+  return { wrapRef, asideRef }
+}
+
+
 export default function CoinsCollection() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -403,6 +487,7 @@ export default function CoinsCollection() {
   const [rates, setRates] = useState({})
   const [wishlistedIds, setWishlistedIds] = useState(new Set())
   const [sortBy, setSortBy] = useState('featured')
+  const { wrapRef: sidebarWrapRef, asideRef: sidebarRef } = useFixedCatalogueSidebar(920)
   // Infinite scroll — only when browsing without a specific weight selected.
   // Weight matching happens client-side (coinMatchesWeight), so a weight
   // filter needs the full matching set fetched at once to stay correct;
@@ -687,15 +772,17 @@ export default function CoinsCollection() {
           gap: 28px;
         }
 
+        .coins-hero-all { grid-template-columns: minmax(0, 1fr); }
+        .coins-hero-all .coins-title-panel { min-height: clamp(280px, 25vw, 380px); }
         .coins-title-panel {
           min-height: 280px;
           border-radius: 34px;
           overflow: hidden;
-          background:
-            linear-gradient(90deg, rgba(231,237,236,0.98), rgba(253,253,252,0.78)),
-            url('${isGold ? '/banners/Gold coin2.png' : '/banners/Silver coin.png'}');
-          background-size: cover;
-          background-position: center right;
+          background-color: #f5f2e9;
+          background-image: linear-gradient(90deg, #f5f2e9 0%, #f5f2e9e6 24%, #f5f2e900 58%), url('/coins-collection-hero-v2.webp');
+          background-size: 100% 100%, auto 100%;
+          background-position: center, right center;
+          background-repeat: no-repeat;
           border: 1px solid #D1DFDE;
           box-shadow: 0 24px 68px rgba(7,59,63,0.1);
           padding: clamp(30px, 4vw, 56px);
@@ -713,6 +800,7 @@ export default function CoinsCollection() {
         }
 
         .coins-title-panel h1 {
+          max-width: 52%;
           margin: 12px 0 12px;
           color: #073B3F;
           font-family: Georgia, "Times New Roman", serif;
@@ -1640,17 +1728,76 @@ export default function CoinsCollection() {
             max-width: none;
           }
         }
+        .coin-sidebar-wrap { min-width: 0; position: relative; align-self: stretch; }
+        @media (max-width: 920px) { .coin-sidebar-wrap { display: none; } }
+        @media (min-width: 921px) {
+          .coins-catalog-layout .coins-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 16px !important; }
+          .coins-results .coin-premium-card { min-width: 0 !important; max-width: none !important; }
+        }
+        @media (min-width: 921px) {
+          .coin-sidebar { border-radius: 16px; background: #fff; box-shadow: 0 4px 20px #123f3b06; overscroll-behavior-y: contain; scroll-padding-block: 100px 12px; scrollbar-gutter: stable; }
+          .coin-sidebar-head { position: sticky; top: 0; z-index: 2; padding: 16px 18px; background: #fff; }
+          .coin-sidebar-head > span { font-size: 9px; letter-spacing: .1em; font-weight: 700; color: #778478; }
+          .coin-sidebar-head h2 { font-family: inherit; font-size: 17px; font-weight: 700; margin-block: 5px; }
+          .coin-sidebar-head p { font-size: 11px; margin-bottom: 0; }
+          .coin-sidebar-body { padding: 0 14px; }
+          .coin-filter-group { padding-block: 16px; border-bottom: 1px solid #e7ece7; }
+          .coin-filter-title { font-size: 10px; font-weight: 700; letter-spacing: .07em; color: #66766a; }
+          .coin-filter-options { gap: 3px; margin-top: 9px; }
+          .coin-filter-option { min-height: 40px; font-size: 12px; font-weight: 500; padding-inline: 10px; border-radius: 8px; }
+          .coin-filter-option.active { color: #063b35; background: #eaf3e9; border-color: transparent; box-shadow: inset 3px 0 #0c5747; font-weight: 700; }
+          .coin-filter-option i { width: 12px; height: 12px; border: 1px solid #b4c7b8; background: transparent; }
+          .coin-filter-option.active i { border-color: #0c5747; background: #0c5747; box-shadow: inset 0 0 0 3px #eaf3e9; }
+          .coin-filter-option:hover { transform: none; background: #f2f6f0; }
+          .coin-weight-options { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+          .coin-weight-option { min-height: 42px; font-size: 11px; font-weight: 600; border-radius: 8px; }
+          .coin-weight-option.active { background: #eaf3e9; color: #063b35; border-color: #6f9d7a; box-shadow: none; }
+          .coin-sidebar-clear { margin: 12px; width: calc(100% - 24px); border-radius: 9px; border-color: #d8e2d5; background: #f7faf5; font-size: 11px; font-weight: 600; }
+          .coins-desktop-controls { display: flex; gap: 10px; flex-wrap: wrap; }
+          .coin-desktop-field { position: relative; min-width: 155px; padding: 10px 12px 6px; border: 1px solid #dce5db; border-radius: 11px; background: #fff; }
+          .coin-desktop-field.active { background: #eef6eb; border-color: #91b194; }
+          .coin-desktop-field label { display: block; padding-right: 20px; font-size: 9px; color: #718170; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+          .coin-desktop-field select { display: block; min-height: 32px; width: 100%; border: 0; padding: 4px 18px 4px 0; background: transparent; color: #16483b; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
+          .coin-field-clear { position: absolute; top: 2px; right: 2px; width: 28px; height: 28px; border: 0; border-radius: 7px; background: transparent; color: #456e4a; font-size: 18px; cursor: pointer; }
+          .coin-sidebar button:focus-visible, .coins-desktop-controls :is(select, button):focus-visible { outline: 2px solid #b68a3c; outline-offset: 2px; }
+        }
+
+        @media (min-width: 921px) {
+          .coin-sidebar { scroll-behavior: smooth; touch-action: pan-y; }
+          .coin-sidebar-head { background: linear-gradient(115deg, #f2f6ee, #fff); border-bottom-color: #e3eadf; }
+          .coin-sidebar-head h2 { color: #073b3f; }
+          .coin-filter-option, .coin-weight-option, .coin-sidebar-clear { transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease; }
+          .coin-filter-option i { transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease; }
+          .coin-filter-option:hover { transform: translateX(2px); }
+          .coin-weight-option:hover { transform: translateY(-1px); border-color: #7ea58b; }
+          .coin-filter-option:active, .coin-weight-option:active { transform: scale(.98); }
+          .coin-filter-option.active { background: #e6f0e3; box-shadow: inset 3px 0 #0c5747; }
+          .coin-weight-option.active { border-color: #0c5747; background: #0c5747; color: #fff; }
+          .coin-sidebar-clear:hover { background: #edf3e8; border-color: #8eac91; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .coin-sidebar { scroll-behavior: auto; }
+          .coin-sidebar button, .coin-sidebar i { transition: none; transform: none !important; }
+        }
+
+        .coins-results .coin-premium-card { box-shadow: 0 6px 24px #073b3f08; }
+        .coins-results .coin-premium-card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px #073b3f14; }
+        .coins-results .coin-premium-image { background: #f6f6f0; aspect-ratio: 1; }
+        .coins-results .coin-premium-image img { object-fit: contain; padding: 10px; box-sizing: border-box; }
+        .coins-results .coin-premium-card:hover .coin-premium-image img { transform: scale(1.025); }
+        .coins-results .coin-meta { font-size: 10px; font-weight: 600; letter-spacing: .03em; flex-wrap: wrap; }
+        .coins-results .coin-premium-info h3 { line-height: 1.4; }
+        @media (prefers-reduced-motion: reduce) {
+          .coins-results .coin-premium-card, .coins-results .coin-premium-image img { transition: none; transform: none; }
+        }
       `}</style>
 
       <main className="coins-shell">
-        <section className="coins-hero">
+        <section className={`coins-hero${isAllMetals ? " coins-hero-all" : ""}`}>
           <div className="coins-title-panel">
             <div className="coins-kicker">Certified Coin Collection</div>
             <h1>{isAllMetals ? 'All Coins' : isGold ? 'Gold Coins' : 'Silver Coins'}</h1>
-            <p>
-              {loading ? 'Curating coin products...' : `${sortedProducts.length} coin designs available`}
-              {weightFilter ? ` - ${weightFilter}` : ''}
-            </p>
+            {weightFilter && <p className="coins-selected-weight">{weightFilter}</p>}
           </div>
 
           {!isAllMetals && (
@@ -1698,13 +1845,26 @@ export default function CoinsCollection() {
             )}
           </div>
 
-          <select className="coin-sort" value={sortBy} onChange={event => setSortBy(event.target.value)}>
-            <option value="featured">Featured</option>
-            <option value="weight-low">Weight: Low to High</option>
-            <option value="weight-high">Weight: High to Low</option>
-            <option value="price-low">Price: Low to High</option>
-            <option value="price-high">Price: High to Low</option>
-          </select>
+          <div className="coins-desktop-controls">
+            <div className={`coin-desktop-field${priceFilter ? ' active' : ''}`}>
+              <label htmlFor="coin-desktop-budget">Budget</label>
+              <select id="coin-desktop-budget" value={priceFilter || ''} onChange={event => selectPrice(event.target.value)}>
+                <option value="">Any budget</option>
+                {COIN_PRICE_RANGES.map(([label, value]) => <option key={value || 'all'} value={value}>{value ? label : 'Any budget'}</option>)}
+              </select>
+              {priceFilter && <button type="button" className="coin-field-clear" onClick={() => selectPrice('')} aria-label="Clear coin budget">&times;</button>}
+            </div>
+            <div className="coin-desktop-field">
+              <label htmlFor="coin-desktop-sort">Sort shown coins</label>
+              <select id="coin-desktop-sort" value={sortBy} onChange={event => setSortBy(event.target.value)}>
+                <option value="featured">Featured</option>
+                <option value="weight-low">Weight: Low to High</option>
+                <option value="weight-high">Weight: High to Low</option>
+                <option value="price-low">Price: Low to High</option>
+                <option value="price-high">Price: High to Low</option>
+              </select>
+            </div>
+          </div>
         </section>
 
         <div className="coin-sort-filter-bar-mobile">
@@ -1758,25 +1918,32 @@ export default function CoinsCollection() {
         </section>
 
         <div className="coins-catalog-layout">
-          <aside className="coin-sidebar" aria-label="Coin catalogue filters">
+          <div className="coin-sidebar-wrap" ref={sidebarWrapRef}>
+          <aside ref={sidebarRef} className="coin-sidebar" aria-label="Coin catalogue filters">
             <div className="coin-sidebar-head">
               <span>Refine collection</span>
               <h2>Shop By</h2>
-              <p>{loading ? 'Loading catalogue...' : `${sortedProducts.length} curated coin${sortedProducts.length === 1 ? '' : 's'}`}</p>
+
             </div>
 
             <div className="coin-sidebar-body">
               <div className="coin-filter-group">
-                <span className="coin-filter-title">Metal &amp; purity</span>
+                <span className="coin-filter-title">Collections</span>
                 <div className="coin-filter-options">
-                  <button className={`coin-filter-option ${isAllMetals ? 'active' : ''}`} type="button" onClick={() => selectMetal('')}>
-                    <span>All Coins</span><i />
+                  <button className="coin-filter-option" type="button" onClick={() => navigate('/collection/all')}>
+                    <span>All Jewellery</span><i />
                   </button>
-                  <button className={`coin-filter-option ${metalFilter === 'silver' ? 'active' : ''}`} type="button" onClick={() => selectMetal('silver')}>
+                  <button className="coin-filter-option" type="button" onClick={() => navigate('/collection/all?metal=gold')}>
+                    <span>Gold Jewellery</span><i />
+                  </button>
+                  <button className={`coin-filter-option ${isGold ? 'active' : ''}`} type="button" aria-pressed={isGold} onClick={() => selectMetal('gold', '22k')}>
+                    <span>Gold Coins</span><i />
+                  </button>
+                  <button className={`coin-filter-option ${metalFilter === 'silver' ? 'active' : ''}`} type="button" aria-pressed={metalFilter === 'silver'} onClick={() => selectMetal('silver')}>
                     <span>Silver Coins</span><i />
                   </button>
-                  <button className={`coin-filter-option ${isGold ? 'active' : ''}`} type="button" onClick={() => selectMetal('gold', '22k')}>
-                    <span>Gold Coins</span><i />
+                  <button className="coin-filter-option" type="button" onClick={() => navigate('/collection/all?metal=silver')}>
+                    <span>Silver Jewellery</span><i />
                   </button>
                 </div>
               </div>
@@ -1789,6 +1956,7 @@ export default function CoinsCollection() {
                       key={weight}
                       className={`coin-weight-option ${weightFilter === weight ? 'active' : ''}`}
                       type="button"
+                      aria-pressed={weightFilter === weight}
                       onClick={() => selectWeight(weightFilter === weight ? '' : weight)}
                     >
                       {weight}
@@ -1805,6 +1973,7 @@ export default function CoinsCollection() {
                       key={value}
                       className={`coin-filter-option ${priceFilter === value ? 'active' : ''}`}
                       type="button"
+                      aria-pressed={(priceFilter || '') === value}
                       onClick={() => selectPrice(priceFilter === value ? '' : value)}
                     >
                       <span>{label}</span><i />
@@ -1818,12 +1987,13 @@ export default function CoinsCollection() {
               Clear all filters
             </button>
           </aside>
+          </div>
 
           <div className="coins-results">
             {loading ? (
               <section className="coins-grid" ref={coinGridRef}>
-                {/* 2 full rows — screen columns-ku yetha maari */}
-                {Array.from({ length: coinGridCols * 2 }, (_, i) => i).map(i => (
+                {/* One full skeleton row matching the product grid */}
+                {Array.from({ length: coinGridCols }, (_, i) => i).map(i => (
                   <div key={i} className="coin-premium-card" style={{ padding: 12 }}>
                     <div className="coin-stage bb-skel" style={{ minHeight: 180, borderRadius: 14, marginBottom: 12 }} />
                     <div className="bb-skel" style={{ width: '40%', height: 12, marginBottom: 8 }} />

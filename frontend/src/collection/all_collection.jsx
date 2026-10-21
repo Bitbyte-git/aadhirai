@@ -32,6 +32,7 @@ import { getSubcategories, getGiftingSubcategories } from '../config/categoryCon
 
   const filterCategories = [
     ['All Jewellery', '/collection/all', null],
+    ['Gold Jewellery', '/collection/all?metal=gold', null],
     ['Gold Coins', '/collection/coins?metal=gold', null],
     ['Silver Coins', '/collection/coins?metal=silver', null],
     ['Silver Jewellery', '/collection/all?metal=silver', null],
@@ -44,9 +45,14 @@ import { getSubcategories, getGiftingSubcategories } from '../config/categoryCon
     ['Mangalsutra', '/collection/all?category=mangalsutra', 'mangalsutra'],
     ['Bangles', '/collection/all?category=bangles', 'bangles'],
     ['Necklace Set', '/collection/all?category=necklaces', 'necklaces'],
-    ['Nose Pin', '/collection/all?category=nosepin', null],
+    ['Nose Pin', '/collection/all?category=nosepin', 'nosepin'],
     ['Anklets', '/collection/all?category=anklets', 'anklets'],
   ]
+
+function withCollectionShortcuts(categories) {
+  const shortcuts = filterCategories.slice(0, 5)
+  return [...shortcuts, ...categories.filter(([, route]) => !shortcuts.some(([, shortcutRoute]) => shortcutRoute === route))]
+}
 
   // Matches the navbar's "Gold Jewellery" mega-menu (CustomerNavbar.jsx)
   // category-for-category, plus Gold Coins and a Silver switch link per
@@ -237,73 +243,89 @@ const giftingFilterCategories = [
     },
   }
 
-  function useFixedSidebar() {
-    const wrapRef = useRef(null)
-    const asideRef = useRef(null)
-    const [style, setStyle] = useState({})
+function useFixedCatalogueSidebar(mobileBreakpoint = 1180) {
+  const wrapRef = useRef(null)
+  const asideRef = useRef(null)
 
-    useEffect(() => {
-      const update = () => {
-        if (!wrapRef.current || !asideRef.current) return
-        if (window.innerWidth <= 820) {
-          setStyle({})
-          return
-        }
-
-        const wrapRect = wrapRef.current.getBoundingClientRect()
-        const asideHeight = asideRef.current.offsetHeight
-        const topOffset = 192
-
-        // wrap-div bottom edge (content column mudinja idam) varaikkum eppadi
-        // space irukku nu check pannuvom
-        const spaceBelow = wrapRect.bottom - topOffset
-
-        if (spaceBelow < asideHeight) {
-          // content mudinjididuchu (footer vara pogudhu) — sidebar-a
-          // wrap-div oda kadaisi bottom-la stop pannidalam, footer mela varaadhu
-          setStyle({
-            position: 'absolute',
-            left: 0,
-            width: '100%',
-            bottom: 0,
-            top: 'auto',
-          })
-        } else {
-          setStyle({
-            position: 'fixed',
-            top: topOffset,
-            left: wrapRect.left,
-            width: wrapRect.width,
-          })
-        }
+  useEffect(() => {
+    const wrapper = wrapRef.current
+    const panel = asideRef.current
+    if (!wrapper || !panel) return
+    const header = document.querySelector('.exact-nav')
+    const footer = document.querySelector('.reference-footer')
+    const ownedStyles = ['position', 'top', 'left', 'width', 'height', 'maxHeight', 'overflowY', 'zIndex', 'boxSizing', 'scrollBehavior', 'transform']
+    let frame = 0
+    let desktop = false
+    let shortWindow = false
+    let headerTop = 12
+    let viewportSpace = 0
+    let scrollBehavior = 'smooth'
+    const applyStyle = next => {
+      for (const name of ownedStyles) {
+        const value = next[name] || ''
+        if (panel.style[name] !== value) panel.style[name] = value
       }
-      update()
-      window.addEventListener('resize', update)
-      window.addEventListener('scroll', update)
-
-      // const ro = new ResizeObserver(() => update())
-      // if (wrapRef.current?.parentElement) {
-      //   ro.observe(wrapRef.current.parentElement)
-      // }
-
-            const ro = new ResizeObserver(() => update())
-      if (wrapRef.current?.parentElement) {
-        ro.observe(wrapRef.current.parentElement)
+    }
+    const paint = () => {
+      frame = 0
+      if (!desktop || shortWindow) return
+      // Read geometry together; update only the sidebar DOM, never the product
+      // list's React state during scrolling.
+      const rect = wrapper.getBoundingClientRect()
+      const footerTop = footer?.getBoundingClientRect().top ?? Infinity
+      const top = Math.max(headerTop, rect.top)
+      const height = Math.max(0, Math.floor(window.innerHeight - top - 12))
+      const offset = Math.min(top - headerTop, footerTop - headerTop - height - 12)
+      applyStyle({
+        position: 'fixed', top: `${headerTop}px`, left: `${rect.left}px`, width: `${rect.width}px`,
+        height: `${height}px`, maxHeight: `${height}px`, overflowY: 'auto', zIndex: '20',
+        boxSizing: 'border-box', scrollBehavior, transform: `translate3d(0, ${offset}px, 0)`,
+      })
+    }
+    const schedule = () => {
+      if (!frame && desktop && !shortWindow) frame = requestAnimationFrame(paint)
+    }
+    const measure = () => {
+      desktop = window.innerWidth > mobileBreakpoint
+      if (!desktop) {
+        wrapper.style.minHeight = ''
+        applyStyle({})
+        return
       }
-
-      if (asideRef.current) {
-        ro.observe(asideRef.current)
+      headerTop = Math.ceil(Math.max(0, header?.getBoundingClientRect().bottom || 0)) + 12
+      viewportSpace = window.innerHeight - headerTop - 12
+      shortWindow = viewportSpace < 180
+      scrollBehavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+      if (shortWindow) {
+        wrapper.style.minHeight = ''
+        applyStyle({ position: 'static', maxHeight: 'none', overflowY: 'visible' })
+        return
       }
+      const reservedHeight = `${viewportSpace}px`
+      if (wrapper.style.minHeight !== reservedHeight) wrapper.style.minHeight = reservedHeight
+      schedule()
+    }
+    measure()
+    const headerObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    if (header) headerObserver?.observe(header)
+    const layoutObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null
+    if (wrapper.parentElement) layoutObserver?.observe(wrapper.parentElement)
+    window.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', measure)
+    return () => {
+      cancelAnimationFrame(frame)
+      headerObserver?.disconnect()
+      layoutObserver?.disconnect()
+      window.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', measure)
+      wrapper.style.minHeight = ''
+      applyStyle({})
+    }
+  }, [mobileBreakpoint])
 
-      return () => {
-        window.removeEventListener('resize', update)
-        window.removeEventListener('scroll', update)
-        ro.disconnect()
-      }
-    }, [])
+  return { wrapRef, asideRef }
+}
 
-    return { wrapRef, asideRef, style }
-  }
 
   function Icon({ type, size = 22 }) {
     const common = {
@@ -415,7 +437,6 @@ function writeSubsecCache(key, data) {
   function ProductCard({ product, rates, navigate, wishlisted, onWishlist }) {
   const image = getImageUrl(product.images?.[0]) || '/logo.png'
   const price = productPrice(product, rates)
-  const reviews = 71 + ((product.id || 1) * 11) % 58
   const goProduct = () => navigate(`/product-display?category=${product.category}&metal=${product.metal}&id=${product.id}`)
 
     const addCart = async event => {
@@ -447,13 +468,12 @@ function writeSubsecCache(key, data) {
         </button>
         </div>
         <div className="an-product-body">
-          <h3>{product.name}</h3>
+          <h3><a href={`/product-display?category=${product.category}&metal=${product.metal}&id=${product.id}`} onClick={event => { event.preventDefault(); event.stopPropagation(); goProduct() }}>{product.name}</a></h3>
           <p>{(product.grade || product.metal || 'Jewellery').toUpperCase()} {product.metal || 'Jewellery'} · {Number(product.net_weight || 0).toFixed(2)} g</p>
           <strong>{money(price)}</strong>
           <div className="an-rating">
-            <span>★★★★★</span>
-            <small>({reviews})</small>
-            <button type="button" onClick={addCart} aria-label="Add to cart"><Icon type="lock" size={15} /></button>
+            <button className="an-view-product" type="button" onClick={event => { event.stopPropagation(); goProduct() }}>View details <span aria-hidden="true">&rarr;</span></button>
+            <button type="button" onClick={addCart} aria-label={`Add ${product.name} to cart`}><Icon type="lock" size={15} /></button>
           </div>
         </div>
       </article>
@@ -647,9 +667,11 @@ function CategoryRail({ categories, activeKey, navigate }) {
 }
 
 function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subcategoryFilter, activeScrollSub, isWedding, isGifting, giftTagFilter, giftTypeFilter }) {
-  const { wrapRef, asideRef, style } = useFixedSidebar()
+  const { wrapRef, asideRef } = useFixedCatalogueSidebar()
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
-  const categories = isGifting
+  const sidebarLocation = useLocation()
+  const [sidebarParams] = useSearchParams()
+  const categories = withCollectionShortcuts(isGifting
     ? giftingFilterCategories
     : isWedding
       ? weddingFilterCategories
@@ -657,7 +679,7 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
         ? goldFilterCategories
         : metalFilter === 'silver'
           ? silverFilterCategories
-          : filterCategories
+          : filterCategories)
   const activeKey = isGifting ? giftTagFilter : categoryFilter
   const railCategories = metalFilter === 'gold'
     ? GOLD_RAIL_ITEMS
@@ -678,15 +700,38 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
   useEffect(() => {
     if (!activeScrollSub) return
     const el = subButtonRefs.current[activeScrollSub]
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    }
-  }, [activeScrollSub])
+    const panel = asideRef.current
+    if (!el || !panel || !window.matchMedia('(min-width: 1181px)').matches) return
+    const itemRect = el.getBoundingClientRect()
+    const panelRect = panel.getBoundingClientRect()
+    const headingHeight = panel.querySelector('.an-filter-heading')?.getBoundingClientRect().height || 0
+    const visibleTop = panelRect.top + headingHeight + 8
+    const visibleBottom = panelRect.bottom - 8
+    const delta = itemRect.top < visibleTop ? itemRect.top - visibleTop
+      : itemRect.bottom > visibleBottom ? itemRect.bottom - visibleBottom : 0
+    if (delta) panel.scrollTo({
+      top: Math.max(0, panel.scrollTop + delta),
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    })
+  }, [activeScrollSub, asideRef])
 
   const buildSubcategoryRoute = (baseRoute, subLabel) => {
     const sep = baseRoute.includes('?') ? '&' : '?'
     const param = isGifting ? 'gift_type' : 'subcategory'
     return `${baseRoute}${sep}${param}=${encodeURIComponent(subLabel)}`
+  }
+
+  const browseCategory = route => {
+    if (!window.matchMedia('(min-width: 1181px)').matches) {
+      navigate(route)
+      return
+    }
+    const [path, query = ''] = route.split('?')
+    const params = new URLSearchParams(query)
+    for (const name of ['price', 'gender', 'age', 'occasion', 'search']) {
+      if (sidebarParams.has(name) && !params.has(name)) params.set(name, sidebarParams.get(name))
+    }
+    navigate(`${path}${params.size ? `?${params.toString()}` : ''}`)
   }
 
   const activeSubFilter = isGifting ? giftTypeFilter : subcategoryFilter
@@ -724,29 +769,38 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
       <aside
         ref={asideRef}
         className={`an-filter ${mobileFilterOpen ? 'an-filter-mobile-open' : 'an-filter-mobile-closed'}`}
-        style={style}
       >
         <h2 className="an-filter-heading">{(metalFilter === 'gold' || isWedding || isGifting) ? 'Categories' : 'Shop By'}</h2>
         
         <div className="an-filter-section">
-          {categories.map(([label, route, key]) => {
+          {categories.map(([label, route, key], index) => {
             const subOptions = key
               ? (isGifting ? getGiftingSubcategories(key) : getSubcategories(key, subcategoryMetal))
               : []
             const isOpen = key && expandedKey === key
             const isCategoryActive = activeRoute === route && !subcategoryFilter && !giftTagFilter
+            const [routePath, query = ''] = route.split('?')
+            const routeParams = new URLSearchParams(query)
+            const desktopSelected = key
+              ? key === activeKey && categories.findIndex(([, target]) => target === route) === index
+              : routePath === sidebarLocation.pathname && ['metal', 'category', 'gift_tag', 'wedding'].every(param => routeParams.get(param) === sidebarParams.get(param))
+            const optionsId = `sidebar-styles-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+            const firstStyleIndex = categories.findIndex(([, , categoryKey]) => Boolean(categoryKey))
             return (
-              <div key={label} className="an-nav-cat-item">
+              <div key={label} className="an-nav-cat-item" data-desktop-selected={desktopSelected}>
+                {index === 0 && <div className="an-sidebar-group-label">Collections</div>}
+                {index === firstStyleIndex && <div className="an-sidebar-group-label">{isGifting ? 'Gift categories' : 'Jewellery types'}</div>}
                 <div className={`an-nav-cat-row ${isCategoryActive ? 'active' : ''}`}>
                   <button
                     className={`an-nav-cat-title ${isCategoryActive ? 'active' : ''}`}
                     type="button"
                     onClick={() => {
-                      navigate(route)
+                      browseCategory(route)
                       setMobileFilterOpen(false)
                     }}
                   >
-                    {label}
+                    <span>{label}</span>
+                    {subOptions.length > 0 && <span className="an-sidebar-style-count">{subOptions.length} styles</span>}
                   </button>
                   {subOptions.length > 0 && (
                     <button
@@ -756,15 +810,19 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
                         e.stopPropagation()
                         setExpandedKey(isOpen ? null : key)
                       }}
-                      title={isOpen ? 'Collapse' : 'Expand'}
+                      title={`${isOpen ? 'Hide' : 'Show'} ${label} styles`}
+                      aria-label={`${isOpen ? 'Hide' : 'Show'} ${label} styles`}
+                      aria-expanded={Boolean(isOpen)}
+                      aria-controls={optionsId}
                     >
-                      {isOpen ? '−' : '+'}
+                      <span className="an-sidebar-mobile-toggle">{isOpen ? '−' : '+'}</span>
+                      <svg className="an-sidebar-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
                     </button>
                   )}
                 </div>
 
                 {isOpen && subOptions.length > 0 && (
-                  <div className="an-nav-sub-list">
+                  <div className="an-nav-sub-list" id={optionsId}>
                     {subOptions.map(sub => {
                       const isSubActive = (activeScrollSub || activeSubFilter) === sub
                       return (
@@ -774,7 +832,7 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
                           type="button"
                           className={`an-nav-sub-item ${isSubActive ? 'active' : ''}`}
                           onClick={() => {
-                            navigate(buildSubcategoryRoute(route, sub))
+                            browseCategory(buildSubcategoryRoute(route, sub))
                             setMobileFilterOpen(false)
                           }}
                         >
@@ -794,7 +852,13 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
           className="an-clear"
           type="button"
           onClick={() => {
-            navigate('/collection/all')
+            if (window.matchMedia('(min-width: 1181px)').matches) {
+              const params = new URLSearchParams(sidebarParams)
+              for (const key of ['category', 'subcategory', 'gift_tag', 'gift_type']) params.delete(key)
+              navigate(`${sidebarLocation.pathname}${params.size ? `?${params.toString()}` : ''}`)
+            } else {
+              navigate('/collection/all')
+            }
             setMobileFilterOpen(false)
           }}
         >
@@ -806,132 +870,23 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
 }
 
 function QuickFilterDropdown({ label, options, currentValue, onSelect }) {
-  const [open, setOpen] = useState(false)
-  const [coords, setCoords] = useState({ top: 0, left: 0 })
-  const containerRef = useRef(null)
-  const toggleRef = useRef(null)
-  const panelRef = useRef(null)
-
-  // Panel is anchored to the button's left edge and grows rightward, so a
-  // pill near the right side of the screen can push it past the viewport
-  // edge. Once it renders, measure it and pull it back inside the screen.
-  useEffect(() => {
-    if (!open || !panelRef.current) return
-    const margin = 8
-    const rect = panelRef.current.getBoundingClientRect()
-    const viewportWidth = window.innerWidth
-    let adjustedLeft = coords.left
-    if (rect.right > viewportWidth - margin) {
-      adjustedLeft = Math.max(margin, viewportWidth - margin - rect.width)
-    } else if (rect.left < margin) {
-      adjustedLeft = margin
-    }
-    if (adjustedLeft !== coords.left) {
-      setCoords((c) => ({ ...c, left: adjustedLeft }))
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
-    const handleTouchOrClick = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setOpen(false)
-      }
-    }
-    // Fixed-position panels don't track the pill on scroll/resize — close
-    // instead of leaving them floating in the wrong spot. Scroll listener
-    // is capture-phase (fires for the panel's own internal scroll too), so
-    // it must ignore scrolls that originate inside our own dropdown.
-    const handleDismiss = (e) => {
-      if (containerRef.current && containerRef.current.contains(e.target)) return
-      setOpen(false)
-    }
-    document.addEventListener('mousedown', handleTouchOrClick)
-    document.addEventListener('touchstart', handleTouchOrClick)
-    window.addEventListener('scroll', handleDismiss, true)
-    window.addEventListener('resize', handleDismiss)
-    return () => {
-      document.removeEventListener('mousedown', handleTouchOrClick)
-      document.removeEventListener('touchstart', handleTouchOrClick)
-      window.removeEventListener('scroll', handleDismiss, true)
-      window.removeEventListener('resize', handleDismiss)
-    }
-  }, [open])
-
-  const selectedOption = options.find(([, val]) => val === (currentValue || ''))
-  const hasValue = Boolean(currentValue && currentValue !== '')
-  const displayValue = selectedOption ? selectedOption[0] : ''
-
-  const toggleOpen = () => {
-    if (!open && toggleRef.current) {
-      const rect = toggleRef.current.getBoundingClientRect()
-      setCoords({ top: rect.bottom + 6, left: rect.left })
-    }
-    setOpen((prev) => !prev)
-  }
-
+  const value = currentValue || ''
+  const hasValue = Boolean(value)
+  const emptyLabels = { Price: 'Any budget', Gender: 'Everyone', Age: 'Any age', Occasion: 'Any occasion' }
+  const inputId = `collection-filter-${label.toLowerCase()}`
   return (
-    <div className="an-qf-dropdown" ref={containerRef}>
-      <button
-        ref={toggleRef}
-        type="button"
-        className={`an-qf-toggle ${hasValue ? 'active' : ''}`}
-        onClick={toggleOpen}
-        aria-expanded={open}
-      >
-        <span className="an-qf-value">
-          {hasValue ? `${label}: ${displayValue}` : label}
-        </span>
-        {hasValue ? (
-          <span
-            className="an-qf-clear-x"
-            onClick={(e) => {
-              e.stopPropagation()
-              onSelect('')
-              setOpen(false)
-            }}
-            title="Clear"
-          >
-            ✕
-          </span>
-        ) : (
-          <svg
-            className={`an-qf-caret ${open ? 'open' : ''}`}
-            width="10"
-            height="10"
-            viewBox="0 0 10 10"
-            fill="none"
-            aria-hidden="true"
-          >
-            <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        )}
-      </button>
-
-      {/* Fixed-position panel — escapes .an-quick-filters' horizontal-scroll
-          clipping (overflow-x:auto forces overflow-y:auto too, which was
-          cutting the panel off behind the product grid). */}
-      {open && (
-        <div ref={panelRef} className="an-qf-panel open" style={{ top: coords.top, left: coords.left }}>
-          {options.map(([optLabel, optValue]) => {
-            const isSelected = optValue === (currentValue || '')
-            return (
-              <button
-                key={optLabel}
-                type="button"
-                className={`an-qf-option-btn ${isSelected ? 'active' : ''}`}
-                onClick={() => {
-                  onSelect(optValue)
-                  setOpen(false)
-                }}
-              >
-                <span className="an-qf-opt-label">{optLabel}</span>
-                {isSelected && <span className="an-qf-opt-check">✓</span>}
-              </button>
-            )
-          })}
-        </div>
+    <div className={`an-qf-dropdown an-qf-select-box${hasValue ? ' has-selection' : ''}`}>
+      <label htmlFor={inputId} className="an-qf-field-label">{label}</label>
+      <select id={inputId} value={value} onChange={event => onSelect(event.target.value)}>
+        {hasValue && !options.some(([, optionValue]) => optionValue === value) && <option value={value}>{value}</option>}
+        {options.map(([text, optionValue]) => (
+          <option key={optionValue || 'all'} value={optionValue}>{optionValue ? text : emptyLabels[label] || 'All'}</option>
+        ))}
+      </select>
+      {hasValue && (
+        <button type="button" className="an-qf-field-clear" onClick={() => onSelect('')} aria-label={`Clear ${label.toLowerCase()} filter`} title={`Clear ${label.toLowerCase()}`}>
+          <span aria-hidden="true">&times;</span>
+        </button>
       )}
     </div>
   )
@@ -1666,7 +1621,7 @@ export default function AllCollection() {
     // Same category-list selection FilterPanel uses, mirrored here so the
     // mobile Sort|Filter bar's Filter sheet can show it without prop-drilling
     // FilterPanel's internal accordion state.
-    const sheetCategories = isGifting
+    const sheetCategories = withCollectionShortcuts(isGifting
       ? giftingFilterCategories
       : isWedding
         ? weddingFilterCategories
@@ -1674,7 +1629,7 @@ export default function AllCollection() {
           ? goldFilterCategories
           : metalFilter === 'silver'
             ? silverFilterCategories
-            : filterCategories
+            : filterCategories)
     const sheetActiveKey = isGifting ? giftTagFilter : categoryFilter
     const sheetActiveFilterTag = subcategoryFilter || categoryFilter || giftTagFilter
 
@@ -3408,6 +3363,70 @@ export default function AllCollection() {
             .an-product-body strong {
               font-size: 13px !important;
             }
+          }
+          .an-sidebar-group-label, .an-sidebar-style-count, .an-sidebar-chevron { display: none; }
+          @media (min-width: 1181px) {
+            .an-filter { background: #fff; border-color: #e1e7e1; box-shadow: 0 4px 20px #123f3b06; scrollbar-color: #b8c9bc transparent; overscroll-behavior-y: contain; scroll-padding-block: 72px 12px; scrollbar-gutter: stable; }
+            .an-filter h2 { position: sticky; top: 0; z-index: 3; margin: 0; padding: 18px; background: #fff; border-bottom: 1px solid #e7ece7; font-size: 14px; }
+            .an-filter-section { padding: 4px 10px 12px; border-bottom-color: #e7ece7; }
+            .an-sidebar-group-label { display: block; padding: 16px 8px 6px; color: #778478; font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+            .an-nav-cat-item { border-bottom: 0; }
+            .an-nav-cat-row { padding: 0; border-radius: 9px; margin-block: 2px; }
+            .an-nav-cat-row.active { background: transparent; }
+            .an-filter-section .an-nav-cat-title { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: auto; min-width: 0; min-height: 42px; flex: 1; padding: 9px 10px; font-size: 12px; line-height: 1.5; font-weight: 500; color: #32493e; border-radius: 9px; }
+            .an-filter-section .an-nav-cat-title.active { background: transparent; box-shadow: none; transform: none; }
+            .an-sidebar-style-count { display: inline; flex-shrink: 0; font-size: 9px; font-weight: 400; color: #7b887e; }
+            .an-filter-section .an-nav-cat-toggle { display: grid; place-items: center; width: 34px; height: 34px; min-height: 34px; flex: 0 0 34px; padding: 0; margin-right: 4px; border-radius: 7px; color: #6d8072; }
+            .an-sidebar-mobile-toggle { display: none; }
+            .an-sidebar-chevron { display: block; transition: transform 180ms ease; }
+            .an-nav-cat-toggle.open .an-sidebar-chevron { transform: rotate(180deg); }
+            .an-nav-cat-item[data-desktop-selected="true"] > .an-nav-cat-row { background: #eaf3e9; box-shadow: inset 3px 0 #0c5747; }
+            .an-nav-cat-item[data-desktop-selected="true"] > .an-nav-cat-row .an-nav-cat-title { color: #063b35; font-weight: 700; }
+            .an-nav-cat-item[data-desktop-selected="true"] .an-sidebar-style-count { color: #456d54; }
+            .an-filter-section button:hover { transform: none; box-shadow: none; background: #f2f6f0; }
+            .an-filter-section .an-nav-sub-list { margin: 4px 9px 10px 14px; padding: 2px 0 2px 10px; border-left: 1px solid #d4e3d1; gap: 3px; }
+            .an-filter-section .an-nav-sub-item { display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding: 8px 10px; font-size: 11px; line-height: 1.5; font-weight: 400; border-radius: 7px; }
+            .an-filter-section .an-nav-sub-item.active { color: #fff; background: #0b5145; font-weight: 600; transform: none; box-shadow: none; }
+            .an-clear { margin: 12px; width: calc(100% - 24px); min-height: 40px; background: #f7faf5; border-color: #d8e2d5; border-radius: 9px; font-size: 11px; font-weight: 600; }
+            .an-filter button:focus-visible { outline: 2px solid #b68a3c; outline-offset: -2px; }
+          }
+          @media (prefers-reduced-motion: reduce) { .an-sidebar-chevron { transition: none; } }
+          @media (min-width: 1181px) {
+            .an-main-head { grid-template-columns: minmax(220px, 1fr) minmax(440px, 1.3fr); align-items: center; }
+            .an-quick-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; align-items: start; }
+            .an-qf-select-box { display: block; min-width: 0; position: relative; padding: 10px 10px 6px; border: 1px solid #dce5db; border-radius: 11px; background: #fff; box-shadow: 0 3px 10px #123f3b04; transition: border-color 150ms ease, background 150ms ease; }
+            .an-qf-select-box:hover { border-color: #94b09a; }
+            .an-qf-select-box.has-selection { background: #eef6eb; border-color: #91b194; }
+            .an-qf-field-label { display: block; padding-right: 22px; margin-bottom: 4px; color: #718170; font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+            .an-qf-select-box select { display: block; min-height: 32px; width: 100%; min-width: 0; padding: 4px 18px 4px 0; border: 0; background: transparent; color: #16483b; font: inherit; font-size: 11px; font-weight: 600; text-overflow: ellipsis; cursor: pointer; }
+            .an-qf-field-clear { display: grid; place-items: center; position: absolute; top: 2px; right: 2px; width: 28px; height: 28px; border: 0; border-radius: 7px; background: transparent; color: #456e4a; font-size: 18px; cursor: pointer; }
+            .an-qf-field-clear:hover { background: #dcebd7; }
+            .an-qf-select-box:focus-within { border-color: #38734f; box-shadow: 0 0 0 2px #38734f14; }
+            .an-qf-select-box :is(select, button):focus-visible { outline: 2px solid #b68a3c; outline-offset: 1px; border-radius: 4px; }
+            .an-qf-reset-btn { grid-column: 1 / -1; justify-self: end; border: 0; border-radius: 6px; min-height: 32px; padding: 6px 8px; background: transparent; color: #315f44; font-size: 11px; text-decoration: underline; }
+            .an-qf-reset-btn:hover { background: #edf4e9; color: #123f3b; }
+          }
+
+          .an-products .an-product-card { border-color: #e0e7dd; border-radius: 16px; box-shadow: 0 6px 20px #073b3f06; }
+          .an-products .an-product-card:hover { transform: translateY(-3px); box-shadow: 0 12px 28px #073b3f12; }
+          .an-products .an-product-image { background: #f7f7f2 !important; min-height: 0; }
+          .an-products .an-product-image img { object-fit: contain !important; padding: 10px; box-sizing: border-box; }
+          .an-products .an-product-card:hover img { transform: scale(1.025); }
+          .an-products .an-product-body { padding: 16px; }
+          .an-products .an-product-body h3 { line-height: 1.5; font-weight: 600; min-height: 42px; }
+          .an-products .an-product-body h3 a { color: #163c36; text-decoration: none; }
+          .an-products .an-product-body strong { color: #073b3f; font-size: 19px; }
+          .an-products .an-heart { display: grid; place-items: center; background: #ffffffed; box-shadow: 0 2px 8px #073b3f12; border-radius: 50%; width: 36px; height: 36px; color: #073b3f; }
+          .an-products .an-heart.active { color: #b23445; }
+          .an-products .an-rating { border-top: 1px solid #eef0e9; padding-top: 10px; margin-top: 12px; }
+          .an-products .an-rating .an-view-product { margin: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: 1; width: auto !important; height: 36px !important; border-radius: 8px; padding: 0 10px; background: #edf3e9; color: #16483c; font-size: 11px; font-weight: 600; }
+          .an-products button:focus-visible, .an-products a:focus-visible { outline: 2px solid #a7843e; outline-offset: 2px; }
+          @media (max-width: 600px) {
+            .an-products .an-product-image img { padding: 6px; }
+            .an-products .an-rating .an-view-product { padding: 0 6px; font-size: 10px; }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .an-products .an-product-card, .an-products .an-product-image img { transition: none; transform: none; }
           }
         `}</style>
 

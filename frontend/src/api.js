@@ -16,8 +16,44 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+function workReviewStorageKey() {
+  try {
+    const payload = localStorage.getItem('token')?.split('.')[1]
+    if (!payload) return null
+    const claims = JSON.parse(atob(payload.replaceAll('-', '+').replaceAll('_', '/')))
+    return claims.user_id ? `daily-work-reviews:${claims.user_id}` : null
+  } catch { return null }
+}
+
+export function getDailyWorkReviewProofs() {
+  try {
+    const key = workReviewStorageKey()
+    const reviews = key ? JSON.parse(localStorage.getItem(key) || '{}') : {}
+    return { sales_review: reviews.sales_report || '', hierarchy_review: reviews.hierarchy_grid || '' }
+  } catch { return { sales_review: '', hierarchy_review: '' } }
+}
+
+function rememberDailyWorkReview(response) {
+  const review = response.data?.work_review
+  const path = window.location.pathname.replace(/\/$/, '')
+  const onReviewPage = review?.kind === 'sales_report' ? path === '/sales-report'
+    : review?.kind === 'hierarchy_grid' && /^\/(admin|dealer|subdealer|promotor)-hierarchy-grid$/.test(path)
+  if (!onReviewPage || !review.proof || !review.slot) return response
+  try {
+    const key = workReviewStorageKey()
+    if (!key || key !== `daily-work-reviews:${review.user}`) return response
+    const stored = JSON.parse(localStorage.getItem(key) || '{}')
+    if (stored.date > review.date || (stored.date === review.date && stored.slot > review.slot)) return response
+    const reviews = stored.date === review.date && stored.slot === review.slot ? stored : { date: review.date, slot: review.slot }
+    reviews[review.kind] = review.proof
+    localStorage.setItem(key, JSON.stringify(reviews))
+    window.dispatchEvent(new Event('daily-work-reviews-updated'))
+  } catch { /* A blocked store leaves check-in locked; it never bypasses server checks. */ }
+  return response
+}
+
 api.interceptors.response.use(
-  (response) => response,
+  rememberDailyWorkReview,
   async (error) => {
     const original = error.config
     const hasAccessToken = Boolean(localStorage.getItem('token'))

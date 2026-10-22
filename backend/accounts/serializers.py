@@ -1186,6 +1186,8 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
 
 class DailyWorkCheckInSubmitSerializer(serializers.Serializer):
     slot = serializers.ChoiceField(choices=DailyWorkCheckIn.SLOT_CHOICES)
+    sales_review = serializers.CharField(required=False, allow_blank=True, max_length=2048)
+    hierarchy_review = serializers.CharField(required=False, allow_blank=True, max_length=2048)
 
 
 class DailyWorkCheckInReportQuerySerializer(serializers.Serializer):

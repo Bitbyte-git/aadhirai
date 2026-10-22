@@ -4823,7 +4823,25 @@ def _customer_referral_tree(user):
     return by_creator.get(user.id, [])
 
 
-class MyHierarchyView(APIView):
+class DailyWorkReviewMixin:
+    """Signed proof binds each successful review to its user, IST date and corresponding report-review period."""
+    daily_review_kind = None
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        user = request.user
+        if request.method == 'GET' and response.status_code == 200 and isinstance(response.data, dict) and user.is_authenticated and user.is_active and user.role in DAILY_WORK_CHECK_IN_ROLES:
+            from zoneinfo import ZoneInfo
+            now = timezone.now().astimezone(ZoneInfo('Asia/Kolkata'))
+            slot = _daily_work_review_slot(now)
+            if slot is not None:
+                payload = {'user': user.pk, 'date': now.date().isoformat(), 'slot': slot, 'kind': self.daily_review_kind}
+                response.data['work_review'] = {**payload, 'proof': signing.dumps(payload, salt='daily-work-review-v2')}
+        return response
+
+
+class MyHierarchyView(DailyWorkReviewMixin, APIView):
+    daily_review_kind = 'hierarchy_grid'
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -5238,7 +5256,8 @@ def _resolve_scope_user_ids(user, role, node_id):
         return [user.id]
 
 
-class SalesSummaryView(APIView):
+class SalesSummaryView(DailyWorkReviewMixin, APIView):
+    daily_review_kind = 'sales_report'
     """Total Sales / Total Orders / Customers with Orders — DB aggregate mattum,
     full tree walk illama fast ah."""
     permission_classes = [IsAuthenticated]
@@ -15533,9 +15552,39 @@ def saved_order_address(user, pk):
 
 # Work check-ins never call commission, wallet, login-reward or payment helpers.
 DAILY_WORK_CHECK_IN_ROLES = {'admin', 'dealer', 'sub_dealer', 'promotor'}
+DAILY_WORK_CHECK_IN_WINDOW_MINUTES = 60
+DAILY_WORK_REVIEW_STARTS = {'12:00': '09:00', '16:00': '14:00', '20:00': '18:00'}
+DAILY_WORK_REVIEW_MAX_AGE = 4 * 60 * 60
+DAILY_WORK_HIERARCHY_PATHS = {
+    'admin': '/admin-hierarchy-grid', 'dealer': '/dealer-hierarchy-grid',
+    'sub_dealer': '/subdealer-hierarchy-grid', 'promotor': '/promotor-hierarchy-grid',
+}
 
 
-def _daily_work_check_in_snapshot(user, now=None):
+def _daily_work_review_slot(local_now):
+    from datetime import datetime as check_datetime, time as check_time
+    for slot, review_start in DAILY_WORK_REVIEW_STARTS.items():
+        opens = check_datetime.combine(local_now.date(), check_time.fromisoformat(review_start), tzinfo=local_now.tzinfo)
+        check_in_opens = check_datetime.combine(local_now.date(), check_time.fromisoformat(slot), tzinfo=local_now.tzinfo)
+        closes = check_in_opens + timedelta(minutes=DAILY_WORK_CHECK_IN_WINDOW_MINUTES)
+        if opens <= local_now < closes:
+            return slot
+    return None
+
+
+def _daily_work_review_status(user, proofs, day, slot):
+    reviewed = {}
+    for kind, field in [('sales_report', 'sales_review'), ('hierarchy_grid', 'hierarchy_review')]:
+        try:
+            proof = signing.loads((proofs or {}).get(field, ''), salt='daily-work-review-v2', max_age=DAILY_WORK_REVIEW_MAX_AGE)
+            reviewed[kind] = slot is not None and proof == {'user': user.pk, 'date': day.isoformat(), 'slot': slot, 'kind': kind}
+        except (signing.BadSignature, TypeError, ValueError):
+            reviewed[kind] = False
+    return reviewed
+
+
+
+def _daily_work_check_in_snapshot(user, now=None, proofs=None):
     from datetime import datetime as check_datetime, time as check_time
     from zoneinfo import ZoneInfo
 
@@ -15545,19 +15594,27 @@ def _daily_work_check_in_snapshot(user, now=None):
     slots, future_changes = [], []
     for slot, label in DailyWorkCheckIn.SLOT_CHOICES:
         opens = check_datetime.combine(day, check_time.fromisoformat(slot), tzinfo=local_now.tzinfo)
-        closes = opens + timedelta(minutes=30)
+        closes = opens + timedelta(minutes=DAILY_WORK_CHECK_IN_WINDOW_MINUTES)
+        review_opens = check_datetime.combine(day, check_time.fromisoformat(DAILY_WORK_REVIEW_STARTS[slot]), tzinfo=local_now.tzinfo)
         submitted_at = completed.get(slot)
         slot_status = 'completed' if submitted_at else 'upcoming' if local_now < opens else 'available' if local_now < closes else 'missed'
         slots.append({
             'id': slot, 'label': label, 'opens_at': opens.isoformat(), 'closes_at': closes.isoformat(),
+            'review_opens_at': review_opens.isoformat(), 'review_closes_at': closes.isoformat(),
             'status': slot_status, 'submitted_at': submitted_at.isoformat() if submitted_at else None,
         })
-        future_changes.extend(boundary for boundary in (opens, closes) if boundary > local_now)
+        future_changes.extend(boundary for boundary in (review_opens, opens, closes) if boundary > local_now)
+    active_slot = next((slot['id'] for slot in slots if slot['status'] == 'available'), None)
+    review_slot = _daily_work_review_slot(local_now)
+    review_status = _daily_work_review_status(user, proofs, day, review_slot)
     midnight = check_datetime.combine(day + timedelta(days=1), check_time.min, tzinfo=local_now.tzinfo)
     return {
         'date': day.isoformat(), 'timezone': 'Asia/Kolkata', 'server_now': local_now.isoformat(),
-        'window_minutes': 30, 'completed_count': len(completed), 'slots': slots,
-        'active_slot': next((slot['id'] for slot in slots if slot['status'] == 'available'), None),
+        'window_minutes': DAILY_WORK_CHECK_IN_WINDOW_MINUTES, 'completed_count': len(completed), 'slots': slots,
+        'review_status': review_status, 'review_slot': review_slot,
+        'review_links': {'sales_report': '/sales-report', 'hierarchy_grid': DAILY_WORK_HIERARCHY_PATHS.get(user.role)},
+        'can_submit': bool(active_slot and all(review_status.values())),
+        'active_slot': active_slot,
         'next_change_at': min(future_changes, default=midnight).isoformat(),
     }
 
@@ -15571,7 +15628,7 @@ class DailyWorkCheckInView(APIView):
     def get(self, request):
         if not self._allowed(request.user):
             return Response({'error': 'Daily work check-in is only available to internal worker roles.'}, status=403)
-        return Response(_daily_work_check_in_snapshot(request.user))
+        return Response(_daily_work_check_in_snapshot(request.user, proofs=request.query_params))
 
     def post(self, request):
         if not self._allowed(request.user):
@@ -15580,20 +15637,22 @@ class DailyWorkCheckInView(APIView):
         data.is_valid(raise_exception=True)
         slot_id = data.validated_data['slot']
         now = timezone.now()
-        snapshot = _daily_work_check_in_snapshot(request.user, now)
+        snapshot = _daily_work_check_in_snapshot(request.user, now, proofs=data.validated_data)
         slot = next(item for item in snapshot['slots'] if item['id'] == slot_id)
         # Retrying a successful submission is safe, including after its window closes.
         if slot['status'] == 'completed':
             return Response({**snapshot, 'created': False, 'message': 'This check-in is already completed.'})
         if slot['status'] != 'available':
-            return Response({**snapshot, 'error': 'This check-in is outside its 30-minute submission window.'}, status=409)
+            return Response({**snapshot, 'error': 'This check-in is outside its one-hour submission window.'}, status=409)
+        if not snapshot['can_submit']:
+            return Response({**snapshot, 'error': 'Open Sales Report and Hierarchy Grid during the matching review period before submitting.'}, status=403)
         # The unique constraint and get_or_create make concurrent submissions idempotent.
         _, created = DailyWorkCheckIn.objects.get_or_create(
             user=request.user, work_date=snapshot['date'], slot=slot_id,
             defaults={'checked_in_at': now},
         )
         return Response({
-            **_daily_work_check_in_snapshot(request.user), 'created': created,
+            **_daily_work_check_in_snapshot(request.user, proofs=data.validated_data), 'created': created,
             'message': 'Check-in submitted successfully.' if created else 'This check-in is already completed.',
         }, status=201 if created else 200)
 
@@ -15675,7 +15734,7 @@ class DailyWorkCheckInReportView(APIView):
         windows = []
         for slot, label in DailyWorkCheckIn.SLOT_CHOICES:
             opens = check_datetime.combine(day, check_time.fromisoformat(slot), tzinfo=now.tzinfo)
-            closes = opens + timedelta(minutes=30)
+            closes = opens + timedelta(minutes=DAILY_WORK_CHECK_IN_WINDOW_MINUTES)
             state = 'upcoming' if now < opens else 'available' if now < closes else 'missed'
             windows.append({'id': slot, 'label': label, 'opens_at': opens.isoformat(), 'closes_at': closes.isoformat(), 'status': state})
         items = []

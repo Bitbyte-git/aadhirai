@@ -103,6 +103,7 @@ const DigiGoldDashboard = lazy(() => import('./pages/DigiGold/DigiGoldDashboard'
 const SuperAdminDigiGold = lazy(() => import('./Superadmin/SuperAdminDigiGold'))
 const DailyCheckInList = lazy(() => import('./Superadmin/DailyCheckInList'))
 const AffordableProducts = lazy(() => import('./collection/AffordableProducts'))
+const DigiGoldShop = lazy(() => import('./pages/DigiGold/DigiGoldShop'))
 
 const collectionPath = (category, metal) => {
   const params = new URLSearchParams({ category })
@@ -427,6 +428,7 @@ export default function App() {
           <Route path="/nearby-shop" element={<WithCustomerNavbar><NearbyShop /></WithCustomerNavbar>} />
           <Route path="/order-summary" element={<ProtectedRoute role={["customer", "promotor", "sub_dealer", "dealer", "admin"]}><WithCustomerNavbar><OrderSummary /></WithCustomerNavbar></ProtectedRoute>} />
           <Route path="/recharge" element={<ProtectedRoute role={["customer", "promotor", "sub_dealer", "dealer", "admin"]}><WithCustomerNavbar><Recharge /></WithCustomerNavbar></ProtectedRoute>} />
+          <Route path="/digi-gold/shop" element={<ProtectedRoute><WithCustomerNavbar><DigiGoldShop /></WithCustomerNavbar></ProtectedRoute>} />
           <Route path="/digi-gold/:section?" element={<ProtectedRoute role={["customer", "promotor", "sub_dealer", "dealer", "admin", "super_admin"]}><DigiGoldDashboard /></ProtectedRoute>} />
           <Route path="/superadmin-digi-gold/:section?" element={<ProtectedRoute role={["super_admin"]}><WithSuperAdminNavbar><SuperAdminDigiGold /></WithSuperAdminNavbar></ProtectedRoute>} />
           <Route path="/order-payment" element={<WithCustomerNavbar><OrderPayment /></WithCustomerNavbar>} />

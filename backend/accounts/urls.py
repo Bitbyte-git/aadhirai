@@ -1,6 +1,6 @@
 from django import views
 from django.urls import path
-from .views import FastMovingProductsView
+from .views import FastMovingProductsView, DigiGoldShopView, DigiGoldShopCheckoutView
 from .views import DeliveryAddressListView, DeliveryAddressDetailView, DailyWorkCheckInView, DailyWorkCheckInReportView
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
@@ -157,6 +157,8 @@ urlpatterns = [
     path('digi-gold/transactions/', DigiGoldTransactionHistoryView.as_view()),
     path('digi-gold/buy/', DigiGoldBuyView.as_view()),
     path('digi-gold/sell/', DigiGoldSellView.as_view()),
+    path('digi-gold/shop/', DigiGoldShopView.as_view()),
+    path('digi-gold/shop/checkout/', DigiGoldShopCheckoutView.as_view()),
     path('digi-gold/convert-from-recharge/', DigiGoldConvertFromRechargeView.as_view()),
     path('digi-gold/superadmin/', DigiGoldSuperAdminView.as_view()),
     path('digi-gold/delivery/order/', DigiGoldDeliveryOrderView.as_view()),

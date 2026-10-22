@@ -11,7 +11,7 @@ const steps = [
   { label: 'Payment', detail: 'Pay with AUG Revive', Icon: Coins },
 ]
 
-function CheckoutSteps({ active, onStepChange }) {
+function CheckoutSteps({ active, onStepChange, paymentLabel = 'AUG Revive' }) {
   useEffect(() => {
     const page = document.querySelector('.cx-checkout')
     const navbars = [...document.querySelectorAll('.exact-nav, .san-top-shell, .irn-top')]
@@ -41,7 +41,7 @@ function CheckoutSteps({ active, onStepChange }) {
       {steps.map((step, index) => (
         <li key={step.label} className={`${index + 1 === active ? 'is-current' : ''} ${index + 1 < active ? 'is-complete' : ''}`} aria-current={index + 1 === active ? 'step' : undefined}>
           <span className="cx-step-icon">{index + 1 < active ? <Check size={19} /> : <step.Icon size={19} />}</span>
-          <span><strong>{step.label}</strong><small>{step.detail}</small></span>
+          <span><strong>{step.label}</strong><small>{index === 2 ? `Pay with ${paymentLabel}` : step.detail}</small></span>
           <span className="cx-step-number" aria-hidden="true">0{index + 1}</span>
           {onStepChange && index + 1 < active && <button type="button" className="cx-step-jump" aria-label={`Back to ${step.label}`} onClick={() => onStepChange(index + 1)} />}
         </li>
@@ -77,7 +77,7 @@ function GiftIllustration() {
   )
 }
 
-function CheckoutProcessing() {
+function CheckoutProcessing({ paymentLabel = 'AUG Revive' }) {
   useEffect(() => {
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -94,7 +94,7 @@ function CheckoutProcessing() {
         </div>
         <span className="cc-eyebrow">A little moment of anticipation</span>
         <h2>Making it yours<span className="cc-loading-dots" aria-hidden="true">…</span></h2>
-        <p>We’re confirming your AUG Revive payment.<br />Please keep this page open.</p>
+        <p>We’re confirming your {paymentLabel} payment.<br />Please keep this page open.</p>
         <div className="cc-loading-track" aria-hidden="true"><span /></div>
         <span className="cc-processing-note"><LockKeyhole size={12} /> Payment in progress</span>
       </div>
@@ -102,7 +102,7 @@ function CheckoutProcessing() {
   )
 }
 
-function OrderCelebration({ orderId, coinsNeeded, productName, image, qty, total, address, banner, downloading, onDownload, onContinue }) {
+function OrderCelebration({ fundingLabel, fundingDetail, orderId, coinsNeeded, productName, image, qty, total, address, banner, downloading, onDownload, onContinue }) {
   const titleRef = useRef(null)
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
@@ -135,7 +135,7 @@ function OrderCelebration({ orderId, coinsNeeded, productName, image, qty, total
           <div><span className="cc-detail-label">Your new treasure</span><h2>{productName}</h2><p>Quantity: {qty}</p></div>
           <strong className="cc-price">{total}</strong>
         </div>
-        <div className="cc-payment"><span className="cc-detail-icon"><Coins size={20} /></span><div><strong>Paid with AUG Revive</strong><span>{coinsNeeded.toLocaleString('en-IN')} AUG Revive deducted</span></div><span className="cc-paid"><Check size={12} /> Paid</span></div>
+        <div className="cc-payment"><span className="cc-detail-icon"><Coins size={20} /></span><div><strong>Paid with {fundingLabel || 'AUG Revive'}</strong><span>{fundingDetail || `${coinsNeeded.toLocaleString('en-IN')} AUG Revive deducted`}</span></div><span className="cc-paid"><Check size={12} /> Paid</span></div>
         {address && <div className="cc-address"><MapPin size={17} /><p><strong>Deliver to {address.name}</strong><span>{[address.address, address.locality, address.city, address.state, address.pincode].filter(Boolean).join(', ')}</span></p></div>}
         {banner && <div className={`op-banner ${banner.type}`} role="alert">{banner.text}</div>}
         <div className="cc-actions">
@@ -258,8 +258,11 @@ const styles = `
 export default function OrderPayment() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { product, qty, totalPrice, isCartCheckout, cartItems = [], firstImage, savedAddress } = location.state || {}
+  const { product, qty, totalPrice, digiShop, isCartCheckout, cartItems = [], firstImage, savedAddress } = location.state || {}
 
+  const isDigiShop = Boolean(digiShop?.token && Number(digiShop.productId) === Number(product?.id) && !isCartCheckout)
+  const digiLabel = digiShop?.metal === 'silver_999' ? 'Digi Silver' : 'Digi Gold'
+  const [goldUsed, setGoldUsed] = useState(null)
   const [wallet, setWallet] = useState({ balance_coins: 0 })
   const [loadingWallet, setLoadingWallet] = useState(true)
   const [walletError, setWalletError] = useState(false)
@@ -290,7 +293,9 @@ export default function OrderPayment() {
     setWalletError(false)
     try {
       const { default: api } = await import('../api')
-      const res = await api.get('/wallet/')
+      const res = isDigiShop
+        ? await api.post('/digi-gold/shop/', { token: digiShop.token, product_id: product.id, quantity: qty })
+        : await api.get('/wallet/')
       setWallet(res.data)
     } catch {
       setWalletError(true)
@@ -299,11 +304,12 @@ export default function OrderPayment() {
     }
   }
 
-  useEffect(() => { fetchWallet() }, [])
+  useEffect(() => { fetchWallet() }, [isDigiShop, product?.id, qty])
 
   if (!product || !savedAddress) return null
 
-  const coinsNeeded = Math.ceil((totalPrice || 0) * COIN_RATE)
+  const paymentTotal = isDigiShop ? (wallet.total_price ?? totalPrice) : totalPrice
+  const coinsNeeded = Math.ceil((paymentTotal || 0) * COIN_RATE)
   const hasEnoughCoins = wallet.balance_coins >= coinsNeeded
   const shortfallCoins = Math.max(0, coinsNeeded - wallet.balance_coins)
   const shortfallRupees = Math.ceil(shortfallCoins / COIN_RATE)
@@ -316,7 +322,8 @@ export default function OrderPayment() {
     setBanner(null)
     try {
       const { default: api } = await import('../api')
-      const res = await api.post('/orders/pay-with-coins/', {
+      const res = await api.post(isDigiShop ? '/digi-gold/shop/checkout/' : '/orders/pay-with-coins/', {
+        ...(isDigiShop ? { token: digiShop.token } : {}),
         product_id: product.id,
         product_image_url: firstImage,
         delivery_address_id: savedAddress.id,
@@ -329,9 +336,10 @@ export default function OrderPayment() {
         state: savedAddress.state,
         quantity: qty,
         unit_price: isCartCheckout ? totalPrice : (totalPrice / (qty || 1)),
-        total_price: totalPrice,
+        total_price: paymentTotal,
       })
       if (res.data.status === 'success') {
+        setGoldUsed(res.data.gold_used_gm ?? wallet.required_gm)
         setOrderId(res.data.order_id)
       } else {
         setBanner({ type: 'error', text: 'Payment failed. Please try again.' })
@@ -421,12 +429,14 @@ export default function OrderPayment() {
         <style>{styles}</style>
         <main className="op-main">
           <OrderCelebration
+            fundingLabel={isDigiShop ? digiLabel : undefined}
+            fundingDetail={isDigiShop ? `${Number(goldUsed).toFixed(6)} g used for this order` : undefined}
             orderId={orderId}
             coinsNeeded={coinsNeeded}
             productName={isCartCheckout ? `${cartItems.length} jewellery pieces` : product.name}
             image={firstImage}
             qty={qty}
-            total={inr(totalPrice)}
+            total={inr(paymentTotal)}
             address={savedAddress}
             banner={banner}
             downloading={downloadingReceipt}
@@ -442,7 +452,7 @@ export default function OrderPayment() {
   return (
     <div className="op-page cx-checkout">
       <style>{styles}</style>
-      {paying && <CheckoutProcessing />}
+      {paying && <CheckoutProcessing paymentLabel={isDigiShop ? digiLabel : undefined} />}
       <main className="op-main" aria-busy={paying} inert={paying}>
         <button type="button" className="op-back" onClick={() => navigate('/order-confirm', { state: { ...location.state, checkoutStep: 2 } })} aria-label="Back">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -453,9 +463,9 @@ export default function OrderPayment() {
         <header className="cx-payment-heading">
           <p className="op-kicker">Almost yours</p>
           <h1 className="op-title">One last step. All yours.</h1>
-          <p>Review your total and pay with AUG Revive to confirm your order.</p>
+          <p>Review your total and pay with {isDigiShop ? digiLabel : 'AUG Revive'} to confirm your order.</p>
         </header>
-        <CheckoutSteps active={3} onStepChange={checkoutStep => navigate('/order-confirm', { state: { ...location.state, checkoutStep } })} />
+        <CheckoutSteps active={3} paymentLabel={isDigiShop ? digiLabel : undefined} onStepChange={checkoutStep => navigate('/order-confirm', { state: { ...location.state, checkoutStep } })} />
 
         {banner && <div className={`op-banner ${banner.type}`}>{banner.text}</div>}
         {topUpSuccess && <WalletTopUpSuccess key={topUpSuccess.id} amount={topUpSuccess.amount} ready={!loadingWallet && !walletError && hasEnoughCoins} />}
@@ -474,13 +484,28 @@ export default function OrderPayment() {
               <div style={{ color: MUTED, fontSize: 12, fontWeight: 700, marginTop: 4 }}>Qty: {qty}</div>
             </div>
           </div>
-          <div className="op-amount-row"><span>Order Amount</span><strong style={{ color: DARK }}>{inr(totalPrice)}</strong></div>
-          <div className="op-amount-row"><span>AUG Revive required</span><strong style={{ color: GOLD }}>{coinsNeeded.toLocaleString('en-IN')} AUG Revive</strong></div>
-          <div className="op-amount-total"><span>Amount payable</span><span>{inr(totalPrice)}</span></div>
+          <div className="op-amount-row"><span>Order Amount</span><strong style={{ color: DARK }}>{inr(paymentTotal)}</strong></div>
+          <div className="op-amount-row"><span>{isDigiShop ? `${digiLabel} required` : 'AUG Revive required'}</span><strong style={{ color: GOLD }}>{isDigiShop ? (loadingWallet ? 'Checking?' : `${Number(wallet.required_gm || 0).toFixed(6)} g`) : `${coinsNeeded.toLocaleString('en-IN')} AUG Revive`}</strong></div>
+          <div className="op-amount-total"><span>Amount payable</span><span>{inr(paymentTotal)}</span></div>
           <div className="cx-payment-address"><MapPin size={18} /><p><strong>Deliver to {savedAddress.name}</strong><span>{[savedAddress.address, savedAddress.locality, savedAddress.city, savedAddress.state, savedAddress.pincode].filter(Boolean).join(', ')}</span></p></div>
         </section>
 
         <div className="cx-payment-side">
+        {isDigiShop ? <>
+          <section className="op-card op-balance-card">
+            <div className="cx-wallet-head"><span>{digiLabel.toUpperCase()} VAULT</span><Wallet size={23} strokeWidth={1.5} /></div>
+            <span className="op-balance-label">Available value</span>
+            <div className="op-balance-value">{loadingWallet ? 'Checking?' : walletError ? 'Unavailable' : inr(wallet.balance_inr || 0)}</div>
+            <p className="cx-wallet-foot">{Number(wallet.holding_gm || 0).toFixed(4)} g available ? valued at the current rate</p>
+          </section>
+          <section className="op-card">
+            {loadingWallet ? <p role="status">Checking current price and holding?</p> : walletError ? <><p role="alert">We could not verify this shopping session or holding. Try again, or open Sell from Digi Gold to start again.</p><button type="button" className="op-pay-btn" onClick={() => fetchWallet()}>Try again</button><button type="button" className="op-back" onClick={() => navigate('/digi-gold')}>Back to Digi Gold</button></> : wallet.eligible ? <>
+              <div className="cx-revive-ready"><span><Check size={18} /></span><div><strong>Your vault value covers this piece.</strong><p>Only {Number(wallet.required_gm).toFixed(6)} g will be used. Your remaining holding stays in your vault.</p></div></div>
+              <button className="op-pay-btn" disabled={paying} onClick={handlePayWithCoins}>{paying ? 'Confirming?' : <>Pay with {digiLabel} <ArrowRight size={18} /></>}</button>
+              <p className="cx-payment-note"><LockKeyhole size={13} />Gold is sold at the current rate and its value pays for this order. The sale and purchase complete together.</p>
+            </> : <><p className="op-status-banner no">Your current vault value no longer covers this quantity. Choose another piece or reduce the quantity.</p><button type="button" className="op-pay-btn" onClick={() => navigate('/digi-gold/shop', { state: { fromDigiGold: true, metal: digiShop.metal } })}>Explore jewellery</button></>}
+          </section>
+        </> : <>
         <section className="op-card op-balance-card">
           {topUpSuccess && <div key={topUpSuccess.id} className="cx-wallet-credit-shine" aria-hidden="true" />}
           <div className="cx-wallet-head"><span>AUG REVIVE WALLET</span><Wallet size={23} strokeWidth={1.5} /></div>
@@ -531,6 +556,7 @@ export default function OrderPayment() {
           )}
           {!loadingWallet && !walletError && <p className="cx-payment-note"><LockKeyhole size={13} /> {hasEnoughCoins ? 'Your order is confirmed after payment succeeds.' : 'Add AUG Revive to your wallet, then confirm your order.'}</p>}
         </section>
+        </>}
         </div>
         </div>
       </main>

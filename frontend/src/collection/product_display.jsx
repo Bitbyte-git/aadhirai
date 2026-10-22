@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import logo from '../assets/logo.png'
 import api from '../api'
 import { addToCartDB } from '../collection/card_section'
@@ -492,6 +492,7 @@ function ProductInfoAndBreakup({ product, metal, liveRate }) {
   )
 }
 export default function ProductDisplay() {
+  const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const canvasRef = useRef(null)
@@ -700,6 +701,7 @@ export default function ProductDisplay() {
         displayPrice,
         metal,
         category,
+        digiShop: Number(location.state?.digiShop?.productId) === Number(product.id) ? location.state.digiShop : undefined,
       }
     })
   }

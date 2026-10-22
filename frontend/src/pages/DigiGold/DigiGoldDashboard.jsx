@@ -579,16 +579,14 @@ export default function DigiGoldDashboard() {
 
   // Modals
   const [showBuyModal, setShowBuyModal] = useState(false)
-  const [showSellModal, setShowSellModal] = useState(false)
   const [showConvertModal, setShowConvertModal] = useState(false)
 
-  // Success Popup Modal State (For Buy, Sell, and Convert)
+  // Success popup for Buy and Convert
   const [actionSuccessData, setActionSuccessData] = useState(null)
   const [copiedTxn, setCopiedTxn] = useState(false)
 
-  // Metal selection for Buy & Sell
+  // Metal selection for Buy
   const [buyMetal, setBuyMetal] = useState('gold_22k') // 'gold_22k' | 'silver_999'
-  const [sellMetal, setSellMetal] = useState('gold_22k') // 'gold_22k' | 'silver_999'
   const [chartMetal, setChartMetal] = useState('gold') // 'gold' | 'silver'
 
   // Buy form
@@ -597,12 +595,6 @@ export default function DigiGoldDashboard() {
   const [submittingBuy, setSubmittingBuy] = useState(false)
   const [buyFeedback, setBuyFeedback] = useState(null)
   const [buyMessage, setBuyMessage] = useState('')
-
-  // Sell form
-  const [sellGrams, setSellGrams] = useState('')
-  const [submittingSell, setSubmittingSell] = useState(false)
-  const [sellFeedback, setSellFeedback] = useState(null)
-  const [sellMessage, setSellMessage] = useState('')
 
   // Convert AUG Revive into Digi Gold or Digi Silver
   const [convertMetal, setConvertMetal] = useState('gold_22k')
@@ -616,10 +608,9 @@ export default function DigiGoldDashboard() {
     setShowBuyModal(true)
   }
 
-  const handleOpenSellModal = () => {
-    setSellFeedback(null)
-    setSellMessage('')
-    setShowSellModal(true)
+  const handleOpenDigiShop = (metal = 'gold_22k') => {
+    setSidebarOpen(false)
+    navigate('/digi-gold/shop', { state: { fromDigiGold: true, metal: metal === 'silver_999' ? metal : 'gold_22k' } })
   }
 
   // ── AUTOPAY / OFFERS STATE ──
@@ -1262,70 +1253,6 @@ export default function DigiGoldDashboard() {
     }
   }
 
-  // ── SELL HANDLER ──
-  const handleSellGold = async (e) => {
-    e.preventDefault()
-    if (!sellGrams || parseFloat(sellGrams) <= 0) return
-    setSubmittingSell(true)
-    setSellFeedback(null)
-    try {
-      const res = await api.post('/digi-gold/sell/', {
-        grams: parseFloat(sellGrams),
-        metal: sellMetal
-      })
-      const metalLabel = sellMetal === 'gold_22k' ? '22K Digital Gold (Athirai 916)' : 'Digi Silver (Pure 999)'
-      const txnId = res.data?.transaction_id
-      const payoutVal = res.data?.payout_inr ?? previewSellPayout
-      const coinsCredited = res.data?.coins_credited ?? Math.round(payoutVal * 100)
-
-      // Close sell input modal & launch Success Popup Modal
-      setShowSellModal(false)
-      setActionSuccessData({
-        actionType: 'sell',
-        metal: sellMetal,
-        metalLabel,
-        title: 'Sale Executed Successfully!',
-        message: res.data?.message || `Successfully sold ${parseFloat(sellGrams)}g of ${metalLabel} and credited ₹${payoutVal.toLocaleString('en-IN')} to your wallet.`,
-        amountInr: payoutVal,
-        grams: parseFloat(sellGrams),
-        milligrams: parseFloat(sellGrams) * 1000,
-        coins: coinsCredited,
-        transactionId: txnId,
-        rate: sellMetal === 'gold_22k' ? currentLiveRate : currentSilverRate,
-        dateTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
-      })
-
-      fetchDashboardData()
-    } catch (err) {
-      const respData = err.response?.data
-      let errTitle = 'Sale Order Incomplete'
-      let errDetail = 'Unable to complete your sale at this time. Please check your vault balance.'
-      let errCode = 'general_error'
-
-      if (respData?.code === 'insufficient_holdings') {
-        errTitle = 'Insufficient Vault Holdings'
-        errDetail = respData.detail || 'You do not have enough quantity in your vault for this sale.'
-        errCode = 'insufficient_holdings'
-      } else if (respData?.error) {
-        errTitle = respData.error
-        errDetail = respData.detail || 'Please verify the quantity and try again.'
-        errCode = respData.code || 'general_error'
-      } else if (respData?.detail) {
-        errTitle = 'Transaction Notice'
-        errDetail = respData.detail
-      }
-
-      setSellFeedback({
-        type: 'error',
-        title: errTitle,
-        detail: errDetail,
-        code: errCode
-      })
-    } finally {
-      setSubmittingSell(false)
-    }
-  }
-
   // ── CONVERT AUG REVIVE HANDLER ──
   const handleConvertCoins = async (e) => {
     e.preventDefault()
@@ -1559,22 +1486,6 @@ export default function DigiGoldDashboard() {
   const previewGoldGm = buyCharges.grams
   const previewGoldMg = buyCharges.mg
   const buyAugRequired = buyCharges.total
-
-  // Available holdings for selected sell metal
-  const availableSellGm = sellMetal === 'gold_22k'
-    ? Number(kpis.total_gold_holding_gm ?? 0)
-    : Number(kpis.total_silver_holding_gm ?? 0)
-  const availableSellMg = sellMetal === 'gold_22k'
-    ? Number(kpis.total_gold_holding_mg ?? 0)
-    : Number(kpis.total_silver_holding_mg ?? 0)
-
-  // Live calculations for Sell modal
-  const parsedSellGm = parseFloat(sellGrams) || 0
-  const activeSellRate = sellMetal === 'gold_22k' ? currentLiveRate : currentSilverRate
-  const previewSellPayout = parsedSellGm * activeSellRate
-  const previewSellCoins = Math.round(previewSellPayout * 100)
-  const isOverSelling = parsedSellGm > availableSellGm + 0.000001
-  const hasNoHoldingsToSell = availableSellGm <= 0
 
   // Live calculations for Convert AUG Revive modal
   const parsedConvertAmount = parseFloat(convertAmount) || 0
@@ -2864,7 +2775,7 @@ export default function DigiGoldDashboard() {
             <button
               className="dg-nav-btn"
               type="button"
-              onClick={() => { handleOpenSellModal(); setSidebarOpen(false); }}
+              onClick={() => { handleOpenDigiShop(); setSidebarOpen(false); }}
             >
               <ArrowUpFromLine size={18} />
               <span>Sell Gold</span>
@@ -3061,7 +2972,7 @@ export default function DigiGoldDashboard() {
                   </button>
                   <button
                     type="button"
-                    onClick={handleOpenSellModal}
+                    onClick={() => handleOpenDigiShop('gold_22k')}
                     style={{
                       padding: '10px 18px', borderRadius: 12, background: '#FFFFFF', color: '#E45B5B',
                       border: '1.5px solid #E45B5B', fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6
@@ -3337,8 +3248,7 @@ export default function DigiGoldDashboard() {
                   <button
                     type="button"
                     onClick={() => {
-                      setSellMetal(valuationMetal === 'silver' ? 'silver_999' : 'gold_22k')
-                      handleOpenSellModal()
+                      handleOpenDigiShop(valuationMetal === 'silver' ? 'silver_999' : 'gold_22k')
                     }}
                     style={{
                       padding: '10px 18px', borderRadius: 12, background: '#FFFFFF', color: '#E45B5B',
@@ -5935,7 +5845,7 @@ export default function DigiGoldDashboard() {
                     <button
                       className="dg-qa-btn"
                       type="button"
-                      onClick={handleOpenSellModal}
+                      onClick={() => handleOpenDigiShop('gold_22k')}
                     >
                       <div className="dg-qa-icon sell">
                         <ArrowUpFromLine size={20} />
@@ -6589,151 +6499,6 @@ export default function DigiGoldDashboard() {
                     : buyMetal === 'gold_22k'
                       ? `Buy Gold (₹${parsedBuyAmount.toLocaleString('en-IN')})`
                       : `Buy Silver (₹${parsedBuyAmount.toLocaleString('en-IN')})`}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── MODAL: SELL 22K GOLD / DIGI SILVER ── */}
-      {showSellModal && (
-        <div className="dg-modal-overlay" onClick={() => setShowSellModal(false)}>
-          <div className="dg-modal-box" onClick={e => e.stopPropagation()}>
-            <div className="dg-modal-head">
-              <h3 className="dg-modal-title">Sell {sellMetal === 'gold_22k' ? '22K Digital Gold' : 'Digi Silver'}</h3>
-              <button className="dg-modal-close" onClick={() => setShowSellModal(false)}>
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Metal Selector */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-              <button
-                type="button"
-                onClick={() => setSellMetal('gold_22k')}
-                style={{
-                  flex: 1, padding: '9px 12px', borderRadius: 10,
-                  border: `2px solid ${sellMetal === 'gold_22k' ? '#009957' : '#E6ECEA'}`,
-                  background: sellMetal === 'gold_22k' ? 'rgba(0,153,87,0.1)' : '#FFF',
-                  color: sellMetal === 'gold_22k' ? '#009957' : '#647474',
-                  fontWeight: 800, fontSize: 13, cursor: 'pointer'
-                }}
-              >
-                22K Gold (Athirai 916)
-              </button>
-              <button
-                type="button"
-                onClick={() => setSellMetal('silver_999')}
-                style={{
-                  flex: 1, padding: '9px 12px', borderRadius: 10,
-                  border: `2px solid ${sellMetal === 'silver_999' ? '#0A3E42' : '#E6ECEA'}`,
-                  background: sellMetal === 'silver_999' ? 'rgba(10,62,66,0.1)' : '#FFF',
-                  color: sellMetal === 'silver_999' ? '#0A3E42' : '#647474',
-                  fontWeight: 800, fontSize: 13, cursor: 'pointer'
-                }}
-              >
-                Digi Silver (Pure 999)
-              </button>
-            </div>
-
-            <div className="dg-modal-rate-badge">
-              <span className="dg-modal-rate-label">Live Selling Price ({sellMetal === 'gold_22k' ? '22K Gold' : 'Digi Silver'}):</span>
-              <span className="dg-modal-rate-val">
-                ₹ {sellMetal === 'gold_22k' ? Number(currentLiveRate).toLocaleString('en-IN') : Number(currentSilverRate).toFixed(2)}/g
-              </span>
-            </div>
-
-            {/* Available Vault Holding Card with MAX Button */}
-            <div className="dg-vault-available-card">
-              <div className="dg-vault-available-info">
-                <span className="dg-vault-available-label">
-                  Available {sellMetal === 'gold_22k' ? '22K Gold' : 'Digi Silver'} in Vault:
-                </span>
-                <span className="dg-vault-available-num">
-                  {availableSellGm.toFixed(4)} g ({availableSellMg.toFixed(2)} mg)
-                </span>
-              </div>
-              {availableSellGm > 0 && (
-                <button
-                  type="button"
-                  className="dg-vault-max-btn"
-                  onClick={() => setSellGrams(availableSellGm.toString())}
-                  title="Sell maximum available holding"
-                >
-                  SELL ALL (MAX)
-                </button>
-              )}
-            </div>
-
-            {hasNoHoldingsToSell && (
-              <div style={{
-                padding: '9px 12px', background: '#FFF5F5', border: '1px solid #FEB2B2',
-                borderRadius: 10, color: '#C53030', fontSize: 12, marginBottom: 12,
-                display: 'flex', alignItems: 'center', gap: 7
-              }}>
-                <AlertCircle size={15} />
-                <span>You do not have any {sellMetal === 'gold_22k' ? '22K Gold' : 'Digi Silver'} in your digital vault to sell.</span>
-              </div>
-            )}
-
-            {isOverSelling && (
-              <div style={{
-                padding: '9px 12px', background: '#FFF5F5', border: '1px solid #FEB2B2',
-                borderRadius: 10, color: '#C53030', fontSize: 12, marginBottom: 12,
-                display: 'flex', alignItems: 'center', gap: 7
-              }}>
-                <AlertCircle size={15} />
-                <span>Cannot sell more than available holding ({availableSellGm.toFixed(4)} g).</span>
-              </div>
-            )}
-
-            <ModalFeedbackNotice
-              feedback={sellFeedback}
-              onDismiss={() => setSellFeedback(null)}
-              onBuyGold={() => { setShowSellModal(false); setShowBuyModal(true); }}
-            />
-
-            <form onSubmit={handleSellGold}>
-              <label className="dg-input-label">Quantity to Sell (Grams):</label>
-              <input
-                type="number"
-                min="0.0001"
-                max={availableSellGm > 0 ? availableSellGm : 0}
-                step="any"
-                className="dg-form-input"
-                value={sellGrams}
-                onChange={e => setSellGrams(e.target.value)}
-                placeholder={availableSellGm > 0 ? `Enter grams (Max: ${availableSellGm.toFixed(4)}g)` : 'No vault holdings'}
-                disabled={hasNoHoldingsToSell}
-                required
-              />
-
-              <div className="dg-calc-preview">
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span className="dg-calc-label">You Will Receive:</span>
-                  <span className="dg-calc-val">
-                    ₹ {Math.round(previewSellPayout).toLocaleString('en-IN')}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: '#009957', fontWeight: 700 }}>
-                  <span>AUG Revive Credited:</span>
-                  <span>+ {previewSellCoins.toLocaleString()} Revive (100 Revive = ₹1)</span>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="dg-modal-submit-btn"
-                style={{ background: hasNoHoldingsToSell || isOverSelling ? '#CBD5E1' : '#E45B5B' }}
-                disabled={submittingSell || parsedSellGm <= 0 || isOverSelling || hasNoHoldingsToSell}
-              >
-                {submittingSell
-                  ? 'Processing Sale…'
-                  : hasNoHoldingsToSell
-                    ? 'No Holdings to Sell'
-                    : isOverSelling
-                      ? `Exceeds Available (${availableSellGm.toFixed(4)}g Max)`
-                      : `Sell ${parsedSellGm}g & Credit ₹${Math.round(previewSellPayout).toLocaleString('en-IN')}`}
               </button>
             </form>
           </div>

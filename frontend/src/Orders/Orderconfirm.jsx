@@ -11,7 +11,7 @@ const steps = [
   { label: 'Payment', detail: 'Pay with AUG Revive', Icon: Coins },
 ]
 
-function CheckoutSteps({ active, onStepChange }) {
+function CheckoutSteps({ active, onStepChange, paymentLabel = 'AUG Revive' }) {
   useLayoutEffect(() => {
     const page = document.querySelector('.cx-checkout')
     const navbars = [...document.querySelectorAll('.exact-nav, .san-top-shell, .irn-top')]
@@ -65,7 +65,7 @@ function CheckoutSteps({ active, onStepChange }) {
       {steps.map((step, index) => (
         <li key={step.label} className={`${index + 1 === active ? 'is-current' : ''} ${index + 1 < active ? 'is-complete' : ''}`} aria-current={index + 1 === active ? 'step' : undefined}>
           <span className="cx-step-icon">{index + 1 < active ? <Check size={19} /> : <step.Icon size={19} />}</span>
-          <span><strong>{step.label}</strong><small>{step.detail}</small></span>
+          <span><strong>{step.label}</strong><small>{index === 2 ? `Pay with ${paymentLabel}` : step.detail}</small></span>
           <span className="cx-step-number" aria-hidden="true">0{index + 1}</span>
           {onStepChange && index + 1 < active && <button type="button" className="cx-step-jump" aria-label={`Back to ${step.label}`} onClick={() => onStepChange(index + 1)} />}
         </li>
@@ -590,8 +590,9 @@ const checkoutStyles = `
 export default function OrderConfirm() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { product, qty: initialQty, displayPrice, metal, cartItems = [], cartTotal } = location.state || {}
+  const { product, qty: initialQty, displayPrice, metal, digiShop, cartItems = [], cartTotal } = location.state || {}
   const isCartCheckout = Array.isArray(cartItems) && cartItems.length > 0
+  const paymentLabel = digiShop?.token && Number(digiShop.productId) === Number(product?.id) && !isCartCheckout ? (digiShop.metal === 'silver_999' ? 'Digi Silver' : 'Digi Gold') : 'AUG Revive'
   const cartQuantity = isCartCheckout ? cartItems.reduce((sum, item) => sum + (Number(item.qty) || 1), 0) : 0
   const cartAmount = isCartCheckout ? cartItems.reduce((sum, item) => sum + (Number(item.total) || ((Number(item.price) || 0) * (Number(item.qty) || 1))), 0) : 0
 
@@ -635,6 +636,7 @@ export default function OrderConfirm() {
         isCartCheckout,
         cartItems,
         firstImage,
+        digiShop: !isCartCheckout && Number(digiShop?.productId) === Number(product.id) ? digiShop : undefined,
         savedAddress,
       }
     })
@@ -700,7 +702,7 @@ export default function OrderConfirm() {
           </button>
           <p className="cx-summary-caption">Choose your address next.<br />You can review everything before payment.</p>
         </>
-      ) : <p className="cx-summary-caption">Next: pay with your AUG Revive balance.</p>}
+      ) : <p className="cx-summary-caption">Next: pay with your {paymentLabel} balance.</p>}
     </aside>
     </div>
   )
@@ -728,7 +730,7 @@ export default function OrderConfirm() {
             </div>
           </header>
 
-          <CheckoutSteps active={1} />
+          <CheckoutSteps active={1} paymentLabel={paymentLabel} />
 
           <div className="oc-layout">
             <div>
@@ -774,7 +776,7 @@ export default function OrderConfirm() {
 
               <div className="cx-reassurance">
                 <div><Truck size={20} /><span>Free delivery</span></div>
-                <div><Coins size={20} /><span>Pay with AUG Revive</span></div>
+                <div><Coins size={20} /><span>Pay with {paymentLabel}</span></div>
                 <div><ShoppingBag size={20} /><span>Review before you pay</span></div>
               </div>
             </div>
@@ -881,7 +883,7 @@ export default function OrderConfirm() {
             <h1>Make it a special delivery.</h1>
             <p>Choose an address for your order. We’ll keep your selection ready for payment.</p>
           </header>
-          <CheckoutSteps active={2} onStepChange={next => { setStep(next); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />
+          <CheckoutSteps active={2} paymentLabel={paymentLabel} onStepChange={next => { setStep(next); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />
           <div className="delivery-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 32, alignItems: 'start' }}>
             <div>
               {/* DELIVER TO */}
@@ -900,7 +902,7 @@ export default function OrderConfirm() {
                 <h3><PackageCheck size={19} /> Just a few simple steps</h3>
                 <ol>
                   <li><span>1</span>Choose your delivery address</li>
-                  <li><span>2</span>Review your AUG Revive payment</li>
+                  <li><span>2</span>Review your {paymentLabel} payment</li>
                   <li><span>3</span>Get your order confirmation</li>
                 </ol>
               </section>

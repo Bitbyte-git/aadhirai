@@ -13492,6 +13492,178 @@ class DigiGoldBuyView(APIView):
         }, status=201)
 
 
+DIGI_SHOP_SALT = 'athirai.digi-gold.shop.v1'
+DIGI_SHOP_MAX_AGE = 3600
+
+
+def _read_digi_shop_flow(user, token):
+    from rest_framework.exceptions import PermissionDenied
+    try:
+        flow = signing.loads(token, salt=DIGI_SHOP_SALT, max_age=DIGI_SHOP_MAX_AGE)
+        if flow['user'] != user.pk or flow['metal'] not in ('gold_22k', 'silver_999') or len(flow['nonce']) != 32:
+            raise ValueError('Invalid shopping session')
+        return flow
+    except (signing.BadSignature, TypeError, ValueError, KeyError):
+        raise PermissionDenied('Open Sell from your Digi Gold dashboard to start a new shopping session.')
+
+
+def _digi_shop_balance(user, metal, rates):
+    from decimal import ROUND_DOWN
+    from rest_framework.exceptions import ValidationError
+    rate = getattr(rates, metal, Decimal('0')) if rates else Decimal('0')
+    mg_rate = (rate / Decimal('1000')).quantize(Decimal('0.0001'))
+    if mg_rate <= 0:
+        raise ValidationError({'error': 'Current metal rate is unavailable. Please try again later.'})
+    ledger = DigiGoldInvestment.objects.filter(user=user, status='completed')
+    ledger = ledger.filter(notes__icontains='silver') if metal == 'silver_999' else ledger.exclude(notes__icontains='silver')
+    totals = ledger.aggregate(
+        incoming=Sum('hold_gold_mg', filter=Q(transaction_type__in=['buy', 'convert'])),
+        outgoing=Sum('hold_gold_mg', filter=Q(transaction_type__in=['sell', 'delivery'])),
+    )
+    mg = max(Decimal('0'), (totals['incoming'] or Decimal('0')) - (totals['outgoing'] or Decimal('0')))
+    value = (mg * mg_rate).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+    return mg, mg_rate, value
+
+
+class DigiGoldShopView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        import secrets
+        from rest_framework.exceptions import ValidationError
+        token = request.data.get('token')
+        if token:
+            flow = _read_digi_shop_flow(request.user, token)
+        else:
+            if request.data.get('start') is not True:
+                return Response({'error': 'Start shopping from Sell on your Digi Gold dashboard.'}, status=403)
+            metal = request.data.get('metal', 'gold_22k')
+            if metal not in ('gold_22k', 'silver_999'):
+                return Response({'error': 'Invalid vault metal.'}, status=400)
+            flow = {'user': request.user.pk, 'metal': metal, 'nonce': secrets.token_hex(16)}
+            token = signing.dumps(flow, salt=DIGI_SHOP_SALT)
+        rates = MetalRate.objects.filter(date__lte=timezone.localdate()).order_by('-date').first()
+        mg, mg_rate, value = _digi_shop_balance(request.user, flow['metal'], rates)
+        result = {'token': token, 'metal': flow['metal'], 'holding_gm': float(mg / 1000),
+                  'balance_inr': float(value), 'rate_per_gram': float(mg_rate * 1000)}
+        products = JewelryProduct.objects.filter(is_active=True, is_internal_asset=False, stock_quantity__gt=0, metal__in=['gold', 'silver']).only('id', 'name', 'metal', 'grade', 'category', 'net_weight', 'price', 'making_charge', 'wastage_charge', 'stone_value', 'die_charge', 'stock_quantity')
+        if request.data.get('product_id'):
+            try:
+                product_id = int(str(request.data['product_id']))
+            except (TypeError, ValueError):
+                raise ValidationError({'error': 'Choose a valid product.'})
+            product = get_object_or_404(products, pk=product_id)
+            try:
+                quantity = int(str(request.data.get('quantity', 1)))
+                if quantity < 1 or quantity > product.stock_quantity:
+                    raise ValueError()
+            except (TypeError, ValueError):
+                raise ValidationError({'error': 'Choose an available quantity.'})
+            price, _ = current_product_price(product, rates)
+            if price is None:
+                raise ValidationError({'error': 'Product price is unavailable.'})
+            result.update(unit_price=price, total_price=price * quantity, eligible=price * quantity <= value,
+                          required_gm=float((Decimal(price * quantity) / mg_rate) / 1000))
+            return Response(result)
+        try:
+            page = max(1, int(str(request.data.get('page', 1))))
+        except (TypeError, ValueError):
+            page = 1
+        category = request.data.get('filter', 'all')
+        if category in ('gold', 'silver'):
+            products = products.filter(metal=category)
+        candidates = []
+        for product in products.order_by('id').iterator(chunk_size=200):
+            price, source = current_product_price(product, rates)
+            if price is not None and Decimal(price) <= value:
+                candidates.append((product, price, source))
+        candidates.sort(key=lambda row: (-row[1], row[0].id))
+        start, end = (page - 1) * 24, page * 24
+        selected = candidates[start:end]
+        from django.db.models import prefetch_related_objects
+        prefetch_related_objects([row[0] for row in selected], 'images')
+        result['products'] = []
+        for product, price, source in selected:
+            images = list(product.images.all())
+            image = request.build_absolute_uri(images[0].image.url) if images else None
+            result['products'].append({'id': product.id, 'name': product.name, 'metal': product.metal,
+                'grade': product.grade, 'category': product.category, 'net_weight': str(product.net_weight or 0),
+                'price': price, 'price_source': source, 'image': image})
+        result.update(has_more=end < len(candidates), page=page)
+        return Response(result)
+
+
+class DigiGoldShopCheckoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request):
+        from decimal import ROUND_UP
+        from types import SimpleNamespace
+        flow = _read_digi_shop_flow(request.user, request.data.get('token'))
+        # Match buy/convert/sell lock order. One shopping session can pay for only one order.
+        Wallet.objects.select_for_update().get_or_create(user=request.user)
+        DigiGoldWallet.objects.select_for_update().get_or_create(user=request.user)
+        reference = 'DGS' + flow['nonce']
+        existing = JewelryOrder.objects.filter(user=request.user, razorpay_payment_id=reference, payment_status='paid').first()
+        if existing:
+            if str(existing.product_id) != str(request.data.get('product_id')) or str(existing.quantity) != str(request.data.get('quantity', 1)):
+                return Response({'error': 'This shopping session has already paid for an order. Open Sell to start again.'}, status=409)
+            return Response({'status': 'success', 'order_id': existing.order_id, 'funding_source': 'digi_gold'})
+        data = request.data.copy()
+        if not data.get('delivery_address_id'):
+            return Response({'error': 'Choose a saved delivery address.'}, status=400)
+        data.update(saved_order_address(request.user, data['delivery_address_id']))
+        try:
+            product_id = int(str(data.get('product_id')))
+        except (TypeError, ValueError):
+            return Response({'error': 'Choose a valid product.'}, status=400)
+        product = get_object_or_404(JewelryProduct.objects.select_for_update(), pk=product_id,
+            is_active=True, is_internal_asset=False, metal__in=['gold', 'silver'])
+        try:
+            quantity = int(str(data.get('quantity', 1)))
+            if quantity < 1 or quantity > product.stock_quantity:
+                raise ValueError()
+        except (TypeError, ValueError):
+            return Response({'error': 'This quantity is unavailable. Please review your order.'}, status=400)
+        rates = MetalRate.objects.filter(date__lte=timezone.localdate()).order_by('-date').first()
+        available_mg, mg_rate, balance = _digi_shop_balance(request.user, flow['metal'], rates)
+        unit_price, _ = current_product_price(product, rates)
+        if unit_price is None:
+            return Response({'error': 'Product price is unavailable.'}, status=400)
+        total = Decimal(unit_price * quantity)
+        try:
+            quoted_total = Decimal(str(data.get('total_price', '0')))
+        except Exception:
+            quoted_total = Decimal('0')
+        if not quoted_total.is_finite() or quoted_total != total:
+            return Response({'error': 'The live product price changed. Review your payment again.', 'total_price': float(total)}, status=409)
+        required_mg = (total / mg_rate).quantize(Decimal('0.0001'), rounding=ROUND_UP)
+        if total > balance or required_mg > available_mg:
+            return Response({'error': 'Your current Digi Gold value does not cover this order. Choose another product.'}, status=400)
+        # Reuse the existing sell ledger and AUG order accounting in ONE transaction.
+        # Browsing never sells gold; failed orders roll back the sale and wallet credit.
+        sell_request = SimpleNamespace(user=request.user, data={'mg': str(required_mg), 'metal': flow['metal']})
+        sale = DigiGoldSellView().post(sell_request)
+        if sale.status_code != 200:
+            transaction.set_rollback(True)
+            return sale
+        if Decimal(str(sale.data['payout_inr'])) != total:
+            transaction.set_rollback(True)
+            return Response({'error': 'Metal rates changed. Review your order and try again.'}, status=409)
+        data.update(unit_price=unit_price, total_price=str(total), quantity=quantity)
+        checkout_request = SimpleNamespace(user=request.user, data=data, build_absolute_uri=request.build_absolute_uri)
+        paid = PayWithCoinsView().post(checkout_request)
+        if paid.status_code != 200:
+            transaction.set_rollback(True)
+            return paid
+        order = JewelryOrder.objects.get(user=request.user, order_id=paid.data['order_id'])
+        order.razorpay_payment_id = reference
+        order.save(update_fields=['razorpay_payment_id'])
+        paid.data.update(funding_source='digi_gold', gold_used_gm=float(required_mg / 1000), metal=flow['metal'])
+        return paid
+
+
 class DigiGoldSellView(APIView):
     """
     Sell held Digi Gold back at today's 22K gold rate.

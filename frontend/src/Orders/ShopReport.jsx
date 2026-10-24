@@ -161,7 +161,7 @@ function ShopNetworkGrid({ tree, loading, selChain, onSelectAt, scopedShopId, te
   const lanes = []
   let items = tree.children || []
   let depth = 0
-  while (true) {
+  for (;;) {
     lanes.push({ items, depth })
     const selNode = items.find(n => n.shop_id === selChain[depth])
     if (!selNode) break

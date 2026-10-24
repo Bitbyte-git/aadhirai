@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
@@ -72,6 +73,10 @@ const ROLE_NAME = {
 };
 
 export default function AddJewellery() {
+  function updateCatalogCategory(value) { setCatalogCategory(value); setVisibleLimit(100); }
+  function updateCatalogMetal(value) { setCatalogMetal(value); setVisibleLimit(100); }
+  function updateCatalogSearch(value) { setCatalogSearch(value); setVisibleLimit(100); }
+  function updateCatalogSource(value) { setCatalogSource(value); setVisibleLimit(100); }
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
@@ -97,7 +102,7 @@ export default function AddJewellery() {
   const [stockQuantity, setStockQuantity] = useState("1");
   const [makingCharge, setMakingCharge] = useState("8");
   const [stoneValue, setStoneValue] = useState("0");
-  const [price, setPrice] = useState("");
+  const [manualPrice, setPrice] = useState("");
   const [priceAutoCalculated, setPriceAutoCalculated] = useState(true);
 
   // Images state
@@ -118,7 +123,7 @@ export default function AddJewellery() {
 
   // ── BUY JEWELLERY CATALOG STATES ──
   const [catalogProducts, setCatalogProducts] = useState([]);
-  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogLoading, setCatalogLoading] = useState(isBuyMode);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogMetal, setCatalogMetal] = useState("all"); // 'all' | 'gold_22k' | 'gold_24k' | 'silver'
   const [catalogCategory, setCatalogCategory] = useState("all");
@@ -158,42 +163,38 @@ export default function AddJewellery() {
   }, []);
 
   // Fetch catalog products — Buy mode: en leader stock + Super Admin products; Super Admin manage: master list
-  const fetchCatalog = async () => {
-    setCatalogLoading(true);
-    try {
+  const fetchCatalog = () => {
+    const request = isBuyMode
+      ? api.get("/jewelry-requests/catalog/")
+      : api.get("/jewelry-products/?internal=true");
+    return request.then(res => {
       if (isBuyMode) {
-        const res = await api.get("/jewelry-requests/catalog/");
-        const prods = res.data?.products || [];
-        setCatalogProducts(prods);
+        const products = res.data?.products || [];
+        setCatalogProducts(products);
         setCatalogLeader(res.data?.leader || null);
-        // Leader kaila edhuvum illana default-a Super Admin products section kaatum
-        setCatalogSource(prods.some((p) => p.source === "leader") ? "leader" : "super_admin");
+        updateCatalogSource(products.some(product => product.source === "leader") ? "leader" : "super_admin");
       } else {
-        const res = await api.get("/jewelry-products/?internal=true");
         setCatalogProducts(Array.isArray(res.data) ? res.data : []);
       }
-    } catch {
-      // ignore
-    }
-    setCatalogLoading(false);
+    }).catch(() => { /* Keep the current catalog available if refresh fails. */ })
+      .finally(() => setCatalogLoading(false));
   };
 
+  const committedFetchCatalog = useCommittedCallback((...args) => fetchCatalog(...args))
   useEffect(() => {
     if (isBuyMode) {
-      fetchCatalog();
+      committedFetchCatalog();
     }
-  }, [isBuyMode]);
+  }, [isBuyMode, committedFetchCatalog]);
 
   // Derived weights & price calculation for master creation form
   const numCross = parseFloat(crossWeight) || 0;
   const numStone = parseFloat(stoneWeight) || 0;
   const netWeight = Math.max(0, numCross - numStone);
 
-  useEffect(() => {
-    if (!priceAutoCalculated) return;
+  const calculatedPrice = (() => {
     if (numCross <= 0) {
-      setPrice("");
-      return;
+      return "";
     }
 
     let ratePerGram = 0;
@@ -211,8 +212,9 @@ export default function AddJewellery() {
     const gst = subtotal * 0.03;
     const total = Math.round(subtotal + gst);
 
-    setPrice(total > 0 ? String(total) : "");
-  }, [metal, grade, numCross, numStone, makingCharge, stoneValue, rates, priceAutoCalculated, netWeight]);
+    return total > 0 ? String(total) : "";
+  })();
+  const price = priceAutoCalculated ? calculatedPrice : manualPrice;
 
   const handleMetalChange = (newMetal) => {
     setMetal(newMetal);
@@ -408,10 +410,7 @@ export default function AddJewellery() {
     setSubmittingRequest(false);
   };
 
-  // Reset pagination limit when category/metal/search changes
-  useEffect(() => {
-    setVisibleLimit(100);
-  }, [catalogCategory, catalogMetal, catalogSearch, catalogSource]);
+
 
   // Leader-e Super Admin-na (Super Stockist login) — ore section dhaan
   const leaderIsSuperAdmin = catalogLeader?.role === "super_admin";
@@ -1135,7 +1134,7 @@ export default function AddJewellery() {
               className={`aj-admin-switch-btn ${adminTab === "manage" ? "active" : ""}`}
               onClick={() => {
                 setAdminTab("manage");
-                fetchCatalog();
+                setCatalogLoading(true); fetchCatalog();
               }}
             >
               <SettingsIcon size={15} /> Manage & Edit Products ({catalogProducts.length})
@@ -1171,7 +1170,7 @@ export default function AddJewellery() {
                 <button
                   type="button"
                   className={`aj-source-btn leader ${catalogSource === "leader" ? "active" : ""}`}
-                  onClick={() => setCatalogSource("leader")}
+                  onClick={() => updateCatalogSource("leader")}
                 >
                   <span className="aj-source-dot leader" />
                   <span className="aj-source-text">
@@ -1183,7 +1182,7 @@ export default function AddJewellery() {
                 <button
                   type="button"
                   className={`aj-source-btn sa ${catalogSource === "super_admin" ? "active" : ""}`}
-                  onClick={() => setCatalogSource("super_admin")}
+                  onClick={() => updateCatalogSource("super_admin")}
                 >
                   <span className="aj-source-dot sa" />
                   <span className="aj-source-text">
@@ -1201,28 +1200,28 @@ export default function AddJewellery() {
                 <button
                   type="button"
                   className={`aj-filter-btn ${catalogMetal === "all" ? "active" : ""}`}
-                  onClick={() => setCatalogMetal("all")}
+                  onClick={() => updateCatalogMetal("all")}
                 >
                   All Metals
                 </button>
                 <button
                   type="button"
                   className={`aj-filter-btn ${catalogMetal === "gold_22k" ? "active" : ""}`}
-                  onClick={() => setCatalogMetal("gold_22k")}
+                  onClick={() => updateCatalogMetal("gold_22k")}
                 >
                   Gold 22K (916)
                 </button>
                 <button
                   type="button"
                   className={`aj-filter-btn ${catalogMetal === "gold_24k" ? "active" : ""}`}
-                  onClick={() => setCatalogMetal("gold_24k")}
+                  onClick={() => updateCatalogMetal("gold_24k")}
                 >
                   Gold 24K (999)
                 </button>
                 <button
                   type="button"
                   className={`aj-filter-btn ${catalogMetal === "silver" ? "active" : ""}`}
-                  onClick={() => setCatalogMetal("silver")}
+                  onClick={() => updateCatalogMetal("silver")}
                 >
                   Silver 999
                 </button>
@@ -1232,7 +1231,7 @@ export default function AddJewellery() {
                 <select
                   className="aj-select"
                   value={catalogCategory}
-                  onChange={(e) => setCatalogCategory(e.target.value)}
+                  onChange={(e) => updateCatalogCategory(e.target.value)}
                   style={{ height: "38px", fontSize: "12.5px" }}
                 >
                   {PRODUCT_CATEGORIES.map((c) => (
@@ -1250,7 +1249,7 @@ export default function AddJewellery() {
                     type="text"
                     placeholder="Search design or code..."
                     value={catalogSearch}
-                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    onChange={(e) => updateCatalogSearch(e.target.value)}
                   />
                 </div>
               </div>
@@ -1765,28 +1764,28 @@ export default function AddJewellery() {
                 <button
                   type="button"
                   className={`aj-filter-btn ${catalogMetal === "all" ? "active" : ""}`}
-                  onClick={() => setCatalogMetal("all")}
+                  onClick={() => updateCatalogMetal("all")}
                 >
                   All Metals
                 </button>
                 <button
                   type="button"
                   className={`aj-filter-btn ${catalogMetal === "gold_22k" ? "active" : ""}`}
-                  onClick={() => setCatalogMetal("gold_22k")}
+                  onClick={() => updateCatalogMetal("gold_22k")}
                 >
                   Gold 22K (916)
                 </button>
                 <button
                   type="button"
                   className={`aj-filter-btn ${catalogMetal === "gold_24k" ? "active" : ""}`}
-                  onClick={() => setCatalogMetal("gold_24k")}
+                  onClick={() => updateCatalogMetal("gold_24k")}
                 >
                   Gold 24K (999)
                 </button>
                 <button
                   type="button"
                   className={`aj-filter-btn ${catalogMetal === "silver" ? "active" : ""}`}
-                  onClick={() => setCatalogMetal("silver")}
+                  onClick={() => updateCatalogMetal("silver")}
                 >
                   Silver 999
                 </button>
@@ -1795,7 +1794,7 @@ export default function AddJewellery() {
               <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
                 <select
                   value={catalogCategory}
-                  onChange={(e) => setCatalogCategory(e.target.value)}
+                  onChange={(e) => updateCatalogCategory(e.target.value)}
                   className="aj-select"
                   style={{ height: "38px", fontSize: "13px", minWidth: "170px" }}
                 >
@@ -1814,7 +1813,7 @@ export default function AddJewellery() {
                     type="text"
                     placeholder="Search by code or name..."
                     value={catalogSearch}
-                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    onChange={(e) => updateCatalogSearch(e.target.value)}
                   />
                 </div>
               </div>

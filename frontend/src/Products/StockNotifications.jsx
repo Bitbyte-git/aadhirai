@@ -21,16 +21,19 @@ export default function StockNotifications() {
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(null)
 
-  useEffect(() => { fetchList() }, [])
 
-  const fetchList = async () => {
-    setLoading(true)
-    try {
-      const res = await api.get('/notify-me/')
-      setProducts(res.data.products || [])
-    } catch { setProducts([]) }
-    setLoading(false)
-  }
+
+  function requestFetchList() {
+return api.get('/notify-me/').then((res) => {
+setProducts(res.data.products || [])
+}).catch(() => {
+ setProducts([])
+}).finally(() => {
+setLoading(false)
+});
+}
+
+useEffect(() => { requestFetchList() }, [])
 
   return (
     <div className="sn-page">

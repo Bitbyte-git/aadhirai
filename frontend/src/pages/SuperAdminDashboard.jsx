@@ -1,11 +1,12 @@
+import { useCommittedCallback } from "../api.js";
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../api'
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
-import logo from '../assets/logo.png'
+const logo = '/Gold/Athirai_logo.png';
 import SuperAdminNavbar from '../collection/SuperAdminNavbar'
-import goldCoin from '../assets/gold-coin-transparent.png'
-import silverCoin from '../assets/silver-coin-transparent.png'
+
+
 import CopyUrlButton from '../collection/CopyUrlButton'
 
 const OCCUPATION_OPTIONS = ['employee', 'business', 'others']
@@ -300,18 +301,7 @@ function hexToRgb(hex) {
   return `${r},${g},${b}`
 }
 
-function getPasswordStrength(pw) {
-  if (!pw) return { label: '', color: '', width: '0%' }
-  let score = 0
-  if (pw.length >= 6) score++
-  if (pw.length >= 8) score++
-  if (/[A-Z]/.test(pw)) score++
-  if (/[0-9]/.test(pw)) score++
-  if (/[^A-Za-z0-9]/.test(pw)) score++
-  if (score <= 2) return { label: 'Weak', color: '#C92035', width: '33%' }
-  if (score <= 4) return { label: 'Medium', color: '#BB8958', width: '66%' }
-  return { label: 'Strong', color: '#0C4044', width: '100%' }
-}
+
 
 let _popupEl = null
 let _hideTimer = null
@@ -484,7 +474,7 @@ function printPersonCard(node, role, cfg, color, ancestors, superAdminEmail) {
           Printed on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
         </div>
       </div>
-      <script>window.onload = () => { window.print() }<\/script>
+      <script>window.onload = () => { window.print() }</script>
     </body>
     </html>
   `)
@@ -678,91 +668,15 @@ function showChainPopup(anchorEl, ancestors, current, dark, text, subtext, super
   _chainPopupEl = el
 }
 
-function removeAdminPopup() {
-  document.querySelectorAll('#admin-popup').forEach(el => el.remove())
-  _popupEl = null
-}
 
-function scheduleHidePopup(setActiveAdmin) {
-  clearTimeout(_hideTimer)
-  _hideTimer = setTimeout(() => {
-    removeAdminPopup()
-    setActiveAdmin(null)
-  }, 120)
-}
 
-function createAdminPopup(a, i, anchorEl, dark, subtext, text) {
-  removeAdminPopup()
-  const c = COLORS[i % COLORS.length]
-  const popupBg = dark ? 'linear-gradient(160deg,#F3F3F0,#E7EDEC)' : 'linear-gradient(160deg,#FDFDFC,#E7EDEC)'
-  const popupBorder = dark ? 'rgba(189,207,206,0.25)' : 'rgba(12,64,68,0.25)'
-  const saBoxBg = dark ? 'rgba(204,168,129,0.05)' : 'rgba(204,168,129,0.08)'
-  const saBoxBorder = dark ? 'rgba(204,168,129,0.22)' : 'rgba(204,168,129,0.35)'
-  const adminBoxBg = dark ? 'rgba(189,207,206,0.04)' : 'rgba(12,64,68,0.05)'
-  const adminBoxBd = dark ? 'rgba(189,207,206,0.14)' : 'rgba(12,64,68,0.2)'
-  const accentColor = dark ? '#BDCFCE' : '#0C4044'
 
-  const el = document.createElement('div')
-  el.id = 'admin-popup'
-  el.style.cssText = `
-  position:fixed; z-index:9999;
-  background:${popupBg}; border:1px solid ${popupBorder};
-  border-radius:14px; padding:14px;
-  box-shadow:0 16px 48px rgba(17,24,23,0.45);
-  animation:popupIn 0.25s cubic-bezier(0.22,1,0.36,1) both;
-  min-width:200px; max-width:240px;
-  max-height:82vh;
-  overflow-y:auto;
-  overflow-x:hidden;
-  scroll-behavior:smooth;
-  scrollbar-width:thin;
-  scrollbar-color:rgba(189,207,206,0.4) transparent;
-`
-  el.innerHTML = `
-    <div style="font-size:9px;color:${accentColor};font-weight:700;letter-spacing:1.3px;margin-bottom:11px;padding-bottom:9px;border-bottom:1px solid ${popupBorder};display:flex;align-items:center;gap:6px;">
-      <span style="width:5px;height:5px;border-radius:50%;background:${accentColor};display:inline-block;"></span>
-      CREATED BY
-    </div>
-    <div style="border-radius:9px;padding:11px;margin-bottom:10px;background:${saBoxBg};border:1px solid ${saBoxBorder};">
-      <div style="font-size:9px;color:#CCA881;font-weight:700;margin-bottom:5px;display:flex;align-items:center;gap:5px;">${svgIconMarkup('shield', '#CCA881', 12)} SUPER ADMIN</div>
-      <div style="font-size:11px;color:${subtext};word-break:break-all;">${localStorage.getItem('email')}</div>
-      <div style="margin-top:6px;font-size:9px;padding:2px 8px;background:rgba(204,168,129,0.1);border:1px solid rgba(204,168,129,0.25);border-radius:20px;color:#CCA881;display:inline-block;">â— ONLINE</div>
-    </div>
-    <div style="display:flex;justify-content:center;align-items:center;padding:4px 0;">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid ${accentColor};"></div>
-        <div style="width:2px;height:7px;background:linear-gradient(180deg,${accentColor},${accentColor}44);"></div>
-      </div>
-    </div>
-    <div style="background:${adminBoxBg};border:1px solid ${adminBoxBd};border-radius:10px;padding:11px;">
-      <div style="display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(189,207,206,0.12);color:#BDCFCE;border:1px solid rgba(189,207,206,0.25);margin-bottom:6px;">SUPER STOCKIST</div>
-      <div style="font-size:10px;color:${c};font-family:monospace;margin-bottom:3px;">${a.admin_id}</div>
-      <div style="font-size:13px;color:${text};font-weight:700;margin-bottom:6px;">${a.first_name}</div>
-      <div style="font-size:11px;color:${subtext};margin-bottom:3px;display:flex;align-items:center;gap:5px;">${svgIconMarkup('phone', '${subtext}', 12)} ${a.mobile_number}</div>
-      <div style="font-size:11px;color:${subtext};display:flex;align-items:center;gap:5px;">${svgIconMarkup('pin', '${subtext}', 12)} ${a.city_name}</div>
-    </div>
-  `
-  document.body.appendChild(el)
 
-  const rect = anchorEl.getBoundingClientRect()
-  const popW = el.offsetWidth || 230
-  const popH = el.offsetHeight || 220
-  let left = rect.right + 14
-  let top = rect.top + (rect.height / 2) - (popH / 2)
-  if (left + popW > window.innerWidth - 10) left = rect.left - popW - 14
-  if (top < 8) top = 8
-  if (top + popH > window.innerHeight - 8) top = window.innerHeight - popH - 8
-  el.style.left = left + 'px'
-  el.style.top = top + 'px'
 
-  el.addEventListener('mouseenter', () => clearTimeout(_hideTimer))
-  el.addEventListener('mouseleave', () => scheduleHidePopup(setActiveAdmin))
-  _popupEl = el
-}
 
 
 // â”€â”€â”€ ORDER TREND CHART clean area chart, peak marker, no duplicate axis â”€â”€
-function OrderTrendChart({ dark }) {
+function OrderTrendChart() {
   const [period, setPeriod] = useState('today')
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(false)
@@ -848,7 +762,8 @@ function OrderTrendChart({ dark }) {
     }
   }
 
-  useEffect(() => { fetchData('today') }, [])
+  const committedFetchData = useCommittedCallback((...args) => fetchData(...args))
+  useEffect(() => { committedFetchData('today') }, [committedFetchData])
 
   const CustomDarkTooltip = ({ active, payload }) => {
     if (!active || !payload?.length) return null
@@ -999,26 +914,26 @@ export default function SuperAdminDashboard() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const dark = false
-  const [admins, setAdmins] = useState([])
-  const [adminActionOpen, setAdminActionOpen] = useState(null)
-  const [selectedAdminDetail, setSelectedAdminDetail] = useState(null)
-  const [copiedAdminId, setCopiedAdminId] = useState(null)
+  const [, setAdmins] = useState([])
+  useState(null);
+  useState(null);
+  useState(null);
   const [hierarchyData, setHierarchyData] = useState(null)
-  const [hierarchyLoading, setHierarchyLoading] = useState(false)
-  const [showForm, setShowForm] = useState(false)
-  const [showHierarchy, setShowHierarchy] = useState(false)
-  const [hierarchyFilter, setHierarchyFilter] = useState(null)
-  const [hierarchySearch, setHierarchySearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [, setHierarchyLoading] = useState(false)
+  ;useState(false);
+  ;useState(false);
+  ;useState(null);
+  const [hierarchySearch] = useState('')
+  const [, setDebouncedSearch] = useState('')
 
   // Debounce typing niruthi 300ms aana appuram than search run aagum
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(hierarchySearch.trim()), 120)
     return () => clearTimeout(t)
   }, [hierarchySearch])
-  const [activeAdmin, setActiveAdmin] = useState(null)
-  const hideTimer = useRef(null)
-  const [msg, setMsg] = useState('')
+  useState(null);
+  (useRef(null));
+  const [msg] = useState('')
   const [liveTime, setLiveTime] = useState(new Date())
   const [allMembersList, setAllMembersList] = useState([])
   const [rawOrders, setRawOrders] = useState([])
@@ -1050,68 +965,26 @@ export default function SuperAdminDashboard() {
   }, [])
 
 
-  const [form, setForm] = useState({
+  ;useState({
     initial: '', first_name: '', last_name: '', mobile_number: '',
     gender: 'male', dob: '', married_status: 'single', anniversary_date: '',
     door_no: '', street_name: '', town_name: '', pincode: '',
     city_name: '', district: '', state: '', email: '', password: '',
     aadhaar_no: '', pan_no: '', occupation: 'employee', occupation_detail: '',
     annual_salary: '', admin_name: '', admin_id: '', admin_contact_no: ''
-  })
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [passwordError, setPasswordError] = useState('')
-  const [adminSuccessPopup, setAdminSuccessPopup] = useState(null)
-  const [adminErrorPopup, setAdminErrorPopup] = useState(null)
-  const [copiedPopupAdminId, setCopiedPopupAdminId] = useState(false)
+  });
+  ;useState('');
+  ;useState('');
+  ;useState(null);
+  ;useState(null);
+  useState(false);
 
-  const parseAdminErrorDetails = (err) => {
-    const data = err?.response?.data
-    if (!data) return ['An unexpected network error occurred. Please check your connection and try again.']
-    if (typeof data === 'string') {
-      if (data.includes('<html') || data.includes('<!DOCTYPE')) {
-        return ['Server error occurred. Please contact system support.']
-      }
-      return [data]
-    }
-    if (Array.isArray(data)) {
-      return data.map((item) => (typeof item === 'object' ? JSON.stringify(item) : String(item)))
-    }
-    if (typeof data === 'object') {
-      const messages = []
-      const fieldNames = {
-        first_name: 'First Name',
-        last_name: 'Last Name',
-        email: 'Email Address',
-        mobile_number: 'Mobile Number',
-        password: 'Password',
-        pincode: 'Pincode',
-        city_name: 'City',
-        district: 'District',
-        state: 'State',
-        aadhaar_no: 'Aadhaar Number',
-        pan_no: 'PAN Number',
-        detail: 'System Notice',
-        non_field_errors: 'Authentication Error',
-      }
-      Object.entries(data).forEach(([key, val]) => {
-        const readableKey = fieldNames[key] || key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-        if (Array.isArray(val)) {
-          val.forEach((m) => messages.push(`${readableKey}: ${typeof m === 'object' ? JSON.stringify(m) : m}`))
-        } else if (typeof val === 'object' && val !== null) {
-          messages.push(`${readableKey}: ${JSON.stringify(val)}`)
-        } else {
-          messages.push(`${readableKey}: ${val}`)
-        }
-      })
-      return messages.length > 0 ? messages : ['Validation failed. Please verify the entered information.']
-    }
-    return ['An unexpected error occurred while creating admin.']
-  }
+
   const [showAnnouncement, setShowAnnouncement] = useState(false)
   const [announcementForm, setAnnouncementForm] = useState({ title: '', message: '', roles: [] })
   const [announcementMsg, setAnnouncementMsg] = useState('')
   const [announcingSending, setAnnouncingSending] = useState(false)
-  const [announcementCount, setAnnouncementCount] = useState(0)
+  const [, setAnnouncementCount] = useState(0)
   const [showMyAnnouncements, setShowMyAnnouncements] = useState(false)
   const [showRequests, setShowRequests] = useState(false)
   const [profileRequests, setProfileRequests] = useState([])
@@ -1134,19 +1007,19 @@ export default function SuperAdminDashboard() {
 
 
   const [replyAnn, setReplyAnn] = useState(null)
-  const [replyText, setReplyText] = useState('')
-  const [replyLoading, setReplyLoading] = useState(false)
-  const [replyMsg, setReplyMsg] = useState('')
-  const [repliedIds, setRepliedIds] = useState(new Set())
-  const [annReplies, setAnnReplies] = useState({})
-  const [replyPopupAnnId, setReplyPopupAnnId] = useState(null)
+  const [, setReplyText] = useState('')
+  useState(false);
+  const [, setReplyMsg] = useState('')
+  useState(new Set());
+  const [annReplies] = useState({})
+  useState(null);
   const [metalPrices, setMetalPrices] = useState({
     gold22k: null, gold24k: null, silver: null,
     diamond18k: null, diamond22k: null, platinum92: null,
   })
   const [showTodayRates, setShowTodayRates] = useState(false)
-  const [metalLoading, setMetalLoading] = useState(false)
-  const [usdToInr, setUsdToInr] = useState(null)
+  const [, setMetalLoading] = useState(false)
+  useState(null);
 
   // move superadmin model
   const [showRatePopup, setShowRatePopup] = useState(false)
@@ -1157,16 +1030,16 @@ export default function SuperAdminDashboard() {
   })
 
 
-  const [showRequestCoin, setShowRequestCoin] = useState(false)
+  useState(false);
   const [coinRequests, setCoinRequests] = useState([])
-  const [coinReqLoading, setCoinReqLoading] = useState(false)
-  const [approvingReqId, setApprovingReqId] = useState(null)
-  const [approvingAll, setApprovingAll] = useState(false)
-  const [coinReqMsg, setCoinReqMsg] = useState('')
-  const [coinReqMsgType, setCoinReqMsgType] = useState('success')
-  const [rejectingReqId, setRejectingReqId] = useState(null)
-  const [rejectReason, setRejectReason] = useState('')
-  const [rejectSubmitting, setRejectSubmitting] = useState(false)
+  const [, setCoinReqLoading] = useState(false)
+  ;useState(null);
+  ;useState(false);
+  ;useState('');
+  ;useState('success');
+  ;useState(null);
+  ;useState('');
+  ;useState(false);
   const [showAddCoin, setShowAddCoin] = useState(false)
   const [coinCart, setCoinCart] = useState([])
   const [coinBuyMsg, setCoinBuyMsg] = useState('')
@@ -1174,9 +1047,9 @@ export default function SuperAdminDashboard() {
   const [selCoinMetal, setSelCoinMetal] = useState('gold_22k')
   const [selCoinWeight, setSelCoinWeight] = useState('')
   const [selCoinQty, setSelCoinQty] = useState('')
-  const [showStoredCoin, setShowStoredCoin] = useState(false)
-  const [coinStock, setCoinStock] = useState([])
-  const [coinStockLoading, setCoinStockLoading] = useState(false)
+  useState(false);
+  ;useState([]);
+  ;useState(false);
 
 
   const [productImages, setProductImages] = useState([])  // File objects
@@ -1203,17 +1076,17 @@ export default function SuperAdminDashboard() {
     month: { gold_22k: { count: 0, grams: 0, amount: 0 }, gold_24k: { count: 0, grams: 0, amount: 0 }, silver_999: { count: 0, grams: 0, amount: 0 } },
   })
 
-  const [orderDetails, setOrderDetails] = useState({
+  const [, setOrderDetails] = useState({
     today: { gold_22k: {}, gold_24k: {}, silver_999: {} },
     week: { gold_22k: {}, gold_24k: {}, silver_999: {} },
     month: { gold_22k: {}, gold_24k: {}, silver_999: {} },
   })
 
 
-  const bg = '#FDFDFC'
+
   const text = '#111817'
   const subtext = '#7A8987'
-  const accent = '#0C4044'
+
   const border = 'rgba(189,207,206,0.78)'
   const glass = 'rgba(253,253,252,0.94)'
   const cardBg = 'rgba(253,253,252,0.97)'
@@ -1221,7 +1094,7 @@ export default function SuperAdminDashboard() {
   const inpBg = '#FDFDFC'
   const inpBorder = '#BDCFCE'
   const optionBg = '#F3F3F0'
-  const selectInput = { width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box', cursor: 'pointer' }
+  ;({ width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box', cursor: 'pointer' });
 
 
   // AFTER
@@ -1340,7 +1213,7 @@ export default function SuperAdminDashboard() {
     try {
       const res = await api.get('/profile-update-request/')
       setProfileRequests(res.data)
-    } catch (err) {
+    } catch {
       setRequestMsg('âŒ Failed to load requests')
     }
   }
@@ -1380,7 +1253,7 @@ export default function SuperAdminDashboard() {
       return defaults
     }
   })
-  const [quickStatsLoading, setQuickStatsLoading] = useState(true)   // ✅ NEW
+  const [, setQuickStatsLoading] = useState(true)   // ✅ NEW
   const fetchLoginStatus = async () => {
     try {
       const res = await api.get('/today-login-status/')
@@ -1417,7 +1290,7 @@ export default function SuperAdminDashboard() {
         platinum92: d.platinum_92 ? parseFloat(d.platinum_92) : null,
       })
       setDbRateDate(d.date)
-    } catch (e) {
+    } catch {
       setMetalPrices({ gold22k: null, gold24k: null, silver: null, diamond18k: null, diamond22k: null, platinum92: null })
       setDbRateDate(null)
     } finally {
@@ -1425,12 +1298,7 @@ export default function SuperAdminDashboard() {
     }
   }
 
-  const formatWeight = (grams) => {
-    if (grams < 1) {
-      return `${(grams * 1000).toFixed(2)} mg`
-    }
-    return `${grams.toFixed(2)} gm`
-  }
+
 
   const fetchOrderStats = async () => {
     try {
@@ -1789,7 +1657,7 @@ export default function SuperAdminDashboard() {
         setUserGrowthLoading(false)
         return
       }
-    } catch (e) {
+    } catch {
       // Backend on Render returned 404 or failed
     }
 
@@ -1854,7 +1722,7 @@ export default function SuperAdminDashboard() {
         setSalesProfitLoading(false)
         return
       }
-    } catch (e) {
+    } catch {
       // Backend on Render returned 404 or failed
     }
 
@@ -1877,7 +1745,7 @@ export default function SuperAdminDashboard() {
     setSalesProfitLoading(false)
   }
 
-  const recentActivities = useMemo(() => {
+  (useMemo(() => {
     const list = []
     if (allMembersList && allMembersList.length > 0) {
       const sorted = [...allMembersList].filter(m => m._joined).sort((a, b) => new Date(b._joined) - new Date(a._joined))
@@ -1945,14 +1813,18 @@ export default function SuperAdminDashboard() {
       )
     }
     return list.slice(0, 5)
-  }, [allMembersList, myAnnouncements, profileRequests, coinRequests, orderStats])
+  }, [allMembersList, myAnnouncements, profileRequests, coinRequests, orderStats]));
 
   // AFTER
   // AFTER
+  const committedFetchUserGrowth = useCommittedCallback((...args) => fetchUserGrowth(...args))
+  const committedFetchSalesProfit = useCommittedCallback((...args) => fetchSalesProfit(...args))
+  const committedFetchOrderStats = useCommittedCallback((...args) => fetchOrderStats(...args))
+  const committedFetchAllMembers = useCommittedCallback((...args) => fetchAllMembers(...args))
   useEffect(() => {
     (async () => {
       const adminsData = await fetchAdmins()
-      fetchAllMembers(adminsData)
+      committedFetchAllMembers(adminsData)
     })()
       ; (async () => {
         const annData = await fetchMyAnnouncements()
@@ -1960,29 +1832,24 @@ export default function SuperAdminDashboard() {
       })()
     fetchProfileRequests()
     fetchMetalPrices()
-    fetchOrderStats()
+    committedFetchOrderStats()
     fetchLoginStatus()
     fetchQuickStats()
     fetchCoinRequests()
-    fetchUserGrowth()
-    fetchSalesProfit()
-  }, [])
+    committedFetchUserGrowth()
+    committedFetchSalesProfit()
+  }, [committedFetchAllMembers, committedFetchOrderStats, committedFetchSalesProfit, committedFetchUserGrowth])
 
   useEffect(() => {
-    fetchUserGrowth(userGrowthPeriod)
-  }, [userGrowthPeriod])
+    committedFetchUserGrowth(userGrowthPeriod)
+  }, [userGrowthPeriod, committedFetchUserGrowth])
 
   useEffect(() => {
-    fetchSalesProfit(profitPeriod)
-  }, [profitPeriod])
+    committedFetchSalesProfit(profitPeriod)
+  }, [profitPeriod, committedFetchSalesProfit])
 
 
-  const handleOpenHierarchy = () => {
-    setShowHierarchy(true)
-    setHierarchyFilter(null)
-    setHierarchySearch('')
-    fetchHierarchy()
-  }
+
 
   useEffect(() => {
     fetchMetalPrices()
@@ -1998,132 +1865,25 @@ export default function SuperAdminDashboard() {
     else if (open === 'myannouncements') { setShowMyAnnouncements(true); fetchMyAnnouncements() }
   }, [searchParams])
 
-  const handleChange = e => {
-    const { name, value } = e.target
 
-    if (name === 'married_status' && value !== 'married') {
-      setForm({ ...form, married_status: value, anniversary_date: '' })
-      return
-    }
 
-    setForm({ ...form, [name]: value })
-  }
-
-  const [pincodeLookupMsg, setPincodeLookupMsg] = useState('')
-
-  const handlePincodeChange = async (e) => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 6)
-    setForm(prev => ({ ...prev, pincode: value }))
-    setPincodeLookupMsg('')
-
-    if (value.length === 6) {
-      setPincodeLookupMsg('Fetching location details...')
-      try {
-        const res = await fetch(`https://api.postalpincode.in/pincode/${value}`)
-        const data = await res.json()
-        if (data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
-          const po = data[0].PostOffice[0]
-          setForm(prev => ({
-            ...prev,
-            city_name: po.District || prev.city_name,
-            district: po.District || prev.district,
-            state: po.State || prev.state,
-          }))
-          setPincodeLookupMsg('Location details auto-filled')
-        } else {
-          setPincodeLookupMsg('Pincode not found — please enter manually')
-        }
-      } catch {
-        setPincodeLookupMsg('Unable to fetch location — please enter manually')
-      }
-    }
-  }
-
-  const handleSubmit = async e => {
-    e.preventDefault()
-
-    if (!form.email || !form.email.includes('@')) {
-      setAdminErrorPopup({
-        title: 'Invalid Email Address',
-        errors: ['Please provide a valid, properly formatted email address (e.g. name@domain.com).']
-      })
-      return
-    }
-
-    if (form.password !== confirmPassword) {
-      setPasswordError('❌ Passwords do not match')
-      setAdminErrorPopup({
-        title: 'Password Mismatch',
-        errors: ['The entered password and confirmation password do not match. Please re-enter them carefully.']
-      })
-      return
-    }
-
-    try {
-      const cleanedForm = {
-        ...form,
-        dob: form.dob || null,
-        anniversary_date: form.anniversary_date || null,
-        admin_name: undefined,
-        admin_id: undefined,
-        admin_contact_no: undefined,
-      }
-
-      console.log('📤 SENDING:', JSON.stringify(cleanedForm, null, 2))
-
-      const res = await api.post('/admins/', cleanedForm)
-      const newAdminId = res.data?.admin_id || ''
-      const createdAdminName = `${form.first_name} ${form.last_name}`.trim()
-
-      setAdminSuccessPopup({
-        title: 'Admin Created Successfully!',
-        admin_id: newAdminId,
-        name: createdAdminName,
-        email: form.email,
-        mobile: form.mobile_number,
-        city: form.city_name,
-      })
-
-      setMsg('✅ Admin created successfully!')
-      setShowForm(false)
-      setForm({
-        initial: '', first_name: '', last_name: '', mobile_number: '',
-        gender: 'male', dob: '', married_status: 'single', anniversary_date: '',
-        door_no: '', street_name: '', town_name: '', pincode: '',
-        city_name: '', district: '', state: '', email: '', password: '',
-        aadhaar_no: '', pan_no: '', occupation: 'employee', occupation_detail: '',
-        annual_salary: '', admin_name: '', admin_id: '', admin_contact_no: ''
-      })
-      setConfirmPassword('')
-      setPasswordError('')
-      fetchAdmins()
-    } catch (err) {
-      const errors = parseAdminErrorDetails(err)
-      setAdminErrorPopup({
-        title: 'Admin Creation Failed',
-        errors,
-      })
-      setMsg('❌ Error: ' + errors[0])
-    }
-  }
-
-  const s = {
+  ;useState('');({
     card: { background: cardBg, border: cardBorder, borderRadius: '22px', padding: '34px 38px', marginBottom: '26px', boxShadow: dark ? '0 26px 70px rgba(17,24,23,0.18)' : '0 22px 58px rgba(7,59,63,0.08)', backdropFilter: 'blur(18px)' },
     secHead: { color: '#0C4044', fontSize: '13px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 20px', paddingBottom: '14px', borderBottom: cardBorder },
     secSub: { color: '#0C4044', fontSize: '12px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '4px 0 0', paddingBottom: '10px', borderBottom: cardBorder },
     lbl: { display: 'block', color: subtext, fontSize: '10.5px', fontWeight: 700, marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' },
     inp: { width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '9px', padding: '10px 13px', color: text, fontSize: '13.5px', outline: 'none', boxSizing: 'border-box' },
     sectionCard: { background: '#FDFDFC', border: '1px solid rgba(189,207,206,0.55)', borderRadius: '16px', padding: '22px 24px', marginBottom: '4px' },
-  }
+  });
 
   // Count total members
-  const totalStats = hierarchyData ? {
+  (hierarchyData ? {
     admins: hierarchyData.admins.length,
     dealers: hierarchyData.admins.reduce((a, ad) => a + ad.dealers.length, 0),
     subDealers: hierarchyData.admins.reduce((a, ad) => a + ad.dealers.reduce((b, d) => b + d.sub_dealers.length, 0), 0),
     promotors: hierarchyData.admins.reduce((a, ad) => a + ad.dealers.reduce((b, d) => b + d.sub_dealers.reduce((c, sd) => c + sd.promotors.length, 0), 0), 0),
     customers: hierarchyData.admins.reduce((a, ad) => a + ad.dealers.reduce((b, d) => b + d.sub_dealers.reduce((c, sd) => c + sd.promotors.reduce((e, pr) => e + pr.customers.length, 0), 0), 0), 0),
-  } : null
+  } : null);
 
 
   const COIN_METAL_LABELS_TEXT = { gold_22k: 'Gold 22K', gold_24k: 'Gold 24K', silver_999: 'Silver 999' }
@@ -2147,57 +1907,11 @@ export default function SuperAdminDashboard() {
     setCoinReqLoading(false)
   }
 
-  const approveCoinRequest = async (reqId) => {
-    setApprovingReqId(reqId)
-    setCoinReqMsg('')
-    try {
-      await api.post(`/coin-requests/${reqId}/approve/`)
-      setCoinReqMsgType('success')
-      setCoinReqMsg('Request approved successfully.')
-      fetchCoinRequests()
-    } catch (err) {
-      setCoinReqMsgType('error')
-      setCoinReqMsg('Failed to approve request. Please try again.')
-    }
-    setApprovingReqId(null)
-  }
 
-  const approveAllCoinRequests = async () => {
-    setApprovingAll(true)
-    setCoinReqMsg('')
-    try {
-      await api.post('/coin-requests/approve-all/')
-      setCoinReqMsgType('success')
-      setCoinReqMsg('All requests approved successfully.')
-      fetchCoinRequests()
-    } catch (err) {
-      setCoinReqMsgType('error')
-      setCoinReqMsg('Failed to approve requests. Please try again.')
-    }
-    setApprovingAll(false)
-  }
 
-  const rejectCoinRequest = async (reqId) => {
-    if (!rejectReason.trim()) {
-      setCoinReqMsgType('error')
-      setCoinReqMsg('Please enter a reason for rejection.')
-      return
-    }
-    setRejectSubmitting(true)
-    setCoinReqMsg('')
-    try {
-      await api.post(`/coin-requests/${reqId}/reject/`, { message: rejectReason.trim() })
-      setCoinReqMsgType('success')
-      setCoinReqMsg('Request rejected successfully.')
-      setRejectingReqId(null)
-      setRejectReason('')
-      fetchCoinRequests()
-    } catch (err) {
-      setCoinReqMsgType('error')
-      setCoinReqMsg('Failed to reject request. Please try again.')
-    }
-    setRejectSubmitting(false)
-  }
+
+
+
 
   const addToCoinCart = () => {
     if (!selCoinWeight || !selCoinQty || Number(selCoinQty) < 1) {
@@ -2234,14 +1948,7 @@ export default function SuperAdminDashboard() {
     setCoinBuySubmitting(false)
   }
 
-  const fetchCoinStock = async () => {
-    setCoinStockLoading(true)
-    try {
-      const res = await api.get('/coin-stock/')
-      setCoinStock(res.data)
-    } catch { setCoinStock([]) }
-    setCoinStockLoading(false)
-  }
+
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)', color: text, transition: 'background 0.8s ease, color 0.4s ease', fontFamily: '"Manrope","Inter",system-ui,sans-serif', position: 'relative' }}>

@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
@@ -66,7 +67,7 @@ export default function Profile() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [slow, setSlow] = useState(false)
+  const [, setSlow] = useState(false)
   const [activeTab, setActiveTab] = useState('personal')
   const [copied, setCopied] = useState('')
 
@@ -95,7 +96,8 @@ export default function Profile() {
     }
   }
 
-  useEffect(() => { fetchProfile() }, [navigate])
+  const committedFetchProfile = useCommittedCallback((...args) => fetchProfile(...args))
+  useEffect(() => { committedFetchProfile() }, [navigate, committedFetchProfile])
 
   useEffect(() => {
     if (!showEdit) return
@@ -152,7 +154,7 @@ export default function Profile() {
       await navigator.clipboard.writeText(String(value))
       setCopied(label)
       setTimeout(() => setCopied(''), 1300)
-    } catch {}
+    } catch { /* No additional action is needed in this fallback. */ }
   }
 
   const submitProfileUpdate = async e => {

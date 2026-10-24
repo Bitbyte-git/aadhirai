@@ -59,7 +59,7 @@ const PERIOD_OPTIONS = [
 ];
 
 export default function LoginInactive() {
-  const navigate = useNavigate();
+  (useNavigate());
   const location = useLocation();
   const viewerRole = localStorage.getItem('role');
   const viewerChrome = INTERNAL_ROLE_CHROME[viewerRole];
@@ -79,7 +79,7 @@ export default function LoginInactive() {
   const [roleFilter, setRoleFilter] = useState(initialRoleFilter);
   const [searchTerm, setSearchTerm] = useState("");
   const [offset, setOffset] = useState(0);
-  const [limit, setLimit] = useState(50);
+  const [, setLimit] = useState(50);
   const [totalCount, setTotalCount] = useState(0);
   const [copiedId, setCopiedId] = useState(null);
   const [toast, setToast] = useState("");
@@ -136,7 +136,7 @@ export default function LoginInactive() {
       setLoading(false);
     };
     fetchData();
-  }, [periodFilter, roleFilter, viewMode]);
+  }, [periodFilter, roleFilter, viewMode, scopeIds]);
 
   const formatTime = (iso) => {
     if (!iso) return "Never Login";
@@ -216,10 +216,10 @@ export default function LoginInactive() {
   };
 
   // Metrics
-  const inactiveCount = totalCount || data.length;
-  const neverLoggedIn = data.filter((u) => !u.last_login).length;
-  const adminInactive = data.filter((u) => u.level_role === "Admin").length;
-  const shownCount = filtered.length;
+  (totalCount || data.length);
+  (data.filter((u) => !u.last_login).length);
+  (data.filter((u) => u.level_role === "Admin").length);
+  (filtered.length);
 
   const exportDocument = () => {
     if (!filtered.length) return;

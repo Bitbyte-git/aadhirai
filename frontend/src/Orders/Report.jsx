@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, startTransition, useRef } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../api'
-import logo from '../assets/logo.png'
+
 import * as XLSX from 'xlsx'
 import { SkeletonCard } from '../components/Skeleton'
 import CustomDropdown from '../components/CustomDropdown'
@@ -169,135 +169,18 @@ function flattenToRows(root) {
 
 // â”€â”€ Collect every node of a given type inside a tree, keeping its own subtree â”€â”€
 // â”€â”€ Collect every node of a given type inside a tree, keeping its own subtree â”€â”€
-function collectNodesOfType(root, targetType) {
-  const found = []
-  function walk(node) {
-    if (node.type === targetType) {
-      found.push(node)
-      return
-    }
-    const { key, childType } = getChildren(node)
-    const children = node[key]
-    if (!children || children.length === 0) return
-    for (let i = 0; i < children.length; i++) {
-      walk({ ...children[i], type: childType })
-    }
-  }
-  walk(root)
-  return found
-}
+
 
 // â”€â”€ Find full ancestor chain for a selected node of any type â”€â”€
-function findAncestorChain(treeData, targetType, targetId) {
-  function walk(node, chain) {
-    const idVal = (node.customer_id || node[`${node.type}_id`] || node.id)?.toString()
-    const currentChain = [...chain, node]
 
-    if (node.type === targetType && idVal === targetId) {
-      return currentChain
-    }
-
-    const { key, childType } = getChildren(node)
-    const children = node[key] || []
-    for (const child of children) {
-      const result = walk({ ...child, type: childType }, currentChain)
-      if (result) return result
-    }
-    return null
-  }
-
-  for (const root of treeData) {
-    const result = walk(root, [])
-    if (result) return result
-  }
-  return null
-}
 
 // â”€â”€ Build a fake date for an order so we can bucket it (fallback = today) â”€â”€
-function orderDate(o) {
-  const d = o.created_at || o.order_date || o.date
-  return d ? new Date(d) : new Date()
-}
 
-function isInRange(date, range) {
-  const now = new Date()
-  if (range === 'Today') {
-    return date.toDateString() === now.toDateString()
-  }
-  if (range === 'Week') {
-    const weekAgo = new Date(now)
-    weekAgo.setDate(now.getDate() - 7)
-    return date >= weekAgo && date <= now
-  }
-  if (range === 'Month') {
-    const monthAgo = new Date(now)
-    monthAgo.setMonth(now.getMonth() - 1)
-    return date >= monthAgo && date <= now
-  }
-  if (range === 'Year') {
-    const yearAgo = new Date(now)
-    yearAgo.setFullYear(now.getFullYear() - 1)
-    return date >= yearAgo && date <= now
-  }
-  return true
-}
+
+
 
 // â”€â”€ Group rows' orders into buckets (labels + totals) for the trend chart â”€â”€
-function buildTrendBuckets(rows, range) {
-  const now = new Date()
-  let buckets = []
 
-  if (range === 'Today') {
-    // 6 buckets of 4 hours each
-    buckets = Array.from({ length: 6 }, (_, i) => ({ label: `${i * 4}:00`, total: 0, count: 0 }))
-    rows.forEach(r => r.rawOrders.forEach(o => {
-      const d = orderDate(o)
-      if (!isInRange(d, range)) return
-      const idx = Math.min(5, Math.floor(d.getHours() / 4))
-      buckets[idx].total += parseFloat(o.total_price) || 0
-      buckets[idx].count += 1
-    }))
-  } else if (range === 'Week') {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-    buckets = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(now); d.setDate(now.getDate() - (6 - i))
-      return { label: days[d.getDay()], total: 0, count: 0, _key: d.toDateString() }
-    })
-    rows.forEach(r => r.rawOrders.forEach(o => {
-      const d = orderDate(o)
-      if (!isInRange(d, range)) return
-      const b = buckets.find(b => b._key === d.toDateString())
-      if (b) { b.total += parseFloat(o.total_price) || 0; b.count += 1 }
-    }))
-  } else if (range === 'Month') {
-    // 4 weekly buckets
-    buckets = Array.from({ length: 4 }, (_, i) => ({ label: `Week ${i + 1}`, total: 0, count: 0 }))
-    rows.forEach(r => r.rawOrders.forEach(o => {
-      const d = orderDate(o)
-      if (!isInRange(d, range)) return
-      const daysAgo = Math.floor((now - d) / (1000 * 60 * 60 * 24))
-      const idx = Math.min(3, Math.floor(daysAgo / 7))
-      buckets[3 - idx].total += parseFloat(o.total_price) || 0
-      buckets[3 - idx].count += 1
-    }))
-  } else {
-    // Year â€” 12 monthly buckets
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    buckets = Array.from({ length: 12 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1)
-      return { label: months[d.getMonth()], total: 0, count: 0, _key: `${d.getFullYear()}-${d.getMonth()}` }
-    })
-    rows.forEach(r => r.rawOrders.forEach(o => {
-      const d = orderDate(o)
-      if (!isInRange(d, range)) return
-      const key = `${d.getFullYear()}-${d.getMonth()}`
-      const b = buckets.find(b => b._key === key)
-      if (b) { b.total += parseFloat(o.total_price) || 0; b.count += 1 }
-    }))
-  }
-
-  return buckets
-}
 
 // â”€â”€ Simple inline SVG line chart (no external library needed) â”€â”€
 function TrendLineChart({ buckets, color }) {
@@ -403,9 +286,9 @@ const IconEmptyEnd = ({ color, size = 20 }) => (
   </svg>
 )
 
-function HierarchyBreakdownGrid({ cardBg, border, text, subtext, selectedNode, onSelectNode }) {
+function HierarchyBreakdownGrid({ text, subtext, selectedNode, onSelectNode }) {
   const [cache, setCache] = useState({})
-  const [loadingKey, setLoadingKey] = useState(null)
+
   const [selChain, setSelChain] = useState([])
   const laneRefs = useRef({})   // ── NEW: ovvoru lane track-oda DOM ref, arrow button scroll pண்ண ──
   const scrollLane = (depthIdx, dir) => {
@@ -413,27 +296,23 @@ function HierarchyBreakdownGrid({ cardBg, border, text, subtext, selectedNode, o
     if (el) el.scrollBy({ left: dir * 240, behavior: 'smooth' })
   }
 
-  const fetchLevel = async (fetchRole, fetchId, key) => {
-    setLoadingKey(key)
-    try {
-      let items
-      if (fetchRole === null) {
-        const res = await api.get('/hierarchy/admins/')
-        items = (res.data.admins || []).map(a => ({ ...a, type: 'admin' }))
-      } else {
-        const res = await api.get(`/hierarchy/children/?role=${fetchRole}&id=${fetchId}`)
-        items = (res.data.items || []).map(it => ({ ...it, type: res.data.role }))
-      }
-      setCache(prev => ({ ...prev, [key]: items }))
-    } catch (err) { console.error(err) }
-    setLoadingKey(null)
-  }
+  const fetchLevel = (fetchRole, fetchId, key) => {
+    const request = fetchRole === null
+      ? api.get('/hierarchy/admins/')
+      : api.get(`/hierarchy/children/?role=${fetchRole}&id=${fetchId}`);
+    return request.then(res => {
+      const items = fetchRole === null
+        ? (res.data.admins || []).map(node => ({ ...node, type: 'admin' }))
+        : (res.data.items || []).map(node => ({ ...node, type: res.data.role }));
+      setCache(previous => ({ ...previous, [key]: items }));
+    }).catch(error => console.error(error));
+  };
 
   // ── NEW: root (admin list) ஒரே தடவை mattum fetch pண்ணும், card click பண்ணினாலும்
   // idhை clear pண்ணாthু — top lane always full list ah irukkும். ──
   useEffect(() => {
     if (!cache['root']) fetchLevel(null, null, 'root')
-  }, [])
+  }, [cache])
 
   // ── drill-down fetch — selChain maarina, adhுкku аடுத்த level fetch pண்ணும் ──
   useEffect(() => {
@@ -676,11 +555,9 @@ export default function Report() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [role, setRole] = useState('')
-  const [treeData, setTreeData] = useState([])
-  const [ancestors, setAncestors] = useState([])
+  useState([]);
+  useState([]);
 
-  const [selectedLevel, setSelectedLevel] = useState('own')
-  const [selectedNodeId, setSelectedNodeId] = useState('')
   const [timeRange, setTimeRange] = useState('Week')
 
   // â”€â”€ NEW: Network breakdown grid la click pannina node â”€â”€
@@ -690,8 +567,8 @@ export default function Report() {
   const [summaryData, setSummaryData] = useState({ total_sales: 0, total_orders: 0, customers_with_orders: 0 })
 
   // ── NEW: trend graph data — period-wise thani API call ──
-  const [trendData, setTrendData] = useState([])
-  const [trendLoading, setTrendLoading] = useState(true)   // ── NEW: period switch pண்ணும்போது skeleton kாட்ட ──
+  const [trendResponse, setTrendResponse] = useState({ key: null, data: [] })
+
 
   // ── NEW: scoped active/inactive login list (super_admin only) — backend scope pண்ணும் ──
   const [scopedLoginStats, setScopedLoginStats] = useState({ active: [], inactive: [] })
@@ -699,14 +576,9 @@ export default function Report() {
   // â”€â”€ NEW: coin stock for scoped node (or own account) â”€â”€
   const [coinStock, setCoinStock] = useState([])
 
-  const [nodeSearch, setNodeSearch] = useState('')
-  const [debouncedNodeSearch, setDebouncedNodeSearch] = useState('')
-  const [showNodeDropdown, setShowNodeDropdown] = useState(false)
+  useState(false);
 
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedNodeSearch(nodeSearch), 150)
-    return () => clearTimeout(t)
-  }, [nodeSearch])
+
 
   const bg = 'linear-gradient(180deg,#E6F1EF 0%,#FFFCF8 38%,#FFFFFF 100%)'
   const text = '#1F1F1F'
@@ -719,7 +591,7 @@ export default function Report() {
       try {
         const res = await api.get('/my-info/')
         setRole(res.data.role)
-      } catch (err) {
+      } catch {
         setError('Failed to load report')
       }
       setLoading(false)
@@ -734,47 +606,29 @@ export default function Report() {
   }
 
   const cfg = ROLE_CFG[role] || { label: role, color: '#0E5A57' }
-  const availableLevels = DRILL_LEVELS[role] || ['own']
+  ;(DRILL_LEVELS[role] || ['own']);
 
   // ── NEW: URL-based deep-link (?role=admin&id=5) feature remove pannirom —
   // old full-tree data base panni irundhadhu, adhu ippo illa. Level maarina
   // simple ah node selection reset pannurom mattum. ──
-  useEffect(() => {
-    setSelectedNodeId('')
-    setNodeSearch('')
-    setGridSelectedNode(null)
-  }, [selectedLevel])
+
 
   // ── NEW: backend search — old full-tree walk vendaam, /hierarchy/search-person/
   // endpoint use pannurom. Debounced text vachi mattum call pogum. ──
-  const [filteredNodes, setFilteredNodes] = useState([])
 
-  useEffect(() => {
-    if (selectedLevel === 'own') { setFilteredNodes([]); return }
-    const query = debouncedNodeSearch.trim()
-    if (!query) { setFilteredNodes([]); return }
-    api.get(`/hierarchy/search-person/?q=${encodeURIComponent(query)}`)
-      .then(res => {
-        const matches = (res.data.results || [])
-          .filter(r => r.role === selectedLevel)
-          .map(r => ({
-            id: r.id, user_id: r.user_id, type: r.role,
-            first_name: r.first_name, last_name: r.last_name,
-            mobile_number: r.mobile_number, city_name: r.city_name,
-            [`${r.role}_id`]: r.public_id,
-          }))
-        setFilteredNodes(matches)
-      })
-      .catch(() => setFilteredNodes([]))
-  }, [debouncedNodeSearch, selectedLevel])
+
+
 
   // ── NEW: old full-tree "activeTree" logic remove pannirom — full-tree data
   // ippo fetch pannaathu. scopedNode mattum than "eppo edha kaatanum" nu decide pannum:
   // dropdown-la oru node select pannina, illa grid card click pannina. ──
-  const isMultiAdminView = false   // full-tree illama idha calculate panna mudiyathu
-  const isMultiAdminViewStats = false
+     // full-tree illama idha calculate panna mudiyathu
+
 
   const scopedNode = gridSelectedNode
+  const trendRequestKey = JSON.stringify([timeRange, scopedNode?.type, scopedNode?.id])
+  const trendData = trendResponse.data
+  const trendLoading = trendResponse.key !== trendRequestKey
   const scopedLoginLabel = scopedNode ? `${LEVEL_LABELS[scopedNode.type] || scopedNode.type}: ${nodeName(scopedNode)}` : 'Full Network'
 
   useEffect(() => {
@@ -803,14 +657,13 @@ export default function Report() {
   // thani thani API call pண்ணும். scopedNode select pண்ணினாலும் andha scope-ku mattum ──
   useEffect(() => {
     let cancelled = false   // ── NEW: stale response-ah ignore pannurom, latest click mattum win aagum ──
-    setTrendLoading(true)
     const params = { period: timeRange.toLowerCase() }
     if (scopedNode) { params.role = scopedNode.type; params.id = scopedNode.id }
     api.get('/sales-report/trend/', { params })
-      .then(res => { if (!cancelled) { setTrendData(res.data.data || []); setTrendLoading(false) } })
-      .catch(() => { if (!cancelled) setTrendLoading(false) })
+      .then(res => { if (!cancelled) { setTrendResponse({ key: trendRequestKey, data: res.data.data || [] }) } })
+      .catch(() => { if (!cancelled) setTrendResponse(previous => ({ ...previous, key: trendRequestKey })) })
     return () => { cancelled = true }
-  }, [scopedNode, timeRange])
+  }, [scopedNode, timeRange, trendRequestKey])
 
   // ── NEW: Login Status — scopedNode select pண்ணின role+id vachi backend-லேயே scope pண்ணும் ──
   useEffect(() => {
@@ -1134,7 +987,7 @@ export default function Report() {
       <div className="no-print report-topbar sr-topbar" style={{ padding: '24px 40px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', maxWidth: '1500px', margin: '0 auto', position: 'relative', zIndex: 5 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button
-            onClick={() => { setGridSelectedNode(null); setSelectedLevel('own'); setSelectedNodeId('') }}
+            onClick={() => { setGridSelectedNode(null) }}
             style={{
               background: 'none', border: 'none', cursor: 'pointer', padding: 0,
               fontWeight: 700, fontSize: '18px', color: cfg.color, display: 'inline-flex', alignItems: 'center', gap: '8px'

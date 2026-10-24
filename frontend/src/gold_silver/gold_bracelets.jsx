@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import logo from '../assets/logo.png'
-import { addToCart } from '../collection/card_section'
+
 import CustomerNavbar from '../collection/CustomerNavbar'
 import CustomerFooter from '../collection/CustomerFooter'
 
@@ -24,33 +23,29 @@ export default function GoldBracelets() {
   const navigate = useNavigate()
   
   const [hoveredBracelet, setHoveredBracelet] = useState(null)
-  const [metalType, setMetalType] = useState('22k')
+  const [metalType] = useState('22k')
   const [metalPrices, setMetalPrices] = useState({ gold22k: null, gold24k: null })
   const [goldBracelets, setGoldBracelets] = useState([])
   const [loading, setLoading] = useState(true)
   const [wishlistedIds, setWishlistedIds] = useState(new Set())
-  const [gradeFilter, setGradeFilter] = useState('all')
+  useState('all');
   const [liveRate, setLiveRate] = useState(null)
   
 
 const bg = '#fdf6f0'
 const text = '#020617'
 const subtext = '#64748b'
-const border = 'rgba(0,0,0,0.1)'
-const glass = 'rgba(255,255,255,0.7)'
-const cardBg = 'rgba(0,0,0,0.03)'
-const inpBg = 'rgba(0,0,0,0.05)'
-const inpBorder = '#d1d5db'
 
-  const goldColor = metalType === '22k' ? '#fbbf24' : '#ffd700'
+
+
+
+
+
+  ;(metalType === '22k' ? '#fbbf24' : '#ffd700');
 
   const API_BASE = 'https://bitbyte-backend-f66f.onrender.com'
 
-  const getImageUrl = (img) => {
-    if (!img) return '/img/gold/gold_bracelet.jpg'
-    if (img.startsWith('http://') || img.startsWith('https://')) return img
-    return `${API_BASE}/${img.replace(/^\/+/, '')}`
-  }
+
 
   useEffect(() => {
     import('../api').then(({ default: api }) => {
@@ -100,15 +95,15 @@ const inpBorder = '#d1d5db'
         return next
       })
       window.dispatchEvent(new Event('bb_wishlist_update'))
-    } catch {}
+    } catch { /* No additional action is needed in this fallback. */ }
   }
 
   
 
 
 
-  const currentRate = metalType === '22k' ? metalPrices.gold22k : metalPrices.gold24k
-  const tagStyle = (tag) => TAG_COLORS[tag] || { bg: 'rgba(255,255,255,0.1)', border: 'rgba(255,255,255,0.2)', color: '#fff' }
+  (metalType === '22k' ? metalPrices.gold22k : metalPrices.gold24k);
+
 
   return (
 <div style={{ minHeight: '100vh', background: bg, color: text, fontFamily: '"Montserrat", sans-serif', position: 'relative', overflow: 'hidden', transition: 'background 0.8s ease, color 0.4s ease' }}>

@@ -87,7 +87,7 @@
 /* Gold Banner */
 .ath-coin-banner-gold {
   background-color: #063B3F;
-  --coin-art: url('/gold_coin_banner.jpg');
+  --coin-art: url('/Gold/gold_coin_banner.jpg');
 }
 
 .ath-coin-banner-gold::before {
@@ -107,7 +107,7 @@
 /* Silver Banner */
 .ath-coin-banner-silver {
   background-color: #101c24;
-  --coin-art: url('/silver_coin_banner.jpg');
+  --coin-art: url('/Gold/silver_coin_banner.jpg');
 }
 
 .ath-coin-banner-silver::before {
@@ -2376,7 +2376,7 @@
   background-size: cover;
   background-position: left center;
   background-repeat: no-repeat;
-  background-image: url('/gifting_banner_artwork.jpg');
+  background-image: url('/Gold/gifting_banner_artwork.jpg');
 }
 
 .ath-circle-img-wrap::after {

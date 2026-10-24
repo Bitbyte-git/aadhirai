@@ -27,16 +27,18 @@ export default function HomeBanner() {
   const inpBorder = '#374151'
   const cardBg = 'rgba(255,255,255,0.03)'
 
-  useEffect(() => { fetchBanners() }, [])
 
-  const fetchBanners = async () => {
-    try {
-      const res = await api.get('/home-banners/')
-      const map = {}
-      res.data.forEach(b => { map[b.slot] = b })
-      setBanners(map)
-    } catch { }
-  }
+
+  function fetchBanners() {
+return api.get('/home-banners/').then((res) => {
+const map = {}
+res.data.forEach(b => { map[b.slot] = b })
+setBanners(map)
+}).catch(() => {
+ /* No additional action is needed in this fallback. */
+});
+}
+useEffect(() => { fetchBanners() }, [])
 
   const handleFileChange = (slot, file) => {
     if (!file) return

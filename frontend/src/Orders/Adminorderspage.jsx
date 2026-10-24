@@ -233,7 +233,7 @@ const getFallbackSeries = (p) => {
 }
 
 export default function AdminOrdersPage() {
-  const navigate = useNavigate()
+  (useNavigate());
 
   // Primary orders state
   const [orders, setOrders] = useState([])

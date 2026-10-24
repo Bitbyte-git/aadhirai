@@ -1,4 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+export default function EditProductModal(props) {
+  if (!props.isOpen || !props.product) return null;
+  return <EditProductForm key={props.product.id} {...props} />;
+}
+
+import { useState, useRef } from "react";
 import api from "../api";
 import { CloseIcon, CheckIcon, JewelryIcon, PlusIcon, UploadIcon } from "../components/SvgIcons";
 
@@ -27,58 +32,34 @@ const GENDERS = [
   { key: "kids", label: "Kids" },
 ];
 
-export default function EditProductModal({ isOpen, onClose, product, onUpdated }) {
-  const [name, setName] = useState("");
-  const [category, setCategory] = useState("rings");
-  const [metal, setMetal] = useState("gold");
-  const [grade, setGrade] = useState("22k");
-  const [gender, setGender] = useState("all");
-  const [crossWeight, setCrossWeight] = useState("");
-  const [stoneWeight, setStoneWeight] = useState("0");
-  const [netWeight, setNetWeight] = useState("");
-  const [makingCharge, setMakingCharge] = useState("8");
-  const [wastageCharge, setWastageCharge] = useState("0");
-  const [stoneValue, setStoneValue] = useState("0");
-  const [price, setPrice] = useState("");
-  const [stockQuantity, setStockQuantity] = useState("1");
-  const [lowStockThreshold, setLowStockThreshold] = useState("5");
-  const [isActive, setIsActive] = useState(true);
+function EditProductForm({ isOpen, onClose, product, onUpdated }) {
+  const [name, setName] = useState(product.name || "");
+  const [category, setCategory] = useState(product.category || "rings");
+  const [metal, setMetal] = useState(product.metal || "gold");
+  const [grade, setGrade] = useState(product.grade || "22k");
+  const [gender, setGender] = useState(product.gender || "all");
+  const [crossWeight, setCrossWeight] = useState(product.cross_weight || "");
+  const [stoneWeight, setStoneWeight] = useState(product.stone_weight || "0");
+  const [netWeight, setNetWeight] = useState(product.net_weight || product.cross_weight || "");
+  const [makingCharge, setMakingCharge] = useState(product.making_charge || "8");
+  const [wastageCharge] = useState(product.wastage_charge || "0");
+  const [stoneValue] = useState(product.stone_value || "0");
+  const [price, setPrice] = useState(product.price || "");
+  const [stockQuantity, setStockQuantity] = useState(String(product.stock_quantity ?? 0));
+  const [lowStockThreshold, setLowStockThreshold] = useState(String(product.low_stock_threshold ?? 5));
+  const [isActive, setIsActive] = useState(product.is_active ?? true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   // Product Images State
-  const [existingImages, setExistingImages] = useState([]);
+  const [existingImages, setExistingImages] = useState(product.images || []);
   const [imagesToDelete, setImagesToDelete] = useState([]);
   const [newFiles, setNewFiles] = useState([]);
   const [newPreviews, setNewPreviews] = useState([]);
   const [previewModalImage, setPreviewModalImage] = useState(null);
   const fileInputRef = useRef(null);
 
-  useEffect(() => {
-    if (product) {
-      setName(product.name || "");
-      setCategory(product.category || "rings");
-      setMetal(product.metal || "gold");
-      setGrade(product.grade || "22k");
-      setGender(product.gender || "all");
-      setCrossWeight(product.cross_weight || "");
-      setStoneWeight(product.stone_weight || "0");
-      setNetWeight(product.net_weight || product.cross_weight || "");
-      setMakingCharge(product.making_charge || "8");
-      setWastageCharge(product.wastage_charge || "0");
-      setStoneValue(product.stone_value || "0");
-      setPrice(product.price || "");
-      setStockQuantity(String(product.stock_quantity ?? 0));
-      setLowStockThreshold(String(product.low_stock_threshold ?? 5));
-      setIsActive(product.is_active ?? true);
-      setExistingImages(product.images || []);
-      setImagesToDelete([]);
-      setNewFiles([]);
-      setNewPreviews([]);
-      setPreviewModalImage(null);
-      setError("");
-    }
-  }, [product]);
+
 
   if (!isOpen || !product) return null;
 

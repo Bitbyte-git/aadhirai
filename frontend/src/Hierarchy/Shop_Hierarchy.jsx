@@ -165,7 +165,7 @@ function printShopChain(chain) {
       <div class="header"><h1>BitByte — Shop Hierarchy Chain</h1><p>${esc(current.shop_name)} (${esc(current.shop_id)})</p></div>
       ${html}
       <div class="footer">Printed on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
-    </div><script>window.onload = () => { window.print() }<\/script></body></html>`)
+    </div><script>window.onload = () => { window.print() }</script></body></html>`)
   w.document.close()
 }
 
@@ -257,7 +257,7 @@ function printShopTree(node, depth) {
           zoomFit();
         }
         window.onload = () => { zoomFit(); };
-      <\/script>
+      </script>
     </body></html>`)
   w.document.close()
 }
@@ -446,7 +446,6 @@ export default function ShopHierarchy() {
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
     api.get('/shop-report/tree/', { params: { period: 'all' } })
       .then(res => { if (!cancelled) { setTree(res.data.tree); setError('') } })
       .catch(() => { if (!cancelled) setError('Failed to load your shop network.') })

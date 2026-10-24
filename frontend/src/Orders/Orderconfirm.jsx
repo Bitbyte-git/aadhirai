@@ -1,3 +1,4 @@
+import { invalidateRequestVersion } from '../api.js'
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import CustomerFooter from '../collection/CustomerFooter'
@@ -1185,7 +1186,6 @@ function DeliveryLocationPicker({ address, onConfirm, onClose }) {
   useEffect(() => {
     alive.current = true
     let active = true, timer, listeners = []
-    setReady(false); setFailed(false); setBusy(true); setNotice(''); setCandidate(null)
     loadDeliveryMaps().then(async maps => {
       const [{ Map }, { Geocoder }] = await Promise.all([maps.importLibrary('maps'), maps.importLibrary('geocoding')])
       if (!active) return
@@ -1233,7 +1233,7 @@ function DeliveryLocationPicker({ address, onConfirm, onClose }) {
       if (active) { setFailed(true); setBusy(false); setNotice('The map could not load. Try again or enter your address below.') }
     })
     return () => {
-      active = false; alive.current = false; ++sequence.current; clearTimeout(timer)
+      active = false; alive.current = false; invalidateRequestVersion(sequence); clearTimeout(timer)
       listeners.forEach(listener => listener.remove())
       map.current = null; geocoder.current = null
     }
@@ -1266,7 +1266,7 @@ function DeliveryLocationPicker({ address, onConfirm, onClose }) {
       <header><div><span>PIN YOUR DELIVERY</span><h4>Find your doorstep</h4></div><button type="button" className="sa-secondary" onClick={onClose}>Cancel</button></header>
       <p>Search your area, then move the map until the pin is at your entrance.</p>
       <div className="sa-map-search"><input ref={searchInput} aria-label="Search delivery location" placeholder="Search street, landmark or pincode" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); search() } }} /><button type="button" className="sa-primary" disabled={!ready || !query.trim()} onClick={search}>Search</button></div>
-      <div className="sa-map-canvas-wrap"><div ref={canvas} className="sa-map-canvas" aria-label="Delivery map. Pan with arrow keys or drag to move the pin." />{ready && <div className="sa-map-center-pin" aria-hidden="true"><MapPin size={42} fill="currentColor" /><i /></div>}{!ready && <div className="sa-map-cover" role="status">{failed ? <><MapPin size={27} /><span>Map unavailable</span><button type="button" className="sa-secondary" onClick={() => setAttempt(value => value + 1)}>Try again</button></> : 'Loading your map?'}</div>}</div>
+      <div className="sa-map-canvas-wrap"><div ref={canvas} className="sa-map-canvas" aria-label="Delivery map. Pan with arrow keys or drag to move the pin." />{ready && <div className="sa-map-center-pin" aria-hidden="true"><MapPin size={42} fill="currentColor" /><i /></div>}{!ready && <div className="sa-map-cover" role="status">{failed ? <><MapPin size={27} /><span>Map unavailable</span><button type="button" className="sa-secondary" onClick={() => { setReady(false); setFailed(false); setBusy(true); setNotice(''); setCandidate(null); setAttempt(value => value + 1) }}>Try again</button></> : 'Loading your map?'}</div>}</div>
       <button type="button" className="sa-map-locate" onClick={locate} disabled={!ready || locating}><Crosshair size={17} />{locating ? 'Finding you?' : 'Use my current location'}</button>
       <div className="sa-map-preview" aria-live="polite"><MapPin size={20} /><div><strong>{busy ? 'Finding this address?' : candidate ? 'Deliver to this location' : 'Choose your delivery point'}</strong>{candidate && <p>{candidate.formatted}</p>}{notice && <p>{notice}</p>}</div></div>
       <button type="button" className="sa-primary sa-map-use" disabled={!candidate || busy || locating} onClick={() => onConfirm(candidate)}>Use this location <Check size={17} /></button>

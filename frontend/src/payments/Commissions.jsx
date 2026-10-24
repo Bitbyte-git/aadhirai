@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import { useEffect, useRef, useState, useMemo } from 'react'
 import {
   ResponsiveContainer,
@@ -77,7 +78,6 @@ function AnimatedNumber({ value, prefix = '', suffix = '', duration = 800 }) {
   useEffect(() => {
     const startVal = currentValRef.current
     if (startVal === endVal) {
-      setDisplayVal(endVal)
       return
     }
 
@@ -888,10 +888,10 @@ export default function Commissions() {
   const [allowedTabs, setAllowedTabs] = useState(defaultAllowedTabs)
   const [summary, setSummary] = useState(null)
   const [rows, setRows] = useState([])
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(false)
+  const [, setPage] = useState(1)
+  const [, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
+  const [, setLoadError] = useState(false)
   const [activeFilter, setActiveFilter] = useState('month')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
@@ -945,7 +945,7 @@ export default function Commissions() {
             setLoadError(false)
           }
         }
-      } catch (e) {}
+      } catch { /* No additional action is needed in this fallback. */ }
     }
 
     try {
@@ -982,7 +982,7 @@ export default function Commissions() {
             rows: newRows,
             has_more: newHasMore,
           }))
-        } catch (e) {}
+        } catch { /* No additional action is needed in this fallback. */ }
       }
     } catch {
       if (fetchId !== fetchIdRef.current) return
@@ -996,9 +996,10 @@ export default function Commissions() {
     }
   }
 
+  const committedFetchData = useCommittedCallback((...args) => fetchData(...args))
   useEffect(() => {
-    fetchData(initialRole, 1, 'month', '', '')
-  }, [initialRole])
+    committedFetchData(initialRole, 1, 'month', '', '')
+  }, [initialRole, committedFetchData])
 
   const handleRoleClick = (key) => {
     if (key === role) return

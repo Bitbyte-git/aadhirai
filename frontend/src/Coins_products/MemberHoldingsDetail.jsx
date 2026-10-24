@@ -33,6 +33,10 @@ const ROLE_CONFIG = {
 
 export default function MemberHoldingsDetail() {
   const { userId } = useParams();
+  return <MemberHoldingsDetailContent key={userId} userId={userId} />;
+}
+
+function MemberHoldingsDetailContent({ userId }) {
   const navigate = useNavigate();
 
   const [data, setData] = useState(null);
@@ -45,8 +49,6 @@ export default function MemberHoldingsDetail() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError("");
 
     api
       .get(`/member-holdings/${userId}/`)

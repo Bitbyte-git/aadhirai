@@ -23,7 +23,7 @@ export default function DiamondEarrings() {
   const [loading, setLoading] = useState(true)
   const [hovered, setHovered] = useState(null)
   const [wishlistedIds, setWishlistedIds] = useState(new Set())
-  const [gradeFilter, setGradeFilter] = useState('all')
+  const [gradeFilter] = useState('all')
   const [liveRate, setLiveRate] = useState(null)
 
   const getImageUrl = (img) => {
@@ -34,7 +34,7 @@ export default function DiamondEarrings() {
     return `${API_BASE}/${src.replace(/^\/+/, '')}`
   }
 
-  const tagStyle = (tag) => TAG_COLORS[tag] || { bg: 'rgba(103,232,249,0.1)', border: 'rgba(103,232,249,0.3)', color: ACCENT }
+
 
   useEffect(() => {
     import('../api').then(({ default: api }) => {
@@ -75,7 +75,7 @@ export default function DiamondEarrings() {
         return next
       })
       window.dispatchEvent(new Event('bb_wishlist_update'))
-    } catch {}
+    } catch { /* No additional action is needed in this fallback. */ }
   }
 
   const filteredProducts = gradeFilter === 'all' ? products : products.filter(p => p.grade === gradeFilter)

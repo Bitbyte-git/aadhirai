@@ -192,7 +192,7 @@ export default function StoredCoins() {
   // Summary / role counts full team-ku backend; members 24-24-a infinite scroll ──
   const [holdSummary, setHoldSummary] = useState({});
   const [holdRoleCounts, setHoldRoleCounts] = useState({});
-  const [holdListTotal, setHoldListTotal] = useState(0);
+  const [, setHoldListTotal] = useState(0);
   const [holdHasMore, setHoldHasMore] = useState(false);
   const [holdLoadingMore, setHoldLoadingMore] = useState(false);
   const [holdSearch, setHoldSearch] = useState("");
@@ -281,7 +281,7 @@ export default function StoredCoins() {
 
   useEffect(() => {
     fetchStock();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   // Search type panna 300ms wait panni backend-ku anuppum

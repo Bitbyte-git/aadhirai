@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useState, useRef, useEffect, useMemo } from 'react'
-import logo from '../assets/logo.png'
+import { useState, useRef, useEffect } from 'react'
+const logo = '/Gold/Athirai_logo.png';
 import api from '../api'
 
 
@@ -53,7 +53,6 @@ export default function SuperAdminNavbar({
   onWorkAnniversaries,
   onSendAnnouncement,
   onMyAnnouncements,
-  onVoiceSearch,
 }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -124,7 +123,7 @@ export default function SuperAdminNavbar({
     const clean = term.trim()
     setRecentSearches(prev => {
       const next = [clean, ...prev.filter(x => x.toLowerCase() !== clean.toLowerCase())].slice(0, 6)
-      try { localStorage.setItem('san_recent_searches', JSON.stringify(next)) } catch {}
+      try { localStorage.setItem('san_recent_searches', JSON.stringify(next)) } catch { /* No additional action is needed in this fallback. */ }
       return next
     })
   }
@@ -133,7 +132,7 @@ export default function SuperAdminNavbar({
     e.stopPropagation()
     setRecentSearches(prev => {
       const next = prev.filter(x => x !== term)
-      try { localStorage.setItem('san_recent_searches', JSON.stringify(next)) } catch {}
+      try { localStorage.setItem('san_recent_searches', JSON.stringify(next)) } catch { /* No additional action is needed in this fallback. */ }
       return next
     })
   }
@@ -141,7 +140,7 @@ export default function SuperAdminNavbar({
   const clearRecentSearches = (e) => {
     e.stopPropagation()
     setRecentSearches([])
-    try { localStorage.removeItem('san_recent_searches') } catch {}
+    try { localStorage.removeItem('san_recent_searches') } catch { /* No additional action is needed in this fallback. */ }
   }
 
   const showSearchAlert = (title, message, query = '', type = 'warning', showSuggestions = true) => {
@@ -170,7 +169,7 @@ export default function SuperAdminNavbar({
     gold22k: null, gold24k: null, silver: null,
     diamond18k: null, diamond22k: null, platinum92: null,
   })
-  const [metalLoading, setMetalLoading] = useState(false)
+  const [, setMetalLoading] = useState(false)
   const [dbRateDate, setDbRateDate] = useState(null)
   const [rateForm, setRateForm] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -215,7 +214,7 @@ export default function SuperAdminNavbar({
     try {
       const res = await api.get('/profile-update-request/')
       setProfileRequests(res.data)
-    } catch (err) {
+    } catch {
       setRequestMsg('Failed to load requests')
     }
   }
@@ -317,7 +316,7 @@ export default function SuperAdminNavbar({
         platinum92: d.platinum_92 ? parseFloat(d.platinum_92) : null,
       })
       setDbRateDate(d.date)
-    } catch (e) {
+    } catch {
       setMetalPrices({ gold22k: null, gold24k: null, silver: null, diamond18k: null, diamond22k: null, platinum92: null })
       setDbRateDate(null)
     } finally {
@@ -932,7 +931,7 @@ export default function SuperAdminNavbar({
   }
 
   // Backwards compatibility alias
-  const submitVoiceSearch = executeSearch
+
 
   // ── YOUTUBE / GOOGLE VOICE MODAL CONTROLS ──
   const startVoiceModal = () => {
@@ -952,7 +951,7 @@ export default function SuperAdminNavbar({
     }
 
     if (recognitionRef.current) {
-      try { recognitionRef.current.abort() } catch {}
+      try { recognitionRef.current.abort() } catch { /* No additional action is needed in this fallback. */ }
     }
 
     playChime('start')
@@ -1013,7 +1012,7 @@ export default function SuperAdminNavbar({
     recognitionRef.current = recognition
     try {
       recognition.start()
-    } catch (err) {
+    } catch {
       setVoiceStatus('error')
       setVoiceErrorMsg('Failed to initialize microphone. Please check permissions.')
     }
@@ -1021,7 +1020,7 @@ export default function SuperAdminNavbar({
 
   const stopVoiceRecognition = () => {
     if (recognitionRef.current) {
-      try { recognitionRef.current.stop() } catch {}
+      try { recognitionRef.current.stop() } catch { /* No additional action is needed in this fallback. */ }
     }
     setIsListening(false)
   }
@@ -1034,9 +1033,7 @@ export default function SuperAdminNavbar({
   }
 
   // Legacy mic button toggle
-  const toggleMic = () => {
-    startVoiceModal()
-  }
+
 
   // ── SEARCH INPUT & SUGGESTIONS HANDLERS ──
   const handleInputChange = (e) => {
@@ -1111,13 +1108,7 @@ export default function SuperAdminNavbar({
     }
   }
 
-  const run = (handler, fallback) => {
-    if (handler) {
-      handler()
-      return
-    }
-    if (fallback) navigate(fallback)
-  }
+
   const logout = () => {
     localStorage.clear()
     navigate('/login')
@@ -1195,7 +1186,7 @@ export default function SuperAdminNavbar({
     ['Available Jewellery', () => navigate('/available-jewellery')],
     ['Add Jewellery', () => navigate('/add-jewellery')],
   ]
-  const mobileMenuGroups = [
+  ;([
     ['Management', management],
     ['Announcements', announcements],
     ['Users', usersMenu],
@@ -1204,7 +1195,7 @@ export default function SuperAdminNavbar({
     ['Promotion', promotion],
     ['Payment', payment],
     ['Inventory', inventory],
-  ]
+  ]);
 
   const adminEmail = localStorage.getItem('email') || localStorage.getItem('user_email') || 'superadmin@athirai.com'
 
@@ -1329,7 +1320,7 @@ export default function SuperAdminNavbar({
     { label: 'Create Promotion', path: null, icon: 'tag', bg: '#FEF3E7', color: '#D97706', action: () => { setShowMobileDrawer(false); setShowPromotionModal(true) } },
   ]
 
-  const allSearchableMenuItems = useMemo(() => {
+  const allSearchableMenuItems = (() => {
     const list = []
     list.push({ title: 'Dashboard', section: 'MAIN', icon: 'home', path: '/super-admin', action: () => navigate('/super-admin') })
     drawerQuickAccess.forEach(qa => {
@@ -1341,7 +1332,7 @@ export default function SuperAdminNavbar({
       })
     })
     return list
-  }, [])
+  })()
 
   const filteredMenuItems = menuSearch.trim()
     ? allSearchableMenuItems.filter(item =>
@@ -2201,12 +2192,12 @@ export default function SuperAdminNavbar({
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 9px;
-  background: rgba(7, 59, 63, 0.04);
-  padding: 3px;
+
+
+
   flex-shrink: 0;
-  border: 1px solid rgba(187, 137, 88, 0.2);
-}
+
+ border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 0; }
 .san-brand-logo-wrap img { width: 100%; height: 100%; object-fit: contain; }
 .san-brand-text {
   display: flex;
@@ -2744,7 +2735,7 @@ export default function SuperAdminNavbar({
 
 @media (max-width: 520px) {
   .san-top-inner { padding: 0 10px; gap: 6px; }
-  .san-brand-logo-wrap { width: 32px; height: 32px; padding: 2px; }
+  .san-brand-logo-wrap { width: 32px; height: 32px;   border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 0; }
   .san-brand-badge { display: none; }
   .san-brand-title { font-size: 15px; }
   .san-nav-left { gap: 6px; }
@@ -2770,7 +2761,7 @@ export default function SuperAdminNavbar({
           <aside className="san-sidebar">
             <div className="san-brand" onClick={() => navigate('/super-admin')} title="Go to dashboard">
               <img src={logo} alt="Athirai" />
-              <div><div className="san-brand-name">ATHIRAI</div><div className="san-role">Super Admin</div></div>
+              <div><div className="san-brand-name athirai-wordmark">ATHIRAI</div><div className="san-role">Super Admin</div></div>
             </div>
             <nav className="san-side-nav">
               <button className="san-side-link is-active" type="button" onClick={() => navigate('/super-admin')}><Icon name="home" />Dashboard</button>
@@ -2796,7 +2787,7 @@ export default function SuperAdminNavbar({
                   <img src={logo} alt="Athirai" />
                 </div>
                 <div className="san-brand-text">
-                  <span className="san-brand-title">ATHIRAI</span>
+                  <span className="san-brand-title athirai-wordmark">ATHIRAI</span>
                   <span className="san-brand-badge">SUPER ADMIN</span>
                 </div>
               </button>

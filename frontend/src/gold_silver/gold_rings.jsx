@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import logo from '../assets/logo.png'
-import { addToCart } from '../collection/card_section'
+
 import CustomerNavbar from '../collection/CustomerNavbar'
 import CustomerFooter from '../collection/CustomerFooter'
 
@@ -40,25 +39,25 @@ const TAG_COLORS = {
 
 export default function GoldRings() {
   const navigate = useNavigate()
-  const [selectedWeight, setSelectedWeight] = useState('All Weights')
+  const [selectedWeight] = useState('All Weights')
   const [hoveredRing, setHoveredRing] = useState(null)
-  const [metalType, setMetalType] = useState('22k')   // '22k' | '24k'
-  const [metalPrices, setMetalPrices] = useState({ gold22k: null, gold24k: null })
+  const [metalType] = useState('22k')   // '22k' | '24k'
+  const [metalPrices] = useState({ gold22k: null, gold24k: null })
   const [goldRings, setGoldRings] = useState([])
   const [loading, setLoading] = useState(true)
   const [liveRate, setLiveRate] = useState(null)
   const [wishlistedIds, setWishlistedIds] = useState(new Set())
-  const [selectedRing, setSelectedRing] = useState(null)
+  useState(null);
 
 
 const bg = '#FDF5EE'
 const text = '#020617'
 const subtext = '#64748b'
-const border = 'rgba(0,0,0,0.1)'
-const cardBg = 'rgba(0,0,0,0.03)'
-const inpBg = 'rgba(0,0,0,0.05)'
-const inpBorder = '#d1d5db'
-const goldColor = '#fbbf24'
+
+
+
+
+
 
 
 
@@ -121,13 +120,13 @@ const goldColor = '#fbbf24'
         return next
       })
       window.dispatchEvent(new Event('bb_wishlist_update'))
-    } catch {}
+    } catch { /* No additional action is needed in this fallback. */ }
   }
 
 
   const currentRate = metalType === '22k' ? metalPrices.gold22k : metalPrices.gold24k
   const selectedW = WEIGHTS.find(w => w.label === selectedWeight)
-  const unitPrice = selectedW?.grams && currentRate ? selectedW.grams * currentRate : null
+  ;(selectedW?.grams && currentRate ? selectedW.grams * currentRate : null);
 
   const tagStyle = (tag) => TAG_COLORS[tag] || { bg: 'rgba(255,255,255,0.1)', border: 'rgba(255,255,255,0.2)', color: '#fff' }
 
@@ -207,7 +206,7 @@ return (
           ) : (
   goldRings.map((ring) => {
     const isHovered = hoveredRing === ring.id
-    const tag = tagStyle(ring.tag)
+    ;(tagStyle(ring.tag));
 
     return (
 // AFTER (AllCollection style card)

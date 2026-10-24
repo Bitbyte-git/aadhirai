@@ -69,7 +69,7 @@ export default function CoinsReward() {
         const res = await api.get(`/rewards/today/?range=${rangeFilter}`)
         setData(res.data)
         setError('')
-      } catch (err) {
+      } catch {
         setError('Failed to load rewards')
       }
       setLoading(false)

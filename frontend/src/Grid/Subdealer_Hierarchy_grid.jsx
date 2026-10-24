@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
@@ -211,7 +212,7 @@ function renderBracketBranch(node, role, childRole, childKey) {
   `
 }
 
-function printHorizontalBracketTree(rootNode, role, ancestors) {
+function printHorizontalBracketTree(rootNode, role) {
   const nodeName = [rootNode.first_name, rootNode.last_name].filter(Boolean).join(' ') || 'Sub Dealer Tree'
   const nodeId = rootNode[ROLE_CFG[role]?.idKey] || rootNode.id || ''
 
@@ -321,7 +322,7 @@ function printHorizontalBracketTree(rootNode, role, ancestors) {
           zoomFit();
         }
         window.onload = () => { zoomFit(); setTimeout(() => window.print(), 200); };
-      <\/script>
+      </script>
     </body>
     </html>
   `)
@@ -378,7 +379,7 @@ function printPersonCard(node, role, cfg, color, ancestors) {
       ${chainHtml}
       <div class="footer">Printed on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
     </div>
-    <script>window.onload = () => { window.print() }<\/script>
+    <script>window.onload = () => { window.print() }</script>
     </body></html>
   `)
   printWindow.document.close()
@@ -760,7 +761,7 @@ export default function Subdealer_Hierarchy_grid() {
   const [root, setRoot] = useState(null)
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [debouncedSearch] = useState('')
 
   const [promotors, setPromotors] = useState([])
   const [selPromotor, setSelPromotor] = useState(null)
@@ -860,7 +861,7 @@ export default function Subdealer_Hierarchy_grid() {
     return promotors.find(p => p.id === selPromotor) || null
   }, [promotors, selPromotor])
 
-  const customers = currentPromotor ? (customerCache[`p_${currentPromotor.id}`] || []) : []
+  const customers = useMemo(() => (currentPromotor ? (customerCache[`p_${currentPromotor.id}`] || []) : []), [currentPromotor, customerCache])
 
   const filteredPromotors = useMemo(() => {
     if (activeStatusFilter && activeStatusFilter.role === 'sub_dealer' && activeStatusFilter.nodeId === root?.id) {
@@ -876,8 +877,8 @@ export default function Subdealer_Hierarchy_grid() {
     return customers
   }, [customers, activeStatusFilter, currentPromotor])
 
-  const promotorAncestors = root ? [{ node: root, role: 'sub_dealer' }] : []
-  const customerAncestors = currentPromotor ? [...promotorAncestors, { node: currentPromotor, role: 'promotor' }] : promotorAncestors
+  const promotorAncestors = useMemo(() => (root ? [{ node: root, role: 'sub_dealer' }] : []), [root])
+  ;(currentPromotor ? [...promotorAncestors, { node: currentPromotor, role: 'promotor' }] : promotorAncestors);
 
   const selectPromotor = (node) => {
     setSelPromotor(node.id)
@@ -930,7 +931,7 @@ export default function Subdealer_Hierarchy_grid() {
   }
 
 
-  const searchOwnHierarchy = (query) => {
+  const searchOwnHierarchy = useCallback((query) => {
     if (!root || !query.trim()) return []
     const q = query.trim().toLowerCase()
     const result = []
@@ -959,12 +960,12 @@ export default function Subdealer_Hierarchy_grid() {
       })
     })
     return result
-  }
+  }, [root, customerCache])
 
   const searchResults = useMemo(() => {
     if (!debouncedSearch) return []
     return searchOwnHierarchy(debouncedSearch)
-  }, [debouncedSearch, root, customerCache])
+  }, [debouncedSearch, searchOwnHierarchy])
 
   const jumpToSearchResult = (item) => {
     const map = {}

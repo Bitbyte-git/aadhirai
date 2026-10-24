@@ -93,7 +93,7 @@ const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
 const GST_RATE = 0.03;
 
 export default function BuyCoin() {
-  const navigate = useNavigate();
+  (useNavigate());
   const role = localStorage.getItem("role") || "admin";
   const [metalType, setMetalType] = useState("gold_22k");
   const [weightLabel, setWeightLabel] = useState("100 mg");
@@ -163,18 +163,18 @@ export default function BuyCoin() {
     () => cart.filter((item) => item.metal_type === metalType),
     [cart, metalType]
   );
-  const metalQty = useMemo(
+  (useMemo(
     () => currentMetalCart.reduce((sum, item) => sum + Number(item.qty || 0), 0),
     [currentMetalCart]
-  );
-  const metalWeight = useMemo(
+  ));
+  (useMemo(
     () =>
       currentMetalCart.reduce(
         (sum, item) => sum + Number(item.weight_grams || 0) * Number(item.qty || 0),
         0
       ),
     [currentMetalCart]
-  );
+  ));
 
   // Entire cart aggregates (Overall)
   const totalQty = useMemo(

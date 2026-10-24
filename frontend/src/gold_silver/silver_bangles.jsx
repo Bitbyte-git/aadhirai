@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import logo from '../assets/logo.png'
-import { addToCart } from '../collection/card_section'
+
+import { addToCart } from "../api.js";
 import CustomerNavbar from '../collection/CustomerNavbar'
 import CustomerFooter from '../collection/CustomerFooter'
 
@@ -28,9 +28,9 @@ const TAG_COLORS = {
 
 export default function SilverBangles() {
   const navigate = useNavigate()
-  const [selectedWeight, setSelectedWeight] = useState('All Weights')
+  const [selectedWeight] = useState('All Weights')
   const [hoveredBangle, setHoveredBangle]   = useState(null)
-  const [silverPrice, setSilverPrice]       = useState(null)
+  const [silverPrice]       = useState(null)
   const [selectedBangle, setSelectedBangle] = useState(null)
   const [silverBangles, setSilverBangles] = useState([])
   const [loading, setLoading] = useState(true)
@@ -40,12 +40,12 @@ export default function SilverBangles() {
 const bg        = '#FDF5EE'
 const text      = '#020617'
 const subtext   = '#64748b'
-const border    = 'rgba(0,0,0,0.1)'
-const cardBg    = 'rgba(0,0,0,0.03)'
-const inpBg     = 'rgba(0,0,0,0.05)'
-const inpBorder = '#d1d5db'
+
+
+
+
 const silverColor = '#c0c0c0'
-const silverGlow  = 'rgba(192,192,192,0.28)'
+
 
 const API_BASE = 'https://bitbyte-backend-f66f.onrender.com'
 
@@ -93,12 +93,12 @@ useEffect(() => {
         return next
       })
       window.dispatchEvent(new Event('bb_wishlist_update'))
-    } catch {}
+    } catch { /* No additional action is needed in this fallback. */ }
   }
 
   /* ── helpers ── */
   const selectedW = WEIGHTS.find(w => w.label === selectedWeight)
-  const unitPrice = selectedW?.grams && silverPrice ? selectedW.grams * silverPrice : null
+  ;(selectedW?.grams && silverPrice ? selectedW.grams * silverPrice : null);
   const tagStyle  = (tag) => TAG_COLORS[tag] || { bg:'rgba(255,255,255,0.1)', border:'rgba(255,255,255,0.2)', color:'#fff' }
 
 return (
@@ -179,7 +179,7 @@ return (
   </div>
 ) : silverBangles.map((bangle) => {
             const isHovered = hoveredBangle === bangle.id
-            const tag = tagStyle(bangle.tag)
+            ;(tagStyle(bangle.tag));
             return (
 <div key={bangle.id} className="sb-card"
   onClick={() => navigate(`/product-display?category=bangles&metal=silver&id=${bangle.id}`)}

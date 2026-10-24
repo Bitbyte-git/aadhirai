@@ -140,7 +140,7 @@ function printShopChain(chainNodes) {
       ${chainHtml}
       <div class="footer">Printed on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
     </div>
-    <script>window.onload = () => { window.print() }<\/script>
+    <script>window.onload = () => { window.print() }</script>
     </body></html>
   `)
   printWindow.document.close()
@@ -349,12 +349,12 @@ export default function ShopHierarchyGrid() {
   const [selectedPath, setSelectedPath] = useState([])
   const [chainPopup, setChainPopup] = useState(null)
 
-  const [shop, setShop] = useState(null)
-  const [profileLoading, setProfileLoading] = useState(false)
+  const [shop] = useState(null)
+  const [profileLoading] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [announcements, setAnnouncements] = useState([])
   const [showAnnouncements, setShowAnnouncements] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
+  const [, setUnreadCount] = useState(0)
 
   const subtext = '#7A8987'
   const border = 'rgba(189,207,206,0.78)'
@@ -377,16 +377,7 @@ export default function ShopHierarchyGrid() {
     fetchTree()
   }, [])
 
-  const fetchShopProfile = async () => {
-    setProfileLoading(true)
-    try {
-      const res = await api.get('/my-shop-profile/')
-      setShop(res.data)
-    } catch (err) {
-      console.error('Shop profile fetch error:', err)
-    }
-    setProfileLoading(false)
-  }
+
 
   const fetchAnnouncements = async () => {
     try {
@@ -398,15 +389,11 @@ export default function ShopHierarchyGrid() {
     } catch { /* ignore */ }
   }
 
-  useEffect(() => { if (!isSuperAdmin) fetchAnnouncements() }, [])
+  useEffect(() => { if (!isSuperAdmin) fetchAnnouncements() }, [isSuperAdmin])
 
-  const openAnnouncements = () => {
-    setShowAnnouncements(true)
-    localStorage.setItem('shopAnnouncementSeen', Date.now().toString())
-    setUnreadCount(0)
-  }
 
-  const handleLogout = () => { localStorage.clear(); navigate('/login') }
+
+
 
   const levels = useMemo(() => {
     if (!tree) return []

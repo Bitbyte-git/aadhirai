@@ -196,6 +196,7 @@ export default function CustomerFooter() {
         .rf-contact {
           animation: rfFadeUp 620ms ease both;
         }
+        .rf-brand-logo { display: block; width: 72px; height: 72px; object-fit: contain;   margin-bottom: 14px;  border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 0; }
         .rf-brand-name {
           font-family: Georgia, "Times New Roman", serif;
           color: #fdfdfc;
@@ -382,7 +383,8 @@ export default function CustomerFooter() {
 
       <div className="rf-main">
         <section className="rf-brand" style={{ animationDelay: "80ms" }}>
-          <div className="rf-brand-name">ATHIRAI</div>
+          <img className="rf-brand-logo" src="/Gold/Athirai_logo.png" alt="Athirai official logo" width="72" height="72" loading="lazy" decoding="async" />
+          <div className="rf-brand-name athirai-wordmark">ATHIRAI</div>
           <div className="rf-brand-sub">Where fashion meets luxury</div>
           <p className="rf-tagline">Shine. Crafted for generations.</p>
           <div className="rf-socials">

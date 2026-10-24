@@ -1,7 +1,8 @@
+import { useCommittedCallback } from "../api.js";
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import api from '../api'
-import logo from '../assets/logo.png'
+
 
 const API_BASE = 'https://bitbyte-backend-f66f.onrender.com'
 
@@ -142,7 +143,7 @@ const getImageUrl = img => {
 export default function AddProduct() {
   const navigate = useNavigate()
   const location = useLocation()
-  const dark = false
+
 
   // ── Restock: read product ID + category from SoldOutProducts navigate state ──
   const restockProductId = location.state?.restockProductId || null
@@ -152,7 +153,7 @@ export default function AddProduct() {
   const [products, setProducts]           = useState([])
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [restockHandled, setRestockHandled] = useState(false)
-  
+
 
   // Edit modal
   const [editProduct, setEditProduct] = useState(null)
@@ -225,27 +226,28 @@ export default function AddProduct() {
   const inpStyle = { width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '14px', padding: '13px 16px', color: text, fontSize: '14px', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', transition: 'border-color 0.2s, box-shadow 0.2s', boxShadow: 'inset 0 1px 0 rgba(253,253,252,0.9)' }
   const lblStyle = { display: 'block', color: subtext, fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }
 
-useEffect(() => { fetchProducts() }, [activeCategory])
+
 
   // ── Restock: auto-open edit modal when products load for the matching product ──
-  useEffect(() => {
-    if (restockProductId && !restockHandled && products.length > 0 && !loadingProducts) {
-      const target = products.find(p => p.id === restockProductId)
-      if (target) {
-        openEdit(target)
-        setRestockHandled(true)
-      }
-    }
-  }, [products, loadingProducts, restockProductId, restockHandled])
 
-  const fetchProducts = async () => {
-    setLoadingProducts(true)
-    try {
-      const res = await api.get(`/jewelry-products/?category=${activeCategory}`)
-      setProducts(Array.isArray(res.data) ? res.data : [])
-    } catch { setProducts([]) }
-    setLoadingProducts(false)
-  }
+
+  function requestFetchProducts() {
+return api.get(`/jewelry-products/?category=${activeCategory}`).then((res) => {
+setProducts(Array.isArray(res.data) ? res.data : [])
+      if (restockProductId && !restockHandled) {
+        const target = (Array.isArray(res.data) ? res.data : []).find(product => product.id === restockProductId)
+        if (target) { openEdit(target); setRestockHandled(true) }
+      }
+}).catch(() => {
+ setProducts([])
+}).finally(() => {
+setLoadingProducts(false)
+});
+}
+function fetchProducts() {
+setLoadingProducts(true)
+return requestFetchProducts();
+}
 
 
 
@@ -257,6 +259,9 @@ useEffect(() => { fetchProducts() }, [activeCategory])
     setEditImages([]); setEditPreviews([]); setEditMsg('')
     setEditLivePrice(p.price ? String(p.price) : null)
   }
+const committedRequestFetchProducts = useCommittedCallback((...args) => requestFetchProducts(...args))
+  useEffect(() => { committedRequestFetchProducts() }, [activeCategory, committedRequestFetchProducts])
+
 
   // ── EDIT SAVE ──
   const handleEdit = async () => {
@@ -300,7 +305,7 @@ useEffect(() => { fetchProducts() }, [activeCategory])
     setEditSaving(false)
   }
 
-  // ── DELETE IMAGE ── 
+  // ── DELETE IMAGE ──
   const deleteImage = async imgId => {
     try {
       await api.delete(`/jewelry-product-images/${imgId}/`)
@@ -373,7 +378,7 @@ const handleDelete = async (id) => {
           ))}
         </div>
 
-       
+
         {/* Right actions */}
         <div className="ap-actions-wrap">
 
@@ -397,7 +402,7 @@ const handleDelete = async (id) => {
       {/* ── PAGE BODY ── */}
       <div className="ap-body">
 
-        
+
         {/* ── PRODUCT GRID HEADER ── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
           <div style={{ color: '#0C4044', fontSize: '14px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1.4px' }}>

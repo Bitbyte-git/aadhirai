@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import { useEffect, useRef, useState } from 'react'
 import { SkeletonText } from '../components/Skeleton'
 
@@ -134,7 +135,8 @@ export default function LoginRewardTransaction() {
     }
   }
 
-  useEffect(() => { fetchData('all', 1, 'today', '', '') }, [])
+  const committedFetchData = useCommittedCallback((...args) => fetchData(...args))
+  useEffect(() => { committedFetchData('all', 1, 'today', '', '') }, [committedFetchData])
 
   const handleRoleClick = key => {
     if (key === role) return

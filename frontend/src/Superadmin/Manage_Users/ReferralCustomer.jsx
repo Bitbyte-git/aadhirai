@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../../api.js";
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api'
@@ -15,7 +16,7 @@ export default function ReferralCustomer() {
   const [totalSpent, setTotalSpent] = useState(0)
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [toast, setToast] = useState('')
-  const [copiedId, setCopiedId] = useState(null)
+  const [, setCopiedId] = useState(null)
 
   const showToast = (msg) => {
     setToast(msg)
@@ -58,9 +59,10 @@ export default function ReferralCustomer() {
     return () => clearTimeout(timer)
   }, [searchInput])
 
+  const committedFetchReferralCustomers = useCommittedCallback((...args) => fetchReferralCustomers(...args))
   useEffect(() => {
-    fetchReferralCustomers()
-  }, [search, roleFilter])
+    committedFetchReferralCustomers()
+  }, [search, roleFilter, committedFetchReferralCustomers])
 
   const getRoleBadgeStyle = (role) => {
     switch (role?.toLowerCase()) {

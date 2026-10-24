@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import logo from '../assets/logo.png'
-import { addToCart } from '../collection/card_section'
+
+import { addToCart } from "../api.js";
 import CustomerNavbar from '../collection/CustomerNavbar'
 import CustomerFooter from '../collection/CustomerFooter'
 
@@ -36,9 +36,9 @@ const TAG_COLORS = {
 
 export default function GoldChain() {
   const navigate = useNavigate()
-  const [selectedWeight, setSelectedWeight] = useState('All Weights')
+  const [selectedWeight] = useState('All Weights')
   const [hoveredItem, setHoveredItem] = useState(null)
-  const [goldPrice, setGoldPrice] = useState(null)
+  const [goldPrice] = useState(null)
   const [selectedItem, setSelectedItem] = useState(null)
   const [goldChains, setGoldChains] = useState([])
   const [loading, setLoading] = useState(true)
@@ -49,10 +49,10 @@ export default function GoldChain() {
 const bg = '#FDF5EE'
 const text = '#020617'
 const subtext = '#64748b'
-const border = 'rgba(0,0,0,0.1)'
-const cardBg = 'rgba(0,0,0,0.03)'
-const inpBg = 'rgba(0,0,0,0.05)'
-const inpBorder = '#d1d5db'
+
+
+
+
 const goldColor = '#fbbf24'
 
 const API_BASE = 'https://bitbyte-backend-f66f.onrender.com'
@@ -101,11 +101,11 @@ useEffect(() => {
         return next
       })
       window.dispatchEvent(new Event('bb_wishlist_update'))
-    } catch {}
+    } catch { /* No additional action is needed in this fallback. */ }
   }
 
   const selectedW = WEIGHTS.find(w => w.label === selectedWeight)
-  const unitPrice = selectedW?.grams && goldPrice ? selectedW.grams * goldPrice : null
+  ;(selectedW?.grams && goldPrice ? selectedW.grams * goldPrice : null);
   const tagStyle = tag => TAG_COLORS[tag] || { bg: 'rgba(255,255,255,0.1)', border: 'rgba(255,255,255,0.2)', color: '#fff' }
 
 return (

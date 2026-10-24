@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import api from "../api";
 import { SkeletonText } from "../components/Skeleton";
@@ -24,6 +24,11 @@ const ROLE_LABELS = {
 };
 
 export default function PromotionSalesOrderList() {
+  const [params] = useSearchParams();
+  return <PromotionSalesContent key={params.toString()} />;
+}
+
+function PromotionSalesContent() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -34,7 +39,7 @@ export default function PromotionSalesOrderList() {
   const orderFilter = searchParams.get("order_filter") || "all";
 
   const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(nodeType && userId));
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [copiedId, setCopiedId] = useState(null);
@@ -112,12 +117,7 @@ export default function PromotionSalesOrderList() {
   };
 
   useEffect(() => {
-    if (!nodeType || !userId) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError("");
+    if (!nodeType || !userId) return;
 
     const url =
       listType === "customers"
@@ -137,7 +137,7 @@ export default function PromotionSalesOrderList() {
   const isCustomerMode = listType === "customers";
 
   // Filtered rows by search query
-  const filteredRows = useMemo(() => {
+  const filteredRows = (() => {
     if (!searchTerm.trim()) return rows;
     const q = searchTerm.toLowerCase().trim();
     return rows.filter((r) => {
@@ -154,7 +154,7 @@ export default function PromotionSalesOrderList() {
         pos.toLowerCase().includes(q)
       );
     });
-  }, [rows, searchTerm, isCustomerMode]);
+  })();
 
   // Key Aggregations
   const totalRecords = rows.length;

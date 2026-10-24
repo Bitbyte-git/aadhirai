@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import logo from '../assets/logo.png'
+
 import silverCoin from '../assets/silver-coin-transparent.png'
-import { addToCart } from '../collection/card_section'
 import CustomerNavbar from '../collection/CustomerNavbar'
 import CustomerFooter from '../collection/CustomerFooter'
 
@@ -32,7 +31,7 @@ const bg = '#FDF5EE'
 const text = '#020617'
 const subtext = '#64748b'
 const border = 'rgba(0,0,0,0.1)'
-const cardBg = 'rgba(0,0,0,0.03)'
+
 const silverColor = '#c0c0c0'
 
   // Fetch silver rate
@@ -86,7 +85,7 @@ const silverColor = '#c0c0c0'
         return next
       })
       window.dispatchEvent(new Event('bb_wishlist_update'))
-    } catch {}
+    } catch { /* No additional action is needed in this fallback. */ }
   }
 
 

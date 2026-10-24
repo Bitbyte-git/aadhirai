@@ -52,6 +52,11 @@ function getPasswordStrength(pw) {
 }
 
 export default function RegisterPage() {
+  const [params] = useSearchParams();
+  return <ReferralRegistration key={params.toString()} />;
+}
+
+function ReferralRegistration() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const ref = searchParams.get("ref");
@@ -65,16 +70,12 @@ export default function RegisterPage() {
   const [regSuccessModal, setRegSuccessModal] = useState(false);
 
   const [referrer, setReferrer] = useState(null);
-  const [referrerLoading, setReferrerLoading] = useState(true);
-  const [referrerError, setReferrerError] = useState("");
+  const [referrerLoading, setReferrerLoading] = useState(Boolean(ref));
+  const [referrerError, setReferrerError] = useState(ref ? "" : "Invalid or missing referral link.");
   const [pincodeLookupMsg, setPincodeLookupMsg] = useState("");
 
   useEffect(() => {
-    if (!ref) {
-      setReferrerError("Invalid or missing referral link.");
-      setReferrerLoading(false);
-      return;
-    }
+    if (!ref) return;
     api
       .get(`/referrer-info/?ref=${ref}`)
       .then((res) => setReferrer(res.data))

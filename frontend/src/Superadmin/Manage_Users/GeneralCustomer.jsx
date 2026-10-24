@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useCommittedCallback } from "../../api.js";
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api'
 
@@ -14,7 +15,7 @@ export default function GeneralCustomer() {
   const [totalSpent, setTotalSpent] = useState(0)
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [toast, setToast] = useState('')
-  const [copiedId, setCopiedId] = useState(null)
+  const [, setCopiedId] = useState(null)
 
   const showToast = (msg) => {
     setToast(msg)
@@ -57,9 +58,10 @@ export default function GeneralCustomer() {
     return () => clearTimeout(timer)
   }, [searchInput])
 
+  const committedFetchGeneralCustomers = useCommittedCallback((...args) => fetchGeneralCustomers(...args))
   useEffect(() => {
-    fetchGeneralCustomers()
-  }, [search])
+    committedFetchGeneralCustomers()
+  }, [search, committedFetchGeneralCustomers])
 
   return (
     <main className="gc-page-root">

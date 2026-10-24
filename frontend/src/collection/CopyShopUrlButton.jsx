@@ -9,7 +9,7 @@ export default function CopyShopUrlButton({ style, label = "Copy URL" }) {
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
+    } catch {
       alert("Failed to copy URL. Please try again.");
     }
   };

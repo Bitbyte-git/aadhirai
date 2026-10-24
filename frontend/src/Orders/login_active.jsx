@@ -148,7 +148,7 @@ export default function LoginActive() {
       if (isCurrent()) setLoading(false);
     };
     fetchData();
-  }, [roleFilter, periodFilter, viewMode]);
+  }, [roleFilter, periodFilter, viewMode, scopeIds]);
 
   const formatTime = (iso) => {
     if (!iso) return "Never Login";

@@ -116,7 +116,7 @@ function CtChainStepper({ chain }) {
 }
 
 export default function TransactionHistory() {
-  const navigate = useNavigate();
+  (useNavigate());
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -302,7 +302,7 @@ export default function TransactionHistory() {
     }
 
     const rowsHtml = filteredRequests
-      .map((r, idx) => {
+      .map((r) => {
         const itemsFormatted = (r.items || [])
           .map(
             (i) =>
@@ -543,53 +543,7 @@ export default function TransactionHistory() {
     printWindow.document.close();
   };
 
-  const exportCSV = () => {
-    if (!filteredRequests.length) return;
-    const headers = [
-      "Requester ID",
-      "Requester Name",
-      "Requester Role",
-      "Phone",
-      "Email",
-      "Assigned Approver",
-      "Approver Role",
-      "Denominations",
-      "Date",
-      "Status",
-      "Reject Reason"
-    ];
-    const csvData = filteredRequests.map((r) => {
-      const itemsFormatted = (r.items || [])
-        .map((i) => `${COIN_METAL_LABELS_TEXT[i.metal_type] || i.metal_type} (${i.weight_label}) x ${i.qty}`)
-        .join("; ");
-      return [
-        `"${r.requested_by_id_str || ""}"`,
-        `"${(r.requested_by_name || "").replace(/"/g, '""')}"`,
-        `"${r.requested_by_role || ""}"`,
-        `"${r.requested_by_phone || ""}"`,
-        `"${r.requested_by_email || ""}"`,
-        `"${(r.requested_to_name || "").replace(/"/g, '""')}"`,
-        `"${r.requested_to_role || ""}"`,
-        `"${itemsFormatted}"`,
-        `"${formatTime(r.created_at)}"`,
-        `"${r.status}"`,
-        `"${(r.reject_reason || "").replace(/"/g, '""')}"`,
-      ];
-    });
 
-    const blob = new Blob(
-      [[headers.join(","), ...csvData.map((row) => row.join(","))].join("\n")],
-      { type: "text/csv;charset=utf-8;" }
-    );
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `coin_transactions_${filter}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast("CSV exported");
-  };
 
   return (
     <div className="ct-root">

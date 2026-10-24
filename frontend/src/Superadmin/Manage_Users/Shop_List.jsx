@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../../api.js";
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import api from '../../api'
@@ -91,12 +92,13 @@ export default function ShopList() {
     return () => clearTimeout(t)
   }, [searchInput])
 
+  const committedFetchShops = useCommittedCallback((...args) => fetchShops(...args))
   useEffect(() => {
     const controller = new AbortController()
     setOffset(0)
-    fetchShops(controller.signal, 0, false)
+    committedFetchShops(controller.signal, 0, false)
     return () => controller.abort()
-  }, [search, activeTab, typeFilter, refreshKey])
+  }, [search, activeTab, typeFilter, refreshKey, committedFetchShops])
 
   const handleLoadMore = () => {
     const next = offset + PAGE_SIZE

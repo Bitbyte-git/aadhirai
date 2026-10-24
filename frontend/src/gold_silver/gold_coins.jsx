@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import logo from '../assets/logo.png'
+
 import goldCoin from '../assets/gold-coin-transparent.png'
-import { addToCart } from '../collection/card_section'
 import CustomerNavbar from '../collection/CustomerNavbar'
 import CustomerFooter from '../collection/CustomerFooter'
 
@@ -34,17 +33,17 @@ export default function GoldCoins() {
   const [metalPrices, setMetalPrices] = useState({ gold22k: null, gold24k: null })
   const [hoveredId, setHoveredId] = useState(null)
   const [wishlistedIds, setWishlistedIds] = useState(new Set())
-  const [metalType, setMetalType] = useState(gradeFilter === '24k' ? '24k' : '22k')
+  const [metalType] = useState(gradeFilter === '24k' ? '24k' : '22k')
 
 
 const bg = '#FDF5EE'
 const text = '#020617'
 const subtext = '#64748b'
 const border = 'rgba(0,0,0,0.1)'
-const cardBg = 'rgba(0,0,0,0.03)'
+
 const goldColor = metalType === '22k' ? '#fbbf24' : '#ffd700'
-const inpBg = 'rgba(0,0,0,0.05)'
-const inpBorder = '#d1d5db'
+
+
 
   // Fetch metal rates
   useEffect(() => {
@@ -98,7 +97,7 @@ useEffect(() => {
         return next
       })
       window.dispatchEvent(new Event('bb_wishlist_update'))
-    } catch {}
+    } catch { /* No additional action is needed in this fallback. */ }
   }
 
 

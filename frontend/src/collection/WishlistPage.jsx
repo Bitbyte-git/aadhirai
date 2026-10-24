@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import { Heart, ArrowUpRight, ShoppingBag } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -82,16 +83,17 @@ export default function WishlistPage() {
     }
   }
 
+  const committedLoadMoreWishlist = useCommittedCallback((...args) => loadMoreWishlist(...args))
   useEffect(() => {
     const el = loadMoreRef.current
     if (!el || !hasMore || loading) return undefined
     const observer = new IntersectionObserver(
-      (entries) => { if (entries[0].isIntersecting) loadMoreWishlist() },
+      (entries) => { if (entries[0].isIntersecting) committedLoadMoreWishlist() },
       { rootMargin: '600px 0px' }
     )
     observer.observe(el)
     return () => observer.disconnect()
-  }, [hasMore, loading, page, loadingMore])
+  }, [hasMore, loading, page, loadingMore, committedLoadMoreWishlist])
 
   const grouped = useMemo(() => {
     const metals = new Set(items.map(item => item.product_metal).filter(Boolean))
@@ -492,7 +494,7 @@ export default function WishlistPage() {
 
       <main className="wishlist-shell">
         <section className="wishlist-hero wishlist-hero-artwork">
-          <img className="wishlist-banner-art" src="/wishlist-banner.png" alt="" width="2048" height="768" fetchPriority="high" decoding="async" />
+          <img className="wishlist-banner-art" src="/Gold/wishlist-banner.png" alt="" width="2048" height="768" fetchPriority="high" decoding="async" />
           <div>
             <div className="wishlist-kicker"><Heart size={15} /> YOUR PERSONAL COLLECTION</div>
             <h1>My Wishlist</h1>

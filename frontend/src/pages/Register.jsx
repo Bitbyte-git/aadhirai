@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import api from "../api";
-import logo from "../assets/logo.png";
+const logo = '/Gold/Athirai_logo.png';
 import CustomerFooter from "../collection/CustomerFooter";
 import ActionSuccessModal from "../Coins_products/ActionSuccessModal";
 
@@ -83,7 +83,7 @@ export default function Register() {
   const [resendTimer, setResendTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
-  const [otpNotice, setOtpNotice] = useState("");
+  useState("");
   const [regSuccessModal, setRegSuccessModal] = useState(false);
 
   const otpInputRefs = useRef([]);
@@ -154,31 +154,7 @@ export default function Register() {
     }
   };
 
-  const handleQuickFill = () => {
-    const randNum = Math.floor(1000 + Math.random() * 9000);
-    setForm({
-      initial: "Mrs",
-      first_name: "Aarthi",
-      last_name: "Kumar",
-      gender: "female",
-      mobile_number: `98765${randNum}`,
-      dob: "1998-05-15",
-      married_status: "single",
-      anniversary_date: "",
-      door_no: "12/A",
-      street_name: "Gandhi Road",
-      town_name: "Anna Nagar",
-      city_name: "Chennai",
-      pincode: "600040",
-      district: "Chennai",
-      state: "Tamil Nadu",
-      email: `aarthi_${randNum}@example.com`,
-      password: "Password@2026",
-    });
-    setConfirmPassword("Password@2026");
-    setFormErrors({});
-    setGlobalMsg({ type: "success", text: "Sample details auto-filled! Click REGISTER below to submit." });
-  };
+
 
   const validateForm = () => {
     const errors = {};
@@ -454,10 +430,10 @@ export default function Register() {
           height: 44px;
           display: grid;
           place-items: center;
-          border: 1px solid rgba(233, 211, 178, 0.35);
-          border-radius: 12px;
-          background: rgba(255, 255, 255, 0.08);
-        }
+
+
+
+         border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 0; }
         .ath-brand-icon img {
           width: 28px;
         }
@@ -1305,7 +1281,7 @@ export default function Register() {
                 <img src={logo} alt="Athirai" />
               </span>
               <div>
-                <b>ATHIRAI</b>
+                <b className="athirai-wordmark">ATHIRAI</b>
                 <small>Fine jewellery, elevated</small>
               </div>
             </div>

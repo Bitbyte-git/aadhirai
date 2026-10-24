@@ -43,12 +43,21 @@ export default function AvailableJewellery() {
   const [hierarchyStock, setHierarchyStock] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hierarchyLoading, setHierarchyLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [, setError] = useState("");
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [metalFilter, setMetalFilter] = useState("all");
   const [hierarchyPurityFilter, setHierarchyPurityFilter] = useState("all");
   const [copiedId, setCopiedId] = useState(null);
+  const handleCopy = async (value, userId) => {
+    if (!value || !navigator.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(String(value));
+      setCopiedId(userId);
+      setTimeout(() => setCopiedId(current => current === userId ? null : current), 1800);
+    } catch { /* Clipboard access can be denied by the browser. */ }
+  };
+
   const [previewItem, setPreviewItem] = useState(null);
 
   // ── Team Holdings — ellaa roles-kum, avanga KEEZHA irukura team mattum (backend scope).

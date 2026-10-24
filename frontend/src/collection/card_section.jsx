@@ -1,58 +1,24 @@
+import { getCartFromDB, removeFromCartDB, updateQtyDB } from '../api'
 import { ShoppingBag, ArrowRight, ShieldCheck, LockKeyhole, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import api from '../api'
+import '../api';
 import CustomerFooter from '../collection/CustomerFooter'
 
-export async function getCartFromDB() {
-  try {
-    const res = await api.get('/cart/')
-    return Array.isArray(res.data) ? res.data : []
-  } catch {
-    return []
-  }
-}
 
-export async function addToCartDB(productId, qty = 1) {
-  try {
-    const res = await api.post('/cart/', { product_id: productId, qty })
-    window.dispatchEvent(new Event('bb_cart_update'))
-    return res.data
-  } catch (err) {
-    console.error('Add to cart failed:', err)
-    return null
-  }
-}
 
-export async function removeFromCartDB(productId) {
-  try {
-    await api.delete('/cart/', { data: { product_id: productId } })
-    window.dispatchEvent(new Event('bb_cart_update'))
-  } catch (err) {
-    console.error('Remove failed:', err)
-  }
-}
 
-export async function updateQtyDB(cartItemId, qty) {
-  try {
-    const res = await api.patch(`/cart/${cartItemId}/qty/`, { qty })
-    window.dispatchEvent(new Event('bb_cart_update'))
-    return res.data
-  } catch (err) {
-    console.error('Qty update failed:', err)
-    return null
-  }
-}
 
-export async function getCartCountDB() {
-  const items = await getCartFromDB()
-  return items.reduce((acc, i) => acc + (i.qty || 1), 0)
-}
 
-export function getCart() { return [] }
-export function saveCart() {}
-export function addToCart() {}
-export function getCartCount() { return 0 }
+
+
+
+
+
+
+
+
+
 
 const money = value => {
   const amount = Number(value)
@@ -85,16 +51,11 @@ export default function CardSection() {
   }, [])
 
 
-  const fetchCart = async () => {
-    setLoading(true)
-    const items = await getCartFromDB()
-    setCart(items)
-    setLoading(false)
-  }
+  const fetchCart = () => getCartFromDB().then(items => { setCart(items); setLoading(false) })
 
   useEffect(() => {
     fetchCart()
-    const handler = () => fetchCart()
+    const handler = () => { setLoading(true); fetchCart() }
     window.addEventListener('bb_cart_update', handler)
     return () => window.removeEventListener('bb_cart_update', handler)
   }, [])
@@ -175,7 +136,7 @@ export default function CardSection() {
 
       <main className="cart-shell">
         <section className="cart-hero cart-hero-artwork">
-          <img className="cart-banner-art" src="/cart-banner.png" alt="" width="2048" height="768" fetchPriority="high" decoding="async" />
+          <img className="cart-banner-art" src="/Gold/cart-banner.png" alt="" width="2048" height="768" fetchPriority="high" decoding="async" />
           <div>
             <span className="cart-kicker">YOUR SHOPPING BAG</span>
             <h1>My Cart</h1>

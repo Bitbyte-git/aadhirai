@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
-import logo from '../assets/logo.png'
+const logo = '/Gold/Athirai_logo.png';
 import ActionSuccessModal from '../Coins_products/ActionSuccessModal'
 import './LoginPage.css'
 
@@ -112,7 +112,7 @@ export default function LoginPage() {
               <img src={logo} alt="Athirai" />
             </span>
             <div>
-              <b>ATHIRAI</b>
+              <b className="athirai-wordmark">ATHIRAI</b>
               <small>Fine jewellery, elevated</small>
             </div>
           </div>
@@ -186,7 +186,7 @@ export default function LoginPage() {
             </div>
             <div className="mobile-brand-meta">
               <span className="mobile-brand-pill">✦ PRIVATE COMMERCE SUITE</span>
-              <h1 className="mobile-brand-title">ATHIRAI</h1>
+              <h1 className="mobile-brand-title athirai-wordmark">ATHIRAI</h1>
               <p className="mobile-brand-sub">Fine Jewellery, Elevated</p>
             </div>
           </div>

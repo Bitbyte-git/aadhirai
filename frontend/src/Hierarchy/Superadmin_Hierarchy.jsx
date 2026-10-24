@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import { SkeletonCard } from '../components/Skeleton'
@@ -196,7 +196,7 @@ function printPersonCard(node, role, cfg, color, ancestors, superAdminEmail) {
       ${chainHtml}
       <div class="footer">Printed on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
     </div>
-    <script>window.onload = () => { window.print() }<\/script>
+    <script>window.onload = () => { window.print() }</script>
     </body></html>
   `)
   printWindow.document.close()
@@ -612,7 +612,7 @@ function printHorizontalBracketTree(adminNode, role, ancestors, superAdminEmail,
           zoomFit();
           setTimeout(() => window.print(), 200);
         };
-      <\/script>
+      </script>
     </body>
     </html>
   `)
@@ -1002,7 +1002,7 @@ const [loadingChildren, setLoadingChildren] = useState(null)
 
 // ── NEW: Print choice popup state — "only this / full hierarchy" select panna ──
 const [printTarget, setPrintTarget] = useState(null) // { node, role, cfg, color, ancestors }
-const [printLoading, setPrintLoading] = useState(false)
+const [, setPrintLoading] = useState(false)
 const openPrintPopup = (target) => setPrintTarget(target)
 const handlePrintOnly = () => {
   if (!printTarget) return

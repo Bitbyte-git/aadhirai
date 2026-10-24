@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import api from '../api'
@@ -7,7 +8,7 @@ import { getSubcategories, getGiftingSubcategories } from '../config/categoryCon
   const API_ORIGIN = (api.defaults.baseURL || '').replace(/\/api\/?$/, '')
 
   const categoryTiles = [
-    { label: 'Necklaces', category: 'necklaces', count: '478+', image: '/diamond_necklas.jpg' },
+    { label: 'Necklaces', category: 'necklaces', count: '478+', image: '/Gold/diamond_necklas.jpg' },
     { label: 'Earrings', category: 'earrings', count: '965+', image: '/rail/gold-earrings.png' },
     { label: 'Rings', category: 'rings', count: '678+', image: '/rail/gold-rings.png' },
     { label: 'Bracelets', category: 'bracelets', count: '412+', image: '/rail/gold-bracelets.png' },
@@ -15,12 +16,12 @@ import { getSubcategories, getGiftingSubcategories } from '../config/categoryCon
     { label: 'Chains', category: 'chains', count: '286+', image: '/rail/gold-chains.png' },
     { label: 'Mangalsutra', category: 'mangalsutra', count: '193+', image: '/rail/gold-mangalsutra.png' },
     { label: 'Bangles', category: 'bangles', count: '551+', image: '/rail/gold-bangles.png' },
-    { label: 'Necklace Set', category: 'necklaces', count: '241+', image: '/wedding_necklaces.jpg' },
+    { label: 'Necklace Set', category: 'necklaces', count: '241+', image: '/Gold/wedding_necklaces.jpg' },
     { label: 'Nose Pin', category: 'nosepin', count: '156+', image: '/diamond Earings.jpg' },
   ]
 
-  const goldRail = [
-    { label: 'Necklaces', category: 'necklaces', image: '/gold-women.png' },
+  ;([
+    { label: 'Necklaces', category: 'necklaces', image: '/Gold/gold-women.png' },
     { label: 'Earrings', category: 'earrings', image: '/rail/gold-earrings.png' },
     { label: 'Rings', category: 'rings', image: '/rail/gold-rings.png' },
     { label: 'Bangles', category: 'bangles', image: '/rail/gold-bangles.png' },
@@ -28,7 +29,7 @@ import { getSubcategories, getGiftingSubcategories } from '../config/categoryCon
     { label: 'Pendants', category: 'pendants', image: '/rail/gold-pendants.png' },
     { label: 'Mangalsutra', category: 'mangalsutra', image: '/rail/gold-mangalsutra.png' },
     { label: 'Gold Coins', route: '/collection/coins?metal=gold', image: '/rail/gold-coins.png' },
-  ]
+  ]);
 
   const filterCategories = [
     ['All Jewellery', '/collection/all', null],
@@ -122,12 +123,12 @@ const giftingFilterCategories = [
   ['Corporate Gifts', '/collection/gifting?gift_tag=Corporate', 'Corporate'],
   ['Religious Gifts', '/collection/gifting?gift_tag=Religious', 'Religious'],
 ]
-  const promos = [
-    { title: 'Daily Wear', text: 'Elegant designs for everyday beauty.', route: '/collection/all?dailywear=true', image: '/dailywera.png' },
-    { title: 'Wedding Collection', text: 'Make your big day even more special.', route: '/collection/all?wedding=true', image: '/wedding_necklaces.jpg' },
-    // { title: 'Diamond Collection', text: 'Brilliance that lasts forever.', route: '/collection/all?metal=diamond', image: '/diamond_ring.jpg' },  // hidden — future use ku vachurukom
-    { title: 'Silver Collection', text: 'Pure. Elegant. Timeless.', route: '/collection/all?metal=silver', image: '/silver-coin.jpg.jpeg' },
-  ]
+  ;([
+    { title: 'Daily Wear', text: 'Elegant designs for everyday beauty.', route: '/collection/all?dailywear=true', image: '/Gold/dailywera.png' },
+    { title: 'Wedding Collection', text: 'Make your big day even more special.', route: '/collection/all?wedding=true', image: '/Gold/wedding_necklaces.jpg' },
+    // { title: 'Diamond Collection', text: 'Brilliance that lasts forever.', route: '/collection/all?metal=diamond', image: '/Gold/diamond_ring.jpg' },  // hidden — future use ku vachurukom
+    { title: 'Silver Collection', text: 'Pure. Elegant. Timeless.', route: '/collection/all?metal=silver', image: '/Gold/silver-coin.jpg.jpeg' },
+  ]);
 
   const trustItems = [
     ['100% BIS Hallmarked', 'hallmark'],
@@ -207,8 +208,8 @@ const giftingFilterCategories = [
       accent: '#a36b18',
       bannerTitle: 'Shine in Every Moment',
       bannerText: 'Explore our exclusive gold collections designed to celebrate you.',
-      bannerImage: '/wedding_necklaces.jpg',
-      sideImage: '/gold_Woman.jpg',
+      bannerImage: '/Gold/wedding_necklaces.jpg',
+      sideImage: '/Gold/gold_Woman.jpg',
       sideTitle: 'Heritage. Purity. Timeless Gold.',
     },
     diamond: {
@@ -227,8 +228,8 @@ const giftingFilterCategories = [
       accent: '#6b7280',
       bannerTitle: 'Pure. Elegant. Everyday.',
       bannerText: 'Explore silver jewellery and coins with trusted purity.',
-      bannerImage: '/silver-coin.jpg.jpeg',
-      sideImage: '/dailywear_woman.jpg',
+      bannerImage: '/Gold/silver-coin.jpg.jpeg',
+      sideImage: '/Gold/dailywear_woman.jpg',
       sideTitle: 'Silver Grace. Everyday Shine.',
     },
     platinum: {
@@ -237,8 +238,8 @@ const giftingFilterCategories = [
       accent: '#788392',
       bannerTitle: 'Minimal Luxury in Platinum',
       bannerText: 'Premium designs for moments that deserve quiet elegance.',
-      bannerImage: '/platinum_ring.jpg',
-      sideImage: '/platinum_necklas.jpg',
+      bannerImage: '/Gold/platinum_ring.jpg',
+      sideImage: '/Gold/platinum_necklas.jpg',
       sideTitle: 'Modern. Rare. Refined.',
     },
   }
@@ -417,7 +418,7 @@ function readSubsecCache(key) {
 function writeSubsecCache(key, data) {
   try {
     sessionStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }))
-  } catch {}
+  } catch { /* No additional action is needed in this fallback. */ }
 }
 
   function CategoryTile({ item, navigate }) {
@@ -435,7 +436,7 @@ function writeSubsecCache(key, data) {
   }
 
   function ProductCard({ product, rates, navigate, wishlisted, onWishlist }) {
-  const image = getImageUrl(product.images?.[0]) || '/logo.png'
+  const image = getImageUrl(product.images?.[0]) || '/Gold/Athirai_logo.png'
   const price = productPrice(product, rates)
   const goProduct = () => navigate(`/product-display?category=${product.category}&metal=${product.metal}&id=${product.id}`)
 
@@ -448,7 +449,7 @@ function writeSubsecCache(key, data) {
       try {
         await api.post('/cart/', { product: product.id, qty: 1 })
         window.dispatchEvent(new Event('bb_cart_update'))
-      } catch {}
+      } catch { /* No additional action is needed in this fallback. */ }
     }
 
     return (
@@ -540,8 +541,8 @@ const CATEGORY_RAIL_IMAGES = {
   'Pendants': '/landing-img/pendants.png',
   'Chains': '/landing-img/chains.png',
   'Bangles': '/landing-img/bangles.png',
-  'Mangalsutra': '/black_necklaces.png',
-  'Necklace Set': '/wedding_necklaces.jpg',
+  'Mangalsutra': '/Gold/black_necklaces.png',
+  'Necklace Set': '/Gold/wedding_necklaces.jpg',
   'Coin & Bars': '/coin/200mg.png',
   'Coins': '/coin/200mg.png',
   'Coins & Bars': '/coin/200mg.png',
@@ -690,9 +691,11 @@ function FilterPanel({ activeRoute, navigate, metalFilter, categoryFilter, subca
         : categories
   const [expandedKey, setExpandedKey] = useState(activeKey || null)
 
-  useEffect(() => {
+  const [previousActiveKey, setPreviousActiveKey] = useState(activeKey)
+  if (previousActiveKey !== activeKey) {
+    setPreviousActiveKey(activeKey)
     setExpandedKey(activeKey || null)
-  }, [activeKey])
+  }
 
   const subcategoryMetal = isWedding ? 'wedding' : (metalFilter || 'gold')
   const subButtonRefs = useRef({})
@@ -1026,11 +1029,9 @@ function FilterFullPage({ categories, activeKey, activeSubFilter, isGifting, isW
   // Selecting e.g. "Bracelets" then switching metal to one that doesn't
   // offer bracelets would otherwise leave selectedKey pointing at a
   // category no longer in `categories`, crashing the render below.
-  useEffect(() => {
-    if (selectedKey && !categories.some(([, , key]) => key === selectedKey)) {
-      setSelectedKey(null)
-    }
-  }, [categories, selectedKey])
+  if (selectedKey && !categories.some(([, , key]) => key === selectedKey)) {
+    setSelectedKey(null)
+  }
 
   const selectedSubOptions = selectedEntry ? subOptionsFor(selectedKey) : []
 
@@ -1273,7 +1274,7 @@ export default function AllCollection() {
     const isDailywear = searchParams.get('dailywear') === 'true'
     const [products, setProducts] = useState([])
     const [rates, setRates] = useState({})
-    const [sortBy, setSortBy] = useState('popular')
+    const [sortBy] = useState('popular')
     const [loading, setLoading] = useState(true)
     const [subcategorySections, setSubcategorySections] = useState([])
     const [sectionsLoading, setSectionsLoading] = useState(false)
@@ -1315,7 +1316,7 @@ export default function AllCollection() {
         return next
       })
       window.dispatchEvent(new Event('bb_wishlist_update'))
-    } catch {}
+    } catch { /* No additional action is needed in this fallback. */ }
   }
 
     useEffect(() => {
@@ -1359,13 +1360,14 @@ export default function AllCollection() {
       return params
     }
 
-    useEffect(() => {
+    const committedBuildProductParams = useCommittedCallback((...args) => buildProductParams(...args))
+  useEffect(() => {
       const loadProducts = async () => {
         setLoading(true)
         setPage(1)
         setHasMore(false)
         try {
-          const params = buildProductParams(1)
+          const params = committedBuildProductParams(1)
           const res = await api.get(`/jewelry-products/?${params.toString()}`)
           // Backend may not have the paginated response shape deployed yet —
           // fall back to treating a plain array as "everything, no more pages".
@@ -1382,7 +1384,7 @@ export default function AllCollection() {
       }
 
           loadProducts()
-    }, [metalFilter, categoryFilter, subcategoryFilter, genderFilter, ageFilter, occasionFilter, giftTagFilter, giftTypeFilter, priceFilter, searchFilter, isWedding, isDailywear])
+    }, [metalFilter, categoryFilter, subcategoryFilter, genderFilter, ageFilter, occasionFilter, giftTagFilter, giftTypeFilter, priceFilter, searchFilter, isWedding, isDailywear, committedBuildProductParams])
 
     const loadMoreProducts = async () => {
       if (loadingMore || !hasMore) return
@@ -1407,18 +1409,19 @@ export default function AllCollection() {
     // Sentinel div at the bottom of the flat product grid — scrolling it
     // into view auto-loads the next 30 products (Amazon/Flipkart pattern),
     // instead of fetching every matching product up front.
-    useEffect(() => {
+    const committedLoadMoreProducts = useCommittedCallback((...args) => loadMoreProducts(...args))
+  useEffect(() => {
       const el = loadMoreRef.current
       if (!el || !hasMore) return undefined
       const observer = new IntersectionObserver(
         (entries) => {
-          if (entries[0].isIntersecting) loadMoreProducts()
+          if (entries[0].isIntersecting) committedLoadMoreProducts()
         },
         { rootMargin: '600px 0px' }
       )
       observer.observe(el)
       return () => observer.disconnect()
-    }, [hasMore, page, loadingMore, metalFilter, categoryFilter, subcategoryFilter, genderFilter, ageFilter, occasionFilter, giftTagFilter, giftTypeFilter, priceFilter, searchFilter, isWedding, isDailywear])
+    }, [hasMore, page, loadingMore, metalFilter, categoryFilter, subcategoryFilter, genderFilter, ageFilter, occasionFilter, giftTagFilter, giftTypeFilter, priceFilter, searchFilter, isWedding, isDailywear, committedLoadMoreProducts])
 
     // subcategory scroll — clicked subcategory first, remaining subcategories
     // (same category, navbar order) follow one after another below it.
@@ -1580,8 +1583,8 @@ export default function AllCollection() {
       accent: '#073B3F',
       bannerTitle: 'Heritage Crafted For Generations',
       bannerText: 'Explore jewellery collections made for every occasion.',
-      bannerImage: '/black_necklaces.png',
-      sideImage: '/gold_Woman.jpg',
+      bannerImage: '/Gold/black_necklaces.png',
+      sideImage: '/Gold/gold_Woman.jpg',
       sideTitle: 'Heritage Crafted. For Generations.',
     }
 

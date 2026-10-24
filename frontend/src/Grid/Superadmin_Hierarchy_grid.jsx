@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../api'
@@ -545,7 +546,7 @@ function printHorizontalBracketTree(adminNode, role, ancestors, superAdminEmail,
           zoomFit();
           setTimeout(() => window.print(), 200);
         };
-      <\/script>
+      </script>
     </body>
     </html>
   `)
@@ -596,7 +597,7 @@ function printPersonCard(node, role, cfg, color, ancestors, superAdminEmail) {
       ${chainHtml}
       <div class="footer">Printed on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
     </div>
-    <script>window.onload = () => { window.print() }<\/script>
+    <script>window.onload = () => { window.print() }</script>
     </body></html>
   `)
   printWindow.document.close()
@@ -1150,7 +1151,7 @@ const [selPromotor, setSelPromotor] = useState(null)
 
   // ── NEW: Print choice popup state — "only this / full hierarchy" select panna ──
   const [printTarget, setPrintTarget] = useState(null)
-  const [printLoading, setPrintLoading] = useState(false)
+  const [, setPrintLoading] = useState(false)
   const openPrintPopup = (target) => setPrintTarget(target)
   const handlePrintOnly = () => {
     if (!printTarget) return
@@ -1264,7 +1265,8 @@ useEffect(() => {
 
 const [urlParams] = useSearchParams()
 
-useEffect(() => {
+const committedSelectAdmin = useCommittedCallback((...args) => selectAdmin(...args))
+  useEffect(() => {
   const urlRole = urlParams.get('role')
   const urlId = urlParams.get('id')
   if (!urlRole || !urlId || !hierarchyData) return
@@ -1274,9 +1276,9 @@ useEffect(() => {
   // adhukku backend la separate ancestors endpoint venum.
   if (urlRole === 'admin') {
     const admin = hierarchyData.admins.find(a => a.id.toString() === urlId)
-    if (admin) selectAdmin(admin)
+    if (admin) committedSelectAdmin(admin)
   }
-}, [urlParams, hierarchyData])
+}, [urlParams, hierarchyData, committedSelectAdmin])
 
   useEffect(() => {
     return () => {
@@ -1287,7 +1289,7 @@ useEffect(() => {
 
   // ── DERIVED CHAIN — each level falls back to "first item" automatically
   // when nothing (or a now-invalid id) is selected. Ithu than cascade logic. ──
-  const admins = hierarchyData?.admins || []
+  const admins = useMemo(() => (hierarchyData?.admins || []), [hierarchyData])
 
   // ── NOTHING auto-falls-back anymore. A level shows ONLY after its
   // parent card is explicitly clicked (selXxx stays null until then). ──
@@ -1296,32 +1298,32 @@ useEffect(() => {
     return admins.find(a => a.id === selAdmin) || null
   }, [admins, selAdmin])
 
-  const dealers = currentAdmin ? (dealerCache[currentAdmin.id] || []) : []
+  const dealers = useMemo(() => (currentAdmin ? (dealerCache[currentAdmin.id] || []) : []), [currentAdmin, dealerCache])
   const currentDealer = useMemo(() => {
     if (!selDealer) return null
     return dealers.find(d => d.id === selDealer) || null
   }, [dealers, selDealer])
 
-  const subDealers = currentDealer ? (subDealerCache[currentDealer.id] || []) : []
+  const subDealers = useMemo(() => (currentDealer ? (subDealerCache[currentDealer.id] || []) : []), [currentDealer, subDealerCache])
   const currentSubDealer = useMemo(() => {
     if (!selSubDealer) return null
     return subDealers.find(sd => sd.id === selSubDealer) || null
   }, [subDealers, selSubDealer])
 
-  const promotors = currentSubDealer ? (promotorCache[currentSubDealer.id] || []) : []
+  const promotors = useMemo(() => (currentSubDealer ? (promotorCache[currentSubDealer.id] || []) : []), [currentSubDealer, promotorCache])
   const currentPromotor = useMemo(() => {
     if (!selPromotor) return null
     return promotors.find(p => p.id === selPromotor) || null
   }, [promotors, selPromotor])
 
-const customers = currentPromotor ? (customerCache[`p_${currentPromotor.id}`] || []) : []
+const customers = useMemo(() => (currentPromotor ? (customerCache[`p_${currentPromotor.id}`] || []) : []), [currentPromotor, customerCache])
 
 // ── ancestor chains per level — idha MUNNADIYE move pannanum, customerLanes ku thevai ──
 const adminAncestors = []
-const dealerAncestors = currentAdmin ? [{ node: currentAdmin, role: 'admin' }] : []
-const subDealerAncestors = currentDealer ? [...dealerAncestors, { node: currentDealer, role: 'dealer' }] : dealerAncestors
-const promotorAncestors = currentSubDealer ? [...subDealerAncestors, { node: currentSubDealer, role: 'sub_dealer' }] : subDealerAncestors
-const customerAncestors = currentPromotor ? [...promotorAncestors, { node: currentPromotor, role: 'promotor' }] : promotorAncestors
+const dealerAncestors = useMemo(() => (currentAdmin ? [{ node: currentAdmin, role: 'admin' }] : []), [currentAdmin])
+const subDealerAncestors = useMemo(() => (currentDealer ? [...dealerAncestors, { node: currentDealer, role: 'dealer' }] : dealerAncestors), [currentDealer, dealerAncestors])
+const promotorAncestors = useMemo(() => (currentSubDealer ? [...subDealerAncestors, { node: currentSubDealer, role: 'sub_dealer' }] : subDealerAncestors), [currentSubDealer, subDealerAncestors])
+;(currentPromotor ? [...promotorAncestors, { node: currentPromotor, role: 'promotor' }] : promotorAncestors);
 
 // ── NEW: customer -> customer -> customer... evלavu level venaalum, chain vachi dynamic-a
 // ovvoru depth-kum oru lane build pannும். ──
@@ -1364,12 +1366,12 @@ const customerLanes = useMemo(() => {
     return promotors
   }, [promotors, activeStatusFilter, currentSubDealer])
 
-  const filteredCustomers = useMemo(() => {
+  ;(useMemo(() => {
     if (activeStatusFilter && activeStatusFilter.role === 'promotor' && activeStatusFilter.nodeId === currentPromotor?.id) {
       return customers.filter(c => c.status === activeStatusFilter.status)
     }
     return customers
-  }, [customers, activeStatusFilter, currentPromotor])
+  }, [customers, activeStatusFilter, currentPromotor]));
 
   // ── click handlers — select this level, reset everything BELOW it
   // (so the next rows auto-fall-back to their own "first" item) ──

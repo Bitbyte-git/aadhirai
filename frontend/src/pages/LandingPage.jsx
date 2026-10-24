@@ -1,19 +1,19 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import logo from '../assets/logo.png'
+
 import CustomerFooter from '../collection/CustomerFooter'
 
 const heroImages = [
   '/diamond_woman.jpg',
-  '/gold_Woman.jpg',
-  '/black_necklaces.png',
+  '/Gold/gold_Woman.jpg',
+  '/Gold/black_necklaces.png',
 ]
 
 const collections = [
   {
     title: 'Gold Jewellery',
     caption: 'Daily wear, wedding sets, coins',
-    image: '/gold-women.png',
+    image: '/Gold/gold-women.png',
     route: '/collection/all?metal=gold',
     accent: '#b98219',
   },

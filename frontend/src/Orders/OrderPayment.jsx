@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import CustomerFooter from '../collection/CustomerFooter'
@@ -294,7 +295,8 @@ export default function OrderPayment() {
     try {
       const { default: api } = await import('../api')
       const res = isDigiShop
-        ? await api.post('/digi-gold/shop/', { token: digiShop.token, product_id: product.id, quantity: qty })
+        ? await api.post('/digi-gold/shop/', { token: digiShop.token, product_id: product.id,
+        cart_checkout: Boolean(isCartCheckout), quantity: qty })
         : await api.get('/wallet/')
       setWallet(res.data)
     } catch {
@@ -304,7 +306,8 @@ export default function OrderPayment() {
     }
   }
 
-  useEffect(() => { fetchWallet() }, [isDigiShop, product?.id, qty])
+  const committedFetchWallet = useCommittedCallback((...args) => fetchWallet(...args))
+  useEffect(() => { committedFetchWallet() }, [isDigiShop, product?.id, qty, committedFetchWallet])
 
   if (!product || !savedAddress) return null
 

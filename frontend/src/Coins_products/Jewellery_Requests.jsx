@@ -107,8 +107,8 @@ const leaderRoleOptionsFor = (role) => {
 };
 
 export default function JewelleryRequests() {
-  const navigate = useNavigate();
-  const location = useLocation();
+  (useNavigate());
+  (useLocation());
 
   const role = localStorage.getItem("role") || "";
   const currentUserId = Number(localStorage.getItem("user_id") || localStorage.getItem("id") || 0);
@@ -117,7 +117,7 @@ export default function JewelleryRequests() {
   const LEADER_ROLE_OPTIONS = useMemo(() => leaderRoleOptionsFor(role), [role]);
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [, setError] = useState("");
   const [toast, setToast] = useState("");
   const [previewProduct, setPreviewProduct] = useState(null);
   const [successModal, setSuccessModal] = useState(null);

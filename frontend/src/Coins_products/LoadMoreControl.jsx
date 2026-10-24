@@ -1,7 +1,7 @@
 // Progressive Batch Pagination Control
 // Step progression: First 100 -> click loads +200 -> next click loads +500 -> next click loads +500...
 
-export function getNextBatchStep(currentVisible) {
+function getNextBatchStep(currentVisible) {
   if (currentVisible <= 100) return 200;
   return 500;
 }

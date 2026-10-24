@@ -186,6 +186,11 @@ function TreeItem({ node, selectedId, onSelect, pulseId, expandedChildren, loadi
 }
 
 export default function SuperAdminHierarchySalesCount() {
+  const [params] = useSearchParams()
+  return <HierarchySalesContent key={params.toString()} />
+}
+
+function HierarchySalesContent() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const role = searchParams.get('role')
@@ -205,7 +210,6 @@ export default function SuperAdminHierarchySalesCount() {
 
   useEffect(() => {
     if (!isAggregateMode) return
-    setAggLoading(true)
     api.get('/hierarchy/tier-directory/', { params: { role, limit: 500 } })
       .then(res => setAggRows(res.data.results || []))
       .catch(() => setAggRows([]))
@@ -213,17 +217,16 @@ export default function SuperAdminHierarchySalesCount() {
   }, [isAggregateMode, role])
 
   const [root, setRoot] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(Boolean(role && id))
   const [selected, setSelected] = useState(null)
-  const [pulseId, setPulseId] = useState(null)
+  const [pulseId] = useState(null)
     const [expandedChildren, setExpandedChildren] = useState({})   // ── NEW
   const [loadingNode, setLoadingNode] = useState(null)            // ── NEW
-  const [locatingPerson, setLocatingPerson] = useState(false)     // ── NEW: tree side "finding this person" overlay
+  const [locatingPerson] = useState(false)     // ── NEW: tree side "finding this person" overlay
 
   // ── NEW: root node — light info mattum fetch (name/phone/order_count), tree illama ──
   useEffect(() => {
-    if (!role || !id) { setLoading(false); setRoot(null); return }
-    setLoading(true)
+    if (!role || !id) return
     api.get('/hierarchy/node-info/', { params: { role, id } })
       .then(res => {
         const rootNode = { type: role, ...res.data }
@@ -261,7 +264,7 @@ export default function SuperAdminHierarchySalesCount() {
       sessionStorage.setItem(cacheKey, JSON.stringify(children))   // ── non-sensitive summary mattum cache ──
       setLoadingNode(null)
       return children   // ── NEW ──
-    } catch (err) {
+    } catch {
       setExpandedChildren(prev => ({ ...prev, [key]: [] }))
       setLoadingNode(null)
       return []   // ── NEW ──
@@ -274,69 +277,36 @@ export default function SuperAdminHierarchySalesCount() {
     setPeriod('month')
   }
 
-  const jumpToCustomer = (custNode) => {
-    selectPerson(custNode)
-    setPulseId(`${custNode.type || 'customer'}-${custNode.id}`)
-    setTimeout(() => {
-      const el = document.getElementById(`streeid-${custNode.type || 'customer'}-${custNode.id}`)
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }, 60)
-    setTimeout(() => setPulseId(null), 1600)
-  }
 
-  const revealPathToCustomer = async (owner) => {
-    if (!owner?.user_id || !root) {
-      jumpToCustomer(owner)
-      return
-    }
-    setLocatingPerson(true)   // ── NEW: left side shows "Locating..." right away, same moment right side starts loading
-    try {
-      const res = await api.get('/hierarchy/path-to-node/', {
-        params: { root_role: root.type, root_id: root.id, target_user_id: owner.user_id },
-      })
-      const path = res.data.path || []
-      if (path.length === 0) {
-        jumpToCustomer(owner)
-        return
-      }
 
-      const parentsToFetch = [root, ...path.slice(0, -1)].filter(
-        p => !expandedChildren[`${p.type}-${p.id}`]
-      )
-      await Promise.all(parentsToFetch.map(p => fetchChildren(p)))
 
-      jumpToCustomer(path[path.length - 1])
-    } catch (err) {
-      console.error('revealPathToCustomer failed:', err)
-      jumpToCustomer(owner)
-    } finally {
-      setLocatingPerson(false)   // ── NEW
-    }
-  }
   const [groupedList, setGroupedList] = useState([])
   const [overallCount, setOverallCount] = useState(0)
   const [overallAmount, setOverallAmount] = useState(0)
-  const [ordersLoading, setOrdersLoading] = useState(false)
+  const [ordersResponseKey, setOrdersResponseKey] = useState(null)
   // ── Infinite scroll: first 30 products + full count/amount, scroll pannaa adutha 30 ──
-  const [hasMoreOrders, setHasMoreOrders] = useState(false)
-  const [loadingMoreOrders, setLoadingMoreOrders] = useState(false)
+  const [hasMoreOrdersValue, setHasMoreOrders] = useState(false)
+  const [loadingMoreOrdersValue, setLoadingMoreOrders] = useState(false)
   const ordersReqRef = useRef(0)          // pazhaya person / period response late-a vandhaa ignore panna
   const nextOffsetRef = useRef(0)
   const loadingMoreRef = useRef(false)
   const sentinelRef = useRef(null)
+  const ordersRequestKey = JSON.stringify([selected?.type, selected?.id, period])
+  const ordersLoading = Boolean(selected && ordersResponseKey !== ordersRequestKey)
+  const hasMoreOrders = ordersResponseKey === ordersRequestKey && hasMoreOrdersValue
+  const loadingMoreOrders = ordersResponseKey === ordersRequestKey && loadingMoreOrdersValue
+
 
   useEffect(() => {
     if (!selected) return
     const reqId = ++ordersReqRef.current
-    setOrdersLoading(true)
-    setHasMoreOrders(false)
     nextOffsetRef.current = 0
     loadingMoreRef.current = false
-    setLoadingMoreOrders(false)
     api.get('/hierarchy/node-orders/', { params: { role: selected.type, id: selected.id, period, offset: 0, limit: ORDERS_PAGE_SIZE } })
       .then(res => {
         if (reqId !== ordersReqRef.current) return
         const items = res.data.items || []
+        setLoadingMoreOrders(false)
         setGroupedList(items)
         setOverallCount(res.data.overall_count || 0)
         setOverallAmount(res.data.overall_amount || 0)
@@ -345,10 +315,10 @@ export default function SuperAdminHierarchySalesCount() {
       })
       .catch(() => {
         if (reqId !== ordersReqRef.current) return
-        setGroupedList([]); setOverallCount(0); setOverallAmount(0); setHasMoreOrders(false)
+        setGroupedList([]); setOverallCount(0); setOverallAmount(0); setHasMoreOrders(false); setLoadingMoreOrders(false)
       })
-      .finally(() => { if (reqId === ordersReqRef.current) setOrdersLoading(false) })
-  }, [selected, period])
+      .finally(() => { if (reqId === ordersReqRef.current) setOrdersResponseKey(ordersRequestKey) })
+  }, [selected, period, ordersRequestKey])
 
   const loadMoreOrders = () => {
     if (!selected || loadingMoreRef.current) return
@@ -371,7 +341,7 @@ export default function SuperAdminHierarchySalesCount() {
       })
   }
   const loadMoreRef = useRef(loadMoreOrders)
-  loadMoreRef.current = loadMoreOrders
+  useEffect(() => { loadMoreRef.current = loadMoreOrders })
 
   // Bottom sentinel screen-ku 500px munnadiye vandhaale adutha page fetch — user wait panna vendaam
   useEffect(() => {

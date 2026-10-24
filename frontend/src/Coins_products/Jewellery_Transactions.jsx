@@ -89,14 +89,14 @@ const STATUS_CFG = {
 };
 
 export default function JewelleryTransactions() {
-  const navigate = useNavigate();
+  (useNavigate());
   const currentRole = localStorage.getItem("role") || "";
   const isSuperAdmin = currentRole === "super_admin";
   const myEmail = (localStorage.getItem("email") || "").toLowerCase();
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [, setError] = useState("");
   const [filter, setFilter] = useState("all");
   const [period, setPeriod] = useState("all"); // 'all' (default) | 'day' | 'week' | 'month' | 'year' | 'custom'
   const [activeCard, setActiveCard] = useState("my_transactions"); // 'my_transactions' | 'leader_transactions'
@@ -105,7 +105,7 @@ export default function JewelleryTransactions() {
   const [endDate, setEndDate] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("cards"); // 'cards' | 'table'
-  const [copiedId, setCopiedId] = useState(null);
+  ;useState(null);
   const [previewProduct, setPreviewProduct] = useState(null);
   // Leader role counts + infinite scroll — ellaamey backend (team scope-oda)
   const [roleCounts, setRoleCounts] = useState({});
@@ -128,12 +128,7 @@ export default function JewelleryTransactions() {
   const [leaderTxCount, setLeaderTxCount] = useState(0);
   const [chainTxCount, setChainTxCount] = useState(0);
 
-  const handleCopy = (text, id) => {
-    if (!text) return;
-    navigator.clipboard?.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
+
 
   // ── Team-scoped board: card (My / Leader) + role + status + period + search backend-la.
   // Counts full DB-la, list 30-30-a infinite scroll ──
@@ -496,39 +491,7 @@ export default function JewelleryTransactions() {
   };
 
   // Export CSV
-  const exportCSV = () => {
-    if (!requests.length) return;
-    const headers = [
-      "Request ID",
-      "Date",
-      "Requester Name",
-      "Requester ID",
-      "Requester Role",
-      "Approver Name",
-      "Approver Role",
-      "Status",
-      "Jewellery Items",
-    ];
-    const rows = requests.map((r) => [
-      r.id,
-      new Date(r.created_at).toLocaleString("en-IN"),
-      `"${r.requested_by_name || r.requested_by_email}"`,
-      `"${r.requested_by_id_str || ''}"`,
-      r.requested_by_role,
-      `"${r.requested_to_name || r.requested_to_email || ''}"`,
-      r.requested_to_role || '',
-      r.status,
-      `"${(r.items || []).map((i) => `${i.product?.name || 'Item'} x${i.qty}`).join("; ")}"`,
-    ]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `jewellery_transactions_${period}_${new Date().toISOString().split("T")[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+
 
   return (
     <div className="jt-page">

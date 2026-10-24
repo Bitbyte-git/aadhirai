@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import logo from '../assets/logo.png'
-import { addToCart } from '../collection/card_section'
+
 import CustomerNavbar from '../collection/CustomerNavbar'
 import CustomerFooter from '../collection/CustomerFooter'
 
@@ -37,37 +36,33 @@ const TAG_COLORS = {
 export default function GoldBangles() {
   const navigate = useNavigate()
   
-  const [selectedWeight, setSelectedWeight] = useState('All Weights')
+  const [selectedWeight] = useState('All Weights')
   const [hoveredBangle, setHoveredBangle]   = useState(null)
-  const [goldPrice, setGoldPrice]           = useState(null)
-  const [selectedBangle, setSelectedBangle] = useState(null)
+  const [goldPrice]           = useState(null)
+  useState(null);
   const [goldBangles, setGoldBangles] = useState([])
 const [loading, setLoading] = useState(true)
 const [liveRate, setLiveRate] = useState(null)
-  const [metalType, setMetalType]           = useState('gold_22k') // '22k' | '24k'
+  const [metalType]           = useState('gold_22k') // '22k' | '24k'
   const [wishlistedIds, setWishlistedIds] = useState(new Set())
  
 
 const bg        = '#fdf6f0'
 const text      = '#020617'
 const subtext   = '#64748b'
-const border    = 'rgba(0,0,0,0.1)'
-const glass     = 'rgba(255,255,255,0.7)'
-const cardBg    = 'rgba(0,0,0,0.03)'
-const inpBg     = 'rgba(0,0,0,0.05)'
-const inpBorder = '#d1d5db'
-const optionBg  = '#ffffff'
 
-  const goldColor = metalType === 'gold_24k' ? '#ffd700' : '#fbbf24'
-  const goldGlow  = metalType === 'gold_24k' ? 'rgba(255,215,0,0.28)' : 'rgba(251,191,36,0.28)'
+
+
+
+
+
+
+  ;(metalType === 'gold_24k' ? '#ffd700' : '#fbbf24');
+  (metalType === 'gold_24k' ? 'rgba(255,215,0,0.28)' : 'rgba(251,191,36,0.28)');
 
 const API_BASE = 'https://bitbyte-backend-f66f.onrender.com'
 
-const getImageUrl = (img) => {
-  if (!img) return '/img/gold/gold-bangles-1.png'
-  if (img.startsWith('http://') || img.startsWith('https://')) return img
-  return `${API_BASE}/${img.replace(/^\/+/, '')}`
-}
+
 
 useEffect(() => {
   import('../api').then(({ default: api }) => {
@@ -124,8 +119,8 @@ useEffect(() => {
 
   /* ── helpers ── */
   const selectedW  = WEIGHTS.find(w => w.label === selectedWeight)
-  const unitPrice  = selectedW?.grams && currentRate ? selectedW.grams * currentRate : null
-  const tagStyle   = (tag) => TAG_COLORS[tag] || { bg:'rgba(255,255,255,0.1)', border:'rgba(255,255,255,0.2)', color:'#fff' }
+  ;(selectedW?.grams && currentRate ? selectedW.grams * currentRate : null);
+
 
   return (
 <div style={{ minHeight:'100vh', background:bg, color:text, fontFamily:'"Montserrat", sans-serif', position:'relative', overflow:'hidden', transition:'background 0.8s ease, color 0.4s ease' }}>

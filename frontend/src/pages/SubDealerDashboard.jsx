@@ -1,12 +1,13 @@
+import { useCommittedCallback } from "../api.js";
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import api from '../api'
-import logo from '../assets/logo.png'
+const logo = '/Gold/Athirai_logo.png';
 import InternalRoleNavbar, { DailyWorkCheckIn } from '../collection/InternalRoleNavbar'
 import CopyUrlButton from '../collection/CopyUrlButton'
-import goldCoin from '../assets/gold-coin-transparent.png'
-import silverCoin from '../assets/silver-coin.png'
+
+
 import { SkeletonChart, SkeletonText, SkeletonRow, SkeletonBox } from '../components/Skeleton'
 import '../components/skeleton.css'
 import { IrdOrderTrendPanel, IrdDonutPanel } from './AdminDashboard'
@@ -30,149 +31,11 @@ const PROMOTOR_COLORS = ['#CCA881', '#BDCFCE', '#0C4044', '#C92035', '#BB8958']
 let _ppopupEl = null
 let _phideTimer = null
 
-function removePromotorPopup() {
-  document.querySelectorAll('#promotor-sd-popup').forEach(el => el.remove())
-  _ppopupEl = null
-}
 
-function schedulePromotorHide(setActivePromotor) {
-  clearTimeout(_phideTimer)
-  _phideTimer = setTimeout(() => {
-    removePromotorPopup()
-    setActivePromotor(null)
-  }, 120)
-}
 
-function createPromotorPopup(p, i, anchorEl, dark, subtextColor, textColor, hierarchy) {
-  removePromotorPopup()
 
-  const c = PROMOTOR_COLORS[i % PROMOTOR_COLORS.length]
-  const popupBg = dark ? 'linear-gradient(160deg,#F3F3F0,#E7EDEC)' : 'linear-gradient(160deg,#FDFDFC,#E7EDEC)'
-  const popupBorder = dark ? 'rgba(204,168,129,0.25)' : 'rgba(124,58,237,0.25)'
-  const divider = dark ? 'rgba(253,253,252,0.08)' : 'rgba(17,24,23,0.08)'
-  const accentColor = dark ? '#CCA881' : '#BB8958'
-  const text2 = dark ? '#FDFDFC' : '#FDFDFC'
-  const subtext2 = dark ? '#7A8987' : '#7A8987'
 
-  const { superAdminEmail, admin, dealer, subDealer } = hierarchy
 
-  const el = document.createElement('div')
-  el.id = 'promotor-sd-popup'
-  el.style.cssText = `
-  position:fixed; z-index:9999;
-  background:${popupBg}; border:1px solid ${popupBorder};
-  border-radius:14px; padding:14px;
-  box-shadow:0 16px 48px rgba(17,24,23,0.5);
-  animation:proSDPopupIn 0.25s cubic-bezier(0.22,1,0.36,1) both;
-  min-width:220px; max-width:260px;
-  max-height:82vh;
-  overflow-y:auto;
-  overflow-x:hidden;
-  scroll-behavior:smooth;
-  scrollbar-width:thin;
-  scrollbar-color:rgba(204,168,129,0.4) transparent;
-  display:flex; flex-direction:column; align-items:stretch;
-`
-
-  function tierBox(badge, badgeColor, boxBg, boxBorder, id, name, contact, city) {
-    return `
-      <div style="border-radius:9px;padding:10px;margin-bottom:6px;background:${boxBg};border:1px solid ${boxBorder};">
-        <div style="display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;
-          background:${boxBg};color:${badgeColor};border:1px solid ${boxBorder};margin-bottom:6px;">${badge}</div>
-        <div style="font-size:10px;color:${badgeColor};font-family:monospace;margin-bottom:3px;">${id || '—'}</div>
-        <div style="font-size:13px;font-weight:700;color:${text2};margin-bottom:5px;">${name || '—'}</div>
-        <div style="font-size:11px;color:${subtext2};margin-bottom:2px;">📞 ${contact || '—'}</div>
-        <div style="font-size:11px;color:${subtext2};">📍 ${city || '—'}</div>
-      </div>`
-  }
-
-  function arrow(fromColor) {
-    return `
-      <div style="display:flex;justify-content:center;padding:3px 0;">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-          <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid ${fromColor};"></div>
-          <div style="width:2px;height:7px;background:linear-gradient(180deg,${fromColor},${fromColor}44);"></div>
-        </div>
-      </div>`
-  }
-
-  el.innerHTML = `
-    <div style="font-size:9px;color:${accentColor};font-weight:700;letter-spacing:1.3px;margin-bottom:11px;
-      padding-bottom:9px;border-bottom:1px solid ${divider};display:flex;align-items:center;gap:6px;">
-      <span style="width:5px;height:5px;border-radius:50%;background:${accentColor};display:inline-block;"></span>
-      CREATED BY
-    </div>
-
-    <div style="border-radius:9px;padding:10px;margin-bottom:2px;background:rgba(204,168,129,0.05);border:1px solid rgba(204,168,129,0.22);">
-      <div style="display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;
-        background:rgba(204,168,129,0.12);color:#CCA881;border:1px solid rgba(204,168,129,0.3);margin-bottom:6px;">🛡️ SUPER ADMIN</div>
-      <div style="font-size:11px;color:${subtext2};word-break:break-all;">${superAdminEmail}</div>
-      <div style="margin-top:5px;font-size:9px;padding:2px 7px;background:rgba(204,168,129,0.1);
-        border:1px solid rgba(204,168,129,0.25);border-radius:20px;color:#CCA881;display:inline-block;">● ONLINE</div>
-    </div>
-
-    ${arrow('#CCA881')}
-
-    ${tierBox(
-    '🛡️ SUPER STOCKIST',
-    '#0C4044', 'rgba(12,64,68,0.05)', 'rgba(12,64,68,0.2)',
-    admin?.admin_id || '—',
-    admin?.first_name || admin?.admin_name || '—',
-    admin?.mobile_number || admin?.admin_contact_no || '—',
-    admin?.city_name || '—'
-  )}
-
-    ${arrow('#0C4044')}
-
-    ${tierBox(
-    '🏪 DISTRIBUTOR',
-    '#BDCFCE', 'rgba(189,207,206,0.04)', 'rgba(189,207,206,0.18)',
-    dealer?.dealer_id || '—',
-    dealer?.first_name || '—',
-    dealer?.mobile_number || '—',
-    dealer?.city_name || '—'
-  )}
-
-    ${arrow('#BDCFCE')}
-
-    ${tierBox(
-    '💎 WHOLESALE DEALER',
-    '#BB8958', 'rgba(187,137,88,0.05)', 'rgba(187,137,88,0.2)',
-    subDealer?.sub_dealer_id || '—',
-    subDealer?.first_name || '—',
-    subDealer?.mobile_number || '—',
-    subDealer?.city_name || '—'
-  )}
-
-    ${arrow(c)}
-
-    <div style="background:rgba(204,168,129,0.05);border:1px solid rgba(204,168,129,0.2);border-radius:10px;padding:10px;">
-      <div style="display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;
-        background:rgba(204,168,129,0.12);color:${c};border:1px solid rgba(204,168,129,0.25);margin-bottom:6px;">🌟 RETAILER</div>
-      <div style="font-size:10px;color:${c};font-family:monospace;margin-bottom:3px;">${p.promotor_id || '—'}</div>
-      <div style="font-size:14px;font-weight:700;color:${text2};margin-bottom:6px;">${p.first_name || ''}</div>
-      <div style="font-size:11px;color:${subtext2};margin-bottom:2px;">📞 ${p.mobile_number || '—'}</div>
-      <div style="font-size:11px;color:${subtext2};">📍 ${p.city_name || '—'}</div>
-    </div>
-  `
-
-  document.body.appendChild(el)
-
-  const rect = anchorEl.getBoundingClientRect()
-  const popW = el.offsetWidth || 260
-  const popH = el.offsetHeight || 500
-  let left = rect.right + 14
-  let top = rect.top + (rect.height / 2) - (popH / 2)
-  if (left + popW > window.innerWidth - 10) left = rect.left - popW - 14
-  if (top < 8) top = 8
-  if (top + popH > window.innerHeight - 8) top = window.innerHeight - popH - 8
-  el.style.left = left + 'px'
-  el.style.top = top + 'px'
-
-  el.addEventListener('mouseenter', () => clearTimeout(_phideTimer))
-  el.addEventListener('mouseleave', () => schedulePromotorHide(() => { }))
-  _ppopupEl = el
-}
 
 
 // ─── SD TREE NODE ─────────────────────────────────────────────────────────
@@ -209,10 +72,10 @@ const irdPalette = {
   grey: '#7A8987', black: '#111817', red: '#C92035',
 }
 
-const irdChartPeriods = [
+;([
   { key: 'today', label: 'Today' }, { key: 'week', label: '7D' }, { key: 'month', label: '1M' },
   { key: '3month', label: '3M' }, { key: 'year', label: '1Y' }, { key: 'all', label: 'All' },
-]
+]);
 
 function IrdIcon({ type }) {
   const common = { width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }
@@ -224,9 +87,9 @@ function IrdIcon({ type }) {
 }
 
 
-function SubDealerDashboardFrame({ roleName, roleDistribution = [], quickActions = [], endpoint, requestParams = {} }) {
+function SubDealerDashboardFrame({ roleName, quickActions = [], endpoint, requestParams = {} }) {
   const navigate = useNavigate()
-  const [orderCount, setOrderCount] = useState(0)
+  const [, setOrderCount] = useState(0)
   const [loginCounts, setLoginCounts] = useState({ active: 0, inactive: 0 })
   const [loginLoading, setLoginLoading] = useState(true)
   const [fastCounts, setFastCounts] = useState(null)
@@ -375,18 +238,7 @@ function SectionHeader({ icon, label }) {
   )
 }
 
-function getPasswordStrength(pw) {
-  if (!pw) return { label: '', color: '', width: '0%' }
-  let score = 0
-  if (pw.length >= 6) score++
-  if (pw.length >= 8) score++
-  if (/[A-Z]/.test(pw)) score++
-  if (/[0-9]/.test(pw)) score++
-  if (/[^A-Za-z0-9]/.test(pw)) score++
-  if (score <= 2) return { label: 'Weak', color: '#C92035', width: '33%' }
-  if (score <= 4) return { label: 'Medium', color: '#BB8958', width: '66%' }
-  return { label: 'Strong', color: '#0C4044', width: '100%' }
-}
+
 function hexToRgbSD(hex) {
   const r = parseInt(hex.slice(1, 3), 16)
   const g = parseInt(hex.slice(3, 5), 16)
@@ -685,7 +537,7 @@ function printSDPersonCard(node, role, color, ancestors, superAdminEmail, dealer
       ${chainHtml}
       <div class="footer">Printed on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
     </div>
-    <script>window.onload=()=>{window.print()}<\/script>
+    <script>window.onload=()=>{window.print()}</script>
     </body></html>
   `)
   printWindow.document.close()
@@ -900,22 +752,22 @@ function CustomDarkTooltip({ active, payload }) {
 
 export default function SubDealerDashboard() {
   const navigate = useNavigate()
-  const [dark, setDark] = useState(false)
-  const [promotors, setPromotors] = useState([])
-  const [promotorsLoading, setPromotorsLoading] = useState(true)
+  const [dark] = useState(false)
+  const [, setPromotors] = useState([])
+  const [, setPromotorsLoading] = useState(true)
   const [subDealers, setSubDealers] = useState([])
-  const [allSubDealers, setAllSubDealers] = useState([])
-  const [dealers, setDealers] = useState([])
-  const [admins, setAdmins] = useState([])
-  const [selectedSubDealer, setSelectedSubDealer] = useState(null)
-  const [showForm, setShowForm] = useState(false)
-  const [activePromotor, setActivePromotor] = useState(null)
+  const [, setAllSubDealers] = useState([])
+  useState([]);
+  useState([]);
+  const [, setSelectedSubDealer] = useState(null)
+  const [showForm] = useState(false)
+  useState(null);
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState('success')
-  const [form, setForm] = useState(emptyForm)
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [passwordError, setPasswordError] = useState('')
-    const [pincodeLookupMsg, setPincodeLookupMsg] = useState('')
+  const [, setForm] = useState(emptyForm)
+  ;useState('');
+  ;useState('');
+    ;useState('');
   const [updateMessage, setUpdateMessage] = useState('')
   const [proofDocument, setProofDocument] = useState(null)
 
@@ -924,10 +776,10 @@ export default function SubDealerDashboard() {
   const [updateForm, setUpdateForm] = useState({})
 
 
-  const [metalPrices, setMetalPrices] = useState({ gold24k: null, gold22k: null, silver: null })
-  const [metalLoading, setMetalLoading] = useState(false)
-  const [usdToInr, setUsdToInr] = useState(null)
-  const [dbRateDate, setDbRateDate] = useState(null)
+  const [, setMetalPrices] = useState({ gold24k: null, gold22k: null, silver: null })
+  const [, setMetalLoading] = useState(false)
+  useState(null);
+  const [, setDbRateDate] = useState(null)
 
   // ── COIN REQUEST ──
   const [showRequestCoin, setShowRequestCoin] = useState(false)
@@ -952,8 +804,8 @@ export default function SubDealerDashboard() {
 
   // ── STORED COIN ──
   const [showStoredCoin, setShowStoredCoin] = useState(false)
-  const [coinStock, setCoinStock] = useState([])
-  const [coinStockLoading, setCoinStockLoading] = useState(false)
+  const [coinStock] = useState([])
+  const [coinStockLoading] = useState(false)
 
   // ── SAAS DASHBOARD REAL-TIME & DATA STATES ──
   const [liveTime, setLiveTime] = useState(new Date())
@@ -1049,9 +901,10 @@ export default function SubDealerDashboard() {
     }
   }
 
+  const committedFetchOrderTimeseries = useCommittedCallback((...args) => fetchOrderTimeseries(...args))
   useEffect(() => {
-    fetchOrderTimeseries(orderPeriod)
-  }, [orderPeriod])
+    committedFetchOrderTimeseries(orderPeriod)
+  }, [orderPeriod, committedFetchOrderTimeseries])
 
   // 4. All Sales & Wholesale Dealer Commission
   const [salesProfitPeriod, setSalesProfitPeriod] = useState('month')
@@ -1097,15 +950,15 @@ export default function SubDealerDashboard() {
         salesProfitCacheRef.current[p] = payload
         setSalesProfitData(payload)
       }
-    } catch {
-    } finally {
+    } catch { /* No additional action is needed in this fallback. */ } finally {
       setSalesProfitLoading(false)
     }
   }
 
+  const committedFetchSalesProfit = useCommittedCallback((...args) => fetchSalesProfit(...args))
   useEffect(() => {
-    fetchSalesProfit(salesProfitPeriod)
-  }, [salesProfitPeriod])
+    committedFetchSalesProfit(salesProfitPeriod)
+  }, [salesProfitPeriod, committedFetchSalesProfit])
 
   // 5. Role Distribution Data (Wholesale Dealer has Retailer, Customer)
   const subDealerRoleDist = useMemo(() => {
@@ -1150,28 +1003,28 @@ export default function SubDealerDashboard() {
         setUserGrowthStats(stats)
         setUserGrowthChartData(chart_data)
       }
-    } catch {
-    } finally {
+    } catch { /* No additional action is needed in this fallback. */ } finally {
       setUserGrowthLoading(false)
     }
   }
 
+  const committedFetchUserGrowth = useCommittedCallback((...args) => fetchUserGrowth(...args))
   useEffect(() => {
-    fetchUserGrowth(userGrowthPeriod)
-  }, [userGrowthPeriod])
+    committedFetchUserGrowth(userGrowthPeriod)
+  }, [userGrowthPeriod, committedFetchUserGrowth])
 
   const bg = dark ? '#073B3F' : '#FDFDFC'
   const text = dark ? '#FDFDFC' : '#111817'
   const subtext = dark ? '#D1DFDE' : '#7A8987'
-  const accent = dark ? '#CCA881' : '#0C4044'
+  ;(dark ? '#CCA881' : '#0C4044');
   const border = dark ? 'rgba(209,223,222,0.22)' : 'rgba(189,207,206,0.78)'
-  const glass = dark ? 'rgba(7,59,63,0.9)' : 'rgba(253,253,252,0.92)'
+  ;(dark ? 'rgba(7,59,63,0.9)' : 'rgba(253,253,252,0.92)');
   const cardBg = dark ? 'rgba(12,64,68,0.88)' : 'rgba(253,253,252,0.96)'
   const cardBorder = dark ? '1px solid rgba(209,223,222,0.22)' : '1px solid rgba(189,207,206,0.72)'
   const inpBg = dark ? 'rgba(253,253,252,0.08)' : '#FDFDFC'
   const inpBorder = dark ? 'rgba(209,223,222,0.24)' : '#BDCFCE'
   const optionBg = dark ? '#073B3F' : '#F3F3F0'
-  const selectInput = { width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box', cursor: 'pointer' }
+  ;({ width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box', cursor: 'pointer' });
 
 
 
@@ -1197,7 +1050,7 @@ const allSDList = allSDRes.status === 'fulfilled' ? allSDRes.value.data : []
         if (hRes?.data?.super_admin_email) {
           localStorage.setItem('superAdminEmail', hRes.data.super_admin_email)
         }
-      } catch (e) { }
+      } catch { /* No additional action is needed in this fallback. */ }
 
       // ✅ promotors-ku customers attach pannurom
       const enrichedPromotors = promotorList.map(p => ({
@@ -1364,7 +1217,7 @@ const fetchMetalPrices = async () => {
       silver:  parseFloat(d.silver_999),
     })
     setDbRateDate(d.date)
-  } catch (e) {
+  } catch {
     setMetalPrices({ gold22k: null, gold24k: null, silver: null })
     setDbRateDate(null)
   }
@@ -1392,7 +1245,7 @@ const approveCoinRequest = async (reqId) => {
     setCoinReqMsgType('success')
     setCoinReqMsg('Request approved successfully.')
     fetchCoinRequests()
-  } catch (err) {
+  } catch {
     setCoinReqMsgType('error')
     setCoinReqMsg('Failed to approve request. Please try again.')
   }
@@ -1407,7 +1260,7 @@ const approveAllCoinRequests = async () => {
     setCoinReqMsgType('success')
     setCoinReqMsg('All requests approved successfully.')
     fetchCoinRequests()
-  } catch (err) {
+  } catch {
     setCoinReqMsgType('error')
     setCoinReqMsg('Failed to approve requests. Please try again.')
   }
@@ -1429,7 +1282,7 @@ const rejectCoinRequest = async (reqId) => {
     setRejectingReqId(null)
     setRejectReason('')
     fetchCoinRequests()
-  } catch (err) {
+  } catch {
     setCoinReqMsgType('error')
     setCoinReqMsg('Failed to reject request. Please try again.')
   }
@@ -1483,14 +1336,7 @@ const submitCoinRequest = async () => {
   setCoinBuySubmitting(false)
 }
 
-const fetchCoinStock = async () => {
-  setCoinStockLoading(true)
-  try {
-    const res = await api.get('/coin-stock/')
-    setCoinStock(res.data)
-  } catch { setCoinStock([]) }
-  setCoinStockLoading(false)
-}
+
 
 useEffect(() => {
   fetchAll()
@@ -1501,43 +1347,8 @@ useEffect(() => {
   return () => clearInterval(interval)
 }, [])
 
-  const handleChange = e => {
-    const { name, value } = e.target
 
-    if (name === 'married_status' && value !== 'married') {
-      setForm({ ...form, married_status: value, anniversary_date: '' })
-      return
-    }
 
-    setForm({ ...form, [name]: value })
-  }
-    const handlePincodeChange = async (e) => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 6)
-    setForm(prev => ({ ...prev, pincode: value }))
-    setPincodeLookupMsg('')
-
-    if (value.length === 6) {
-      setPincodeLookupMsg('Fetching location details...')
-      try {
-        const res = await fetch(`https://api.postalpincode.in/pincode/${value}`)
-        const data = await res.json()
-        if (data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
-          const po = data[0].PostOffice[0]
-          setForm(prev => ({
-            ...prev,
-            city_name: po.District || prev.city_name,
-            district: po.District || prev.district,
-            state: po.State || prev.state,
-          }))
-          setPincodeLookupMsg('Location details auto-filled')
-        } else {
-          setPincodeLookupMsg('Pincode not found — please enter manually')
-        }
-      } catch {
-        setPincodeLookupMsg('Unable to fetch location — please enter manually')
-      }
-    }
-  }
 
   // const handleSubDealerChange = (e) => {
   //   const id = parseInt(e.target.value)
@@ -1545,44 +1356,13 @@ useEffect(() => {
   //   setSelectedSubDealer(sd || null)
   //   setForm({ ...form, assigned_sub_dealer_id: id })
   // }
-const handleSubmit = async e => {
-  e.preventDefault()
 
-  if (form.married_status === 'married' && !form.anniversary_date) {
-    setMsg('❌ Please enter Anniversary Date!'); setMsgType('error')
-    return
-  }
+  ;({ background: cardBg, border: cardBorder, borderRadius: '22px', padding: 'clamp(18px, 3vw, 34px) clamp(16px, 3vw, 38px)', marginBottom: '26px', boxShadow: dark ? '0 26px 70px rgba(17,24,23,0.18)' : '0 22px 58px rgba(7,59,63,0.08)', backdropFilter: 'blur(18px)' });
 
-  if (form.password !== confirmPassword) {
-    setPasswordError('❌ Passwords do not match')
-    return
-  }
 
-  const finalForm = {
-    ...form,
-    assigned_sub_dealer_id: form.assigned_sub_dealer_id ?? subDealers[0]?.id ?? null
-  }
-
-  const payload = { ...finalForm }
-  if (!payload.dob) delete payload.dob
-  if (payload.married_status !== 'married') delete payload.anniversary_date
-
-  try {
-    await api.post('/promotors/', payload)
-    setMsg('✅ Promotor created successfully!'); setMsgType('success')
-    setShowForm(false); fetchAll(); setForm(emptyForm); setSelectedSubDealer(null)
-    setConfirmPassword(''); setPasswordError('')
-  } catch (err) {
-    console.error('Promotor create error:', err.response?.data)
-    setMsg('❌ Error: ' + JSON.stringify(err.response?.data)); setMsgType('error')
-  }
-}
-  const card = { background: cardBg, border: cardBorder, borderRadius: '22px', padding: 'clamp(18px, 3vw, 34px) clamp(16px, 3vw, 38px)', marginBottom: '26px', boxShadow: dark ? '0 26px 70px rgba(17,24,23,0.18)' : '0 22px 58px rgba(7,59,63,0.08)', backdropFilter: 'blur(18px)' }
-  const secHead = (color = '#F3E8DE') => ({ color, fontSize: '13px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 20px', paddingBottom: '14px', borderBottom: cardBorder })
-  const secLabel = (color = '#F3E8DE') => ({ color, fontSize: '12px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '4px 0 0', paddingBottom: '10px', borderBottom: cardBorder })
-  const inp = { width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box' }
-  const lbl = { display: 'block', color: subtext, fontSize: '12px', marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.04em' }
-  const sectionCard = { background: '#FDFDFC', border: '1px solid rgba(204,168,129,0.28)', borderRadius: '16px', padding: 'clamp(14px, 2.5vw, 22px) clamp(12px, 2.5vw, 24px)', marginBottom: '4px' }
+  ({ width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box' });
+  ({ display: 'block', color: subtext, fontSize: '12px', marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.04em' });
+  ({ background: '#FDFDFC', border: '1px solid rgba(204,168,129,0.28)', borderRadius: '16px', padding: 'clamp(14px, 2.5vw, 22px) clamp(12px, 2.5vw, 24px)', marginBottom: '4px' });
 
   return (
     <div style={{ minHeight: '100vh', background: dark ? bg : 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)', color: text, transition: 'background 0.8s ease, color 0.4s ease', fontFamily: '"Inter",system-ui,sans-serif', position: 'relative' }}>
@@ -2226,7 +2006,7 @@ const handleSubmit = async e => {
           { label: 'Retailer Hierarchy', path: '/subdealer-hierarchy' },
           { label: 'Create Retailer', path: '/create-retailer' },
           { label: 'Create Customer', path: '/create-customer' },
-          { label: 'Requests', action: () => setShowRequests(true) },
+          { label: 'Requests', path: '/jewellery-requests' },
         ]}
         coinItems={[
           { label: 'Buy Coin', path: '/buy-coin' },

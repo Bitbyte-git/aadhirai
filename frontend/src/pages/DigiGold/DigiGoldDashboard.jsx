@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../../api.js";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
@@ -75,7 +76,7 @@ import * as XLSX from 'xlsx'
 import api, { checkoutAddress, loadAddressBook } from '../../api'
 import './DigiGoldDashboard.css'
 import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
+import 'html2canvas';
 import goldCoinImg from '../../assets/gold-coin-transparent.png'
 import silverCoinImg from '../../assets/silver-coin-transparent.png'
 import metalsPedestalImg from '../../assets/metals_pedestal.jpg'
@@ -174,7 +175,6 @@ function AnimatedNumber({ value, decimals = 0, prefix = '', suffix = '', duratio
     const endVal = isNaN(target) ? 0 : target
     const diff = endVal - startVal
     if (diff === 0) {
-      setDisplayValue(endVal)
       return
     }
 
@@ -186,6 +186,7 @@ function AnimatedNumber({ value, decimals = 0, prefix = '', suffix = '', duratio
       const progress = Math.min((timestamp - startTimestamp) / duration, 1)
       const ease = 1 - Math.pow(1 - progress, 3)
       const current = startVal + diff * ease
+      prevRef.current = current
       setDisplayValue(current)
 
       if (progress < 1) {
@@ -412,7 +413,7 @@ export default function DigiGoldDashboard() {
           phone: u.phone || ''
         }
       }
-    } catch { }
+    } catch { /* No additional action is needed in this fallback. */ }
     const storedEmail = localStorage.getItem('email') || ''
     const fallbackName = storedEmail ? storedEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Customer'
     const name = localStorage.getItem('name') || localStorage.getItem('username') || fallbackName
@@ -432,7 +433,7 @@ export default function DigiGoldDashboard() {
     try {
       const s = sessionStorage.getItem('athirai_rates')
       if (s) cachedRates = JSON.parse(s)
-    } catch { }
+    } catch { /* No additional action is needed in this fallback. */ }
 
     const liveRates = cachedRates || {
       gold_22k: 14250,
@@ -566,16 +567,17 @@ export default function DigiGoldDashboard() {
     }
   }
 
+  const committedLoadMoreTransactionHistory = useCommittedCallback((...args) => loadMoreTransactionHistory(...args))
   useEffect(() => {
     if (currentView !== 'transactions' || !txHistoryHasMore || txHistoryLoading || txHistoryLoadingMore) return undefined
     const target = txHistorySentinelRef.current
     if (!target || typeof IntersectionObserver === 'undefined') return undefined
     const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) loadMoreTransactionHistory()
+      if (entries.some((entry) => entry.isIntersecting)) committedLoadMoreTransactionHistory()
     }, { rootMargin: '180px 0px' })
     observer.observe(target)
     return () => observer.disconnect()
-  }, [currentView, txHistoryHasMore, txHistoryLoading, txHistoryLoadingMore, txHistoryCursor, txFilter])
+  }, [currentView, txHistoryHasMore, txHistoryLoading, txHistoryLoadingMore, txHistoryCursor, txFilter, committedLoadMoreTransactionHistory])
 
   // Modals
   const [showBuyModal, setShowBuyModal] = useState(false)
@@ -594,7 +596,7 @@ export default function DigiGoldDashboard() {
   const [buyPaymentMethod, setBuyPaymentMethod] = useState('wallet')
   const [submittingBuy, setSubmittingBuy] = useState(false)
   const [buyFeedback, setBuyFeedback] = useState(null)
-  const [buyMessage, setBuyMessage] = useState('')
+  const [, setBuyMessage] = useState('')
 
   // Convert AUG Revive into Digi Gold or Digi Silver
   const [convertMetal, setConvertMetal] = useState('gold_22k')
@@ -650,7 +652,7 @@ export default function DigiGoldDashboard() {
     setActiveAutoPayPlans(updated)
     try {
       localStorage.setItem('athirai_autopay_plans', JSON.stringify(updated))
-    } catch { }
+    } catch { /* No additional action is needed in this fallback. */ }
   }
 
   // ── HOME DELIVERY STATE & CONFIGURATION ──
@@ -739,7 +741,7 @@ export default function DigiGoldDashboard() {
           return parsed
         }
       }
-    } catch { }
+    } catch { /* No additional action is needed in this fallback. */ }
     return null
   })
 
@@ -754,7 +756,7 @@ export default function DigiGoldDashboard() {
           return parsed.filter(o => o && o.order_id && !fakeIds.includes(o.order_id))
         }
       }
-    } catch { }
+    } catch { /* No additional action is needed in this fallback. */ }
     return []
   })
   const [deliveryOrdersFilter, setDeliveryOrdersFilter] = useState('all')
@@ -822,15 +824,15 @@ export default function DigiGoldDashboard() {
             diff_silver: 8.0,
             pct_silver: 3.0,
           }
-          try { sessionStorage.setItem('athirai_rates', JSON.stringify(liveMetalRates)) } catch { }
+          try { sessionStorage.setItem('athirai_rates', JSON.stringify(liveMetalRates)) } catch { /* No additional action is needed in this fallback. */ }
         }
       }
 
       let walletCoins = 0
-      let userWalletBalance = 0.0
+
       if (walletRes.status === 'fulfilled' && walletRes.value?.data) {
         walletCoins = Number(walletRes.value.data.balance_coins ?? walletRes.value.data.balance ?? 0)
-        userWalletBalance = Math.round((walletCoins / 100) * 100) / 100
+
       }
 
       const dashData = dashRes.status === 'fulfilled' ? dashRes.value?.data : null
@@ -839,7 +841,7 @@ export default function DigiGoldDashboard() {
           ? (dashRes.reason?.response?.data?.error || 'Could not load your vault balance. Please try again.')
           : 'Your vault balance is unavailable. Please try again.')
       }
-      const dashCoins = Number(dashData?.kpis?.aug_coins_balance ?? 0)
+      (Number(dashData?.kpis?.aug_coins_balance ?? 0));
 
       // Authoritative AUG Revive balance directly from single source of truth
       const authoritativeCoins = dashData?.kpis?.aug_coins_balance !== undefined
@@ -922,7 +924,7 @@ export default function DigiGoldDashboard() {
               }
             })
           setDeliveryOrdersList(validOrders)
-          try { localStorage.setItem('athirai_delivery_orders_history', JSON.stringify(validOrders)) } catch { }
+          try { localStorage.setItem('athirai_delivery_orders_history', JSON.stringify(validOrders)) } catch { /* No additional action is needed in this fallback. */ }
         }
       } catch (delivErr) {
         console.warn('Real delivery orders fetch notice:', delivErr)
@@ -935,9 +937,10 @@ export default function DigiGoldDashboard() {
     }
   }
 
+  const committedFetchDashboardData = useCommittedCallback((...args) => fetchDashboardData(...args))
   useEffect(() => {
-    fetchDashboardData()
-  }, [])
+    committedFetchDashboardData()
+  }, [committedFetchDashboardData])
 
   // ── BUY HANDLER ──
   const handleBuyGold = async (e) => {
@@ -1202,7 +1205,7 @@ export default function DigiGoldDashboard() {
             setActiveAutoPayPlans(updatedPlans)
             try {
               localStorage.setItem('athirai_autopay_plans', JSON.stringify(updatedPlans))
-            } catch { }
+            } catch { /* No additional action is needed in this fallback. */ }
 
             setShowAutoPayModal(false)
             setActionSuccessData({
@@ -1324,9 +1327,9 @@ export default function DigiGoldDashboard() {
     setSupportSubmitted(true)
   }
 
-  const kpis = data?.kpis || {}
+  const kpis = useMemo(() => (data?.kpis || {}), [data])
   const rates = data?.rates || {}
-  const transactions = data?.recent_transactions || []
+  const transactions = useMemo(() => (data?.recent_transactions || []), [data])
   const isNegativeReturn = Number(kpis.total_returns_inr ?? 0) < 0 || Number(kpis.returns_percentage ?? 0) < 0
 
   // Dynamic Real Chart Data per Active Tab (1D, 1W, 1M, 3M, 1Y) for Gold or Silver
@@ -1476,7 +1479,7 @@ export default function DigiGoldDashboard() {
   // Live calculations for Buy modal
   const parsedBuyAmount = parseFloat(buyAmount) || 0
   const activeBuyMgRate = buyMetal === 'gold_22k' ? currentLiveMgRate : (currentSilverRate / 1000)
-  const getDigiGoldCharges = (budget, mgRate, metal) => {
+  const getDigiGoldCharges = (budget, mgRate) => {
     const metalValue = Math.round((budget / 1.03) * 100) / 100
     const gst = Math.round((budget - metalValue) * 100) / 100
     const grams = mgRate > 0 ? metalValue / (mgRate * 1000) : 0
@@ -1509,7 +1512,7 @@ export default function DigiGoldDashboard() {
 
   const totalCartGoldWeight = cartGoldItems.reduce((acc, i) => acc + (i.weight_gm * i.qty), 0)
   const totalCartSilverWeight = cartSilverItems.reduce((acc, i) => acc + (i.weight_gm * i.qty), 0)
-  const totalCartWeight = totalCartGoldWeight + totalCartSilverWeight
+  ;(totalCartGoldWeight + totalCartSilverWeight);
 
   const totalCartGoldAmount = totalCartGoldWeight * deliveryGoldRate
   const totalCartSilverAmount = totalCartSilverWeight * deliverySilverRate
@@ -1537,7 +1540,7 @@ export default function DigiGoldDashboard() {
         }
         nextCart = [...prev, newItem]
       }
-      try { localStorage.setItem('athirai_delivery_cart', JSON.stringify(nextCart)) } catch { }
+      try { localStorage.setItem('athirai_delivery_cart', JSON.stringify(nextCart)) } catch { /* No additional action is needed in this fallback. */ }
       return nextCart
     })
   }
@@ -1551,14 +1554,14 @@ export default function DigiGoldDashboard() {
         }
         return i
       }).filter(Boolean)
-      try { localStorage.setItem('athirai_delivery_cart', JSON.stringify(nextCart)) } catch { }
+      try { localStorage.setItem('athirai_delivery_cart', JSON.stringify(nextCart)) } catch { /* No additional action is needed in this fallback. */ }
       return nextCart
     })
   }
 
   const handleClearDeliveryCart = () => {
     setDeliveryCart([])
-    try { localStorage.removeItem('athirai_delivery_cart') } catch { }
+    try { localStorage.removeItem('athirai_delivery_cart') } catch { /* No additional action is needed in this fallback. */ }
   }
 
   const handleProceedDeliveryCheckout = async () => {
@@ -1610,7 +1613,7 @@ export default function DigiGoldDashboard() {
 
       const confirmed = res.data.order
       setLastConfirmedOrder(confirmed)
-      try { localStorage.setItem('athirai_last_delivery_order', JSON.stringify(confirmed)) } catch { }
+      try { localStorage.setItem('athirai_last_delivery_order', JSON.stringify(confirmed)) } catch { /* No additional action is needed in this fallback. */ }
 
       const newOrderRecord = {
         order_id: confirmed.order_id || `DG-2026-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -1634,7 +1637,7 @@ export default function DigiGoldDashboard() {
       }
       setDeliveryOrdersList(prev => {
         const next = [newOrderRecord, ...prev]
-        try { localStorage.setItem('athirai_delivery_orders_history', JSON.stringify(next)) } catch { }
+        try { localStorage.setItem('athirai_delivery_orders_history', JSON.stringify(next)) } catch { /* No additional action is needed in this fallback. */ }
         return next
       })
 
@@ -1851,20 +1854,7 @@ export default function DigiGoldDashboard() {
     }
   }
 
-  const handleNavigateToOrderSummary = () => {
-    if (currentView !== 'delivery') {
-      navigateToView('delivery')
-    }
-    setSidebarOpen(false)
-    setTimeout(() => {
-      const panel = document.getElementById('dg-order-summary-panel')
-      if (panel) {
-        panel.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        panel.classList.add('dg-summary-pulse-highlight')
-        setTimeout(() => panel.classList.remove('dg-summary-pulse-highlight'), 2200)
-      }
-    }, 150)
-  }
+
 
   // ── FILTERED DELIVERY ORDERS (MODELED AFTER ORDERSUMMARY.JSX) ──
   const filteredDeliveryOrders = useMemo(() => {
@@ -2105,7 +2095,7 @@ export default function DigiGoldDashboard() {
         return
       }
 
-      const logoUrl = `${window.location.origin}/Aadhirai-Logo.png`
+      const logoUrl = `${window.location.origin}/Gold/Athirai_logo.png`
       const currentDateStr = new Date().toLocaleDateString('en-IN', {
         day: '2-digit',
         month: 'short',
@@ -2701,14 +2691,14 @@ export default function DigiGoldDashboard() {
               onClick={() => { navigateToView('dashboard'); setSidebarOpen(false); }}
             >
               <img
-                src="/Aadhirai-Logo.png"
+                src="/Gold/Athirai_logo.png"
                 alt="Athirai"
                 style={{ height: 38, width: 'auto', objectFit: 'contain' }}
                 onError={(e) => { e.target.style.display = 'none' }}
               />
               <div>
-                <div className="dg-brand-title">Athirai Digi Gold</div>
-                <div className="dg-brand-subtitle">Secure Your Tomorrow</div>
+                <div className="dg-brand-title athirai-wordmark">ATHIRAI</div>
+                <div className="dg-brand-subtitle">Digi Gold</div>
               </div>
             </div>
             <button
@@ -2894,14 +2884,14 @@ export default function DigiGoldDashboard() {
               onClick={() => { navigateToView('dashboard'); }}
             >
               <img
-                src="/Aadhirai-Logo.png"
+                src="/Gold/Athirai_logo.png"
                 alt="Athirai"
                 className="dg-header-mobile-logo"
                 onError={(e) => { e.target.style.display = 'none' }}
               />
               <div className="dg-header-mobile-title-wrap">
-                <span className="dg-header-mobile-title">Digi Gold</span>
-                <span className="dg-header-mobile-sub">Athirai 916</span>
+                <span className="dg-header-mobile-title athirai-wordmark">ATHIRAI</span>
+                <span className="dg-header-mobile-sub">Digi Gold ? 916</span>
               </div>
             </div>
           </div>
@@ -7002,8 +6992,4 @@ export default function DigiGoldDashboard() {
       )}
     </div>
   )
-}
-
-function roundNum(num, dec) {
-  return Math.round(num * Math.pow(10, dec)) / Math.pow(10, dec)
 }

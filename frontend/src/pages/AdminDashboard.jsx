@@ -1,14 +1,16 @@
+import { useCommittedCallback } from "../api.js";
+import { irdPalette } from '../config/categoryConfig'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts'
 import api from '../api'
-import logo from '../assets/logo.png'
+const logo = '/Gold/Athirai_logo.png';
 import InternalRoleNavbar, { DailyWorkCheckIn } from '../collection/InternalRoleNavbar'
 import CopyUrlButton from '../collection/CopyUrlButton'
-import goldCoin from '../assets/gold-coin-transparent.png'
-import silverCoin from '../assets/silver-coin.png'
+
+
 import { SkeletonChart, SkeletonText, SkeletonRow, SkeletonBox } from '../components/Skeleton'
 import '../components/skeleton.css'
 
@@ -29,11 +31,7 @@ const ROLE_LABELS_ADMIN = {
   customer: { emoji: '👤', label: 'CUSTOMER', color: '#C92035', idKey: 'customer_id' },
 }
 
-export const irdPalette = {
-  white: '#FDFDFC', off: '#F3F3F0', mist: '#E7EDEC', aqua: '#D1DFDE', dusty: '#BDCFCE',
-  teal: '#0C4044', deep: '#073B3F', champagne: '#F3E8DE', gold: '#CCA881', antique: '#BB8958',
-  grey: '#7A8987', black: '#111817', red: '#C92035',
-}
+
 
 const irdChartPeriods = [
   { key: 'today', label: 'Today' }, { key: 'week', label: '7D' }, { key: 'month', label: '1M' },
@@ -74,26 +72,28 @@ function irdNormalizeSeries(rows, period) {
 export function IrdOrderTrendPanel({ title = 'Order Volume', endpoint = '/order-timeseries/', requestParams = {}, onSummaryChange }) {
   const [period, setPeriod] = useState('today')
   const [data, setData] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState(null)
 
-  const fetchData = async (nextPeriod = period) => {
-    setLoading(true)
-    try {
-      const res = await api.get(endpoint, { params: { ...requestParams, period: nextPeriod } })
-      const normalized = irdNormalizeSeries(res.data?.data || [], nextPeriod)
-      setData(normalized)
-      onSummaryChange?.(normalized.reduce((sum, row) => sum + Number(row.count || 0), 0))
-      setLastUpdated(new Date())
-    } catch {
+  function fetchData(nextPeriod = period) {
+return api.get(endpoint, { params: { ...requestParams, period: nextPeriod } }).then((res) => {
+const normalized = irdNormalizeSeries(res.data?.data || [], nextPeriod)
+setData(normalized)
+onSummaryChange?.(normalized.reduce((sum, row) => sum + Number(row.count || 0), 0))
+setLastUpdated(new Date())
+}).catch(() => {
+
       setData([])
       onSummaryChange?.(0)
       setLastUpdated(new Date())
-    }
-    setLoading(false)
-  }
 
-  useEffect(() => { fetchData('today') }, [])
+}).finally(() => {
+setLoading(false)
+});
+}
+
+  const committedFetchData = useCommittedCallback((...args) => fetchData(...args))
+  useEffect(() => { committedFetchData('today') }, [committedFetchData])
 
   const totalOrders = data.reduce((sum, row) => sum + Number(row.count || 0), 0)
 
@@ -136,7 +136,7 @@ export function IrdOrderTrendPanel({ title = 'Order Volume', endpoint = '/order-
               <button
                 key={p.key}
                 type="button"
-                onClick={() => { setPeriod(p.key); fetchData(p.key) }}
+                onClick={() => { setPeriod(p.key); setLoading(true); fetchData(p.key) }}
                 style={{
                   background: period === p.key ? '#073B3F' : 'transparent',
                   color: period === p.key ? '#FFFFFF' : '#5A6A68',
@@ -203,7 +203,7 @@ export function IrdOrderTrendPanel({ title = 'Order Volume', endpoint = '/order-
   )
 }
 
-export function IrdDonutPanel({ title, totalLabel, data = [], login, onSliceClick, loading }) {
+export function IrdDonutPanel({ title, data = [], login, onSliceClick, loading }) {
   const colors = [
     '#073B3F', '#009957', '#BB8958', '#CCA881', '#C92035', '#2563EB', '#0D9488'
   ]
@@ -367,9 +367,9 @@ export const IRD_STYLES = `
         @media(max-width:760px){.ird-shell{padding:18px 14px 0}.ird-chart-head{grid-template-columns:1fr}.ird-chart-title-row h2{font-size:34px}.ird-chart-box{height:340px}.ird-action-grid{grid-template-columns:1fr}}
 `
 
-function AdminDashboardFrame({ roleName, roleDistribution = [], quickActions = [], endpoint, requestParams = {} }) {
+function AdminDashboardFrame({ roleName, quickActions = [], endpoint, requestParams = {} }) {
   const navigate = useNavigate()
-  const [orderCount, setOrderCount] = useState(0)
+  const [, setOrderCount] = useState(0)
   const [loginCounts, setLoginCounts] = useState({ active: 0, inactive: 0 })
   const [loginLoading, setLoginLoading] = useState(true)
   const [fastCounts, setFastCounts] = useState(null)
@@ -514,18 +514,7 @@ function SectionHeader({ icon, label }) {
   )
 }
 
-function getPasswordStrength(pw) {
-  if (!pw) return { label: '', color: '', width: '0%' }
-  let score = 0
-  if (pw.length >= 6) score++
-  if (pw.length >= 8) score++
-  if (/[A-Z]/.test(pw)) score++
-  if (/[0-9]/.test(pw)) score++
-  if (/[^A-Za-z0-9]/.test(pw)) score++
-  if (score <= 2) return { label: 'Weak', color: '#C92035', width: '33%' }
-  if (score <= 4) return { label: 'Medium', color: '#BB8958', width: '66%' }
-  return { label: 'Strong', color: '#0C4044', width: '100%' }
-}
+
 
 const OCCUPATIONS = ['employee', 'business', 'others']
 const emptyForm = {
@@ -840,7 +829,7 @@ function printAdminPersonCard(node, role, color, ancestors, superAdminEmail) {
       ${chainHtml}
       <div class="footer">Printed on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
     </div>
-    <script>window.onload=()=>{window.print()}<\/script>
+    <script>window.onload=()=>{window.print()}</script>
     </body></html>
   `)
   printWindow.document.close()
@@ -960,108 +949,11 @@ function AdminTreeNode({ node, role, depth = 0, dark, text, subtext, colorIdx = 
 let _dpopupEl = null
 let _dhideTimer = null
 
-function removeDealerPopup() {
-  document.querySelectorAll('#dealer-popup').forEach(el => el.remove())
-  _dpopupEl = null
-}
 
-function scheduleDealerHide(setActiveDealer) {
-  clearTimeout(_dhideTimer)
-  _dhideTimer = setTimeout(() => {
-    removeDealerPopup()
-    setActiveDealer(null)
-  }, 120)
-}
 
-function createDealerPopup(d, i, anchorEl, dark, subtext, text, currentAdmin) {
-  removeDealerPopup()
-  const c = DEALER_COLORS[i % DEALER_COLORS.length]
-  const popupBg = dark ? 'linear-gradient(160deg,#091525,#E7EDEC)' : 'linear-gradient(160deg,#FDFDFC,#F3F3F0)'
-  const popupBorder = dark ? 'rgba(12,64,68,0.25)' : 'rgba(12,64,68,0.25)'
-  const saBoxBg = dark ? 'rgba(204,168,129,0.05)' : 'rgba(255,193,7,0.08)'
-  const saBoxBorder = dark ? 'rgba(204,168,129,0.22)' : 'rgba(255,193,7,0.35)'
-  const adminBoxBg = dark ? 'rgba(12,64,68,0.05)' : 'rgba(204,168,129,0.05)'
-  const adminBoxBd = dark ? 'rgba(12,64,68,0.2)' : 'rgba(204,168,129,0.2)'
-  const dealerBoxBg = dark ? 'rgba(189,207,206,0.04)' : 'rgba(12,64,68,0.05)'
-  const dealerBoxBd = dark ? 'rgba(189,207,206,0.14)' : 'rgba(12,64,68,0.2)'
-  const accentColor = dark ? '#0C4044' : '#0C4044'
 
-  const el = document.createElement('div')   // ✅ இது முதல்ல வரணும்
-  el.id = 'dealer-popup'
-  el.style.cssText = `
-    position:fixed; z-index:9999;
-    background:${popupBg}; border:1px solid ${popupBorder};
-    border-radius:14px; padding:14px;
-    box-shadow:0 16px 48px rgba(17,24,23,0.45);
-    animation:dealerPopupIn 0.25s cubic-bezier(0.22,1,0.36,1) both;
-    min-width:210px; max-width:250px;
-    display:flex; flex-direction:column; align-items:stretch;
-  `
 
-  el.innerHTML = `
-    <div style="font-size:9px;color:${accentColor};font-weight:700;letter-spacing:1.3px;margin-bottom:11px;padding-bottom:9px;border-bottom:1px solid ${popupBorder};display:flex;align-items:center;gap:6px;">
-      <span style="width:5px;height:5px;border-radius:50%;background:${accentColor};display:inline-block;"></span>
-      CREATED BY
-    </div>
 
-    <!-- Super Admin -->
-    <div style="border-radius:9px;padding:10px;margin-bottom:6px;background:${saBoxBg};border:1px solid ${saBoxBorder};">
-<div style="display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(204,168,129,0.12);color:#CCA881;border:1px solid rgba(204,168,129,0.3);margin-bottom:6px;">🛡️ SUPER ADMIN</div>    
-<div style="font-size:11px;color:${subtext};word-break:break-all;">${localStorage.getItem('superAdminEmail') || localStorage.getItem('email') || '—'}</div>
-      <div style="margin-top:5px;font-size:9px;padding:2px 7px;background:rgba(204,168,129,0.1);border:1px solid rgba(204,168,129,0.25);border-radius:20px;color:#CCA881;display:inline-block;">● ONLINE</div>
-    </div>
-
-    <!-- Arrow SA → Admin -->
-    <div style="display:flex;justify-content:center;padding:3px 0;">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid #CCA881;"></div>
-        <div style="width:2px;height:7px;background:linear-gradient(180deg,#CCA881,#CCA88144);"></div>
-      </div>
-    </div>
-
-    <!-- Admin -->
-    <div style="border-radius:9px;padding:10px;margin-bottom:6px;background:${adminBoxBg};border:1px solid ${adminBoxBd};">
-<div style="display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(12,64,68,0.12);color:#0C4044;border:1px solid rgba(12,64,68,0.3);margin-bottom:6px;">🛡️ SUPER STOCKIST</div>
-    <div style="font-size:10px;color:#0C4044;font-family:monospace;margin-bottom:3px;">${currentAdmin?.admin_id || '—'}</div>
-      <div style="font-size:13px;font-weight:700;color:${text};margin-bottom:5px;">${currentAdmin?.first_name || currentAdmin?.admin_name || '—'}</div>
-      <div style="font-size:11px;color:${subtext};margin-bottom:2px;">📞 ${currentAdmin?.mobile_number || currentAdmin?.admin_contact_no || '—'}</div>
-      <div style="font-size:11px;color:${subtext};">📍 ${currentAdmin?.city_name || '—'}</div>
-    </div>
-
-    <!-- Arrow Admin → Dealer -->
-    <div style="display:flex;justify-content:center;padding:3px 0;">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid ${accentColor};"></div>
-        <div style="width:2px;height:7px;background:linear-gradient(180deg,${accentColor},${accentColor}44);"></div>
-      </div>
-    </div>
-
-    <!-- Dealer -->
-    <div style="background:${dealerBoxBg};border:1px solid ${dealerBoxBd};border-radius:10px;padding:10px;">
-      <div style="display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(189,207,206,0.12);color:#BDCFCE;border:1px solid rgba(189,207,206,0.25);margin-bottom:6px;">DISTRIBUTOR</div>
-      <div style="font-size:10px;color:${c};font-family:monospace;margin-bottom:3px;">${d.dealer_id}</div>
-      <div style="font-size:14px;font-weight:700;color:${text};margin-bottom:6px;">${d.first_name || ''}</div>
-      <div style="font-size:11px;color:${subtext};margin-bottom:2px;">📞 ${d.mobile_number}</div>
-      <div style="font-size:11px;color:${subtext};">📍 ${d.city_name}</div>
-    </div>
-  `
-  document.body.appendChild(el)
-
-  const rect = anchorEl.getBoundingClientRect()
-  const popW = el.offsetWidth || 250
-  const popH = el.offsetHeight || 320
-  let left = rect.right + 14
-  let top = rect.top + (rect.height / 2) - (popH / 2)
-  if (left + popW > window.innerWidth - 10) left = rect.left - popW - 14
-  if (top < 8) top = 8
-  if (top + popH > window.innerHeight - 8) top = window.innerHeight - popH - 8
-  el.style.left = left + 'px'
-  el.style.top = top + 'px'
-
-  el.addEventListener('mouseenter', () => clearTimeout(_dhideTimer))
-  el.addEventListener('mouseleave', () => scheduleDealerHide(setActiveDealer))
-  _dpopupEl = el
-}
 
 const emptyCustomerForm = {
   initial: '', first_name: '', last_name: '', mobile_number: '',
@@ -1178,39 +1070,39 @@ function CustomDarkTooltip({ active, payload }) {
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
-  const [dark, setDark] = useState(false)
-  const [dealers, setDealers] = useState([])
-  const [dealersLoading, setDealersLoading] = useState(true)
-  const [admins, setAdmins] = useState([])
-  const [selectedAdmin, setSelectedAdmin] = useState(null)
+  const [dark] = useState(false)
+  const [, setDealers] = useState([])
+  const [, setDealersLoading] = useState(true)
+  const [, setAdmins] = useState([])
+  ;useState(null);
   const [showProfile, setShowProfile] = useState(false)
   const [profileData, setProfileData] = useState(null)
-  const [showForm, setShowForm] = useState(false)
-  const [activeDealer, setActiveDealer] = useState(null)
+  ;useState(false);
+  useState(null);
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState('success')
-  const [form, setForm] = useState(emptyForm)
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [pincodeLookupMsg, setPincodeLookupMsg] = useState('')
-  const [passwordError, setPasswordError] = useState('')
+  ;useState(emptyForm);
+  ;useState('');
+  ;useState('');
+  ;useState('');
   const [updateForm, setUpdateForm] = useState({})
   const [updateMessage, setUpdateMessage] = useState('')
   const [proofDocument, setProofDocument] = useState(null)
   const [showProfileEdit, setShowProfileEdit] = useState(false)
-  const [metalPrices, setMetalPrices] = useState({ gold24k: null, gold22k: null, silver: null })
-  const [metalLoading, setMetalLoading] = useState(false)
-  const [usdToInr, setUsdToInr] = useState(null)
-  const [dbRateDate, setDbRateDate] = useState(null)
+  const [, setMetalPrices] = useState({ gold24k: null, gold22k: null, silver: null })
+  const [, setMetalLoading] = useState(false)
+  useState(null);
+  const [, setDbRateDate] = useState(null)
 
   // Create Customer states
-  const [showCreateCustomer, setShowCreateCustomer] = useState(false)
-  const [customerForm, setCustomerForm] = useState(emptyCustomerForm)
-  const [customerConfirmPassword, setCustomerConfirmPassword] = useState('')
-  const [customerPasswordError, setCustomerPasswordError] = useState('')
-  const [customerPincodeLookupMsg, setCustomerPincodeLookupMsg] = useState('')
-  const [customerMsg, setCustomerMsg] = useState('')
-  const [customerMsgType, setCustomerMsgType] = useState('success')
-  const [customerSubmitting, setCustomerSubmitting] = useState(false)
+  ;useState(false);
+  ;useState(emptyCustomerForm);
+  ;useState('');
+  ;useState('');
+  ;useState('');
+  ;useState('');
+  ;useState('success');
+  ;useState(false);
 
   const [showRequestCoin, setShowRequestCoin] = useState(false)
 const [coinRequests, setCoinRequests] = useState([])
@@ -1230,8 +1122,117 @@ const [selCoinMetal, setSelCoinMetal] = useState('gold_22k')
 const [selCoinWeight, setSelCoinWeight] = useState('')
 const [selCoinQty, setSelCoinQty] = useState('')
 const [showStoredCoin, setShowStoredCoin] = useState(false)
-const [coinStock, setCoinStock] = useState([])
-const [coinStockLoading, setCoinStockLoading] = useState(false)
+const [coinStock] = useState([])
+const [coinStockLoading] = useState(false)
+
+  const COIN_METAL_LABELS_TEXT = { gold_22k: 'Gold 22K', gold_24k: 'Gold 24K', silver_999: 'Silver 999' }
+const COIN_WEIGHTS_GOLD = [
+  { label: '50 mg', grams: 0.05 }, { label: '100 mg', grams: 0.10 }, { label: '150 mg', grams: 0.15 },
+  { label: '200 mg', grams: 0.20 }, { label: '500 mg', grams: 0.50 }, { label: '1 gm', grams: 1 },
+  { label: '2 gm', grams: 2 }, { label: '4 gm', grams: 4 }, { label: '8 gm', grams: 8 },
+]
+const COIN_WEIGHTS_SILVER = [
+  { label: '500 mg', grams: 0.50 }, { label: '1 gm', grams: 1 }, { label: '2 gm', grams: 2 },
+  { label: '5 gm', grams: 5 }, { label: '10 gm', grams: 10 }, { label: '20 gm', grams: 20 },
+  { label: '50 gm', grams: 50 }, { label: '100 gm', grams: 100 },
+]
+
+const fetchCoinRequests = async () => {
+  setCoinReqLoading(true)
+  try {
+    const res = await api.get('/coin-requests/')
+    setCoinRequests(res.data)
+  } catch { setCoinRequests([]) }
+  setCoinReqLoading(false)
+}
+
+const approveCoinRequest = async (reqId) => {
+  setApprovingReqId(reqId)
+  setCoinReqMsg('')
+  try {
+    await api.post(`/coin-requests/${reqId}/approve/`)
+    setCoinReqMsgType('success')
+    setCoinReqMsg('Request approved successfully.')
+    fetchCoinRequests()
+  } catch {
+    setCoinReqMsgType('error')
+    setCoinReqMsg('Failed to approve request. Please try again.')
+  }
+  setApprovingReqId(null)
+}
+
+const approveAllCoinRequests = async () => {
+  setApprovingAll(true)
+  setCoinReqMsg('')
+  try {
+    await api.post('/coin-requests/approve-all/')
+    setCoinReqMsgType('success')
+    setCoinReqMsg('All requests approved successfully.')
+    fetchCoinRequests()
+  } catch {
+    setCoinReqMsgType('error')
+    setCoinReqMsg('Failed to approve requests. Please try again.')
+  }
+  setApprovingAll(false)
+}
+
+const rejectCoinRequest = async (reqId) => {
+  if (!rejectReason.trim()) {
+    setCoinReqMsgType('error')
+    setCoinReqMsg('Please enter a reason for rejection.')
+    return
+  }
+  setRejectSubmitting(true)
+  setCoinReqMsg('')
+  try {
+    await api.post(`/coin-requests/${reqId}/reject/`, { message: rejectReason.trim() })
+    setCoinReqMsgType('success')
+    setCoinReqMsg('Request rejected successfully.')
+    setRejectingReqId(null)
+    setRejectReason('')
+    fetchCoinRequests()
+  } catch {
+    setCoinReqMsgType('error')
+    setCoinReqMsg('Failed to reject request. Please try again.')
+  }
+  setRejectSubmitting(false)
+}
+
+const addToCoinCart = () => {
+  if (!selCoinWeight || !selCoinQty || Number(selCoinQty) < 1) {
+    setCoinBuyMsg('error:Please select weight and quantity')
+    return
+  }
+  const weightsArr = selCoinMetal === 'silver_999' ? COIN_WEIGHTS_SILVER : COIN_WEIGHTS_GOLD
+  const w = weightsArr.find(x => x.label === selCoinWeight)
+  if (!w) return
+  setCoinCart(prev => [...prev, { metal_type: selCoinMetal, weight_label: w.label, weight_grams: w.grams, qty: Number(selCoinQty) }])
+  setSelCoinWeight('')
+  setSelCoinQty('')
+  setCoinBuyMsg('')
+}
+
+const removeCoinCartItem = (idx) => {
+  setCoinCart(prev => prev.filter((_, i) => i !== idx))
+}
+
+const submitCoinRequest = async () => {
+  if (coinCart.length === 0) {
+    setCoinBuyMsg('error:Add at least one item to the cart')
+    return
+  }
+  setCoinBuySubmitting(true)
+  try {
+    await api.post('/coin-requests/', { items: coinCart })
+    setCoinBuyMsg('success:Request sent to Super Admin!')
+    setCoinCart([])
+    setTimeout(() => { setShowBuyCoin(false); setCoinBuyMsg('') }, 1400)
+  } catch (err) {
+    setCoinBuyMsg('error:' + (err.response?.data?.error || 'Failed to send request'))
+  }
+  setCoinBuySubmitting(false)
+}
+
 
   // ── SaaS Dashboard Live States ──
   const [liveTime, setLiveTime] = useState(new Date())
@@ -1327,9 +1328,10 @@ const [coinStockLoading, setCoinStockLoading] = useState(false)
     }
   }
 
+  const committedFetchOrderTimeseries = useCommittedCallback((...args) => fetchOrderTimeseries(...args))
   useEffect(() => {
-    fetchOrderTimeseries(orderPeriod)
-  }, [orderPeriod])
+    committedFetchOrderTimeseries(orderPeriod)
+  }, [orderPeriod, committedFetchOrderTimeseries])
 
   // 4. All Sales & Commission
   const [salesProfitPeriod, setSalesProfitPeriod] = useState('month')
@@ -1376,15 +1378,15 @@ const [coinStockLoading, setCoinStockLoading] = useState(false)
         salesProfitCacheRef.current[p] = payload
         setSalesProfitData(payload)
       }
-    } catch {
-    } finally {
+    } catch { /* No additional action is needed in this fallback. */ } finally {
       setSalesProfitLoading(false)
     }
   }
 
+  const committedFetchSalesProfit = useCommittedCallback((...args) => fetchSalesProfit(...args))
   useEffect(() => {
-    fetchSalesProfit(salesProfitPeriod)
-  }, [salesProfitPeriod])
+    committedFetchSalesProfit(salesProfitPeriod)
+  }, [salesProfitPeriod, committedFetchSalesProfit])
 
   // 5. Role Distribution Data (Admin has Distributor, Wholesale Dealer, Retailer, Customer)
   const adminRoleDist = useMemo(() => {
@@ -1431,15 +1433,15 @@ const [coinStockLoading, setCoinStockLoading] = useState(false)
         setUserGrowthStats(stats)
         setUserGrowthChartData(chartData)
       }
-    } catch {
-    } finally {
+    } catch { /* No additional action is needed in this fallback. */ } finally {
       setUserGrowthLoading(false)
     }
   }
 
+  const committedFetchUserGrowth = useCommittedCallback((...args) => fetchUserGrowth(...args))
   useEffect(() => {
-    fetchUserGrowth(userGrowthPeriod)
-  }, [userGrowthPeriod])
+    committedFetchUserGrowth(userGrowthPeriod)
+  }, [userGrowthPeriod, committedFetchUserGrowth])
 
 
 
@@ -1452,15 +1454,15 @@ const [coinStockLoading, setCoinStockLoading] = useState(false)
   const bg = dark ? '#073B3F' : '#FDFDFC'
   const text = dark ? '#FDFDFC' : '#111817'
   const subtext = dark ? '#D1DFDE' : '#7A8987'
-  const accent = dark ? '#CCA881' : '#0C4044'
+  ;(dark ? '#CCA881' : '#0C4044');
   const border = dark ? 'rgba(209,223,222,0.22)' : 'rgba(189,207,206,0.78)'
-  const glass = dark ? 'rgba(7,59,63,0.9)' : 'rgba(253,253,252,0.92)'
+  ;(dark ? 'rgba(7,59,63,0.9)' : 'rgba(253,253,252,0.92)');
   const cardBg = dark ? 'rgba(12,64,68,0.88)' : 'rgba(253,253,252,0.96)'
   const cardBorder = dark ? '1px solid rgba(209,223,222,0.22)' : '1px solid rgba(189,207,206,0.72)'
   const inpBg = dark ? 'rgba(253,253,252,0.08)' : '#FDFDFC'
   const inpBorder = dark ? 'rgba(209,223,222,0.24)' : '#BDCFCE'
   const optionBg = dark ? '#073B3F' : '#F3F3F0'
-  const selectInput = { width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box', cursor: 'pointer' }
+  ;({ width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box', cursor: 'pointer' });
 
   // Canvas animations removed for performance
 
@@ -1523,7 +1525,7 @@ const [coinStockLoading, setCoinStockLoading] = useState(false)
       try {
         const adminRes = await api.get('/admins/list/')
         setAdmins(adminRes.data)
-      } catch { }
+      } catch { /* No additional action is needed in this fallback. */ }
 
     } catch (err) {
       console.error('dealers error:', err)
@@ -1659,7 +1661,7 @@ const fetchMetalPrices = async () => {
       silver:  parseFloat(d.silver_999),
     })
     setDbRateDate(d.date)
-  } catch (e) {
+  } catch {
     setMetalPrices({ gold22k: null, gold24k: null, silver: null })
     setDbRateDate(null)
   }
@@ -1675,144 +1677,22 @@ useEffect(() => {
   return () => clearInterval(interval)
 }, [])
 
-  const handleChange = e => {
-    const { name, value } = e.target
 
-    if (name === 'married_status' && value !== 'married') {
-      setForm({ ...form, married_status: value, anniversary_date: '' })
-      return
-    }
 
-    setForm({ ...form, [name]: value })
-  }
 
-  
-  const handleAdminChange = (e) => {
-    const id = parseInt(e.target.value)
-    const admin = admins.find(a => a.id === id)
-    setSelectedAdmin(admin || null)
-    setForm({ ...form, assigned_admin_id: id })
-  }
 
-  const handlePincodeChange = async (e) => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 6)
-    setForm(prev => ({ ...prev, pincode: value }))
-    setPincodeLookupMsg('')
 
-    if (value.length === 6) {
-      setPincodeLookupMsg('Fetching location details...')
-      try {
-        const res = await fetch(`https://api.postalpincode.in/pincode/${value}`)
-        const data = await res.json()
-        if (data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
-          const po = data[0].PostOffice[0]
-          setForm(prev => ({
-            ...prev,
-            city_name: po.District || prev.city_name,
-            district: po.District || prev.district,
-            state: po.State || prev.state,
-          }))
-          setPincodeLookupMsg('Location details auto-filled')
-        } else {
-          setPincodeLookupMsg('Pincode not found — please enter manually')
-        }
-      } catch {
-        setPincodeLookupMsg('Unable to fetch location — please enter manually')
-      }
-    }
-  }
 
-const handleSubmit = async e => {
-  e.preventDefault()
 
-  // Married na anniversary compulsory
-  if (form.married_status === 'married' && !form.anniversary_date) {
-    setMsg('❌ Please enter Anniversary Date!'); setMsgType('error')
-    return
-  }
 
-  if (form.password !== confirmPassword) {
-    setPasswordError('❌ Passwords do not match')
-    return
-  }
 
-  try {
-    const payload = { ...form }
-    if (!payload.dob) delete payload.dob
-    if (payload.married_status !== 'married') delete payload.anniversary_date
-    await api.post('/dealers/', payload)
-    setMsg('✅ Dealer created successfully!'); setMsgType('success')
-    setShowForm(false); fetchDealers(); setForm(emptyForm); setSelectedAdmin(null)
-    setConfirmPassword(''); setPasswordError('')
-  } catch (err) {
-    console.log('ERROR DETAILS:', JSON.stringify(err.response?.data))
-    setMsg('❌ Error: ' + JSON.stringify(err.response?.data)); setMsgType('error')
-  }
-}
 
-  const handleCustomerChange = e => {
-    const { name, value } = e.target
-    if (name === 'married_status' && value !== 'married') {
-      setCustomerForm({ ...customerForm, married_status: value, anniversary_date: '' })
-      return
-    }
-    setCustomerForm({ ...customerForm, [name]: value })
-  }
 
-  const handleCustomerPincodeChange = async e => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 6)
-    setCustomerForm(prev => ({ ...prev, pincode: value }))
-    setCustomerPincodeLookupMsg('')
-    if (value.length === 6) {
-      setCustomerPincodeLookupMsg('Fetching location details...')
-      try {
-        const res = await fetch(`https://api.postalpincode.in/pincode/${value}`)
-        const data = await res.json()
-        if (data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
-          const po = data[0].PostOffice[0]
-          setCustomerForm(prev => ({
-            ...prev,
-            city_name: po.District || prev.city_name,
-            district: po.District || prev.district,
-            state: po.State || prev.state,
-          }))
-          setCustomerPincodeLookupMsg('Location details auto-filled')
-        } else {
-          setCustomerPincodeLookupMsg('Pincode not found — please enter manually')
-        }
-      } catch {
-        setCustomerPincodeLookupMsg('Unable to fetch location — please enter manually')
-      }
-    }
-  }
 
-  const handleCustomerSubmit = async e => {
-    e.preventDefault()
-    if (customerForm.married_status === 'married' && !customerForm.anniversary_date) {
-      setCustomerMsg('❌ Please enter Anniversary Date!'); setCustomerMsgType('error')
-      return
-    }
-    if (customerForm.password !== customerConfirmPassword) {
-      setCustomerPasswordError('❌ Passwords do not match')
-      return
-    }
-    setCustomerSubmitting(true)
-    try {
-      const payload = { ...customerForm }
-      if (!payload.dob) delete payload.dob
-      if (payload.married_status !== 'married') delete payload.anniversary_date
-      await api.post('/customers/', payload)
-      setCustomerMsg('✅ Customer created successfully!'); setCustomerMsgType('success')
-      setCustomerForm(emptyCustomerForm)
-      setCustomerConfirmPassword(''); setCustomerPasswordError('')
-      setTimeout(() => { setShowCreateCustomer(false); setCustomerMsg('') }, 2000)
-    } catch (err) {
-      setCustomerMsg('❌ Error: ' + JSON.stringify(err.response?.data)); setCustomerMsgType('error')
-    }
-    setCustomerSubmitting(false)
-  }
 
-  const card = {
+
+
+  ;({
     background: cardBg,
     border: cardBorder,
     borderRadius: '22px',
@@ -1820,12 +1700,12 @@ const handleSubmit = async e => {
     marginBottom: '26px',
     boxShadow: dark ? '0 26px 70px rgba(17,24,23,0.18)' : '0 22px 58px rgba(7,59,63,0.08)',
     backdropFilter: 'blur(18px)',
-  }
-  const secHead = (color = '#0C4044') => ({ color, fontSize: '13px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.16em', margin: '0 0 22px', paddingBottom: '15px', borderBottom: cardBorder })
-  const secLabel = (color = '#0C4044') => ({ color, fontSize: '12px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.12em', margin: '4px 0 0', paddingBottom: '11px', borderBottom: cardBorder })
- const inp = { width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box', boxShadow: dark ? 'none' : 'inset 0 1px 0 rgba(253,253,252,0.7)' }
-  const lbl = { display: 'block', color: subtext, fontSize: '11px', fontWeight: 800, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.09em' }
-  const sectionCard = { background: '#FDFDFC', border: '1px solid rgba(189,207,206,0.55)', borderRadius: '16px', padding: '22px 24px', marginBottom: '4px' }
+  });
+
+
+ ({ width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box', boxShadow: dark ? 'none' : 'inset 0 1px 0 rgba(253,253,252,0.7)' });
+  ({ display: 'block', color: subtext, fontSize: '11px', fontWeight: 800, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.09em' });
+  ({ background: '#FDFDFC', border: '1px solid rgba(189,207,206,0.55)', borderRadius: '16px', padding: '22px 24px', marginBottom: '4px' });
 
   return (
     <div style={{ minHeight: '100vh', background: dark ? bg : 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)', color: text, transition: 'background 0.8s ease, color 0.4s ease', fontFamily: '"Inter",system-ui,sans-serif', position: 'relative' }}>
@@ -2439,7 +2319,7 @@ const handleSubmit = async e => {
           { label: 'Distributor Hierarchy', path: '/admin-hierarchy-grid' },
           { label: 'Create Distributor', path: '/create-distributor' },
           { label: 'Create Customer', path: '/create-customer' },
-          { label: 'Requests', action: () => setShowRequests(true) },
+          { label: 'Requests', path: '/jewellery-requests' },
         ]}
         coinItems={[
           { label: 'Buy Coin', path: '/buy-coin' },

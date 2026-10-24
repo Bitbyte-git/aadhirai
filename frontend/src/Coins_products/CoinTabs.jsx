@@ -1,19 +1,9 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { PlusIcon, CoinIcon, InboxIcon, HistoryIcon, ArrowRightIcon, JewelryIcon, SparkleIcon, CartIcon } from "../components/SvgIcons";
 
-export const COIN_TABS = [
-  { label: "Add Coins", path: "/buy-coin", icon: PlusIcon },
-  { label: "Available Coins", path: "/available-coins", icon: CoinIcon },
-  { label: "Requests Coins", path: "/coin-requests-page", icon: InboxIcon },
-  { label: "Transaction Coins History", path: "/coin-transactions", icon: HistoryIcon },
-];
 
-export const JEWELLERY_TABS = [
-  { label: "Add Jewellery", path: "/add-jewellery", icon: PlusIcon },
-  { label: "Available Jewellery", path: "/available-jewellery", icon: JewelryIcon },
-  { label: "Requests Jewellery", path: "/jewellery-requests", icon: InboxIcon },
-  { label: "Jewellery Transactions", path: "/jewellery-transactions", icon: HistoryIcon },
-];
+
+
 
 export default function CoinTabs({ activeTab }) {
   const navigate = useNavigate();

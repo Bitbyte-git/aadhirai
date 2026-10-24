@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../../api.js";
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api'
@@ -45,7 +46,7 @@ export default function SuperStockist() {
       setCopiedUrlId(person.id)
       showToast('Referral link copied to clipboard')
       setTimeout(() => setCopiedUrlId(null), 2000)
-    } catch (err) {
+    } catch {
       alert('Failed to generate referral URL')
     } finally {
       setCopyingUrl(null)
@@ -160,12 +161,13 @@ export default function SuperStockist() {
     return () => clearTimeout(timer)
   }, [searchInput])
 
+  const committedFetchAdmins = useCommittedCallback((...args) => fetchAdmins(...args))
   useEffect(() => {
     const controller = new AbortController()
     setOffset(0)
-    fetchAdmins(controller.signal, 0, search, false, 0, activeTab)
+    committedFetchAdmins(controller.signal, 0, search, false, 0, activeTab)
     return () => controller.abort()
-  }, [search, activeTab])
+  }, [search, activeTab, committedFetchAdmins])
 
   const handleLoadMore = () => {
     const controller = new AbortController()
@@ -1184,7 +1186,7 @@ export default function SuperStockist() {
 
               {/* Mobile View */}
               <div className="mu-mobile-cards">
-                {rows.map((a, i) => {
+                {rows.map((a) => {
                   const initials = `${(a.first_name || 'S')[0]}${(a.last_name || '')[0] || ''}`.toUpperCase()
                   return (
                     <div key={`mob-${a.id || a.admin_id}`} className="mu-mobile-card">

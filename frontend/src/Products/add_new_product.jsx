@@ -215,7 +215,7 @@ const SUBCATEGORIES = {
   },
 }
 
-const getGradeOptions = (metal, category) => {
+const getGradeOptions = (metal) => {
   if (metal === 'diamond') return ['18k', '22k']
   if (metal === 'platinum') return ['92']
   if (metal === 'silver') return ['999']
@@ -295,12 +295,12 @@ export default function AddNewProduct() {
     return ['An unexpected error occurred while adding the product.']
   }
 
-  const dark = false
+
   const bg       = 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 52%,#E7EDEC 100%)'
   const text     = '#111817'
   const subtext  = '#7A8987'
-  const border   = 'rgba(189,207,206,0.78)'
-  const glass    = 'rgba(253,253,252,0.94)'
+
+
   const inpBg    = '#FDFDFC'
   const inpBorder = '#BDCFCE'
   const optionBg = '#F3F3F0'
@@ -373,7 +373,7 @@ export default function AddNewProduct() {
       return
     }
 
-    const base = nw * rate
+    (nw * rate);
     const makingAmtVal = rate * (mcPct / 100)
     const rateWithMaking = rate + makingAmtVal
     const discAmtVal = rateWithMaking * (disPct / 100)

@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from 'react'
 import axios from 'axios'
 
 const BASE_URL_RAW = import.meta.env.VITE_BASE_URL || 'https://bitbyte-backend-f66f.onrender.com/api/'
@@ -173,4 +174,73 @@ export function mapsCoordinates(link) {
     }
   } catch { /* A shortened share link can still be saved without coordinates. */ }
   return { latitude: null, longitude: null }
+}
+
+
+export async function getCartFromDB() {
+  try {
+    const res = await api.get('/cart/')
+    return Array.isArray(res.data) ? res.data : []
+  } catch {
+    return []
+  }
+}
+
+export async function addToCartDB(productId, qty = 1) {
+  try {
+    const res = await api.post('/cart/', { product_id: productId, qty })
+    window.dispatchEvent(new Event('bb_cart_update'))
+    return res.data
+  } catch (err) {
+    console.error('Add to cart failed:', err)
+    return null
+  }
+}
+
+export async function removeFromCartDB(productId) {
+  try {
+    await api.delete('/cart/', { data: { product_id: productId } })
+    window.dispatchEvent(new Event('bb_cart_update'))
+  } catch (err) {
+    console.error('Remove failed:', err)
+  }
+}
+
+export async function updateQtyDB(cartItemId, qty) {
+  try {
+    const res = await api.patch(`/cart/${cartItemId}/qty/`, { qty })
+    window.dispatchEvent(new Event('bb_cart_update'))
+    return res.data
+  } catch (err) {
+    console.error('Qty update failed:', err)
+    return null
+  }
+}
+
+export async function getCartCountDB() {
+  const items = await getCartFromDB()
+  return items.reduce((acc, i) => acc + (i.qty || 1), 0)
+}
+
+export function getCart() { return [] }
+
+export function saveCart() {}
+
+export function addToCart(product, qty = 1) { return addToCartDB(typeof product === "object" ? product.id : product, qty) }
+
+export function getCartCount() { return 0 }
+
+// Keep subscription handlers current without restarting an observer or poller
+// whenever a callback is recreated. Effects still declare their reactive keys.
+export function useCommittedCallback(callback) {
+  const latest = useRef(callback)
+  useEffect(() => { latest.current = callback }, [callback])
+  return useCallback((...args) => latest.current(...args), [])
+}
+
+// Invalidate async responses during teardown. This is a sequence counter,
+// not a DOM ref whose node needs to be captured at subscription time.
+export function invalidateRequestVersion(version) {
+  version.current += 1
+  return version.current
 }

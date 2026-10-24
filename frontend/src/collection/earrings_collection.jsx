@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import 'react';
 import { useNavigate } from 'react-router-dom'
-import logo from '../assets/logo.png'
+
 import CustomerNavbar from './CustomerNavbar'
 import CustomerFooter from '../collection/CustomerFooter'
 
@@ -15,8 +15,8 @@ export default function EarringsCollection() {
 const bg = '#FDF5EE'
 const text = '#020617'
 const subtext = '#64748b'
-const border = 'rgba(0,0,0,0.1)'
-const cardBg = 'rgba(0,0,0,0.03)'
+
+
 
 
 
@@ -78,7 +78,7 @@ const collections = [
   //   glow: 'rgba(226,232,240,0.25)',
   //   border: 'rgba(226,232,240,0.4)',
   //   bg: 'rgba(226,232,240,0.05)',
-  //   img: '/platinam_Earrings.jpg',
+  //   img: '/Gold/platinam_Earrings.jpg',
   //   tag: 'Pt 950',
   //   route: '/platinum-earrings',
   //   icon: '⭐',

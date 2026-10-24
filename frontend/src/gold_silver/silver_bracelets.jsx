@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import logo from '../assets/logo.png'
-import { addToCart } from '../collection/card_section'
+
 import CustomerNavbar from '../collection/CustomerNavbar'
 import CustomerFooter from '../collection/CustomerFooter'
 
@@ -26,12 +25,12 @@ export default function SilverBracelets() {
 const bg        = '#FDF5EE'
 const text      = '#020617'
 const subtext   = '#64748b'
-const border    = 'rgba(0,0,0,0.1)'
-const cardBg    = 'rgba(0,0,0,0.03)'
-const inpBg     = 'rgba(0,0,0,0.05)'
-const inpBorder = '#d1d5db'
-const silverColor = '#c0c0c0'
-const silverGlow  = 'rgba(192,192,192,0.28)'
+
+
+
+
+
+
 
 
   const API_BASE = 'https://bitbyte-backend-f66f.onrender.com'
@@ -78,7 +77,7 @@ const silverGlow  = 'rgba(192,192,192,0.28)'
         return next
       })
       window.dispatchEvent(new Event('bb_wishlist_update'))
-    } catch {}
+    } catch { /* No additional action is needed in this fallback. */ }
   }
 
   const tagStyle = (tag) => TAG_COLORS[tag] || { bg:'rgba(255,255,255,0.1)', border:'rgba(255,255,255,0.2)', color:'#fff' }
@@ -161,7 +160,7 @@ return (
             </div>
           ) : silverBracelets.map((bracelet) => {
             const isHovered = hoveredBracelet === bracelet.id
-            const tag = tagStyle(bracelet.tag)
+            ;(tagStyle(bracelet.tag));
             return (
 <div
   key={bracelet.id}

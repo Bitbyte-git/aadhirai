@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react'
+import { useCallback, useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import { SkeletonCard } from '../components/Skeleton'
@@ -202,7 +202,7 @@ function printPersonCard(node, role, cfg, color, ancestors, dealerInfo) {
       ${chainHtml}
       <div class="footer">Printed on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
     </div>
-    <script>window.onload = () => { window.print() }<\/script>
+    <script>window.onload = () => { window.print() }</script>
     </body></html>
   `)
   printWindow.document.close()
@@ -269,7 +269,7 @@ function renderBracketBranch(node, role, childRole, childKey) {
   `
 }
 
-function printHorizontalBracketTree(rootNode, role, ancestors, dealerInfo) {
+function printHorizontalBracketTree(rootNode, role) {
   const nodeName = [rootNode.first_name, rootNode.last_name].filter(Boolean).join(' ') || 'Dealer Tree'
   const nodeId = rootNode[ROLE_CFG[role]?.idKey] || rootNode.id || ''
 
@@ -379,7 +379,7 @@ function printHorizontalBracketTree(rootNode, role, ancestors, dealerInfo) {
           zoomFit();
         }
         window.onload = () => { zoomFit(); setTimeout(() => window.print(), 200); };
-      <\/script>
+      </script>
     </body>
     </html>
   `)
@@ -702,7 +702,7 @@ export default function DealerHierarchy() {
   const dark = false
   const [subDealers, setSubDealers] = useState([])
   const [dealerInfo, setDealerInfo] = useState({})
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -835,11 +835,9 @@ export default function DealerHierarchy() {
   }, [search])
 
   const hasFetchedRef = useRef(false)
-  const fetchHierarchy = async () => {
-    setLoading(true)
-    try {
-      const res = await api.get('/my-hierarchy/')
-      if (res.data?.root) {
+  function fetchHierarchy() {
+return api.get('/my-hierarchy/').then((res) => {
+if (res.data?.root) {
         setDealerInfo({
           dealer_id: res.data.root.dealer_id,
           first_name: res.data.root.first_name,
@@ -850,9 +848,12 @@ export default function DealerHierarchy() {
         const sdList = res.data.items || res.data.root.sub_dealers || []
         setSubDealers(sdList)
       }
-    } catch (err) { console.error(err) }
-    setLoading(false)
-  }
+}).catch((err) => {
+ console.error(err)
+}).finally(() => {
+setLoading(false)
+});
+}
 
   useEffect(() => {
     if (hasFetchedRef.current) return
@@ -882,7 +883,7 @@ export default function DealerHierarchy() {
     return result
   }
 
-  const searchAllHierarchy = (query) => {
+  const searchAllHierarchy = useCallback((query) => {
     if (!subDealers || !query.trim()) return []
     const q = query.trim().toLowerCase()
     const result = []
@@ -902,12 +903,12 @@ export default function DealerHierarchy() {
       })
     })
     return result
-  }
+  }, [subDealers])
 
   const searchResults = useMemo(() => {
     if (!debouncedSearch) return []
     return searchAllHierarchy(debouncedSearch)
-  }, [debouncedSearch, subDealers])
+  }, [debouncedSearch, searchAllHierarchy])
 
   const totalStats = subDealers ? {
     subDealers: subDealers.length,

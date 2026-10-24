@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import { useEffect, useRef, useState } from 'react'
 import { SkeletonText } from '../components/Skeleton'
 import AllSalesDashboard from './AllSalesDashboard'
@@ -115,6 +116,11 @@ export default function PaymentsPageBase({ view, kicker, title, note, revenueLab
     )
   }
 
+  return <WalletPaymentsPage view={view} kicker={kicker} title={title} note={note} revenueLabel={revenueLabel} coinsLabel={coinsLabel} showBreakdown={showBreakdown} />
+}
+
+function WalletPaymentsPage({ view, kicker, title, note, revenueLabel, coinsLabel, showBreakdown }) {
+
   const [summary, setSummary] = useState(null)
   const [txns, setTxns] = useState([])
   const [page, setPage] = useState(1)
@@ -158,7 +164,8 @@ export default function PaymentsPageBase({ view, kicker, title, note, revenueLab
     }
   }
 
-  useEffect(() => { fetchData(1, 'month', '', '') }, [])
+  const committedFetchData = useCommittedCallback((...args) => fetchData(...args))
+  useEffect(() => { committedFetchData(1, 'month', '', '') }, [committedFetchData])
 
   const handleFilterClick = key => {
     setActiveFilter(key)

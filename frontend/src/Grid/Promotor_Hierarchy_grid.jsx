@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
@@ -295,7 +296,7 @@ function printHorizontalBracketTree(rootNode, role) {
           zoomFit();
         }
         window.onload = () => { zoomFit(); setTimeout(() => window.print(), 200); };
-      <\/script>
+      </script>
     </body>
     </html>
   `)
@@ -352,7 +353,7 @@ function printPersonCard(node, role, cfg, color, ancestors) {
       ${chainHtml}
       <div class="footer">Printed on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
     </div>
-    <script>window.onload = () => { window.print() }<\/script>
+    <script>window.onload = () => { window.print() }</script>
     </body></html>
   `)
   printWindow.document.close()
@@ -837,8 +838,8 @@ export default function Promotor_Hierarchy_grid() {
     }
   }, [])
 
-  const customers = directCustomers.length > 0 ? directCustomers : (root?.customers || [])
-  const customerAncestors = root ? [{ node: root, role: 'promotor' }] : []
+  const customers = useMemo(() => (directCustomers.length > 0 ? directCustomers : (root?.customers || [])), [directCustomers, root])
+  const customerAncestors = useMemo(() => (root ? [{ node: root, role: 'promotor' }] : []), [root])
 
   const selectCustomerAtDepth = async (node, depth) => {
     setStatusFilter(null)
@@ -903,7 +904,7 @@ export default function Promotor_Hierarchy_grid() {
     return lanes
   }, [root, customers, statusFilter, customerAncestors, customerChain, customerCache, customerLoadingDepth])
 
-  const searchOwnHierarchy = (query) => {
+  const searchOwnHierarchy = useCallback((query) => {
     if (!root || !query.trim()) return []
     const q = query.trim().toLowerCase()
     const result = []
@@ -928,12 +929,12 @@ export default function Promotor_Hierarchy_grid() {
       collectCustomerResults(cus, [{ node: root, role: 'promotor' }])
     })
     return result
-  }
+  }, [root, customers, customerCache])
 
   const searchResults = useMemo(() => {
     if (!debouncedSearch) return []
     return searchOwnHierarchy(debouncedSearch)
-  }, [debouncedSearch, root, customerCache])
+  }, [debouncedSearch, searchOwnHierarchy])
 
   const jumpToSearchResult = (item) => {
     const custPath = []

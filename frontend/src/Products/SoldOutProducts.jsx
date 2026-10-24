@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
@@ -33,16 +34,20 @@ export default function SoldOutProducts() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { fetchList() }, [filter])
 
-  const fetchList = async () => {
-    setLoading(true)
-    try {
-      const res = await api.get(`/jewelry-products/sold-out/?filter=${filter}`)
-      setProducts(res.data.results || [])
-    } catch { setProducts([]) }
-    setLoading(false)
-  }
+
+  function requestFetchList() {
+return api.get(`/jewelry-products/sold-out/?filter=${filter}`).then((res) => {
+setProducts(res.data.results || [])
+}).catch(() => {
+ setProducts([])
+}).finally(() => {
+setLoading(false)
+});
+}
+
+const committedRequestFetchList = useCommittedCallback((...args) => requestFetchList(...args))
+  useEffect(() => { committedRequestFetchList() }, [filter, committedRequestFetchList])
 
   const FILTERS = [
     { key: 'sold_out', label: 'Sold Out', icon: 'dot', color: '#C92035' },

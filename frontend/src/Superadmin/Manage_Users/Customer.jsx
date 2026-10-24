@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useCommittedCallback } from "../../api.js";
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api'
 
@@ -44,7 +45,7 @@ export default function Customer() {
       setCopiedUrlId(person.id)
       showToast('Referral link copied to clipboard')
       setTimeout(() => setCopiedUrlId(null), 2000)
-    } catch (err) {
+    } catch {
       alert('Failed to generate referral URL')
     } finally {
       setCopyingUrl(null)
@@ -102,12 +103,13 @@ export default function Customer() {
     return () => clearTimeout(timer)
   }, [searchInput])
 
+  const committedFetchData = useCommittedCallback((...args) => fetchData(...args))
   useEffect(() => {
     const controller = new AbortController()
     setOffset(0)
-    fetchData(controller.signal, 0, search, false)
+    committedFetchData(controller.signal, 0, search, false)
     return () => controller.abort()
-  }, [search])
+  }, [search, committedFetchData])
 
   const handleLoadMore = () => {
     const controller = new AbortController()
@@ -1070,7 +1072,7 @@ export default function Customer() {
 
               {/* Mobile View */}
               <div className="mu-mobile-cards">
-                {rows.map((a, i) => {
+                {rows.map((a) => {
                   const initials = `${(a.first_name || 'U')[0]}${(a.last_name || '')[0] || ''}`.toUpperCase()
                   return (
                     <div key={`mob-${a.id || a.customer_id}`} className="mu-mobile-card">

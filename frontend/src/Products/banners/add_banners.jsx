@@ -19,25 +19,27 @@ export default function AddBanners() {
   const [saving, setSaving] = useState(false)
   const [lightbox, setLightbox] = useState(null)
 
-  const dark = false
+
   const bg = 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 52%,#E7EDEC 100%)'
   const text = '#111817'
   const subtext = '#7A8987'
-  const border = 'rgba(189,207,206,0.78)'
-  const glass = 'rgba(253,253,252,0.94)'
-  const inpBorder = '#BDCFCE'
-  const cardBg = '#FDFDFC'
 
-  useEffect(() => { fetchBanners() }, [])
 
-  const fetchBanners = async () => {
-    try {
-      const res = await api.get('/home-banners/')
-      const map = {}
-      res.data.forEach(b => { map[b.slot] = b })
-      setBanners(map)
-    } catch { }
-  }
+
+
+
+
+
+  function fetchBanners() {
+return api.get('/home-banners/').then((res) => {
+const map = {}
+res.data.forEach(b => { map[b.slot] = b })
+setBanners(map)
+}).catch(() => {
+ /* No additional action is needed in this fallback. */
+});
+}
+useEffect(() => { fetchBanners() }, [])
 
   const handleFileChange = (slot, file) => {
     if (!file) return

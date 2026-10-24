@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import { useRef, useState, useEffect } from 'react'
 import { SkeletonText } from '../components/Skeleton'
 
@@ -117,7 +118,8 @@ export default function InternalMyLoginRewards() {
     }
   }
 
-  useEffect(() => { fetchData(1, 'today', '', '') }, [])
+  const committedFetchData = useCommittedCallback((...args) => fetchData(...args))
+  useEffect(() => { committedFetchData(1, 'today', '', '') }, [committedFetchData])
 
   const handleFilterClick = key => {
     setActiveFilter(key)

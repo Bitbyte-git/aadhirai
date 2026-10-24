@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import { ArrowUpRight, ShieldCheck, WalletCards, Plus, Check, CheckCircle2, AlertCircle, RefreshCw, History, LockKeyhole, Repeat2, ChevronDown, Gem, Gift, ShoppingBag, TrendingUp, CreditCard, Landmark, Smartphone } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -397,17 +398,18 @@ const handleToggleAutopay = async () => {
     }
   }
 
+  const committedFetchHistory = useCommittedCallback((...args) => fetchHistory(...args))
   useEffect(() => {
     const node = historySentinel.current
     if (!node || !hasMoreHistory || historyLoading || historyError) return
     const observer = new IntersectionObserver(entries => {
       if (!entries.some(entry => entry.isIntersecting) || historyInFlight.current) return
       const { filter, from, to } = historyQuery.current
-      fetchHistory(historyPage + 1, filter, from, to)
+      committedFetchHistory(historyPage + 1, filter, from, to)
     }, { rootMargin: '0px 0px 240px 0px' })
     observer.observe(node)
     return () => observer.disconnect()
-  }, [hasMoreHistory, historyLoading, historyError, historyPage])
+  }, [hasMoreHistory, historyLoading, historyError, historyPage, committedFetchHistory])
 
   const handleFilterClick = filter => {
     setActiveFilter(filter)
@@ -455,14 +457,14 @@ const handleToggleAutopay = async () => {
 
   useEffect(() => {
     fetchWallet()
-    fetchHistory(1, 'today', '', '')
+    committedFetchHistory(1, 'today', '', '')
     fetchAutopayStatus()
     import('../api').then(({ default: api }) => {
       api.get('/metal-rates/').then(res => {
         if (res.data?.gold_22k) setGoldRate22k(Number(res.data.gold_22k))
       }).catch(() => {})
     })
-  }, [])
+  }, [committedFetchHistory])
 
   const handleConfirmConvert = async () => {
     const amt = Number(convertAmount)
@@ -499,28 +501,7 @@ const handleToggleAutopay = async () => {
     }
   }
 
-  const handleConvertToDigiGold = async () => {
-    if (amount <= 0) return
-    setPaying(true)
-    try {
-      const { default: api } = await import('../api')
-      const res = await api.post('/digi-gold/buy/', {
-        amount: amount,
-        payment_method: 'wallet'
-      })
-      setBanner({
-        type: 'success',
-        text: `✅ Converted ₹${amount.toLocaleString('en-IN')} to Digi Gold! ${res.data.investment?.hold_gold_gm}g credited to your 24K vault.`
-      })
-      fetchWallet()
-      setTimeout(() => navigate('/digi-gold'), 1200)
-    } catch (err) {
-      const msg = err.response?.data?.error || 'Digi Gold conversion failed. Please try again.'
-      setBanner({ type: 'error', text: msg })
-    } finally {
-      setPaying(false)
-    }
-  }
+
 
   const loadRazorpay = () => new Promise(resolve => {
     if (window.Razorpay) { resolve(true); return }
@@ -610,7 +591,7 @@ const handleToggleAutopay = async () => {
       <style>{rechargeStyles}</style>
       <main className="rc-main">
         <header className="rc-hero rc-hero-with-art">
-          <img className="rc-hero-art" src="/wallet-banner.png" alt="" width="2048" height="768" fetchPriority="high" decoding="async" />
+          <img className="rc-hero-art" src="/Gold/wallet-banner.png" alt="" width="2048" height="768" fetchPriority="high" decoding="async" />
           <div className="rc-hero-copy"><p className="rc-kicker"><span /> YOUR EVERYDAY WALLET</p><h1 className="rc-title">Your wallet. More possibilities.</h1><p className="rc-subtitle">Your AUG Revive balance, recharges and activity. All in one place.</p></div>
           <div className="rc-hero-actions"><button type="button" className="rc-dashboard-link" onClick={() => navigate('/digi-gold')}><Gem size={17} /> Digi Gold <ArrowUpRight size={15} /></button><button type="button" className={`rc-autopay-btn ${autopay.is_active ? 'is-on' : ''}`} onClick={() => setShowAutopayModal(true)}><Repeat2 size={15} /><span>Autopay <strong>{autopay.is_active ? 'ON' : 'OFF'}</strong></span><ChevronDown size={13} /></button></div>
         </header>
@@ -640,7 +621,7 @@ const handleToggleAutopay = async () => {
             <label className="rc-field-label" htmlFor="rc-amount">Or enter an amount</label>
             <div className="rc-amount-input-wrap"><span aria-hidden="true">Rs.</span><input id="rc-amount" className="rc-custom-input" type="text" inputMode="decimal" autoComplete="off" placeholder="Enter amount" value={customAmount} disabled={paying} maxLength={12} aria-invalid={Boolean(customAmount) && !validAmount} onChange={event => { const next = event.target.value; if (/^\d*(?:\.\d{0,2})?$/.test(next)) setCustomAmount(next) }} /></div>
             <button type="button" className="rc-gold-discovery" onClick={() => navigate('/digi-gold')} aria-label="Explore Digi Gold and Silver">
-              <img src="/wallet-digi-gold.png" alt="" width="1254" height="1254" loading="lazy" decoding="async" />
+              <img src="/Gold/wallet-digi-gold.png" alt="" width="1254" height="1254" loading="lazy" decoding="async" />
               <span><small>DISCOVER MORE</small><strong>Digi Gold &amp; Silver</strong><span>Explore your digital metals dashboard</span></span><ArrowUpRight size={19} aria-hidden="true" />
             </button>
             <button type="button" className="rc-pay-btn" disabled={paying || !validAmount} onClick={handleBuyRecharge}>{paying ? <RefreshCw size={17} className="rc-spin" /> : <LockKeyhole size={16} />}<span>{paying ? 'Payment in progress...' : `Pay Rs. ${validAmount ? formatMoney(amount) : '0'} & recharge`}</span></button>

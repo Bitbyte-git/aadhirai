@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -6,7 +7,8 @@ import {
 import api from '../api'
 import ShopNavbar from '../collection/ShopNavbar'
 import CopyShopUrlButton from '../collection/CopyShopUrlButton'
-import { IrdDonutPanel, irdPalette } from './AdminDashboard'
+import { IrdDonutPanel } from './AdminDashboard'
+import { irdPalette } from '../config/categoryConfig'
 import { SkeletonChart } from '../components/Skeleton'
 import '../components/skeleton.css'
 
@@ -22,7 +24,7 @@ const loadCache = (key, fallback) => {
 const saveCache = (key, val) => {
   try {
     sessionStorage.setItem(key, JSON.stringify(val))
-  } catch {}
+  } catch { /* No additional action is needed in this fallback. */ }
 }
 
 const CHART_PERIODS = [
@@ -85,9 +87,10 @@ function ShopOrderTrendPanel({ title = 'Shop Order Volume Trend', endpoint = '/o
     }
   }
 
+  const committedFetchData = useCommittedCallback((...args) => fetchData(...args))
   useEffect(() => {
-    fetchData(period)
-  }, [period])
+    committedFetchData(period)
+  }, [period, committedFetchData])
 
   const handlePeriodChange = (next) => {
     setPeriod(next)
@@ -242,7 +245,7 @@ export default function ShopDashboard() {
   const [saveMsg, setSaveMsg] = useState('')
 
   const [stats, setStats] = useState(() => loadCache('shd_stats', { yesterday_orders: 0, today_orders: 0, today_new_shops: 0, active_users: 0, total_sub_shops: 0 }))
-  const [statsLoading, setStatsLoading] = useState(() => !loadCache('shd_stats', null))
+  const [, setStatsLoading] = useState(() => !loadCache('shd_stats', null))
 
   const [typeCounts, setTypeCounts] = useState(() => loadCache('shd_types', { physical: 0, virtual: 0 }))
   const [typeLoading, setTypeLoading] = useState(() => !loadCache('shd_types', null))
@@ -284,7 +287,7 @@ export default function ShopDashboard() {
 
   useEffect(() => {
     let current = true
-    fetchShopInfo()
+    api.get('/my-shop-profile/').then(res => { if (current) { setShop(res.data); saveCache('shd_profile', res.data) } }).catch(error => console.error('Shop profile fetch error:', error))
 
     api.get('/dashboard-quick-stats/')
       .then(res => {

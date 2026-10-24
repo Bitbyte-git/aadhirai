@@ -534,3 +534,8 @@ export const GIFT_TAG_SUBCATEGORIES = {
 export function getGiftSubcategories(tag) {
   return GIFT_TAG_SUBCATEGORIES[tag?.toLowerCase()] || [];
 }
+export const irdPalette = {
+  white: '#FDFDFC', off: '#F3F3F0', mist: '#E7EDEC', aqua: '#D1DFDE', dusty: '#BDCFCE',
+  teal: '#0C4044', deep: '#073B3F', champagne: '#F3E8DE', gold: '#CCA881', antique: '#BB8958',
+  grey: '#7A8987', black: '#111817', red: '#C92035',
+}

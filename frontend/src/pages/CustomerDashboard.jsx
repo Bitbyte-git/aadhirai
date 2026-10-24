@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import CustomerFooter from "../collection/CustomerFooter";
-import { addToCartDB } from "../collection/card_section";
+import { addToCartDB } from "../api.js";
 import "./CustomerLandingRef.css";
 
 const API_ORIGIN = (api.defaults.baseURL || "").replace(/\/api\/?$/, "");
@@ -113,7 +113,7 @@ function HomeBannerSlider() {
   }, []);
 
   const activeRef = useRef(active);
-  activeRef.current = active;
+  useEffect(() => { activeRef.current = active; }, [active]);
 
   const goTo = (next) => {
     setActive(-1);
@@ -266,7 +266,7 @@ const OCCASIONS = [
     edit: "THE FOREVER EDIT",
     action: "Shop Wedding",
     route: "/collection/all?wedding=true",
-    image: "/occasion-wedding.png",
+    image: "/Gold/occasion-wedding.png",
   },
   {
     label: "Casual",
@@ -274,7 +274,7 @@ const OCCASIONS = [
     edit: "THE EVERYDAY EDIT",
     action: "Shop Everyday",
     route: "/collection/all?dailywear=true",
-    image: "/occasion-casual.png",
+    image: "/Gold/occasion-casual.png",
   },
   {
     label: "Modern",
@@ -282,7 +282,7 @@ const OCCASIONS = [
     edit: "THE STYLE EDIT",
     action: "Shop Modern",
     route: "/collection/all?occasion=Modern Wear",
-    image: "/occasion-modern.png",
+    image: "/Gold/occasion-modern.png",
   },
   {
     label: "Traditional",
@@ -290,7 +290,7 @@ const OCCASIONS = [
     edit: "THE HERITAGE EDIT",
     action: "Shop Heritage",
     route: "/collection/all?occasion=Traditional Wear",
-    image: "/occasion-traditional.png",
+    image: "/Gold/occasion-traditional.png",
   },
 ];
 
@@ -300,21 +300,21 @@ const GENDERS = [
     title: "Women",
     sub: "Grace in every detail",
     route: "/collection/all?gender=women",
-    image: "/gender-women-banner.jpg",
+    image: "/Gold/gender-women-banner.jpg",
   },
   {
     eyebrow: "FOR EVERY MOMENT •",
     title: "Men",
     sub: "Strength in style",
     route: "/collection/all?gender=men",
-    image: "/gender-men-banner.jpg",
+    image: "/Gold/gender-men-banner.jpg",
   },
   {
     eyebrow: "FOR THEIR LITTLE JOYS •",
     title: "Kids",
     sub: "Little moments, big smiles",
     route: "/collection/all?gender=kids",
-    image: "/gender-kids-banner.jpg",
+    image: "/Gold/gender-kids-banner.jpg",
   },
 ];
 
@@ -373,17 +373,17 @@ const TESTIMONIALS = [
   {
     author: "Sneha R.",
     quote: "Absolutely loved the quality and packaging. Authentic and beautiful jewellery. Will definitely shop again!",
-    avatar: "/dailywear_woman.jpg",
+    avatar: "/Gold/dailywear_woman.jpg",
   },
   {
     author: "Priya M.",
     quote: "The live rate transparency and hallmarked purity gives complete peace of mind. Excellent customer experience!",
-    avatar: "/dailywear_woman.jpg",
+    avatar: "/Gold/dailywear_woman.jpg",
   },
   {
     author: "Ananya K.",
     quote: "Stunning craftsmanship and timely insured delivery. The temple jewellery collection exceeded all expectations.",
-    avatar: "/dailywear_woman.jpg",
+    avatar: "/Gold/dailywear_woman.jpg",
   },
 ];
 
@@ -409,7 +409,7 @@ export default function CustomerDashboard() {
   const [ratesLoading, setRatesLoading] = useState(true);
   const [wishIds, setWishIds] = useState(new Set());
   const [cartAddedId, setCartAddedId] = useState(null);
-  const [activeTestimonial, setActiveTestimonial] = useState(0);
+  useState(0);
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [newsletterStatus, setNewsletterStatus] = useState(null);
 
@@ -558,7 +558,7 @@ export default function CustomerDashboard() {
           return next;
         });
         window.dispatchEvent(new Event("bb_wishlist_update"));
-      } catch { }
+      } catch { /* No additional action is needed in this fallback. */ }
     }
   };
 
@@ -574,11 +574,7 @@ export default function CustomerDashboard() {
     }
   };
 
-  const scrollRail = (ref, dir) => {
-    if (ref.current) {
-      ref.current.scrollBy({ left: dir * 400, behavior: "smooth" });
-    }
-  };
+
 
   /* Auto-glide: category rail scrolls left-to-right, loops back */
   useEffect(() => {
@@ -1183,7 +1179,7 @@ export default function CustomerDashboard() {
                         }
                       }}
                     >
-                      <div className={`ath-product-img-wrap ${loadedProductImages.has(item.image || "/logo.png") ? "" : "is-loading"}`}>
+                      <div className={`ath-product-img-wrap ${loadedProductImages.has(item.image || "/Gold/Athirai_logo.png") ? "" : "is-loading"}`}>
                         <span className="ath-product-image-badge">{item.salesLabel}</span>
                         <span className="ath-product-stock"><i aria-hidden="true" />In stock</span>
                         <button
@@ -1204,7 +1200,7 @@ export default function CustomerDashboard() {
                           </svg>
                         </button>
                         <img
-                          src={item.image || "/logo.png"}
+                          src={item.image || "/Gold/Athirai_logo.png"}
                           alt={item.image ? item.displayTitle : "Product photo unavailable"}
                           loading={idx < 3 ? "eager" : "lazy"}
                           decoding="async"
@@ -1212,7 +1208,7 @@ export default function CustomerDashboard() {
                           width="464"
                           height="464"
                           onLoad={() => setLoadedProductImages(previous => {
-                            const source = item.image || "/logo.png";
+                            const source = item.image || "/Gold/Athirai_logo.png";
                             return previous.has(source) ? previous : new Set([...previous, source]);
                           })}
                           onError={(e) => {
@@ -1220,7 +1216,7 @@ export default function CustomerDashboard() {
                             e.currentTarget.dataset.fallback = "true";
                             e.currentTarget.style.objectFit = "contain";
                             e.currentTarget.alt = "Product photo unavailable";
-                            e.currentTarget.src = "/logo.png";
+                            e.currentTarget.src = "/Gold/Athirai_logo.png";
                           }}
                         />
                       </div>
@@ -1365,7 +1361,7 @@ export default function CustomerDashboard() {
             {/* Trust Card 1: 100% BIS 916 Hallmark */}
             <article className="ath-trust-showcase-card">
               <div className="ath-trust-card-media">
-                <img src="/trust-bis-hallmark.jpg" alt="BIS 916 Hallmarked Pure Gold" loading="lazy" />
+                <img src="/Gold/trust-bis-hallmark.jpg" alt="BIS 916 Hallmarked Pure Gold" loading="lazy" />
                 <span className="ath-trust-card-tag">GOVERNMENT CERTIFIED • BIS 916</span>
               </div>
               <div className="ath-trust-card-body">
@@ -1390,7 +1386,7 @@ export default function CustomerDashboard() {
             {/* Trust Card 2: 100% Insured & Tamper-Proof Delivery */}
             <article className="ath-trust-showcase-card">
               <div className="ath-trust-card-media">
-                <img src="/trust-secure-delivery.jpg" alt="Insured Secure Delivery" loading="lazy" />
+                <img src="/Gold/trust-secure-delivery.jpg" alt="Insured Secure Delivery" loading="lazy" />
                 <span className="ath-trust-card-tag">100% INSURED TRANSIT</span>
               </div>
               <div className="ath-trust-card-body">
@@ -1418,7 +1414,7 @@ export default function CustomerDashboard() {
               onClick={() => navigate("/collection/all?gifting=true")}
             >
               <div className="ath-trust-card-media">
-                <img src="/heritage_gifting_card.jpg" alt="More Than Just Jewellery" loading="lazy" />
+                <img src="/Gold/heritage_gifting_card.jpg" alt="More Than Just Jewellery" loading="lazy" />
                 <span className="ath-trust-card-tag">ATHIRAI PROMISE • HEIRLOOM</span>
               </div>
               <div className="ath-trust-card-body">

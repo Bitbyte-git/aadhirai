@@ -1,23 +1,25 @@
+import { useCommittedCallback } from "../api.js";
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts'
 import api from '../api'
-import logo from '../assets/logo.png'
+const logo = '/Gold/Athirai_logo.png';
 import InternalRoleNavbar, { DailyWorkCheckIn } from '../collection/InternalRoleNavbar'
 import CopyUrlButton from '../collection/CopyUrlButton'
-import goldCoin from '../assets/gold-coin-transparent.png'
-import silverCoin from '../assets/silver-coin.png'
+
+
 import { SkeletonChart, SkeletonText, SkeletonRow, SkeletonBox } from '../components/Skeleton'
 import '../components/skeleton.css'
-import { IrdOrderTrendPanel, IrdDonutPanel, IrdIcon, irdPalette } from './AdminDashboard'
+import { IrdOrderTrendPanel, IrdDonutPanel, IrdIcon } from './AdminDashboard'
+import { irdPalette } from '../config/categoryConfig'
 
 const OCCUPATIONS = ['employee', 'business', 'others']
 
-function DealerDashboardFrame({ roleName, roleDistribution = [], quickActions = [], endpoint, requestParams = {} }) {
+function DealerDashboardFrame({ roleName, quickActions = [], endpoint, requestParams = {} }) {
   const navigate = useNavigate()
-  const [orderCount, setOrderCount] = useState(0)
+  const [, setOrderCount] = useState(0)
   const [loginCounts, setLoginCounts] = useState({ active: 0, inactive: 0 })
   const [loginLoading, setLoginLoading] = useState(true)
   const [fastCounts, setFastCounts] = useState(null)
@@ -184,149 +186,14 @@ const SD_COLORS = ['#BB8958', '#BDCFCE', '#CCA881', '#C92035']
 let _sdPopupEl = null
 let _sdHideTimer = null
 
-function removeSubDealerPopup() {
-  document.querySelectorAll('#sd-popup').forEach(el => el.remove())
-  _sdPopupEl = null
-}
 
-function scheduleSDHide(setActiveSD) {
-  clearTimeout(_sdHideTimer)
-  _sdHideTimer = setTimeout(() => {
-    removeSubDealerPopup()
-    setActiveSD(null)
-  }, 120)
-}
+
+
 
 // ADD near SectionHeader
-function getPasswordStrength(pw) {
-  if (!pw) return { label: '', color: '', width: '0%' }
-  let score = 0
-  if (pw.length >= 6) score++
-  if (pw.length >= 8) score++
-  if (/[A-Z]/.test(pw)) score++
-  if (/[0-9]/.test(pw)) score++
-  if (/[^A-Za-z0-9]/.test(pw)) score++
-  if (score <= 2) return { label: 'Weak', color: '#C92035', width: '33%' }
-  if (score <= 4) return { label: 'Medium', color: '#BB8958', width: '66%' }
-  return { label: 'Strong', color: '#0C4044', width: '100%' }
-}
 
-function createSubDealerPopup(sd, i, anchorEl, dark, subtext, text, currentDealer) {
-  removeSubDealerPopup()
-  const c = SD_COLORS[i % SD_COLORS.length]
 
-  const popupBg = dark ? 'linear-gradient(160deg,#F3F3F0,#E7EDEC)' : 'linear-gradient(160deg,#FDFDFC,#E7EDEC)'
-  const popupBorder = dark ? 'rgba(187,137,88,0.25)' : 'rgba(187,137,88,0.35)'
-  const accentColor = dark ? '#BB8958' : '#9F6130'
 
-  // Super Admin box
-  const saBoxBg = dark ? 'rgba(204,168,129,0.05)' : 'rgba(204,168,129,0.08)'
-  const saBoxBorder = dark ? 'rgba(204,168,129,0.22)' : 'rgba(204,168,129,0.35)'
-
-  // Admin box
-  const adminBoxBg = dark ? 'rgba(12,64,68,0.05)' : 'rgba(204,168,129,0.05)'
-  const adminBoxBd = dark ? 'rgba(12,64,68,0.2)' : 'rgba(204,168,129,0.2)'
-
-  // Dealer box
-  const dealerBoxBg = dark ? 'rgba(187,137,88,0.05)' : 'rgba(187,137,88,0.08)'
-  const dealerBoxBd = dark ? 'rgba(187,137,88,0.2)' : 'rgba(187,137,88,0.3)'
-
-  // Sub Dealer box
-  const sdBoxBg = dark ? 'rgba(189,207,206,0.04)' : 'rgba(12,64,68,0.05)'
-  const sdBoxBd = dark ? 'rgba(189,207,206,0.14)' : 'rgba(12,64,68,0.2)'
-
-  const el = document.createElement('div')
-  el.id = 'sd-popup'
-  el.style.cssText = `
-    position:fixed; z-index:9999;
-    background:${popupBg}; border:1px solid ${popupBorder};
-    border-radius:14px; padding:14px;
-    box-shadow:0 16px 48px rgba(17,24,23,0.45);
-    animation:sdPopupIn 0.25s cubic-bezier(0.22,1,0.36,1) both;
-    min-width:210px; max-width:260px;
-    display:flex; flex-direction:column; align-items:stretch;
-  `
-
-  el.innerHTML = `
-    <div style="font-size:9px;color:${accentColor};font-weight:700;letter-spacing:1.3px;margin-bottom:11px;padding-bottom:9px;border-bottom:1px solid ${popupBorder};display:flex;align-items:center;gap:6px;">
-      <span style="width:5px;height:5px;border-radius:50%;background:${accentColor};display:inline-block;"></span>
-      CREATED BY
-    </div>
-
-    <!-- Super Admin -->
-    <div style="border-radius:9px;padding:10px;margin-bottom:6px;background:${saBoxBg};border:1px solid ${saBoxBorder};">
-      <div style="display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(204,168,129,0.12);color:#CCA881;border:1px solid rgba(204,168,129,0.3);margin-bottom:6px;">🛡️ SUPER ADMIN</div>
-      <div style="font-size:11px;color:${subtext};word-break:break-all;">${localStorage.getItem('superAdminEmail') || localStorage.getItem('email') || '—'}</div>
-      <div style="margin-top:5px;font-size:9px;padding:2px 7px;background:rgba(204,168,129,0.1);border:1px solid rgba(204,168,129,0.25);border-radius:20px;color:#CCA881;display:inline-block;">● ONLINE</div>
-    </div>
-
-    <!-- Arrow SA → Admin -->
-    <div style="display:flex;justify-content:center;padding:3px 0;">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid #CCA881;"></div>
-        <div style="width:2px;height:7px;background:linear-gradient(180deg,#CCA881,#CCA88144);"></div>
-      </div>
-    </div>
-
-    <!-- Admin -->
-    <div style="border-radius:9px;padding:10px;margin-bottom:6px;background:${adminBoxBg};border:1px solid ${adminBoxBd};">
-      <div style="display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(12,64,68,0.12);color:#0C4044;border:1px solid rgba(12,64,68,0.3);margin-bottom:6px;">🛡️ SUPER STOCKIST</div>
-      <div style="font-size:10px;color:#0C4044;font-family:monospace;margin-bottom:3px;">${currentDealer?.admin_id}</div>
-     <div style="font-size:13px;font-weight:700;color:${text};margin-bottom:5px;">${currentDealer?.admin_name}</div>
-     <div style="font-size:11px;color:${subtext};margin-bottom:2px;">📞 ${currentDealer?.admin_contact_no}</div>
-    </div>
-
-    <!-- Arrow Admin → Dealer -->
-    <div style="display:flex;justify-content:center;padding:3px 0;">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid #0C4044;"></div>
-        <div style="width:2px;height:7px;background:linear-gradient(180deg,#0C4044,#0C404444);"></div>
-      </div>
-    </div>
-
-    <!-- Dealer -->
-    <div style="border-radius:9px;padding:10px;margin-bottom:6px;background:${dealerBoxBg};border:1px solid ${dealerBoxBd};">
-      <div style="display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(187,137,88,0.12);color:#BB8958;border:1px solid rgba(187,137,88,0.3);margin-bottom:6px;">🏪 DISTRIBUTOR</div>
-      <div style="font-size:10px;color:#BB8958;font-family:monospace;margin-bottom:3px;">${currentDealer?.dealer_id}</div>
-<div style="font-size:13px;font-weight:700;color:${text};margin-bottom:5px;">${currentDealer?.dealer_name}</div>
-<div style="font-size:11px;color:${subtext};margin-bottom:2px;">📞 ${currentDealer?.mobile_number}</div>
-<div style="font-size:11px;color:${subtext};">📍 ${currentDealer?.city_name}</div>
-    </div>
-
-    <!-- Arrow Dealer → Sub Dealer -->
-    <div style="display:flex;justify-content:center;padding:3px 0;">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid ${accentColor};"></div>
-        <div style="width:2px;height:7px;background:linear-gradient(180deg,${accentColor},${accentColor}44);"></div>
-      </div>
-    </div>
-
-    <!-- Sub Dealer -->
-    <div style="background:${sdBoxBg};border:1px solid ${sdBoxBd};border-radius:10px;padding:10px;">
-      <div style="display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(189,207,206,0.12);color:#BDCFCE;border:1px solid rgba(189,207,206,0.25);margin-bottom:6px;">WHOLESALE DEALER</div>
-      <div style="font-size:10px;color:${c};font-family:monospace;margin-bottom:3px;">${sd.sub_dealer_id}</div>
-      <div style="font-size:14px;font-weight:700;color:${text};margin-bottom:6px;">${sd.first_name || sd.name}</div>
-      <div style="font-size:11px;color:${subtext};margin-bottom:2px;">📞 ${sd.mobile_number}</div>
-      <div style="font-size:11px;color:${subtext};">📍 ${sd.city_name}</div>
-    </div>
-  `
-  document.body.appendChild(el)
-
-  const rect = anchorEl.getBoundingClientRect()
-  const popW = el.offsetWidth || 260
-  const popH = el.offsetHeight || 400
-  let left = rect.right + 14
-  let top = rect.top + (rect.height / 2) - (popH / 2)
-  if (left + popW > window.innerWidth - 10) left = rect.left - popW - 14
-  if (top < 8) top = 8
-  if (top + popH > window.innerHeight - 8) top = window.innerHeight - popH - 8
-  el.style.left = left + 'px'
-  el.style.top = top + 'px'
-
-  el.addEventListener('mouseenter', () => clearTimeout(_sdHideTimer))
-  el.addEventListener('mouseleave', () => scheduleSDHide(setActiveSD))
-  _sdPopupEl = el
-}
 
 // ── hex helper ──
 function hexToRgb(hex) {
@@ -598,7 +465,7 @@ function printDLCard(node, role, color, ancestors, dealerProfile) {
   const win = window.open('', '_blank')
   win.document.write(`<!DOCTYPE html><html><head><title>${roleLabel} — ${currentName}</title>
     <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Inter',system-ui,sans-serif;background:#FDFDFC;padding:40px;display:flex;justify-content:center;}.wrapper{max-width:480px;width:100%;}.header{text-align:center;margin-bottom:28px;}.header h1{font-size:20px;font-weight:800;color:#FDFDFC;}.header p{font-size:12px;color:#7A8987;margin-top:4px;}.chain-item{background:#FDFDFC;border:1.5px solid #E7EDEC;border-radius:12px;padding:14px 18px;}.chain-item.current{border-color:${color};background:${color}11;box-shadow:0 4px 16px ${color}22;}.chain-role{font-size:10px;font-weight:800;color:#7A8987;letter-spacing:1px;margin-bottom:4px;text-transform:uppercase;}.chain-item.current .chain-role{color:${color};}.chain-id{font-family:monospace;font-size:11px;color:${color};margin-bottom:4px;}.chain-name{font-size:16px;font-weight:800;color:#FDFDFC;margin-bottom:6px;}.chain-email,.chain-info{font-size:12px;color:#7A8987;margin-top:3px;}.chain-arrow{display:flex;justify-content:center;padding:4px 0;}.footer{text-align:center;font-size:10px;color:#7A8987;margin-top:24px;}@media print{body{background:white;padding:20px;}.chain-item{box-shadow:none;}}</style>
-    </head><body><div class="wrapper"><div class="header"><h1>BitByte — ${roleLabel} Profile</h1><p>Hierarchy Chain Report</p></div>${chainHtml}<div class="footer">Printed on ${new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'})}</div></div><script>window.onload=()=>{window.print()}<\/script></body></html>`)
+    </head><body><div class="wrapper"><div class="header"><h1>BitByte — ${roleLabel} Profile</h1><p>Hierarchy Chain Report</p></div>${chainHtml}<div class="footer">Printed on ${new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'})}</div></div><script>window.onload=()=>{window.print()}</script></body></html>`)
   win.document.close()
 }
 
@@ -803,34 +670,34 @@ function CustomDarkTooltip({ active, payload }) {
 
 export default function DealerDashboard() {
   const navigate = useNavigate()
-  const [dark, setDark] = useState(false)
-  const [subDealers, setSubDealers] = useState([])
-  const [subDealersLoading, setSubDealersLoading] = useState(true)
-  const [dealers, setDealers] = useState([])
+  const [dark] = useState(false)
+  const [, setSubDealers] = useState([])
+  const [, setSubDealersLoading] = useState(true)
+  const [, setDealers] = useState([])
   const [myProfile, setMyProfile] = useState(null)       // ← current dealer's full profile
-  const [selectedDealer, setSelectedDealer] = useState(null)
-  const [showForm, setShowForm] = useState(false)
-  const [activeSD, setActiveSD] = useState(null)
+  ;useState(null);
+  ;useState(false);
+  useState(null);
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState('success')
-  const [form, setForm] = useState(emptyForm)
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [passwordError, setPasswordError] = useState('')
-  const [pincodeLookupMsg, setPincodeLookupMsg] = useState('')
-  const [showRequests, setShowRequests] = useState(false)
-const [profileRequests, setProfileRequests] = useState([])
-const [selectedRequest, setSelectedRequest] = useState(null)
-const [requestMsg, setRequestMsg] = useState('')
+  ;useState(emptyForm);
+  ;useState('');
+  ;useState('');
+  ;useState('');
+  const [, setShowRequests] = useState(false)
+useState([]);
+useState(null);
+useState('');
 
 const [showProfile, setShowProfile] = useState(false)
-const [profileData, setProfileData] = useState(null)
+useState(null);
 const [showProfileEdit, setShowProfileEdit] = useState(false)
 const [updateForm, setUpdateForm] = useState({})
 const [proofDocument, setProofDocument] = useState(null)
 const [updateMessage, setUpdateMessage] = useState('')
 
-const [metalPrices, setMetalPrices] = useState({ gold24k: null, gold22k: null, silver: null })
-  const [metalLoading, setMetalLoading] = useState(false)
+const [, setMetalPrices] = useState({ gold24k: null, gold22k: null, silver: null })
+  const [, setMetalLoading] = useState(false)
 
   // ── COIN SYSTEM ──
   const [showRequestCoin, setShowRequestCoin] = useState(false)
@@ -853,10 +720,10 @@ const [metalPrices, setMetalPrices] = useState({ gold24k: null, gold22k: null, s
   const [selCoinQty, setSelCoinQty] = useState('')
 
   const [showStoredCoin, setShowStoredCoin] = useState(false)
-  const [coinStock, setCoinStock] = useState([])
-  const [coinStockLoading, setCoinStockLoading] = useState(false)
-const [usdToInr, setUsdToInr] = useState(null)
-const [dbRateDate, setDbRateDate] = useState(null)
+  const [coinStock] = useState([])
+  const [coinStockLoading] = useState(false)
+useState(null);
+const [, setDbRateDate] = useState(null)
 
   // ── SaaS Dashboard Live States ──
   const [liveTime, setLiveTime] = useState(new Date())
@@ -952,9 +819,10 @@ const [dbRateDate, setDbRateDate] = useState(null)
     }
   }
 
+  const committedFetchOrderTimeseries = useCommittedCallback((...args) => fetchOrderTimeseries(...args))
   useEffect(() => {
-    fetchOrderTimeseries(orderPeriod)
-  }, [orderPeriod])
+    committedFetchOrderTimeseries(orderPeriod)
+  }, [orderPeriod, committedFetchOrderTimeseries])
 
   // 4. All Sales & Commission
   const [salesProfitPeriod, setSalesProfitPeriod] = useState('month')
@@ -1000,15 +868,15 @@ const [dbRateDate, setDbRateDate] = useState(null)
         salesProfitCacheRef.current[p] = payload
         setSalesProfitData(payload)
       }
-    } catch {
-    } finally {
+    } catch { /* No additional action is needed in this fallback. */ } finally {
       setSalesProfitLoading(false)
     }
   }
 
+  const committedFetchSalesProfit = useCommittedCallback((...args) => fetchSalesProfit(...args))
   useEffect(() => {
-    fetchSalesProfit(salesProfitPeriod)
-  }, [salesProfitPeriod])
+    committedFetchSalesProfit(salesProfitPeriod)
+  }, [salesProfitPeriod, committedFetchSalesProfit])
 
   // 5. Role Distribution Data (Dealer has Wholesale Dealer, Retailer, Customer)
   const dealerRoleDist = useMemo(() => {
@@ -1054,28 +922,28 @@ const [dbRateDate, setDbRateDate] = useState(null)
         setUserGrowthStats(stats)
         setUserGrowthChartData(chart_data)
       }
-    } catch {
-    } finally {
+    } catch { /* No additional action is needed in this fallback. */ } finally {
       setUserGrowthLoading(false)
     }
   }
 
+  const committedFetchUserGrowth = useCommittedCallback((...args) => fetchUserGrowth(...args))
   useEffect(() => {
-    fetchUserGrowth(userGrowthPeriod)
-  }, [userGrowthPeriod])
+    committedFetchUserGrowth(userGrowthPeriod)
+  }, [userGrowthPeriod, committedFetchUserGrowth])
 
   const bg = dark ? '#073B3F' : '#FDFDFC'
   const text = dark ? '#FDFDFC' : '#111817'
   const subtext = dark ? '#D1DFDE' : '#7A8987'
-  const accent = dark ? '#CCA881' : '#0C4044'
+  ;(dark ? '#CCA881' : '#0C4044');
   const border = dark ? 'rgba(209,223,222,0.22)' : 'rgba(189,207,206,0.78)'
-  const glass = dark ? 'rgba(7,59,63,0.9)' : 'rgba(253,253,252,0.92)'
+  ;(dark ? 'rgba(7,59,63,0.9)' : 'rgba(253,253,252,0.92)');
   const cardBg = dark ? 'rgba(12,64,68,0.88)' : 'rgba(253,253,252,0.96)'
   const cardBorder = dark ? '1px solid rgba(209,223,222,0.22)' : '1px solid rgba(189,207,206,0.72)'
   const inpBg = dark ? 'rgba(253,253,252,0.08)' : '#FDFDFC'
   const inpBorder = dark ? 'rgba(209,223,222,0.24)' : '#BDCFCE'
   const optionBg = dark ? '#073B3F' : '#F3F3F0'
-  const selectInput = { width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box', cursor: 'pointer' }
+  ;({ width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box', cursor: 'pointer' });
 
 
 
@@ -1213,7 +1081,7 @@ const submitProfileUpdate = async e => {
       if (hRes?.data?.super_admin_email) {
         localStorage.setItem('superAdminEmail', hRes.data.super_admin_email)
       }
-    } catch(e) {}
+    } catch { /* No additional action is needed in this fallback. */ }
 
     // customers attach to promotors, promotors attach to sub dealers
     const enriched = sdList.map(sd => ({
@@ -1254,7 +1122,7 @@ const fetchMetalPrices = async () => {
       silver:  parseFloat(d.silver_999),
     })
     setDbRateDate(d.date)
-  } catch (e) {
+  } catch {
     setMetalPrices({ gold22k: null, gold24k: null, silver: null })
     setDbRateDate(null)
   }
@@ -1271,84 +1139,19 @@ useEffect(() => {
   return () => clearInterval(interval)
 }, [])
 
-const handleChange = e => {
-  const { name, value } = e.target
 
-  if (name === 'married_status' && value !== 'married') {
-    setForm({ ...form, married_status: value, anniversary_date: '' })
-    return
-  }
 
-  setForm({ ...form, [name]: value })
-}
-  const handleDealerChange = (e) => {
-    const id = parseInt(e.target.value)
-    const dealer = dealers.find(d => d.id === id)
-    setSelectedDealer(dealer || null)
-    setForm({ ...form, assigned_dealer_id: id })
-  }
 
   // ADD after handleDealerChange, before handleSubmit
-const handlePincodeChange = async (e) => {
-  const value = e.target.value.replace(/\D/g, '').slice(0, 6)
-  setForm(prev => ({ ...prev, pincode: value }))
-  setPincodeLookupMsg('')
 
-  if (value.length === 6) {
-    setPincodeLookupMsg('Fetching location details...')
-    try {
-      const res = await fetch(`https://api.postalpincode.in/pincode/${value}`)
-      const data = await res.json()
-      if (data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
-        const po = data[0].PostOffice[0]
-        setForm(prev => ({
-          ...prev,
-          city_name: po.District || prev.city_name,
-          district: po.District || prev.district,
-          state: po.State || prev.state,
-        }))
-        setPincodeLookupMsg('Location details auto-filled')
-      } else {
-        setPincodeLookupMsg('Pincode not found — please enter manually')
-      }
-    } catch {
-      setPincodeLookupMsg('Unable to fetch location — please enter manually')
-    }
-  }
-}
-const handleSubmit = async e => {
-  e.preventDefault()
 
-  // Married na anniversary compulsory
-  if (form.married_status === 'married' && !form.anniversary_date) {
-    setMsg('❌ Please enter Anniversary Date!'); setMsgType('error')
-    return
-  }
 
-  if (form.password !== confirmPassword) {
-    setPasswordError('❌ Passwords do not match')
-    return
-  }
+  ;({ background: cardBg, border: cardBorder, borderRadius: '22px', padding: '34px 38px', marginBottom: '26px', boxShadow: dark ? '0 26px 70px rgba(17,24,23,0.18)' : '0 22px 58px rgba(7,59,63,0.08)', backdropFilter: 'blur(18px)' });
 
-  try {
-    const payload = { ...form }
-    if (!payload.dob) delete payload.dob
-    if (payload.married_status !== 'married') delete payload.anniversary_date
-    await api.post('/sub-dealers/', payload)
-    setMsg('✅ Sub Dealer created successfully!'); setMsgType('success')
-    setShowForm(false); fetchSubDealers(); setForm(emptyForm); setSelectedDealer(null)
-    setConfirmPassword(''); setPasswordError('')
-  } catch (err) {
-    setMsg('❌ Error: ' + JSON.stringify(err.response?.data)); setMsgType('error')
-  }
-}
 
-  const card = { background: cardBg, border: cardBorder, borderRadius: '22px', padding: '34px 38px', marginBottom: '26px', boxShadow: dark ? '0 26px 70px rgba(17,24,23,0.18)' : '0 22px 58px rgba(7,59,63,0.08)', backdropFilter: 'blur(18px)' }
-  const secHead = (color = '#fcd34d') => ({ color, fontSize: '13px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 20px', paddingBottom: '14px', borderBottom: cardBorder })
-  const secLabel = (color = '#fcd34d') => ({ color, fontSize: '12px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '4px 0 0', paddingBottom: '10px', borderBottom: cardBorder })
-  const inp = { width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box' }
-  const lbl = { display: 'block', color: subtext, fontSize: '12px', marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.04em' }
-  const sectionCard = { background: '#FDFDFC', border: '1px solid rgba(189,207,206,0.55)', borderRadius: '16px', padding: '22px 24px', marginBottom: '4px' }
+  ({ width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box' });
+  ({ display: 'block', color: subtext, fontSize: '12px', marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.04em' });
+  ({ background: '#FDFDFC', border: '1px solid rgba(189,207,206,0.55)', borderRadius: '16px', padding: '22px 24px', marginBottom: '4px' });
 
 
   const COIN_METAL_LABELS_TEXT = { gold_22k: 'Gold 22K', gold_24k: 'Gold 24K', silver_999: 'Silver 999' }
@@ -1380,7 +1183,7 @@ const approveCoinRequest = async (reqId) => {
     setCoinReqMsgType('success')
     setCoinReqMsg('Request approved successfully.')
     fetchCoinRequests()
-  } catch (err) {
+  } catch {
     setCoinReqMsgType('error')
     setCoinReqMsg('Failed to approve request. Please try again.')
   }
@@ -1395,7 +1198,7 @@ const approveAllCoinRequests = async () => {
     setCoinReqMsgType('success')
     setCoinReqMsg('All requests approved successfully.')
     fetchCoinRequests()
-  } catch (err) {
+  } catch {
     setCoinReqMsgType('error')
     setCoinReqMsg('Failed to approve requests. Please try again.')
   }
@@ -1417,7 +1220,7 @@ const rejectCoinRequest = async (reqId) => {
     setRejectingReqId(null)
     setRejectReason('')
     fetchCoinRequests()
-  } catch (err) {
+  } catch {
     setCoinReqMsgType('error')
     setCoinReqMsg('Failed to reject request. Please try again.')
   }
@@ -1459,14 +1262,7 @@ const submitCoinRequest = async () => {
   setCoinBuySubmitting(false)
 }
 
-const fetchCoinStock = async () => {
-  setCoinStockLoading(true)
-  try {
-    const res = await api.get('/coin-stock/')
-    setCoinStock(res.data)
-  } catch { setCoinStock([]) }
-  setCoinStockLoading(false)
-}
+
   return (
     <div style={{ minHeight: '100vh', background: dark ? bg : 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)', color: text, transition: 'background 0.8s ease, color 0.4s ease', fontFamily: '"Inter",system-ui,sans-serif', position: 'relative' }}>
       <style>{`

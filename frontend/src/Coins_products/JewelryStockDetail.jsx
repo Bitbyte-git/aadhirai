@@ -23,6 +23,10 @@ const ROLE_BADGES = {
 
 export default function JewelryStockDetail() {
   const { productId } = useParams();
+  return <JewelryStockDetailContent key={productId} productId={productId} />;
+}
+
+function JewelryStockDetailContent({ productId }) {
   const navigate = useNavigate();
 
   const [data, setData] = useState(null);
@@ -34,8 +38,6 @@ export default function JewelryStockDetail() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError("");
 
     api
       .get(`/jewellery-stock-detail/${productId}/`)
@@ -117,7 +119,7 @@ export default function JewelryStockDetail() {
   }
 
   const p = data.product || {};
-  const rate = data.today_rate || {};
+  (data.today_rate || {});
   const vb = data.valuation_breakdown || {};
   const holders = data.stock_holders || [];
   const filteredHolders = (holders || []).filter((h) => {
@@ -127,7 +129,7 @@ export default function JewelryStockDetail() {
   const images = p.images || [];
   const activeImg = images[selectedImgIdx] || images[0] || null;
 
-  const isGold = (p.metal || "").toLowerCase() === "gold";
+  ((p.metal || "").toLowerCase() === "gold");
 
   return (
     <div className="jsd-page">

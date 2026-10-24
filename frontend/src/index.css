@@ -527,3 +527,25 @@ img {
     max-width: none !important;
   }
 }
+
+/* Official brand artwork: no decorative frame; retain each layout's responsive size. */
+img[src="/Gold/Athirai_logo.png"] {
+  display: block;
+  object-fit: contain;
+  object-position: center;
+  max-width: 100%;
+  flex-shrink: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.athirai-wordmark {
+  font-family: Georgia, "Times New Roman", serif !important;
+  font-weight: 700;
+  letter-spacing: .08em;
+  line-height: 1.15;
+  white-space: nowrap;
+}

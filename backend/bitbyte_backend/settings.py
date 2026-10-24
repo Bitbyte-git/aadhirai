@@ -9,13 +9,27 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 from dotenv import load_dotenv
-load_dotenv(BASE_DIR / '.env', override=True)
+# Existing process variables (including Render Environment) take priority.
+load_dotenv(BASE_DIR / '.env', override=False)
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "unsafe-secret-key")
+SECRET_KEY = os.environ['SECRET_KEY']
 
-DEBUG = os.environ.get("DEBUG", "False") == "True"
+DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = [host.strip() for host in os.environ.get(
+    'ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1],.onrender.com'
+).split(',') if host.strip()]
+if os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
+    ALLOWED_HOSTS.append(os.environ['RENDER_EXTERNAL_HOSTNAME'])
+
+# Render terminates HTTPS at its proxy; honour its forwarded protocol header.
+IS_RENDER = os.environ.get('RENDER', '').lower() == 'true'
+if IS_RENDER:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', str(IS_RENDER)).lower() == 'true'
+CSRF_COOKIE_SECURE = os.environ.get('CSRF_COOKIE_SECURE', str(IS_RENDER)).lower() == 'true'
+SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', str(IS_RENDER)).lower() == 'true'
+SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '3600' if IS_RENDER else '0'))
 
 INSTALLED_APPS = [
     'django.contrib.admin', 
@@ -65,16 +79,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'bitbyte_backend.wsgi.application'
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'bitbyte_db',
-#         'USER': 'postgres',
-#         'PASSWORD': 'Senthil@2003',
-#         'HOST': 'localhost',
-#         'PORT': '5432',
-#     }
-# }
 
 DATABASES = {
     'default': dj_database_url.config(
@@ -84,13 +88,6 @@ DATABASES = {
     )
 }
 
-# DATABASES = {
-#     'default': dj_database_url.config(
-#         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",  # ✅ இப்படி மாத்து
-#         conn_max_age=600,
-#         conn_health_checks=True,
-#     )
-# }
 
 AUTH_USER_MODEL = 'accounts.User'
 
@@ -99,7 +96,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 
-    'DEFAULT_FILTER_BACKENDS': [             # ← இந்த 4 lines add
+    'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',
     ],
@@ -120,7 +117,10 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STORAGES = {
+    'default': {'BACKEND': 'cloudinary_storage.storage.MediaCloudinaryStorage'},
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'},
+}
 
 # Cloudinary Settings
 CLOUDINARY_STORAGE = {
@@ -130,13 +130,13 @@ CLOUDINARY_STORAGE = {
 }
 
 
-RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "rzp_test_TPFG9ug3Zow5ep")
-RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "UYvsnNmaq5R8VFkw17dcaCvj")
+RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
 
 
 
 MEDIA_URL = '/media/'
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

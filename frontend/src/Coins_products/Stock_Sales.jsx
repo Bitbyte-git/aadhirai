@@ -184,6 +184,7 @@ export default function StockSales({ kind = "jewellery" }) {
     return () => obs.disconnect();
   }, [hasMore, loading, items.length]);
 
+  const hasGridItems = items.length > 0
   useEffect(() => {
     const el = gridRef.current;
     if (!el) return undefined;
@@ -195,7 +196,7 @@ export default function StockSales({ kind = "jewellery" }) {
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
     if (ro) ro.observe(el);
     return () => { if (ro) ro.disconnect(); };
-  }, [loading, items.length > 0]);
+  }, [loading, hasGridItems]);
 
   const showToast = (m) => { setToast(m); setTimeout(() => setToast(""), 2600); };
 

@@ -1,3 +1,4 @@
+import { invalidateRequestVersion } from '../api.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Users, CalendarCheck2, UserRoundX, Clock3, Check, Search, RefreshCw, AlertCircle, Phone, ChevronRight, ChevronLeft, ChevronDown, CalendarDays } from 'lucide-react'
 import api from '../api'
@@ -26,12 +27,12 @@ function useReportPopup() {
 }
 
 function ReportRoleSelect({ value, onChange }) {
-  const popup = useReportPopup()
+  const { open, setOpen, root, trigger, close, blur } = useReportPopup()
   const list = useRef(null)
   const options = [['all', 'All worker roles'], ...Object.entries(roleLabels)]
   useEffect(() => {
-    if (popup.open) list.current?.querySelector('[aria-selected="true"]')?.focus()
-  }, [popup.open])
+    if (open) list.current?.querySelector('[aria-selected="true"]')?.focus()
+  }, [open])
   const move = event => {
     const controls = [...(list.current?.querySelectorAll('[role="option"]') || [])]
     const index = controls.indexOf(document.activeElement)
@@ -42,10 +43,10 @@ function ReportRoleSelect({ value, onChange }) {
     if (event.key === 'End') next = controls.length - 1
     if (next !== undefined) { event.preventDefault(); controls[next]?.focus() }
   }
-  return <div className="dcl-filter dcl-filter-popup" ref={popup.root} onBlur={popup.blur}>
+  return <div className="dcl-filter dcl-filter-popup" ref={root} onBlur={blur}>
     <span id="dcl-role-label">Role</span>
-    <button type="button" className="dcl-filter-trigger" ref={popup.trigger} aria-labelledby="dcl-role-label dcl-role-value" aria-haspopup="listbox" aria-expanded={popup.open} aria-controls="dcl-role-options" onClick={() => popup.setOpen(!popup.open)} onKeyDown={event => { if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); popup.setOpen(true) } }}><span id="dcl-role-value">{options.find(([key]) => key === value)?.[1]}</span><ChevronDown size={15} className={popup.open ? 'is-open' : ''} /></button>
-    {popup.open && <div className="dcl-popover dcl-role-options" id="dcl-role-options" ref={list} role="listbox" aria-labelledby="dcl-role-label" onKeyDown={move}>{options.map(([key, label]) => <button type="button" role="option" aria-selected={value === key} key={key} onClick={() => { onChange(key); popup.close() }}><span className="dcl-option-icon"><Users size={15} /></span><span>{label}</span>{key === value && <Check size={15} />}</button>)}</div>}
+    <button type="button" className="dcl-filter-trigger" ref={trigger} aria-labelledby="dcl-role-label dcl-role-value" aria-haspopup="listbox" aria-expanded={open} aria-controls="dcl-role-options" onClick={() => setOpen(!open)} onKeyDown={event => { if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setOpen(true) } }}><span id="dcl-role-value">{options.find(([key]) => key === value)?.[1]}</span><ChevronDown size={15} className={open ? 'is-open' : ''} /></button>
+    {open && <div className="dcl-popover dcl-role-options" id="dcl-role-options" ref={list} role="listbox" aria-labelledby="dcl-role-label" onKeyDown={move}>{options.map(([key, label]) => <button type="button" role="option" aria-selected={value === key} key={key} onClick={() => { onChange(key); close() }}><span className="dcl-option-icon"><Users size={15} /></span><span>{label}</span>{key === value && <Check size={15} />}</button>)}</div>}
   </div>
 }
 
@@ -63,7 +64,7 @@ const shiftCalendarDate = (key, days = 0, months = 0) => {
 const calendarFormat = (key, options) => new Intl.DateTimeFormat('en-IN', { timeZone: 'UTC', ...options }).format(calendarDate(key))
 
 function ReportDatePicker({ value, today, onChange }) {
-  const popup = useReportPopup()
+  const { open, setOpen, root, trigger, close, blur } = useReportPopup()
   const initial = value || today
   const [month, setMonth] = useState(initial.slice(0, 7))
   const [focused, setFocused] = useState(initial)
@@ -75,10 +76,10 @@ function ReportDatePicker({ value, today, onChange }) {
   const last = calendarDate(shiftCalendarDate(`${nextMonth}-01`, -1)).getUTCDate()
   const cells = Array.from({ length: 42 }, (_, index) => index >= offset && index < offset + last ? `${month}-${String(index - offset + 1).padStart(2, '0')}` : null)
   useEffect(() => {
-    if (popup.open && focusDay.current) { grid.current?.querySelector(`[data-date="${focused}"]`)?.focus(); focusDay.current = false }
-  }, [popup.open, month, focused])
-  const openCalendar = () => { setMonth(initial.slice(0, 7)); setFocused(initial); focusDay.current = true; popup.setOpen(!popup.open) }
-  const choose = key => { onChange(key); popup.close() }
+    if (open && focusDay.current) { grid.current?.querySelector(`[data-date="${focused}"]`)?.focus(); focusDay.current = false }
+  }, [open, month, focused])
+  const openCalendar = () => { setMonth(initial.slice(0, 7)); setFocused(initial); focusDay.current = true; setOpen(!open) }
+  const choose = key => { onChange(key); close() }
   const moveMonth = amount => { const target = shiftCalendarDate(start, 0, amount); setMonth(target.slice(0, 7)); setFocused(target) }
   const keyboardDate = (event, key) => {
     let target
@@ -92,10 +93,10 @@ function ReportDatePicker({ value, today, onChange }) {
     if (event.key === 'PageDown') target = shiftCalendarDate(key, 0, event.shiftKey ? 12 : 1)
     if (target) { event.preventDefault(); if (target > today) target = today; if (target < '0001-01-01') return; focusDay.current = true; setFocused(target); setMonth(target.slice(0, 7)) }
   }
-  return <div className="dcl-filter dcl-filter-popup dcl-date-filter" ref={popup.root} onBlur={popup.blur}>
+  return <div className="dcl-filter dcl-filter-popup dcl-date-filter" ref={root} onBlur={blur}>
     <span id="dcl-date-label">Date (IST)</span>
-    <button type="button" className="dcl-filter-trigger dcl-date-trigger" ref={popup.trigger} aria-haspopup="dialog" aria-expanded={popup.open} aria-controls="dcl-calendar" aria-labelledby="dcl-date-label dcl-date-value" onClick={openCalendar}><CalendarDays size={16} /><span id="dcl-date-value">{calendarFormat(initial, { day: '2-digit', month: 'short', year: 'numeric' })}</span><ChevronDown size={14} /></button>
-    {popup.open && <div className="dcl-popover dcl-calendar" id="dcl-calendar" role="dialog" aria-label="Choose check-in report date">
+    <button type="button" className="dcl-filter-trigger dcl-date-trigger" ref={trigger} aria-haspopup="dialog" aria-expanded={open} aria-controls="dcl-calendar" aria-labelledby="dcl-date-label dcl-date-value" onClick={openCalendar}><CalendarDays size={16} /><span id="dcl-date-value">{calendarFormat(initial, { day: '2-digit', month: 'short', year: 'numeric' })}</span><ChevronDown size={14} /></button>
+    {open && <div className="dcl-popover dcl-calendar" id="dcl-calendar" role="dialog" aria-label="Choose check-in report date">
       <div className="dcl-calendar-heading"><strong aria-live="polite">{calendarFormat(start, { month: 'long', year: 'numeric' })}</strong><div><button type="button" aria-label="Previous month" disabled={month === '0001-01'} onClick={() => moveMonth(-1)}><ChevronLeft size={17} /></button><button type="button" aria-label="Next month" disabled={nextMonth > today.slice(0, 7)} onClick={() => moveMonth(1)}><ChevronRight size={17} /></button></div></div>
       <div className="dcl-calendar-grid" ref={grid} role="grid" aria-label={calendarFormat(start, { month: 'long', year: 'numeric' })}>
         <div role="row" className="dcl-calendar-week">{['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => <span role="columnheader" key={day}>{day}</span>)}</div>
@@ -166,7 +167,7 @@ export default function DailyCheckInList() {
     generation.current++; controller.current?.abort(); inFlight.current = false
     setRows([]); setSummary(null); setMetadata(null); setNextCursor(null)
     loadPage()
-    return () => { generation.current++; controller.current?.abort(); inFlight.current = false }
+    return () => { invalidateRequestVersion(generation); controller.current?.abort(); inFlight.current = false }
   }, [loadPage, refreshVersion])
 
   useEffect(() => {

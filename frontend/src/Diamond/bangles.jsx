@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import CustomerNavbar from '../collection/CustomerNavbar'
 import CustomerFooter from '../collection/CustomerFooter'
@@ -23,7 +23,7 @@ export default function DiamondBangles() {
   const [loading, setLoading] = useState(true)
   const [hovered, setHovered] = useState(null)
   const [wishlistedIds, setWishlistedIds] = useState(new Set())
-  const [gradeFilter, setGradeFilter] = useState('all') // 'all' | '18k' | '22k'
+  const [gradeFilter] = useState('all') // 'all' | '18k' | '22k'
   const [liveRate, setLiveRate] = useState(null)
 
   const getImageUrl = (img) => {
@@ -34,7 +34,7 @@ export default function DiamondBangles() {
     return `${API_BASE}/${src.replace(/^\/+/, '')}`
   }
 
-  const tagStyle = (tag) => TAG_COLORS[tag] || { bg: 'rgba(103,232,249,0.1)', border: 'rgba(103,232,249,0.3)', color: DIAMOND_COLOR }
+
 
   useEffect(() => {
     import('../api').then(({ default: api }) => {
@@ -75,7 +75,7 @@ useEffect(() => {
         return next
       })
       window.dispatchEvent(new Event('bb_wishlist_update'))
-    } catch {}
+    } catch { /* No additional action is needed in this fallback. */ }
   }
 
   const filteredProducts = gradeFilter === 'all'

@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import { useEffect, useRef, useState, useMemo } from 'react'
 import {
   ResponsiveContainer,
@@ -133,7 +134,6 @@ function AnimatedNumber({ value, prefix = '', suffix = '', duration = 650 }) {
   useEffect(() => {
     const startVal = currentValRef.current
     if (startVal === endVal) {
-      setDisplayVal(endVal)
       return
     }
 
@@ -238,8 +238,8 @@ export default function AllSalesDashboard({
   const [summary, setSummary] = useState(null)
   const [txns, setTxns] = useState([])
   const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(false)
-  const [loadingMore, setLoadingMore] = useState(false)
+  const [, setHasMore] = useState(false)
+  const [, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [activeFilter, setActiveFilter] = useState('month')
@@ -297,7 +297,7 @@ export default function AllSalesDashboard({
             setLoadError(false)
           }
         }
-      } catch (err) {}
+      } catch { /* No additional action is needed in this fallback. */ }
     }
 
     if (isPageNav) {
@@ -337,7 +337,7 @@ export default function AllSalesDashboard({
           transactions: newTxns,
           has_more: newHasMore,
         }))
-      } catch (err) {}
+      } catch { /* No additional action is needed in this fallback. */ }
     } catch {
       if (fetchId !== fetchIdRef.current) return
       if (!sessionStorage.getItem(cacheKey)) {
@@ -357,9 +357,10 @@ export default function AllSalesDashboard({
     fetchData(p, activeFilter, customFrom, customTo, true)
   }
 
+  const committedFetchData = useCommittedCallback((...args) => fetchData(...args))
   useEffect(() => {
-    fetchData(1, 'month', '', '', false)
-  }, [])
+    committedFetchData(1, 'month', '', '', false)
+  }, [committedFetchData])
 
   const handleFilterClick = (key) => {
     setActiveFilter(key)
@@ -380,10 +381,7 @@ export default function AllSalesDashboard({
     fetchData(1, 'custom', customFrom, customTo)
   }
 
-  const loadMore = () => {
-    setLoadingMore(true)
-    fetchData(page + 1, activeFilter, customFrom, customTo)
-  }
+
 
   const retry = () => {
     setLoading(true)

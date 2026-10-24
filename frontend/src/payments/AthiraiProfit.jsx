@@ -1,3 +1,4 @@
+import { useCommittedCallback } from '../api.js'
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import {
   ResponsiveContainer,
@@ -130,7 +131,6 @@ function AnimatedNumber({ value, prefix = '', suffix = '', duration = 650 }) {
   useEffect(() => {
     const startVal = currentValRef.current
     if (startVal === endVal) {
-      setDisplayVal(endVal)
       return
     }
 
@@ -222,7 +222,7 @@ export default function AthiraiProfit() {
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
   const [downloading, setDownloading] = useState(false)
-  const [downloadError, setDownloadError] = useState(false)
+  const [, setDownloadError] = useState(false)
   const [copiedId, setCopiedId] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTxn, setSelectedTxn] = useState(null)
@@ -274,7 +274,7 @@ export default function AthiraiProfit() {
           cached = JSON.parse(raw)
           if (cached) sessionProfitCache.set(cacheKey, cached)
         }
-      } catch (e) {}
+      } catch { /* No additional action is needed in this fallback. */ }
     }
 
     if (!isPageNav && cached && cached.athiraiRev && cached.athiraiRev.total_revenue != null) {
@@ -347,7 +347,7 @@ export default function AthiraiProfit() {
           sessionProfitCache.set(cacheKey, cachePayload)
           try {
             sessionStorage.setItem(ssKey, JSON.stringify(cachePayload))
-          } catch (e) {}
+          } catch { /* No additional action is needed in this fallback. */ }
         }
       }
 
@@ -377,12 +377,13 @@ export default function AthiraiProfit() {
     fetchProfitData(p, activeFilter, customFrom, customTo, true)
   }
 
+  const initialProfitRequest = useCommittedCallback((...args) => fetchProfitData(...args))
   useEffect(() => {
-    fetchProfitData(1, 'month', '', '', false)
+    initialProfitRequest(1, 'month', '', '', false)
     return () => {
       if (abortControllerRef.current) abortControllerRef.current.abort()
     }
-  }, [])
+  }, [initialProfitRequest])
 
   const handleFilterClick = (key) => {
     setActiveFilter(key)

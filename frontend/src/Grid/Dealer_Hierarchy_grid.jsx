@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
@@ -219,7 +220,7 @@ function renderBracketBranch(node, role, childRole, childKey) {
   `
 }
 
-function printHorizontalBracketTree(rootNode, role, ancestors) {
+function printHorizontalBracketTree(rootNode, role) {
   const nodeName = [rootNode.first_name, rootNode.last_name].filter(Boolean).join(' ') || 'Dealer Tree'
   const nodeId = rootNode[ROLE_CFG[role]?.idKey] || rootNode.id || ''
 
@@ -329,7 +330,7 @@ function printHorizontalBracketTree(rootNode, role, ancestors) {
           zoomFit();
         }
         window.onload = () => { zoomFit(); setTimeout(() => window.print(), 200); };
-      <\/script>
+      </script>
     </body>
     </html>
   `)
@@ -386,7 +387,7 @@ function printPersonCard(node, role, cfg, color, ancestors) {
       ${chainHtml}
       <div class="footer">Printed on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
     </div>
-    <script>window.onload = () => { window.print() }<\/script>
+    <script>window.onload = () => { window.print() }</script>
     </body></html>
   `)
   printWindow.document.close()
@@ -768,7 +769,7 @@ export default function Dealer_Hierarchy_grid() {
   const [root, setRoot] = useState(null)
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [debouncedSearch] = useState('')
 
   const [subDealers, setSubDealers] = useState([])
   const [selSubDealer, setSelSubDealer] = useState(null)
@@ -870,13 +871,13 @@ export default function Dealer_Hierarchy_grid() {
     return subDealers.find(sd => sd.id === selSubDealer) || null
   }, [subDealers, selSubDealer])
 
-  const promotors = currentSubDealer ? (promotorCache[currentSubDealer.id] || []) : []
+  const promotors = useMemo(() => (currentSubDealer ? (promotorCache[currentSubDealer.id] || []) : []), [currentSubDealer, promotorCache])
   const currentPromotor = useMemo(() => {
     if (!selPromotor) return null
     return promotors.find(p => p.id === selPromotor) || null
   }, [promotors, selPromotor])
 
-  const customers = currentPromotor ? (customerCache[`p_${currentPromotor.id}`] || []) : []
+  const customers = useMemo(() => (currentPromotor ? (customerCache[`p_${currentPromotor.id}`] || []) : []), [currentPromotor, customerCache])
 
   const filteredSubDealers = useMemo(() => {
     if (activeStatusFilter && activeStatusFilter.role === 'dealer' && activeStatusFilter.nodeId === root?.id) {
@@ -899,9 +900,9 @@ export default function Dealer_Hierarchy_grid() {
     return customers
   }, [customers, activeStatusFilter, currentPromotor])
 
-  const subDealerAncestors = root ? [{ node: root, role: 'dealer' }] : []
-  const promotorAncestors = currentSubDealer ? [...subDealerAncestors, { node: currentSubDealer, role: 'sub_dealer' }] : subDealerAncestors
-  const customerAncestors = currentPromotor ? [...promotorAncestors, { node: currentPromotor, role: 'promotor' }] : promotorAncestors
+  const subDealerAncestors = useMemo(() => (root ? [{ node: root, role: 'dealer' }] : []), [root])
+  const promotorAncestors = useMemo(() => (currentSubDealer ? [...subDealerAncestors, { node: currentSubDealer, role: 'sub_dealer' }] : subDealerAncestors), [currentSubDealer, subDealerAncestors])
+  ;(currentPromotor ? [...promotorAncestors, { node: currentPromotor, role: 'promotor' }] : promotorAncestors);
 
   const selectSubDealer = (node) => {
     setSelSubDealer(node.id); setSelPromotor(null); setCustomerChain([])
@@ -957,7 +958,7 @@ export default function Dealer_Hierarchy_grid() {
     )
   }
 
-  const searchOwnHierarchy = (query) => {
+  const searchOwnHierarchy = useCallback((query) => {
     if (!root || !query.trim()) return []
     const q = query.trim().toLowerCase()
     const result = []
@@ -985,12 +986,12 @@ export default function Dealer_Hierarchy_grid() {
       })
     })
     return result
-  }
+  }, [root])
 
   const searchResults = useMemo(() => {
     if (!debouncedSearch) return []
     return searchOwnHierarchy(debouncedSearch)
-  }, [debouncedSearch, root])
+  }, [debouncedSearch, searchOwnHierarchy])
 
   const jumpToSearchResult = (item) => {
     const map = {}

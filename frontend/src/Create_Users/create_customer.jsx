@@ -36,7 +36,7 @@ export default function CreateCustomer() {
   const [passwordError, setPasswordError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [, setMsg] = useState("");
   const [successPopup, setSuccessPopup] = useState(null);
   const [errorPopup, setErrorPopup] = useState(null);
   const [submitting, setSubmitting] = useState(false);

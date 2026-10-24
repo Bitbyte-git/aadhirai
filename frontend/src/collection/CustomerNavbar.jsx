@@ -8,7 +8,7 @@ import {
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import api from "../api";
-import { getCartCountDB } from "../collection/card_section";
+import { getCartCountDB } from "../api.js";
 import { getSubcategories } from "../config/categoryConfig";
 import digiGoldCoinsIcon from "../assets/digi-gold-nav-v2.webp";
 
@@ -1047,7 +1047,7 @@ export default function CustomerNavbar() {
   // AUG Revive pill, coin-shop icon, and the menu drawer are hidden for
   // guests (not logged in) on any page — they show up as soon as the
   // person logs in, regardless of which route they're on.
-  const isLandingPage = !isLoggedIn;
+  (!isLoggedIn);
   const roleSwitchCfg = ROLE_SWITCH_LABELS[role];
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
@@ -1072,6 +1072,7 @@ export default function CustomerNavbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const mobileMenuRef = useRef(null);
   useEffect(() => {
+    const menuPanel = mobileMenuRef.current;
     if (!mobileOpen) return;
     const opener = document.activeElement;
     const previousOverflow = document.body.style.overflow;
@@ -1093,7 +1094,7 @@ export default function CustomerNavbar() {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', handleKey);
       window.removeEventListener('resize', resize);
-      if (opener?.isConnected && (document.activeElement === document.body || mobileMenuRef.current?.contains(document.activeElement))) opener.focus({ preventScroll: true });
+      if (opener?.isConnected && (document.activeElement === document.body || menuPanel?.contains(document.activeElement))) opener.focus({ preventScroll: true });
     };
   }, [mobileOpen]);
   const [roleDrawerOpen, setRoleDrawerOpen] = useState(false);
@@ -1239,14 +1240,14 @@ export default function CustomerNavbar() {
   const saveRecentSearch = (query) => {
     setRecentSearches(prev => {
       const next = [query, ...prev.filter(q => q.toLowerCase() !== query.toLowerCase())].slice(0, 8);
-      try { localStorage.setItem("bb_recent_searches", JSON.stringify(next)); } catch {}
+      try { localStorage.setItem("bb_recent_searches", JSON.stringify(next)); } catch { /* No additional action is needed in this fallback. */ }
       return next;
     });
   };
   const removeRecentSearch = (query) => {
     setRecentSearches(prev => {
       const next = prev.filter(q => q !== query);
-      try { localStorage.setItem("bb_recent_searches", JSON.stringify(next)); } catch {}
+      try { localStorage.setItem("bb_recent_searches", JSON.stringify(next)); } catch { /* No additional action is needed in this fallback. */ }
       return next;
     });
   };
@@ -1382,13 +1383,13 @@ export default function CustomerNavbar() {
     if (audioStreamRef.current) {
       try {
         audioStreamRef.current.getTracks().forEach((track) => track.stop());
-      } catch {}
+      } catch { /* No additional action is needed in this fallback. */ }
       audioStreamRef.current = null;
     }
     if (audioContextRef.current) {
       try {
         audioContextRef.current.close();
-      } catch {}
+      } catch { /* No additional action is needed in this fallback. */ }
       audioContextRef.current = null;
     }
     setVoiceVolume(0);
@@ -1401,7 +1402,7 @@ export default function CustomerNavbar() {
     }
     stopAudioAnalyser();
     if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch {}
+      try { recognitionRef.current.abort(); } catch { /* No additional action is needed in this fallback. */ }
     }
     setVoiceListening(false);
   };
@@ -1463,7 +1464,7 @@ export default function CustomerNavbar() {
     }
 
     if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch {}
+      try { recognitionRef.current.abort(); } catch { /* No additional action is needed in this fallback. */ }
     }
 
     playVoiceChime('start');
@@ -1574,13 +1575,13 @@ export default function CustomerNavbar() {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       if (audioAnimFrameRef.current) cancelAnimationFrame(audioAnimFrameRef.current);
       if (audioStreamRef.current) {
-        try { audioStreamRef.current.getTracks().forEach((track) => track.stop()); } catch {}
+        try { audioStreamRef.current.getTracks().forEach((track) => track.stop()); } catch { /* No additional action is needed in this fallback. */ }
       }
       if (audioContextRef.current) {
-        try { audioContextRef.current.close(); } catch {}
+        try { audioContextRef.current.close(); } catch { /* No additional action is needed in this fallback. */ }
       }
       if (recognitionRef.current) {
-        try { recognitionRef.current.abort(); } catch {}
+        try { recognitionRef.current.abort(); } catch { /* No additional action is needed in this fallback. */ }
       }
     };
   }, []);
@@ -3860,6 +3861,18 @@ export default function CustomerNavbar() {
           .mobile-menu-rates>span:last-child{background:#f0f4f7;border-color:#dde5ea;color:#5a7284}
           .mobile-menu-rates>span:last-child small{color:#6d8391}
         }
+
+        .team-brand { display: inline-flex; align-items: center; justify-content: flex-start; gap: 10px; }
+        .team-brand > .athirai-wordmark { color: #073b3f; font-size: clamp(20px, 1.7vw, 28px); }
+        .cn-compact-logo { gap: 7px; color: #073b3f; }
+        .cn-compact-logo .athirai-wordmark { font-size: 15px; }
+        @media(max-width:640px) {
+          .exact-main .exact-inner { grid-template-columns:56px minmax(0,1fr); }
+          .exact-main .team-brand { width:56px; max-width:56px; flex-direction:column; gap:2px; }
+          .exact-main .team-brand > .athirai-wordmark { display:block; font-size:9px; line-height:1.2; letter-spacing:.06em; }
+          .exact-main .team-mark-frame { width:36px; max-width:36px; height:36px; }
+          .exact-main .team-mark { width:36px; height:36px; max-height:36px; }
+        }
       `}</style>
 
       <header ref={navbarRef} className="exact-nav">
@@ -3872,7 +3885,7 @@ export default function CustomerNavbar() {
               </svg>
             </button>
             <button type="button" className="cn-compact-logo" onClick={() => navigate("/customer")} aria-label="Home">
-              <img src="/Aadhirai-Logo.png" alt="Aadhirai" />
+              <img src="/Gold/Athirai_logo.png" alt="" /><span className="athirai-wordmark">ATHIRAI</span>
             </button>
             <div className="cn-compact-spacer" />
             <button type="button" className="cn-compact-icon" onClick={openSearchScreen} aria-label="Search">
@@ -4087,12 +4100,13 @@ export default function CustomerNavbar() {
             >
               <span className="team-mark-frame">
                 <img
-                  src="/Aadhirai-Logo.png"
+                  src="/Gold/Athirai_logo.png"
                   alt="Aadhirai"
                   className="team-mark"
                   loading="eager"
                 />
               </span>
+              <span className="athirai-wordmark">ATHIRAI</span>
             </button>
 
             <div className="exact-search-wrap" onBlur={event => {
@@ -4748,7 +4762,7 @@ export default function CustomerNavbar() {
 
             <div className="role-drawer-head">
               <div className="role-drawer-brand">
-                <span className="role-drawer-logo-mark"><img src="/Aadhirai-Logo.png" alt="" /></span>
+                <span className="role-drawer-logo-mark"><img src="/Gold/Athirai_logo.png" alt="" /></span>
                 <div>
                   <h4 id="customer-account-title" className="role-drawer-brand-title">ATHIRAI</h4>
                   <small className="role-drawer-brand-sub">Your personal jewellery space</small>

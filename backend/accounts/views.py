@@ -3734,6 +3734,13 @@ def create_razorpay_order(request):
     try:
         amount = request.data.get('amount')  # Frontend ₹ amount அனுப்பும்
         
+        try:
+            amount = Decimal(str(amount))
+            if not amount.is_finite() or amount <= 0 or amount != amount.quantize(Decimal('0.01')):
+                raise ValueError()
+        except Exception:
+            return Response({'error': 'Enter a positive amount with at most two decimal places.'}, status=400)
+
         client = razorpay.Client(
             auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
         )
@@ -3744,8 +3751,8 @@ def create_razorpay_order(request):
             "currency": "INR",
             "payment_capture": 1
         }
-        if request.data.get('purpose') == 'digi_gold':
-            order_payload['notes'] = {'purpose': 'digi_gold', 'user_id': str(request.user.id)}
+        order_payload['notes'] = {'purpose': 'digi_gold' if request.data.get('purpose') == 'digi_gold' else 'jewellery',
+            'user_id': str(request.user.id)}
         razorpay_order = client.order.create(order_payload)
         
         return Response({
@@ -3762,75 +3769,69 @@ def create_razorpay_order(request):
 # ── VIEW 2: Payment Verify + Order Save ──
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def verify_payment(request):
+    data = request.data.copy()
+    order_id, payment_id, signature = (data.get(key) for key in
+        ('razorpay_order_id', 'razorpay_payment_id', 'razorpay_signature'))
+    if not all(isinstance(value, str) and value for value in (order_id, payment_id, signature)):
+        return Response({'error': 'Complete payment details are required.'}, status=400)
+    expected = hmac.new(settings.RAZORPAY_KEY_SECRET.encode(),
+        f'{order_id}|{payment_id}'.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        return Response({'error': 'Invalid payment signature.'}, status=400)
+    Wallet.objects.select_for_update().get_or_create(user=request.user)
+    existing = JewelryOrder.objects.filter(razorpay_payment_id=payment_id, payment_status='paid').first()
+    if existing:
+        if existing.user_id != request.user.pk or existing.razorpay_order_id != order_id:
+            return Response({'error': 'This payment belongs to another order.'}, status=409)
+        return Response({'status': 'success', 'order_id': existing.order_id, 'payment_id': payment_id})
     try:
-        data = request.data
-        
-        # Signature verify பண்ணு (Security check)
-        body = data['razorpay_order_id'] + "|" + data['razorpay_payment_id']
-        
-        expected_sig = hmac.new(
-            settings.RAZORPAY_KEY_SECRET.encode(),
-            body.encode(),
-            hashlib.sha256
-        ).hexdigest()
-        
-        if expected_sig != data['razorpay_signature']:
-            return Response({"status": "failed", "msg": "Invalid signature"}, status=400)
-        
-        # ✅ Payment genuine! - Order Database-ல save பண்ணு
-        # உன் existing Order model இருந்தா இங்க use பண்ணு
-        order_id = "BB" + data['razorpay_payment_id'][-8:].upper()
-        
-        
-
-        # ✅ JewelryOrder model-ல save பண்ணு
-        try:
-            product = JewelryProduct.objects.get(id=data.get('product_id'))
-            product_image_url = data.get('product_image_url', '')
-            if not product_image_url:
-                first_img = product.images.first()
-                if first_img:
-                    product_image_url = request.build_absolute_uri(first_img.image.url)
-            order = JewelryOrder.objects.create(
-                user=request.user,
-                product=product,
-                product_name=product.name,
-                product_metal=product.metal,
-                product_grade=product.grade or '',
-                product_category=product.category,
-                product_image_url=product_image_url,
-                customer_name=data.get('customer_name', ''),
-                customer_phone=data.get('customer_phone', ''),
-                customer_alt_phone='',
-                pincode=data.get('pincode', ''),
-                address_line1=data.get('address_line1', ''),
-                address_line2=data.get('address_line2', ''),
-                city=data.get('city', ''),
-                state=data.get('state', ''),
-                quantity=int(data.get('quantity', 1)),
-                unit_price=float(data.get('unit_price', 0)),
-                total_price=float(data.get('total_price', 0)),
-                payment_method='razorpay',
-                payment_status='paid',
-                status='confirmed',
-                razorpay_order_id=data['razorpay_order_id'],
-                razorpay_payment_id=data['razorpay_payment_id'],
-            )
-            order_id = order.order_id
-            distribute_commission(order)   # ── NEW: commission chain ku pogும் ──
-        except Exception as e:
-            print('❌ JewelryOrder SAVE FAILED:', repr(e))
-            order_id = "BB" + data['razorpay_payment_id'][-8:].upper()
-        
-        return Response({
-            "status": "success",
-            "order_id": order_id,
-            "payment_id": data['razorpay_payment_id']
-        })
-        
-    except Exception as e:
-        return Response({"error": str(e)}, status=400)
+        product_id = int(str(data.get('product_id')))
+        quantity = int(str(data.get('quantity', 1)))
+        if quantity < 1:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return Response({'error': 'Invalid product or quantity.'}, status=400)
+    if not data.get('delivery_address_id'):
+        return Response({'error': 'Choose a saved delivery address.'}, status=400)
+    data.update(saved_order_address(request.user, data['delivery_address_id']))
+    product = get_object_or_404(JewelryProduct.objects.select_for_update(),
+        pk=product_id, is_active=True, is_internal_asset=False)
+    if quantity > product.stock_quantity:
+        return Response({'error': 'This quantity is unavailable. Contact support about your payment.'}, status=409)
+    rates = MetalRate.objects.filter(date__lte=timezone.localdate()).order_by('-date').first()
+    unit_price, _ = current_product_price(product, rates)
+    if unit_price is None:
+        return Response({'error': 'Product price is unavailable.'}, status=400)
+    total = Decimal(unit_price * quantity)
+    try:
+        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+        payment = client.payment.fetch(payment_id)
+        gateway_order = client.order.fetch(order_id)
+    except Exception:
+        return Response({'error': 'Unable to confirm payment. Please retry shortly.'}, status=502)
+    notes = gateway_order.get('notes') or {}
+    if (not isinstance(notes, dict) or notes.get('user_id') != str(request.user.pk)
+            or notes.get('purpose') != 'jewellery' or payment.get('order_id') != order_id
+            or payment.get('amount') != int(total * 100) or payment.get('currency') != 'INR'
+            or payment.get('status') != 'captured'):
+        return Response({'error': 'Payment does not match this user, product amount or captured order.'}, status=400)
+    product.stock_quantity -= quantity
+    if product.stock_quantity == 0:
+        product.is_active = False
+    product.save(update_fields=['stock_quantity', 'is_active'])
+    image = product.images.first()
+    order = JewelryOrder.objects.create(user=request.user, product=product, product_name=product.name,
+        product_metal=product.metal, product_grade=product.grade or '', product_category=product.category,
+        product_image_url=request.build_absolute_uri(image.image.url) if image else '',
+        customer_name=data['customer_name'], customer_phone=data['customer_phone'], pincode=data['pincode'],
+        address_line1=data['address_line1'], address_line2=data['address_line2'], city=data['city'], state=data['state'],
+        delivery_instructions=data.get('delivery_instructions', ''), delivery_location=data.get('delivery_location', {}),
+        quantity=quantity, unit_price=unit_price, total_price=total, payment_method='razorpay',
+        payment_status='paid', status='confirmed', razorpay_order_id=order_id, razorpay_payment_id=payment_id)
+    distribute_commission(order)
+    return Response({'status': 'success', 'order_id': order.order_id, 'payment_id': payment_id})
 
 
 def _serialize_order(o):
@@ -9505,14 +9506,12 @@ class RechargeCreateOrderView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        amount = request.data.get('amount')
         try:
-            amount = float(amount)
-        except (TypeError, ValueError):
-            return Response({'error': 'Valid amount required'}, status=400)
-        if amount <= 0:
-            return Response({'error': 'Amount must be greater than 0'}, status=400)
-
+            amount = Decimal(str(request.data.get('amount')))
+            if not amount.is_finite() or amount <= 0 or amount != amount.quantize(Decimal('0.01')):
+                raise ValueError()
+        except Exception:
+            return Response({'error': 'Enter a positive amount with at most two decimal places.'}, status=400)
         coins = int(amount * COIN_RATE_PER_RUPEE)
 
         try:
@@ -9547,51 +9546,52 @@ class RechargeCreateOrderView(APIView):
 class RechargeVerifyPaymentView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
         data = request.data
+        order_id, payment_id, signature = (data.get(key) for key in
+            ('razorpay_order_id', 'razorpay_payment_id', 'razorpay_signature'))
+        if not all(isinstance(value, str) and value for value in (order_id, payment_id, signature)):
+            return Response({'error': 'Complete payment details are required.'}, status=400)
         try:
-            recharge = CoinRecharge.objects.get(
-                id=data.get('recharge_id'), user=request.user, status='pending'
-            )
-        except CoinRecharge.DoesNotExist:
-            return Response({'error': 'Recharge not found'}, status=404)
-
-        body = data['razorpay_order_id'] + "|" + data['razorpay_payment_id']
-        expected_sig = hmac.new(
-            settings.RAZORPAY_KEY_SECRET.encode(), body.encode(), hashlib.sha256
-        ).hexdigest()
-
-        if expected_sig != data.get('razorpay_signature'):
-            recharge.status = 'failed'
-            recharge.save(update_fields=['status'])
-            return Response({'status': 'failed', 'msg': 'Invalid signature'}, status=400)
-
-        # ── Razorpay payment fetch pannurom method (card/upi/netbanking/wallet) edukka ──
-        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
-        method = 'other'
+            recharge_id = int(str(data.get('recharge_id')))
+        except (TypeError, ValueError):
+            return Response({'error': 'Invalid recharge.'}, status=400)
+        wallet, _ = Wallet.objects.select_for_update().get_or_create(user=request.user)
+        recharge = get_object_or_404(CoinRecharge.objects.select_for_update(), pk=recharge_id, user=request.user)
+        if recharge.razorpay_order_id != order_id:
+            return Response({'error': 'Payment does not match this recharge.'}, status=400)
+        expected_sig = hmac.new(settings.RAZORPAY_KEY_SECRET.encode(),
+            f'{order_id}|{payment_id}'.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected_sig, signature):
+            return Response({'error': 'Invalid payment signature.'}, status=400)
+        if recharge.status == 'success':
+            if recharge.razorpay_payment_id != payment_id:
+                return Response({'error': 'This recharge is already paid.'}, status=409)
+            return Response({'status': 'success', 'coins_credited': recharge.coins_credited,
+                'balance_coins': wallet.balance_coins})
+        if recharge.status != 'pending':
+            return Response({'error': 'This recharge is not pending.'}, status=409)
         try:
-            payment = client.payment.fetch(data['razorpay_payment_id'])
-            raw_method = payment.get('method', 'other')
-            method_map = {'card': 'card', 'upi': 'upi', 'netbanking': 'netbanking', 'wallet': 'wallet'}
-            method = method_map.get(raw_method, 'other')
+            client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+            payment = client.payment.fetch(payment_id)
         except Exception:
-            pass
-
-        recharge.razorpay_payment_id = data['razorpay_payment_id']
-        recharge.payment_method = method
+            return Response({'error': 'Unable to confirm payment. Please retry shortly.'}, status=502)
+        expected_paise = int(recharge.amount_paid * 100)
+        if (payment.get('order_id') != order_id or payment.get('amount') != expected_paise
+                or payment.get('currency') != 'INR' or payment.get('status') != 'captured'):
+            return Response({'error': 'Payment amount, order or captured status does not match.'}, status=400)
+        if CoinRecharge.objects.filter(razorpay_payment_id=payment_id, status='success').exclude(pk=recharge.pk).exists():
+            return Response({'error': 'Payment has already been credited.'}, status=409)
+        recharge.razorpay_payment_id = payment_id
+        recharge.payment_method = {'card': 'card', 'upi': 'upi', 'netbanking': 'netbanking', 'wallet': 'wallet'}.get(payment.get('method'), 'other')
         recharge.status = 'success'
-        recharge.transaction_id = generate_transaction_id()   # ── NEW ──
+        recharge.transaction_id = generate_transaction_id()
         recharge.save(update_fields=['razorpay_payment_id', 'payment_method', 'status', 'transaction_id'])
-
-        wallet, _ = Wallet.objects.get_or_create(user=request.user)
         wallet.balance_coins += recharge.coins_credited
         wallet.save(update_fields=['balance_coins'])
-
-        return Response({
-            'status': 'success',
-            'coins_credited': recharge.coins_credited,
-            'balance_coins': wallet.balance_coins,
-        })
+        return Response({'status': 'success', 'coins_credited': recharge.coins_credited,
+            'balance_coins': wallet.balance_coins})
 
 class RechargeHistoryView(APIView):
     """Full paginated recharge + commission history — GPay mari, Today/Month/6Month/Custom filter
@@ -10572,45 +10572,81 @@ class PayWithCoinsView(APIView):
     Order amount ku thevayana coins balance la irundha mattum proceed aagும்."""
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
         data = request.data.copy()
-        if data.get('delivery_address_id'):
-            data.update(saved_order_address(request.user, data['delivery_address_id']))
-        product_id = data.get('product_id')
-        total_price = Decimal(str(data.get('total_price', 0)))
+        if not data.get('delivery_address_id'):
+            return Response({'error': 'Choose a saved delivery address.'}, status=400)
+        data.update(saved_order_address(request.user, data['delivery_address_id']))
+        wallet, _ = Wallet.objects.select_for_update().get_or_create(user=request.user)
 
-        if total_price <= 0:
-            return Response({'error': 'Invalid order amount'}, status=400)
-
-        coins_needed = int(total_price * COIN_RATE_PER_RUPEE)
-
-        wallet, _ = Wallet.objects.get_or_create(user=request.user)
-        if wallet.balance_coins < coins_needed:
-            return Response({
-                'error': 'Insufficient AUG coins',
-                'balance_coins': wallet.balance_coins,
-                'coins_needed': coins_needed,
-            }, status=400)
+        if data.get('cart_checkout') is True:
+            from types import SimpleNamespace
+            rows = list(CartItem.objects.select_for_update().filter(user=request.user).order_by('product_id'))
+            if not rows:
+                return Response({'error': 'Your cart is empty.'}, status=400)
+            rates = MetalRate.objects.filter(date__lte=timezone.localdate()).order_by('-date').first()
+            lines = []
+            for row in rows:
+                product = get_object_or_404(JewelryProduct.objects.select_for_update(), pk=row.product_id,
+                    is_active=True, is_internal_asset=False)
+                unit_price, _ = current_product_price(product, rates)
+                if row.qty < 1 or row.qty > product.stock_quantity or unit_price is None:
+                    return Response({'error': 'A cart item is unavailable. Review your cart.'}, status=400)
+                lines.append((row, unit_price))
+            total = sum(Decimal(price * row.qty) for row, price in lines)
+            try:
+                quoted = Decimal(str(data.get('total_price', '0')))
+            except Exception:
+                quoted = Decimal('0')
+            if not quoted.is_finite() or quoted != total:
+                return Response({'error': 'Cart prices changed. Review your cart again.', 'total_price': float(total)}, status=409)
+            if wallet.balance_coins < int(total * COIN_RATE_PER_RUPEE):
+                return Response({'error': 'Insufficient AUG coins'}, status=400)
+            paid_orders = []
+            for row, price in lines:
+                item = {**data, 'cart_checkout': False, 'product_id': row.product_id,
+                    'quantity': row.qty, 'unit_price': price, 'total_price': str(price * row.qty),
+                    'product_image_url': ''}
+                paid = self.post(SimpleNamespace(user=request.user, data=item, build_absolute_uri=request.build_absolute_uri))
+                if paid.status_code != 200:
+                    transaction.set_rollback(True)
+                    return paid
+                paid_orders.append(paid.data['order_id'])
+            CartItem.objects.filter(pk__in=[row.pk for row, _ in lines], user=request.user).delete()
+            wallet.refresh_from_db()
+            return Response({'status': 'success', 'order_id': paid_orders[0], 'order_ids': paid_orders,
+                'coins_used': int(total * COIN_RATE_PER_RUPEE), 'balance_coins': wallet.balance_coins})
 
         try:
-            product = JewelryProduct.objects.get(id=product_id)
-        except JewelryProduct.DoesNotExist:
-            return Response({'error': 'Product not found'}, status=404)
-
-        # ── NEW: Atomic stock check + reduce — wallet deduct panna munnadi ──
-        from django.db.models import F
-        quantity = int(data.get('quantity', 1))
-        updated_rows = JewelryProduct.objects.filter(
-            id=product_id, stock_quantity__gte=quantity
-        ).update(stock_quantity=F('stock_quantity') - quantity)
-
-        if not updated_rows:
-            return Response({'error': f'Only limited stock left for {product.name}. Please reduce quantity.'}, status=400)
-
-        product.refresh_from_db()
-        if product.stock_quantity <= 0:
+            product_id = int(str(data.get('product_id')))
+            quantity = int(str(data.get('quantity', 1)))
+            quoted_total = Decimal(str(data.get('total_price', '0')))
+        except Exception:
+            return Response({'error': 'Invalid product, quantity or order amount.'}, status=400)
+        if quantity < 1 or not quoted_total.is_finite() or quoted_total <= 0:
+            return Response({'error': 'Choose a positive quantity and valid order amount.'}, status=400)
+        product = get_object_or_404(JewelryProduct.objects.select_for_update(),
+            pk=product_id, is_active=True, is_internal_asset=False)
+        if quantity > product.stock_quantity:
+            return Response({'error': 'This quantity is unavailable. Review your order.'}, status=400)
+        rates = MetalRate.objects.filter(date__lte=timezone.localdate()).order_by('-date').first()
+        unit_price, _ = current_product_price(product, rates)
+        if unit_price is None:
+            return Response({'error': 'Product price is unavailable.'}, status=400)
+        total_price = Decimal(unit_price * quantity)
+        if quoted_total != total_price:
+            return Response({'error': 'The live product price changed. Review your order again.',
+                'total_price': float(total_price)}, status=409)
+        data.update(quantity=quantity, unit_price=unit_price, total_price=str(total_price))
+        coins_needed = int(total_price * COIN_RATE_PER_RUPEE)
+        if wallet.balance_coins < coins_needed:
+            return Response({'error': 'Insufficient AUG coins', 'balance_coins': wallet.balance_coins,
+                'coins_needed': coins_needed}, status=400)
+        product.stock_quantity -= quantity
+        if product.stock_quantity == 0:
             product.is_active = False
-            product.save(update_fields=['is_active'])
+        product.save(update_fields=['stock_quantity', 'is_active'])
 
         product_image_url = data.get('product_image_url', '')
         if not product_image_url:
@@ -13695,6 +13731,15 @@ class DigiGoldSellView(APIView):
         grams = request.data.get('grams')
         mg = request.data.get('mg')
         metal = request.data.get('metal', 'gold_22k')
+
+        if metal not in ('gold_22k', 'silver_999'):
+            return Response({'error': 'Invalid vault metal.'}, status=400)
+        try:
+            sell_mg = Decimal(str(grams)) * 1000 if grams else Decimal(str(mg))
+            if not sell_mg.is_finite() or sell_mg <= 0:
+                raise ValueError()
+        except Exception:
+            return Response({'error': 'Enter a valid positive gold or silver quantity.'}, status=400)
 
         if not grams and not mg:
             return Response({

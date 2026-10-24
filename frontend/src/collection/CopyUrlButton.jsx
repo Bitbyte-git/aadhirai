@@ -17,7 +17,7 @@ export default function CopyUrlButton({ style, userId, publicId, label = "Copy U
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
+    } catch {
       alert("Failed to generate URL. Please try again.");
     }
     setLoading(false);

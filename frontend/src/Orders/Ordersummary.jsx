@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import CustomerFooter from '../collection/CustomerFooter'
@@ -312,16 +313,17 @@ export default function OrderSummary() {
     }
   }
 
+  const committedLoadMoreOrders = useCommittedCallback((...args) => loadMoreOrders(...args))
   useEffect(() => {
     const el = loadMoreRef.current
     if (!el || !hasMore || loading) return undefined
     const observer = new IntersectionObserver(
-      (entries) => { if (entries[0].isIntersecting) loadMoreOrders() },
+      (entries) => { if (entries[0].isIntersecting) committedLoadMoreOrders() },
       { rootMargin: '600px 0px' }
     )
     observer.observe(el)
     return () => observer.disconnect()
-  }, [hasMore, loading, page, loadingMore])
+  }, [hasMore, loading, page, loadingMore, committedLoadMoreOrders])
 
   // Status filter / search need every order to match correctly — if only
   // some pages have loaded so far, silently fetch the rest in the
@@ -1281,7 +1283,7 @@ export default function OrderSummary() {
         }
 
         .os-hero-card {
-          background: linear-gradient(90deg, #faf8f1f5 0%, #faf8f1ed 40%, #faf8f1b0 64%, #faf8f100 86%), url('/order-history-hero-v2.webp') right center / cover no-repeat;
+          background: linear-gradient(90deg, #faf8f1f5 0%, #faf8f1ed 40%, #faf8f1b0 64%, #faf8f100 86%), url('/Gold/order-history-hero-v2.webp') right center / cover no-repeat;
         }
         .os-hero-card:after { display: none; }
         .os-hero-card > * { position: relative; z-index: 1; }
@@ -1289,7 +1291,7 @@ export default function OrderSummary() {
         .os-hero-copy { max-width: 66%; font-size: 14px; line-height: 1.7; }
         .os-trust-card {
           min-height: 360px;
-          background: linear-gradient(180deg, #052e2910 0%, #052e2900 38%, #052e29dd 65%, #052e29 100%), url('/order-protection-v2.webp') center top / cover no-repeat;
+          background: linear-gradient(180deg, #052e2910 0%, #052e2900 38%, #052e29dd 65%, #052e29 100%), url('/Gold/order-protection-v2.webp') center top / cover no-repeat;
           background-color: #052e29;
         }
         .os-trust-card:before { display: none; }
@@ -1302,7 +1304,7 @@ export default function OrderSummary() {
         }
         @media (max-width: 760px) {
           .os-hero-card {
-            background: linear-gradient(180deg, #faf8f100 0%, #faf8f100 100px, #faf8f1ed 170px, #faf8f1 220px), url('/order-history-hero-v2.webp') right top / auto 240px no-repeat, #faf8f1;
+            background: linear-gradient(180deg, #faf8f100 0%, #faf8f100 100px, #faf8f1ed 170px, #faf8f1 220px), url('/Gold/order-history-hero-v2.webp') right top / auto 240px no-repeat, #faf8f1;
             padding-top: 180px;
           }
           .os-hero-card h1 { max-width: 100%; font-size: 30px; }

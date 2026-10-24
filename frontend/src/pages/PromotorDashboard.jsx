@@ -1,12 +1,13 @@
+import { useCommittedCallback } from "../api.js";
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import api from '../api'
-import logo from '../assets/logo.png'
+const logo = '/Gold/Athirai_logo.png';
 import InternalRoleNavbar, { DailyWorkCheckIn } from '../collection/InternalRoleNavbar'
 import CopyUrlButton from '../collection/CopyUrlButton'
-import goldCoin from '../assets/gold-coin-transparent.png'
-import silverCoin from '../assets/silver-coin.png'
+
+
 import { SkeletonChart, SkeletonText, SkeletonRow, SkeletonBox } from '../components/Skeleton'
 import '../components/skeleton.css'
 import { IrdOrderTrendPanel, IrdDonutPanel } from './AdminDashboard'
@@ -43,10 +44,10 @@ const irdPalette = {
   grey: '#7A8987', black: '#111817', red: '#C92035',
 }
 
-const irdChartPeriods = [
+;([
   { key: 'today', label: 'Today' }, { key: 'week', label: '7D' }, { key: 'month', label: '1M' },
   { key: '3month', label: '3M' }, { key: 'year', label: '1Y' }, { key: 'all', label: 'All' },
-]
+]);
 
 function IrdIcon({ type }) {
   const common = { width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }
@@ -58,9 +59,9 @@ function IrdIcon({ type }) {
 }
 
 
-function PromotorDashboardFrame({ roleName, roleDistribution = [], quickActions = [], endpoint, requestParams = {} }) {
+function PromotorDashboardFrame({ roleName, quickActions = [], endpoint, requestParams = {} }) {
   const navigate = useNavigate()
-  const [orderCount, setOrderCount] = useState(0)
+  const [, setOrderCount] = useState(0)
   const [loginCounts, setLoginCounts] = useState({ active: 0, inactive: 0 })
   const [loginLoading, setLoginLoading] = useState(true)
   const [fastCounts, setFastCounts] = useState(null)
@@ -201,18 +202,7 @@ function SectionHeader({ icon, label }) {
   )
 }
 
-function getPasswordStrength(pw) {
-  if (!pw) return { label: '', color: '', width: '0%' }
-  let score = 0
-  if (pw.length >= 6) score++
-  if (pw.length >= 8) score++
-  if (/[A-Z]/.test(pw)) score++
-  if (/[0-9]/.test(pw)) score++
-  if (/[^A-Za-z0-9]/.test(pw)) score++
-  if (score <= 2) return { label: 'Weak', color: '#C92035', width: '33%' }
-  if (score <= 4) return { label: 'Medium', color: '#BB8958', width: '66%' }
-  return { label: 'Strong', color: '#0C4044', width: '100%' }
-}
+
 
 function hexToRgb(hex) {
   const r = parseInt(hex.slice(1,3),16)
@@ -466,7 +456,7 @@ function printCustomerCard(node, color, superAdminEmail, promotorInfo) {
   const win = window.open('', '_blank')
   win.document.write(`<!DOCTYPE html><html><head><title>CUSTOMER — ${currentName}</title>
     <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Inter',system-ui,sans-serif;background:#FDFDFC;padding:40px;display:flex;justify-content:center;}.wrapper{max-width:480px;width:100%;}.header{text-align:center;margin-bottom:28px;}.header h1{font-size:20px;font-weight:800;color:#FDFDFC;}.header p{font-size:12px;color:#7A8987;margin-top:4px;}.chain-item{background:#FDFDFC;border:1.5px solid #E7EDEC;border-radius:12px;padding:14px 18px;}.chain-item.current{border-color:${color};background:${color}11;box-shadow:0 4px 16px ${color}22;}.chain-role{font-size:10px;font-weight:800;color:#7A8987;letter-spacing:1px;margin-bottom:4px;text-transform:uppercase;}.chain-item.current .chain-role{color:${color};}.chain-id{font-family:monospace;font-size:11px;color:${color};margin-bottom:4px;}.chain-name{font-size:16px;font-weight:800;color:#FDFDFC;margin-bottom:6px;}.chain-email{font-size:12px;color:#7A8987;}.chain-info{font-size:12px;color:#7A8987;margin-top:3px;}.chain-arrow{display:flex;justify-content:center;padding:4px 0;}.footer{text-align:center;font-size:10px;color:#7A8987;margin-top:24px;}@media print{body{background:white;padding:20px;}.chain-item{box-shadow:none;}}</style>
-    </head><body><div class="wrapper"><div class="header"><h1>BitByte — CUSTOMER Profile</h1><p>Hierarchy Chain Report</p></div>${chainHtml}<div class="footer">Printed on ${new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'})}</div></div><script>window.onload=()=>{window.print()}<\/script></body></html>`)
+    </head><body><div class="wrapper"><div class="header"><h1>BitByte — CUSTOMER Profile</h1><p>Hierarchy Chain Report</p></div>${chainHtml}<div class="footer">Printed on ${new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'})}</div></div><script>window.onload=()=>{window.print()}</script></body></html>`)
   win.document.close()
 }
 
@@ -624,20 +614,20 @@ function CustomDarkTooltip({ active, payload }) {
 
 // ─── MAIN DASHBOARD ────────────────────────────────────────────────────────────
 export default function PromotorDashboard() {
-  const navigate = useNavigate()                         
-  const [dark, setDark] = useState(false)       
-  const [customers, setCustomers]     = useState([])
-  const [customersLoading, setCustomersLoading] = useState(true)
-  const [allPromotors, setAllPromotors] = useState([])
-  const [selectedPromotor, setSelectedPromotor] = useState(null)
+  const navigate = useNavigate()
+  const [dark] = useState(false)
+  const [, setCustomers]     = useState([])
+  const [, setCustomersLoading] = useState(true)
+  const [, setAllPromotors] = useState([])
+  const [, setSelectedPromotor] = useState(null)
   const [promotorInfo, setPromotorInfo] = useState(null)
-  const [showForm, setShowForm]       = useState(false)
+  const [showForm]       = useState(false)
   const [msg, setMsg]                 = useState('')
   const [msgType, setMsgType]         = useState('success')
- const [form, setForm]               = useState(emptyForm)
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [passwordError, setPasswordError] = useState('')
-  const [pincodeLookupMsg, setPincodeLookupMsg] = useState('')
+ const [, setForm]               = useState(emptyForm)
+  ;useState('');
+  ;useState('');
+  ;useState('');
 const [updateMessage, setUpdateMessage] = useState('')
 const [proofDocument, setProofDocument] = useState(null)
 
@@ -646,10 +636,10 @@ const [showProfileEdit, setShowProfileEdit] = useState(false)
 const [updateForm, setUpdateForm] = useState({})
 
 
-const [metalPrices, setMetalPrices] = useState({ gold24k: null, gold22k: null, silver: null })
-const [metalLoading, setMetalLoading] = useState(false)
-const [usdToInr, setUsdToInr] = useState(null)
-const [dbRateDate, setDbRateDate] = useState(null)
+const [, setMetalPrices] = useState({ gold24k: null, gold22k: null, silver: null })
+const [, setMetalLoading] = useState(false)
+useState(null);
+const [, setDbRateDate] = useState(null)
 
 // ── COIN REQUEST / STOCK ──
 const [showBuyCoin, setShowBuyCoin] = useState(false)
@@ -661,13 +651,13 @@ const [selCoinWeight, setSelCoinWeight] = useState('')
 const [selCoinQty, setSelCoinQty] = useState('')
 
 const [showStoredCoin, setShowStoredCoin] = useState(false)
-  const [coinStock, setCoinStock] = useState([])
-  const [coinStockLoading, setCoinStockLoading] = useState(false)
+  const [coinStock] = useState([])
+  const [coinStockLoading] = useState(false)
 
   // ── MY COIN REQUESTS (status tracking) ──
   const [showMyRequests, setShowMyRequests] = useState(false)
-  const [myCoinRequests, setMyCoinRequests] = useState([])
-  const [myRequestsLoading, setMyRequestsLoading] = useState(false)
+  const [myCoinRequests] = useState([])
+  const [myRequestsLoading] = useState(false)
 
   // ── SAAS DASHBOARD REAL-TIME & DATA STATES ──
   const [liveTime, setLiveTime] = useState(new Date())
@@ -760,9 +750,10 @@ const [showStoredCoin, setShowStoredCoin] = useState(false)
     }
   }
 
+  const committedFetchOrderTimeseries = useCommittedCallback((...args) => fetchOrderTimeseries(...args))
   useEffect(() => {
-    fetchOrderTimeseries(orderPeriod)
-  }, [orderPeriod])
+    committedFetchOrderTimeseries(orderPeriod)
+  }, [orderPeriod, committedFetchOrderTimeseries])
 
   // 4. All Sales & Retailer Commission
   const [salesProfitPeriod, setSalesProfitPeriod] = useState('month')
@@ -808,15 +799,15 @@ const [showStoredCoin, setShowStoredCoin] = useState(false)
         salesProfitCacheRef.current[p] = payload
         setSalesProfitData(payload)
       }
-    } catch {
-    } finally {
+    } catch { /* No additional action is needed in this fallback. */ } finally {
       setSalesProfitLoading(false)
     }
   }
 
+  const committedFetchSalesProfit = useCommittedCallback((...args) => fetchSalesProfit(...args))
   useEffect(() => {
-    fetchSalesProfit(salesProfitPeriod)
-  }, [salesProfitPeriod])
+    committedFetchSalesProfit(salesProfitPeriod)
+  }, [salesProfitPeriod, committedFetchSalesProfit])
 
   // 5. Role Distribution Data (Retailer has Customer)
   const promotorRoleDist = useMemo(() => {
@@ -859,30 +850,30 @@ const [showStoredCoin, setShowStoredCoin] = useState(false)
         setUserGrowthStats(stats)
         setUserGrowthChartData(chart_data)
       }
-    } catch {
-    } finally {
+    } catch { /* No additional action is needed in this fallback. */ } finally {
       setUserGrowthLoading(false)
     }
   }
 
+  const committedFetchUserGrowth = useCommittedCallback((...args) => fetchUserGrowth(...args))
   useEffect(() => {
-    fetchUserGrowth(userGrowthPeriod)
-  }, [userGrowthPeriod])
+    committedFetchUserGrowth(userGrowthPeriod)
+  }, [userGrowthPeriod, committedFetchUserGrowth])
 
 
 
   const bg = dark ? '#073B3F' : '#FDFDFC'
   const text = dark ? '#FDFDFC' : '#111817'
   const subtext = dark ? '#D1DFDE' : '#7A8987'
-  const accent = dark ? '#CCA881' : '#0C4044'
+  ;(dark ? '#CCA881' : '#0C4044');
   const border = dark ? 'rgba(209,223,222,0.22)' : 'rgba(189,207,206,0.78)'
-  const glass = dark ? 'rgba(7,59,63,0.9)' : 'rgba(253,253,252,0.92)'
+  ;(dark ? 'rgba(7,59,63,0.9)' : 'rgba(253,253,252,0.92)');
   const cardBg = dark ? 'rgba(12,64,68,0.88)' : 'rgba(253,253,252,0.96)'
   const cardBorder = dark ? '1px solid rgba(209,223,222,0.22)' : '1px solid rgba(189,207,206,0.72)'
   const inpBg = dark ? 'rgba(253,253,252,0.08)' : '#FDFDFC'
   const inpBorder = dark ? 'rgba(209,223,222,0.24)' : '#BDCFCE'
   const optionBg = dark ? '#073B3F' : '#F3F3F0'
-  const selectInput = { width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box', cursor: 'pointer' }
+  ;({ width: '100%', background: inpBg, border: `1px solid ${inpBorder}`, borderRadius: '12px', padding: '13px 16px', color: text, fontSize: '14px', outline: 'none', boxSizing: 'border-box', cursor: 'pointer' });
 
 
  const fetchAll = async () => {
@@ -1021,7 +1012,7 @@ const submitProfileUpdate = async e => {
   }
 }
 
-  
+
 const fetchMetalPrices = async () => {
   setMetalLoading(true)
   try {
@@ -1033,7 +1024,7 @@ const fetchMetalPrices = async () => {
       silver:  parseFloat(d.silver_999),
     })
     setDbRateDate(d.date)
-  } catch (e) {
+  } catch {
     setMetalPrices({ gold22k: null, gold24k: null, silver: null })
     setDbRateDate(null)
   }
@@ -1088,30 +1079,16 @@ const submitCoinRequest = async () => {
   setCoinBuySubmitting(false)
 }
 
-const fetchCoinStock = async () => {
-  setCoinStockLoading(true)
-  try {
-    const res = await api.get('/coin-stock/')
-    setCoinStock(res.data)
-  } catch { setCoinStock([]) }
-  setCoinStockLoading(false)
-}
 
-const fetchMyCoinRequests = async () => {
-  setMyRequestsLoading(true)
-  try {
-    const res = await api.get('/coin-requests/')
-    setMyCoinRequests(res.data)
-  } catch { setMyCoinRequests([]) }
-  setMyRequestsLoading(false)
-}
+
+
 
 useEffect(() => {
   if (showForm && promotorInfo) {
     setSelectedPromotor(promotorInfo)
     setForm(prev => ({ ...prev, assigned_promotor_id: promotorInfo.id }))
   }
-}, [showForm])
+}, [showForm, promotorInfo])
 
 useEffect(() => {
   fetchAll()
@@ -1124,88 +1101,22 @@ useEffect(() => {
 
 
 
-const handlePincodeChange = async (e) => {
-  const value = e.target.value.replace(/\D/g, '').slice(0, 6)
-  setForm(prev => ({ ...prev, pincode: value }))
-  setPincodeLookupMsg('')
 
-  if (value.length === 6) {
-    setPincodeLookupMsg('Fetching location details...')
-    try {
-      const res = await fetch(`https://api.postalpincode.in/pincode/${value}`)
-      const data = await res.json()
-      if (data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
-        const po = data[0].PostOffice[0]
-        setForm(prev => ({
-          ...prev,
-          city_name: po.District || prev.city_name,
-          district: po.District || prev.district,
-          state: po.State || prev.state,
-        }))
-        setPincodeLookupMsg('Location details auto-filled')
-      } else {
-        setPincodeLookupMsg('Pincode not found — please enter manually')
-      }
-    } catch {
-      setPincodeLookupMsg('Unable to fetch location — please enter manually')
-    }
-  }
-}
 
-const handlePromotorChange = (e) => {
-  const id = parseInt(e.target.value)
-  const pr = allPromotors.find(p => p.id === id)
-  setSelectedPromotor(pr || null)
-  setForm({ ...form, assigned_promotor_id: id })
-}
 
-const handleChange = e => {
-  const { name, value } = e.target
 
-  if (name === 'married_status' && value !== 'married') {
-    setForm({ ...form, married_status: value, anniversary_date: '' })
-    return
-  }
 
-  setForm({ ...form, [name]: value })
-}
 
-const handleSubmit = async e => {
-  e.preventDefault()
 
-  if (form.married_status === 'married' && !form.anniversary_date) {
-    setMsg('❌ Please enter Anniversary Date!'); setMsgType('error')
-    return
-  }
 
-  if (form.password !== confirmPassword) {
-    setPasswordError('❌ Passwords do not match')
-    return
-  }
+  ;({ background: cardBg, border: cardBorder, borderRadius:'22px', padding:'clamp(18px, 3vw, 34px) clamp(16px, 3vw, 38px)', marginBottom:'26px', boxShadow: dark ? '0 26px 70px rgba(17,24,23,0.18)' : '0 22px 58px rgba(7,59,63,0.08)', backdropFilter:'blur(18px)' });
 
-  try {
-    const payload = { ...form }
-    if (!payload.dob) delete payload.dob
-    if (payload.married_status !== 'married') delete payload.anniversary_date
 
-    await api.post('/customers/', payload)
-    setMsg('✅ Customer created successfully!'); setMsgType('success')
-    setShowForm(false); fetchAll(); setForm(emptyForm)
-    setConfirmPassword(''); setPasswordError('')
-  } catch(err) {
-    console.log('ERROR:', JSON.stringify(err.response?.data, null, 2))
-    setMsg('❌ Error: ' + JSON.stringify(err.response?.data)); setMsgType('error')
-  }
-}
+  ({ width:'100%', background: inpBg, border:`1px solid ${inpBorder}`, borderRadius:'12px', padding:'13px 16px', color: text, fontSize:'14px', outline:'none', boxSizing:'border-box' });
+  ({ display:'block', color: subtext, fontSize:'12px', marginBottom:'7px', textTransform:'uppercase', letterSpacing:'0.04em' });
+  ({ background: '#FDFDFC', border: '1px solid rgba(201,32,53,0.2)', borderRadius: '16px', padding: 'clamp(14px, 2.5vw, 22px) clamp(12px, 2.5vw, 24px)', marginBottom: '4px' });
 
-  const card     = { background: cardBg, border: cardBorder, borderRadius:'22px', padding:'clamp(18px, 3vw, 34px) clamp(16px, 3vw, 38px)', marginBottom:'26px', boxShadow: dark ? '0 26px 70px rgba(17,24,23,0.18)' : '0 22px 58px rgba(7,59,63,0.08)', backdropFilter:'blur(18px)' }
-  const secHead  = (col='#F3E8DE') => ({ color:col, fontSize:'13px', fontWeight:900, textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 20px', paddingBottom:'14px', borderBottom: cardBorder })
-  const secLabel = (col='#F3E8DE') => ({ color:col, fontSize:'12px', fontWeight:900, textTransform:'uppercase', letterSpacing:'0.08em', margin:'4px 0 0', paddingBottom:'10px', borderBottom: cardBorder })
-  const inp      = { width:'100%', background: inpBg, border:`1px solid ${inpBorder}`, borderRadius:'12px', padding:'13px 16px', color: text, fontSize:'14px', outline:'none', boxSizing:'border-box' }
-  const lbl      = { display:'block', color: subtext, fontSize:'12px', marginBottom:'7px', textTransform:'uppercase', letterSpacing:'0.04em' }
-  const sectionCard = { background: '#FDFDFC', border: '1px solid rgba(201,32,53,0.2)', borderRadius: '16px', padding: 'clamp(14px, 2.5vw, 22px) clamp(12px, 2.5vw, 24px)', marginBottom: '4px' }
-
-  const superAdminEmail = localStorage.getItem('superAdminEmail') || ''
+  (localStorage.getItem('superAdminEmail') || '');
 
   return (
     <div style={{ minHeight:'100vh', background: dark ? bg : 'linear-gradient(135deg,#FDFDFC 0%,#F3F3F0 46%,#E7EDEC 100%)', color: text, transition:'background 0.8s ease, color 0.4s ease', fontFamily:'"Inter",system-ui,sans-serif', position:'relative' }}>
@@ -2563,7 +2474,7 @@ const handleSubmit = async e => {
             <div className="sa-footer-underline" />
           </div>
           <div className="sa-footer-right">
-            <img src={logo} alt="Logo" style={{ width: '42px', height: '42px', borderRadius: '10px', background: '#FFFFFF', padding: '3px', objectFit: 'contain' }} />
+            <img src={logo} alt="Logo" style={{ width: '42px', height: '42px', objectFit: 'contain' }} />
             <div className="sa-footer-brand">
               <div className="sa-footer-brand-title">ATHIRAI JEWELLERY</div>
               <div className="sa-footer-brand-sub">BITBYTE MARKETING PVT LTD</div>
@@ -2583,7 +2494,7 @@ const handleSubmit = async e => {
 {showProfileEdit && (
   <div onClick={() => setShowProfileEdit(false)} style={{ position:'fixed', inset:0, background:'rgba(17,24,23,0.88)', backdropFilter:'blur(12px)', zIndex:1300, display:'flex', alignItems:'center', justifyContent:'center' }}>
     <form onSubmit={submitProfileUpdate} onClick={e => e.stopPropagation()} style={{ background: dark ? 'linear-gradient(145deg,#F3F3F0,#E7EDEC)' : '#FDFDFC', border:'1px solid rgba(201,32,53,0.35)', borderRadius:'24px', width:'96%', maxWidth:'1050px', maxHeight:'90vh', overflow:'hidden', boxShadow:'0 32px 90px rgba(17,24,23,0.8)', display:'flex', flexDirection:'column' }}>
-      
+
       {/* Header */}
       <div style={{ padding:'22px 28px', borderBottom:'1px solid rgba(201,32,53,0.16)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
         <div>

@@ -1,8 +1,43 @@
+class ProductParticle {
+      constructor(canvas, ctx, mouse, isGold, dark) {
+        Object.assign(this, { canvas, ctx, mouse, isGold, dark })
+        this.x = Math.random() * canvas.width; this.y = Math.random() * canvas.height
+        this.size = Math.random() * 4 + 2
+        this.speedX = (Math.random() - 0.5) * 0.3; this.speedY = (Math.random() - 0.5) * 0.3
+      }
+      update() {
+        const { canvas, mouse } = this
+        this.x += this.speedX; this.y += this.speedY
+        if (this.x > canvas.width || this.x < 0) this.speedX *= -1
+        if (this.y > canvas.height || this.y < 0) this.speedY *= -1
+        if (mouse.x !== null && mouse.y !== null) {
+          const dx = mouse.x - this.x; const dy = mouse.y - this.y
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          if (dist < mouse.radius && dist > 0) {
+            const f = (mouse.radius - dist) / mouse.radius
+            this.x += (dx / dist) * f * 2; this.y += (dy / dist) * f * 2
+          }
+        }
+      }
+      draw() {
+        const { ctx, isGold, dark } = this
+        ctx.fillStyle = isGold ? (dark ? 'rgba(251,191,36,0.75)' : 'rgba(217,119,6,0.6)') : (dark ? 'rgba(192,192,192,0.75)' : 'rgba(100,116,139,0.6)')
+        ctx.save(); ctx.translate(this.x, this.y); ctx.beginPath()
+        const spikes = 5; const outerR = this.size; const innerR = this.size * 0.4
+        for (let i = 0; i < spikes * 2; i++) {
+          const r = i % 2 === 0 ? outerR : innerR; const a = (i * Math.PI) / spikes - Math.PI / 2
+          if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r)
+          else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r)
+        }
+        ctx.closePath(); ctx.fill(); ctx.restore()
+      }
+    }
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import logo from '../assets/logo.png'
+
 import api from '../api'
-import { addToCartDB } from '../collection/card_section'
+import { addToCartDB } from "../api.js";
 import CustomerFooter from '../collection/CustomerFooter'
 
 const API_BASE = (api.defaults.baseURL || '').replace(/\/api\/?$/, '')
@@ -165,7 +200,7 @@ function MoreFromCollection({ currentProductId, category, metal, gender, occasio
         .more-subcopy { margin: 10px 0 0; color: #52625f; font-size: 13.5px; line-height: 1.65; max-width: 540px; }
         .more-view-btn { border: 1px solid rgba(12,64,68,0.28); border-radius: 999px; background: #FDFDFC; color: #073B3F; padding: 11px 20px; font-size: 11.5px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; white-space: nowrap; box-shadow: 0 10px 24px rgba(12,64,68,0.06); transition: all 0.22s ease; }
         .more-view-btn:hover { transform: translateY(-2px); background: #073B3F; color: #FDFDFC; }
-        
+
         .more-products-grid {
           display: grid !important;
           grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
@@ -501,7 +536,7 @@ export default function ProductDisplay() {
   const categoryFilter = searchParams.get('category') || 'rings'
   const metalFilter = searchParams.get('metal') || 'gold'
 
-  const [dark, setDark] = useState(true)
+  const [dark] = useState(true)
   const [loading, setLoading] = useState(true)
   const [products, setProducts] = useState([])
   const [qty, setQty] = useState(1)
@@ -527,15 +562,15 @@ export default function ProductDisplay() {
 
   const isGold = metal === 'gold'
   const accentColor = isGold ? '#fbbf24' : '#c0c0c0'
-  const accentSoft = isGold ? 'rgba(251,191,36,0.18)' : 'rgba(192,192,192,0.18)'
+  ;(isGold ? 'rgba(251,191,36,0.18)' : 'rgba(192,192,192,0.18)');
   const accentGlow = isGold ? 'rgba(251,191,36,0.32)' : 'rgba(192,192,192,0.32)'
 
-  const bg = '#FDF5EE'
+
   const text = '#1c1410'
   const subtext = '#de8856'
   const border = 'rgba(180, 130, 80, 0.18)'
   const glass = '#f0e9de'
-  const cardBg = dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.035)'
+  ;(dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.035)');
   const inputBg = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'
 
   const getImageUrl = img => {
@@ -614,7 +649,7 @@ export default function ProductDisplay() {
       return product.images.map(img => getImageUrl(img)).filter(Boolean)
     }
     return []
-  }, [product, metal])
+  }, [product])
 
   const selectedImage = productImages.includes(mainImage) ? mainImage : productImages[0] || null
 
@@ -634,38 +669,8 @@ export default function ProductDisplay() {
     window.addEventListener('resize', resize)
     window.addEventListener('mousemove', mouseMove)
     resize()
-    class Particle {
-      constructor() {
-        this.x = Math.random() * canvas.width; this.y = Math.random() * canvas.height
-        this.size = Math.random() * 4 + 2
-        this.speedX = (Math.random() - 0.5) * 0.3; this.speedY = (Math.random() - 0.5) * 0.3
-      }
-      update() {
-        this.x += this.speedX; this.y += this.speedY
-        if (this.x > canvas.width || this.x < 0) this.speedX *= -1
-        if (this.y > canvas.height || this.y < 0) this.speedY *= -1
-        if (mouse.x !== null && mouse.y !== null) {
-          const dx = mouse.x - this.x; const dy = mouse.y - this.y
-          const dist = Math.sqrt(dx * dx + dy * dy)
-          if (dist < mouse.radius && dist > 0) {
-            const f = (mouse.radius - dist) / mouse.radius
-            this.x += (dx / dist) * f * 2; this.y += (dy / dist) * f * 2
-          }
-        }
-      }
-      draw() {
-        ctx.fillStyle = isGold ? (dark ? 'rgba(251,191,36,0.75)' : 'rgba(217,119,6,0.6)') : (dark ? 'rgba(192,192,192,0.75)' : 'rgba(100,116,139,0.6)')
-        ctx.save(); ctx.translate(this.x, this.y); ctx.beginPath()
-        const spikes = 5; const outerR = this.size; const innerR = this.size * 0.4
-        for (let i = 0; i < spikes * 2; i++) {
-          const r = i % 2 === 0 ? outerR : innerR; const a = (i * Math.PI) / spikes - Math.PI / 2
-          if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r)
-          else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r)
-        }
-        ctx.closePath(); ctx.fill(); ctx.restore()
-      }
-    }
-    const init = () => { particles = []; for (let i = 0; i < 60; i++) particles.push(new Particle()) }
+
+    const init = () => { particles = []; for (let i = 0; i < 60; i++) particles.push(new ProductParticle(canvas, ctx, mouse, isGold, dark)) }
     const connect = () => {
       for (let a = 0; a < particles.length; a++) {
         for (let b = a; b < particles.length; b++) {
@@ -682,7 +687,7 @@ export default function ProductDisplay() {
     const animate = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); particles.forEach(p => { p.update(); p.draw() }); connect(); animId = requestAnimationFrame(animate) }
     init(); animate()
     return () => { window.removeEventListener('resize', resize); window.removeEventListener('mousemove', mouseMove); cancelAnimationFrame(animId) }
-  }, [dark, metal])
+  }, [dark, isGold])
 
   // const loadRazorpay = () => new Promise(resolve => {
   //   const script = document.createElement('script')
@@ -725,7 +730,7 @@ export default function ProductDisplay() {
   const productName = product?.name || product?.title || 'Jewellery Product'
   const productDesc = product?.desc || product?.description || product?.short_description || 'Premium handcrafted jewellery from BitByte Jewellers.'
   const productTag = product?.tag || product?.label || (isGold ? 'Premium' : 'Minimal')
-  const tagStyle = TAG_COLORS[productTag] || { bg: 'rgba(255,255,255,0.1)', border: 'rgba(255,255,255,0.2)', color: text }
+  ;(TAG_COLORS[productTag] || { bg: 'rgba(255,255,255,0.1)', border: 'rgba(255,255,255,0.2)', color: text });
 
   const handleMouseMove = (e) => {
     const frameRect = imageRef.current?.getBoundingClientRect()
@@ -1504,7 +1509,7 @@ export default function ProductDisplay() {
                     try {
                       const res = await api.post('/notify-me/', { product_id: product.id })
                       setNotifyMsg(res.data.message)
-                    } catch (err) { setNotifyMsg('Something went wrong. Please try again.') }
+                    } catch { setNotifyMsg('Something went wrong. Please try again.') }
                   }}
                     style={{
                       width: '100%', padding: '14px 0', border: 'none', borderRadius: 10,

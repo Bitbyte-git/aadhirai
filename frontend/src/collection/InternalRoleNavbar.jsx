@@ -1,7 +1,8 @@
+import { invalidateRequestVersion } from '../api.js'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import logo from '../assets/logo.png'
+import { useState, useEffect, useRef, useCallback } from 'react'
+const logo = '/Gold/Athirai_logo.png';
 import api, { getDailyWorkReviewProofs } from '../api'
 
 const ANN_ROLE_META = {
@@ -99,7 +100,7 @@ export default function InternalRoleNavbar({
       .then(res => { if (current) setMyOwnId(res.data?.[annMeta.idField] || null) })
       .catch(() => {})
     return () => { current = false }
-  }, [roleTitle])
+  }, [roleTitle, annMeta.idField, annMeta.seenKey])
 
   const extractIdsFromTitle = (title) => title.match(/BB[A-Z]+\d+/g) || []
   const isCurrentUserMentioned = (title) => myOwnId && extractIdsFromTitle(title).includes(myOwnId)
@@ -293,7 +294,7 @@ export default function InternalRoleNavbar({
     const clean = term.trim()
     setRecentSearches(prev => {
       const next = [clean, ...prev.filter(x => x.toLowerCase() !== clean.toLowerCase())].slice(0, 6)
-      try { localStorage.setItem('irn_recent_searches', JSON.stringify(next)) } catch {}
+      try { localStorage.setItem('irn_recent_searches', JSON.stringify(next)) } catch { /* No additional action is needed in this fallback. */ }
       return next
     })
   }
@@ -302,7 +303,7 @@ export default function InternalRoleNavbar({
     e.stopPropagation()
     setRecentSearches(prev => {
       const next = prev.filter(x => x !== term)
-      try { localStorage.setItem('irn_recent_searches', JSON.stringify(next)) } catch {}
+      try { localStorage.setItem('irn_recent_searches', JSON.stringify(next)) } catch { /* No additional action is needed in this fallback. */ }
       return next
     })
   }
@@ -310,7 +311,7 @@ export default function InternalRoleNavbar({
   const clearRecentSearches = (e) => {
     e.stopPropagation()
     setRecentSearches([])
-    try { localStorage.removeItem('irn_recent_searches') } catch {}
+    try { localStorage.removeItem('irn_recent_searches') } catch { /* No additional action is needed in this fallback. */ }
   }
 
   // Audio feedback chime (YouTube / Google style)
@@ -340,7 +341,7 @@ export default function InternalRoleNavbar({
         osc.start(ctx.currentTime)
         osc.stop(ctx.currentTime + 0.25)
       }
-    } catch {}
+    } catch { /* No additional action is needed in this fallback. */ }
   }
 
   // Click outside search container to close suggestions
@@ -401,7 +402,7 @@ export default function InternalRoleNavbar({
   }, [voiceQuery])
 
   // Master Search Catalog tailored for this internal role with English + Tanglish + Tamil keywords
-  const SEARCH_CATALOG = useMemo(() => {
+  const SEARCH_CATALOG = (() => {
     return [
       {
         id: 'home',
@@ -575,7 +576,7 @@ export default function InternalRoleNavbar({
         keywords: ['gold rate', 'rate', 'gold price', 'metal price', 'today rate', 'thangam', 'thangam rate', 'thanga vilai', 'rate evlo', 'silver', '22k', '24k', 'தங்க விலை', 'தங்கம்']
       },
     ]
-  }, [roleTitle, currentTierLabel, homePath, rDef])
+  })()
 
   const executeSearch = async (query) => {
     const raw = (query || '').trim()
@@ -633,7 +634,7 @@ export default function InternalRoleNavbar({
         navigate(`${rDef.hierarchy}?search=${encodeURIComponent(raw)}`)
         return
       }
-    } catch {}
+    } catch { /* No additional action is needed in this fallback. */ }
 
     // 3. Partial match
     if (bestMatch) {
@@ -666,7 +667,7 @@ export default function InternalRoleNavbar({
     }
 
     if (recognitionRef.current) {
-      try { recognitionRef.current.abort() } catch {}
+      try { recognitionRef.current.abort() } catch { /* No additional action is needed in this fallback. */ }
     }
 
     playChime('start')
@@ -735,7 +736,7 @@ export default function InternalRoleNavbar({
 
   const stopVoiceRecognition = () => {
     if (recognitionRef.current) {
-      try { recognitionRef.current.stop() } catch {}
+      try { recognitionRef.current.stop() } catch { /* No additional action is needed in this fallback. */ }
     }
     setIsListening(false)
   }
@@ -878,12 +879,12 @@ export default function InternalRoleNavbar({
           display: flex;
           align-items: center;
           justify-content: center;
-          border-radius: 9px;
-          background: rgba(7, 59, 63, 0.04);
-          padding: 3px;
+
+
+
           flex-shrink: 0;
-          border: 1px solid rgba(187, 137, 88, 0.2);
-        }
+
+         border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 0; }
         .san-brand-logo-wrap img { width: 100%; height: 100%; object-fit: contain; }
         .san-brand-text {
           display: flex;
@@ -1144,7 +1145,7 @@ export default function InternalRoleNavbar({
 
         @media (max-width: 520px) {
           .irn-inner { padding: 0 10px; gap: 6px; }
-          .san-brand-logo-wrap { width: 32px; height: 32px; padding: 2px; }
+          .san-brand-logo-wrap { width: 32px; height: 32px;   border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 0; }
           .san-brand-title { font-size: 15px; }
           .irn-nav-left { gap: 6px; }
           .san-search-block { flex: 1; min-width: 0; width: auto; max-width: 180px; }
@@ -1704,7 +1705,7 @@ export default function InternalRoleNavbar({
                 <img src={logo} alt="Athirai" />
               </div>
               <div className="san-brand-text">
-                <span className="san-brand-title">ATHIRAI</span>
+                <span className="san-brand-title athirai-wordmark">ATHIRAI</span>
                 <span className="san-brand-badge">{currentTierLabel}</span>
               </div>
             </button>
@@ -1993,7 +1994,7 @@ export default function InternalRoleNavbar({
               <div className="irn-drawer-brand">
                 <img src={logo} alt="Athirai" />
                 <div>
-                  <strong>ATHIRAI</strong>
+                  <strong className="athirai-wordmark">ATHIRAI</strong>
                   <small>{currentTierLabel}</small>
                 </div>
               </div>
@@ -2295,7 +2296,7 @@ export function DailyWorkCheckIn() {
     window.addEventListener('focus', visible)
     window.addEventListener('daily-work-reviews-updated', visible)
     return () => {
-      requestVersion.current++; fetching.current = false
+      invalidateRequestVersion(requestVersion); fetching.current = false
       document.removeEventListener('visibilitychange', visible)
       window.removeEventListener('focus', visible)
       window.removeEventListener('daily-work-reviews-updated', visible)
@@ -2312,6 +2313,7 @@ export function DailyWorkCheckIn() {
 
   useEffect(() => {
     if (!open) return
+    const openerButton = buttonRef.current
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     dialogRef.current?.focus()
@@ -2328,7 +2330,7 @@ export function DailyWorkCheckIn() {
     return () => {
       document.body.style.overflow = previousOverflow
       document.removeEventListener('keydown', handleKey)
-      buttonRef.current?.focus({ preventScroll: true })
+      openerButton?.focus({ preventScroll: true })
     }
   }, [open])
 

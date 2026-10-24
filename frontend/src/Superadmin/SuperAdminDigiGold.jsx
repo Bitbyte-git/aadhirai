@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
@@ -362,14 +363,16 @@ export default function SuperAdminDigiGold() {
   }
 
   // Refetch when filters or custom dates change
+  const committedGetDashboardQueryKey = useCommittedCallback((...args) => getDashboardQueryKey(...args))
+  const committedFetchData = useCommittedCallback((...args) => fetchData(...args))
   useEffect(() => {
     if (activeSection === 'orders') return
-    const queryKey = getDashboardQueryKey()
+    const queryKey = committedGetDashboardQueryKey()
     if (lastDashboardQueryKeyRef.current === queryKey) return
     lastDashboardQueryKeyRef.current = queryKey
-    fetchData()
+    committedFetchData()
     setTxnVisibleCount(35)
-  }, [activeSection, dateFilter, customStartDate, customEndDate, statusFilter, metalFilter, txnTypeFilter, selectedUserCategory, data])
+  }, [activeSection, dateFilter, customStartDate, customEndDate, statusFilter, metalFilter, txnTypeFilter, selectedUserCategory, data, committedFetchData, committedGetDashboardQueryKey])
 
   const handleSearchSubmit = (e) => {
     e.preventDefault()
@@ -507,7 +510,7 @@ export default function SuperAdminDigiGold() {
   // ── METRICS & AGGREGATIONS (HONEST DATA RESOLUTION) ──
   const kpis = data?.kpis || {}
   const rates = data?.rates || {}
-  const items = data?.items || []
+  const items = useMemo(() => (data?.items || []), [data])
   const goldChart = data?.gold_chart || []
   const silverChart = data?.silver_chart || []
   const categorySummaries = data?.category_summaries || {}
@@ -578,21 +581,21 @@ export default function SuperAdminDigiGold() {
     const observer = new IntersectionObserver((entries) => {
       const first = entries[0]
       if (first.isIntersecting && !loadingMoreTxns) {
-        fetchData({ append: true })
+        committedFetchData({ append: true })
       }
     }, { threshold: 0.1, rootMargin: '150px' })
 
     observer.observe(el)
     return () => observer.disconnect()
-  }, [activeSection, loadingMoreTxns, txnHasMore, txnVisibleCount, filteredItems.length])
+  }, [activeSection, loadingMoreTxns, txnHasMore, txnVisibleCount, filteredItems.length, committedFetchData])
 
   // Paginated items
-  const paginatedItems = useMemo(() => {
+  ;(useMemo(() => {
     const start = (currentPage - 1) * pageSize
     return filteredItems.slice(start, start + pageSize)
-  }, [filteredItems, currentPage, pageSize])
+  }, [filteredItems, currentPage, pageSize]));
 
-  const totalPages = Math.ceil(filteredItems.length / pageSize) || 1
+  (Math.ceil(filteredItems.length / pageSize) || 1);
 
   // ── OFFICIAL A4 PDF EXPORT ENGINE ──
   const handleExportPDF = () => {
@@ -603,7 +606,7 @@ export default function SuperAdminDigiGold() {
         return
       }
 
-      const logoUrl = `${window.location.origin}/Aadhirai-Logo.png`
+      const logoUrl = `${window.location.origin}/Gold/Athirai_logo.png`
       const currentDateStr = new Date().toLocaleDateString('en-IN', {
         day: '2-digit',
         month: 'short',

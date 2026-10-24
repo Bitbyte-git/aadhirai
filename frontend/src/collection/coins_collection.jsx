@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../api'
@@ -599,17 +600,19 @@ export default function CoinsCollection() {
     }
   }
 
+  const committedLoadMoreCoins = useCommittedCallback((...args) => loadMoreCoins(...args))
   useEffect(() => {
     const el = coinLoadMoreRef.current
     if (!el || !coinHasMore || loading) return undefined
     const observer = new IntersectionObserver(
-      (entries) => { if (entries[0].isIntersecting) loadMoreCoins() },
+      (entries) => { if (entries[0].isIntersecting) committedLoadMoreCoins() },
       { rootMargin: '600px 0px' }
     )
     observer.observe(el)
     return () => observer.disconnect()
-  }, [coinHasMore, loading, coinPage, coinLoadingMore, metalFilter, gradeFilter])
+  }, [coinHasMore, loading, coinPage, coinLoadingMore, metalFilter, gradeFilter, committedLoadMoreCoins])
 
+  const hasGridItems = products.length > 0
   useEffect(() => {
     const el = coinGridRef.current
     if (!el) return undefined
@@ -621,7 +624,7 @@ export default function CoinsCollection() {
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
     if (ro) ro.observe(el)
     return () => { if (ro) ro.disconnect() }
-  }, [loading, products.length > 0])
+  }, [loading, hasGridItems])
 
   const sortedProducts = useMemo(() => {
     let list = [...products]
@@ -658,7 +661,7 @@ export default function CoinsCollection() {
       try {
         await api.delete('/wishlist/', { data: { product: productId } })
         window.dispatchEvent(new Event('bb_wishlist_update'))
-      } catch {}
+      } catch { /* No additional action is needed in this fallback. */ }
     }
   }
 
@@ -779,7 +782,7 @@ export default function CoinsCollection() {
           border-radius: 34px;
           overflow: hidden;
           background-color: #f5f2e9;
-          background-image: linear-gradient(90deg, #f5f2e9 0%, #f5f2e9e6 24%, #f5f2e900 58%), url('/coins-collection-hero-v2.webp');
+          background-image: linear-gradient(90deg, #f5f2e9 0%, #f5f2e9e6 24%, #f5f2e900 58%), url('/Gold/coins-collection-hero-v2.webp');
           background-size: 100% 100%, auto 100%;
           background-position: center, right center;
           background-repeat: no-repeat;
@@ -1349,7 +1352,7 @@ export default function CoinsCollection() {
           margin-bottom: 80px;
         }
 
-        
+
         @keyframes skelShimmer {
           0% { background-position: -200% 0; }
           100% { background-position: 200% 0; }

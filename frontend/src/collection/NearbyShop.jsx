@@ -1,3 +1,4 @@
+import { useCommittedCallback } from "../api.js";
 import { useState, useEffect } from 'react'
 import CustomerFooter from './CustomerFooter'
 
@@ -146,7 +147,7 @@ export default function NearbyShop() {
       } else {
         setShops(shopNodes)
       }
-    } catch (err) {
+    } catch {
       setShopsError('Could not load nearby stores. Please check your connection and try again.')
     }
 
@@ -181,7 +182,8 @@ export default function NearbyShop() {
     )
   }
 
-  useEffect(() => { requestLocation() }, [])
+  const committedRequestLocation = useCommittedCallback((...args) => requestLocation(...args))
+  useEffect(() => { committedRequestLocation() }, [committedRequestLocation])
 
   useEffect(() => {
     if (userLocation && locationGranted) {

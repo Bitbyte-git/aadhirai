@@ -110,9 +110,9 @@ const leaderRoleOptionsFor = (role) => {
 };
 
 export default function CoinRequests() {
-  const navigate = useNavigate();
+  (useNavigate());
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [, setError] = useState("");
 
   const [period, setPeriod] = useState("all");
   const [activeCard, setActiveCard] = useState("my_requests");
